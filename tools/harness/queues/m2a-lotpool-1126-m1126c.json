@@ -1,0 +1,291 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] m2a-lotpool-1126 (2026-11-26, PREPARED, NOT RUN): Atlas docs/012 M2a. Two jobs on one EA world, master set m1126b, Bin state apex: Trim=0 then Trim=1, each with [MemDiag] AllocSitesOwners at world load and lp* counters. Compare: own heap/virt lines at the load sample (what triggers main-heap cores), lptrim: # lines and lp* counters (Trim=1), pool census by hand (rig pose pool, see job note). Decisions: Atlas docs/012 rows O1b (default), O1c (one idle core = no build), O1d (cores full after load).",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "jobs": [
+    {
+      "id": "bp-lotpool-trim0-allocowners",
+      "note": "[est 18 min] DATA (correctness-grade, not timing), Atlas docs/012 M2a (commit 315fad0): EA world Bridgeport (Baseline-BP-Spring), natural play 10 min, [LotPool] Trim=0, [MemDiag] AllocSites=1 + AllocSitesOwners=1 (own heap/virt lines at the world-load sample = which requests trigger main-heap cores), lp* counters v913 (lpOn lpTrims lpCoresFreed lpFreedKB lpCoresLeft lpKept lpLastUs lpBad; the lptrim: # lines carry the same numbers). [Compat] ApexStandDown=0 because with Apex loaded and ApexStandDown=1 the trim stands down (lptrim.cpp) and AllocSites would need AllocSitesWithApex; same in both arms. RIG POSE READ (manual, not in the queue): at about minute 8 of the job run `python -I tools/memory/ea-pool-census.py` (read-only ReadProcessMemory; pool 0x11CD8B4, whose core list at 0x11CD8C0 is one row: cores, MiB, free %, completely free cores); keep the output in probe-out/. O1c verdict: one core on a busy lot = not worth a build.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] master set m1126b (0.36.306-m1126b, merge/cp0-1126 rule-review fixes), same set as master-smoke-m1126",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "LotPool.Trim": 0,
+        "Compat.ApexStandDown": 0,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesOwners": 1,
+        "MemDiag.AllocSitesWithApex": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=0": 1,
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks 7": 1,
+        "^alloc sites owners on \\(docs/190 phase 3\\): \\d+ TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode off": 1,
+        "^allocsites: #\\d+ load own heap MB=": 1,
+        "^allocsites: #\\d+ load own virt MB=": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^SKIP alloc ?sites": 0,
+        "^lptrim: skipped": 0,
+        "^lptrim: ": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25,
+      "regexCases": {
+        "^ts3native 0\\.36\\.307-m1126c ": {
+          "match": [
+            "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+            "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+            "ts3native 0.36.305-m1124g 2026-11-25 10:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=0": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: none; ApexStandDown=0"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression ResourceLookupCache FileListCache; ApexStandDown=1"
+          ]
+        },
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks 7": {
+          "match": [
+            "alloc sites on (TEST-RUN TOOL, docs/201): EA heap hooks 4/4, ntdll hooks 7, heap blocks < 64 KB 1 in 64 by address, blocks >= 64 KB / reserves / views all, top 12; allocsites: lines at every diag: mem sample"
+          ],
+          "noMatch": [
+            "alloc sites off (no hook) (TEST-RUN TOOL, docs/201): EA heap hooks 0/4, ntdll hooks 0",
+            "SKIP alloc sites: Apex Radiance loaded (the allocator is its area; [Compat] ApexStandDown=1; [MemDiag] AllocSitesWithApex=1 observes next to it)"
+          ]
+        },
+        "^alloc sites owners on \\(docs/190 phase 3\\): \\d+ TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode off": {
+          "match": [
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 42 verified; Apex mode off"
+          ],
+          "noMatch": [
+            "alloc sites owners off (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 42 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)",
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 42 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)"
+          ]
+        },
+        "^allocsites: #\\d+ load own heap MB=": {
+          "match": [
+            "allocsites: #1 load own heap MB=612.4 res=120.3 cas=88.1 exe?=3.1"
+          ],
+          "noMatch": [
+            "allocsites: #14 mark ev=live-empty sum heapMB=612.4 heapN=1840000",
+            "allocsites: #1 load own virt MB=1702.3 gc=384.0 untr=322.5"
+          ]
+        },
+        "^allocsites: #\\d+ load own virt MB=": {
+          "match": [
+            "allocsites: #1 load own virt MB=1702.3 gc=384.0 drv=256.0 ea.res=96.0 untr=322.5"
+          ],
+          "noMatch": [
+            "allocsites: #1 load own heap MB=612.4 res=120.3"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL lptrim: no thread (8): not installed",
+            "FAIL alloc sites: tables (err 8)"
+          ],
+          "noMatch": [
+            "OK   alloc sites NtMapViewOfSection detour at 0x77D01234",
+            "SKIP alloc sites: Apex Radiance loaded"
+          ]
+        },
+        "^SKIP alloc ?sites": {
+          "match": [
+            "SKIP alloc sites: needs [MemDiag] Light=1 or Enabled=1 (its samples carry the output)",
+            "SKIP allocsites owners ([MemDiag] AllocSitesOwners): its owner ranges are Steam 1.67 ones, not EA (docs/273)"
+          ],
+          "noMatch": [
+            "alloc sites on (TEST-RUN TOOL, docs/201): EA heap hooks 4/4, ntdll hooks 7",
+            "OK   alloc sites NtMapViewOfSection detour at 0x77D01234"
+          ]
+        },
+        "^lptrim: skipped": {
+          "match": [
+            "lptrim: skipped (world load #2), pool read world=France.world: pool header not as expected; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22"
+          ]
+        },
+        "^lptrim: ": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x11EB590, 15 s after each world load, keeps 16 completely free cores",
+            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed"
+          ],
+          "noMatch": [
+            "FAIL lptrim: needs [UserDiag] (world loads come from its ts3fixes line): not installed",
+            "alloc sites on (TEST-RUN TOOL, docs/201): EA heap hooks 4/4"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "bp-lotpool-trim1-allocowners",
+      "note": "[est 18 min] DATA (correctness-grade, not timing), Atlas docs/012 M2a (commit 315fad0): EA world Bridgeport (Baseline-BP-Spring), natural play 10 min, [LotPool] Trim=1, [MemDiag] AllocSites=1 + AllocSitesOwners=1 (own heap/virt lines at the world-load sample = which requests trigger main-heap cores), lp* counters v913 (lpOn lpTrims lpCoresFreed lpFreedKB lpCoresLeft lpKept lpLastUs lpBad; the lptrim: # lines carry the same numbers). [Compat] ApexStandDown=0 because with Apex loaded and ApexStandDown=1 the trim stands down (lptrim.cpp) and AllocSites would need AllocSitesWithApex; same in both arms. RIG POSE READ (manual, not in the queue): at about minute 8 of the job run `python -I tools/memory/ea-pool-census.py` (read-only ReadProcessMemory; pool 0x11CD8B4, whose core list at 0x11CD8C0 is one row: cores, MiB, free %, completely free cores); keep the output in probe-out/. O1c verdict: one core on a busy lot = not worth a build.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] master set m1126b (0.36.306-m1126b, merge/cp0-1126 rule-review fixes), same set as master-smoke-m1126",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "LotPool.Trim": 1,
+        "Compat.ApexStandDown": 0,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesOwners": 1,
+        "MemDiag.AllocSitesWithApex": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=0": 1,
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks 7": 1,
+        "^alloc sites owners on \\(docs/190 phase 3\\): \\d+ TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode off": 1,
+        "^allocsites: #\\d+ load own heap MB=": 1,
+        "^allocsites: #\\d+ load own virt MB=": 1,
+        "^lptrim: on \\(docs/541\\): lot message pool 0x11EB590, 15 s after each world load, keeps 16 completely free cores": 1,
+        "^lptrim: #\\d+ world load #\\d+ ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^SKIP alloc ?sites": 0,
+        "^lptrim: skipped": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25,
+      "regexCases": {
+        "^ts3native 0\\.36\\.307-m1126c ": {
+          "match": [
+            "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+            "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+            "ts3native 0.36.305-m1124g 2026-11-25 10:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=0": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: none; ApexStandDown=0"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression ResourceLookupCache FileListCache; ApexStandDown=1"
+          ]
+        },
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks 7": {
+          "match": [
+            "alloc sites on (TEST-RUN TOOL, docs/201): EA heap hooks 4/4, ntdll hooks 7, heap blocks < 64 KB 1 in 64 by address, blocks >= 64 KB / reserves / views all, top 12; allocsites: lines at every diag: mem sample"
+          ],
+          "noMatch": [
+            "alloc sites off (no hook) (TEST-RUN TOOL, docs/201): EA heap hooks 0/4, ntdll hooks 0",
+            "SKIP alloc sites: Apex Radiance loaded (the allocator is its area; [Compat] ApexStandDown=1; [MemDiag] AllocSitesWithApex=1 observes next to it)"
+          ]
+        },
+        "^alloc sites owners on \\(docs/190 phase 3\\): \\d+ TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode off": {
+          "match": [
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 42 verified; Apex mode off"
+          ],
+          "noMatch": [
+            "alloc sites owners off (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 42 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)",
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 42 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)"
+          ]
+        },
+        "^allocsites: #\\d+ load own heap MB=": {
+          "match": [
+            "allocsites: #1 load own heap MB=612.4 res=120.3 cas=88.1 exe?=3.1"
+          ],
+          "noMatch": [
+            "allocsites: #14 mark ev=live-empty sum heapMB=612.4 heapN=1840000",
+            "allocsites: #1 load own virt MB=1702.3 gc=384.0 untr=322.5"
+          ]
+        },
+        "^allocsites: #\\d+ load own virt MB=": {
+          "match": [
+            "allocsites: #1 load own virt MB=1702.3 gc=384.0 drv=256.0 ea.res=96.0 untr=322.5"
+          ],
+          "noMatch": [
+            "allocsites: #1 load own heap MB=612.4 res=120.3"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): lot message pool 0x11EB590, 15 s after each world load, keeps 16 completely free cores": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x11EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x11EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed"
+          ]
+        },
+        "^lptrim: #\\d+ world load #\\d+ ": {
+          "match": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #2), pool read world=France.world: pool header not as expected; nothing changed",
+            "lptrim: on (docs/541): lot message pool 0x11EB590, 15 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL lptrim: no thread (8): not installed",
+            "FAIL alloc sites: tables (err 8)"
+          ],
+          "noMatch": [
+            "OK   alloc sites NtMapViewOfSection detour at 0x77D01234",
+            "SKIP alloc sites: Apex Radiance loaded"
+          ]
+        },
+        "^SKIP alloc ?sites": {
+          "match": [
+            "SKIP alloc sites: needs [MemDiag] Light=1 or Enabled=1 (its samples carry the output)",
+            "SKIP allocsites owners ([MemDiag] AllocSitesOwners): its owner ranges are Steam 1.67 ones, not EA (docs/273)"
+          ],
+          "noMatch": [
+            "alloc sites on (TEST-RUN TOOL, docs/201): EA heap hooks 4/4, ntdll hooks 7",
+            "OK   alloc sites NtMapViewOfSection detour at 0x77D01234"
+          ]
+        },
+        "^lptrim: skipped": {
+          "match": [
+            "lptrim: skipped (world load #2), pool read world=France.world: pool header not as expected; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0
+    }
+  ],
+  "rewind": "off",
+  "regexCases": {}
+}

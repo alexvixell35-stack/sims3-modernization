@@ -133,8 +133,30 @@ export function analyze(r: Run) {
   ledOf['Mono script'] = `${pct('script')} (Mono + ICs)`; ledOf['ICs (native under script)'] = 'in Mono row';
   ledOf['route sync plans'] = pct('route'); ledOf['+0x918 / job waits'] = pct('waits'); ledOf['GC + finalizers'] = pct('gc');
   ledOf['anim + locomotion + publish'] = pct('anim'); ledOf['other (untimed, sync, idle)'] = pct('other');
+  const waitMs = ms['+0x918 / job waits'] + perS(kept.reduce((s, { row }) => s + n(row, 'publish') + n(row, 'other7694'), 0));
   return { tag: r.tag, world: worldOf(r.tag), otherTimers, secs: kept.length, wallMs, its: perS(iters), hitches: hs.length, ms, contrib, ledOf,
-    samples: { managed: r.managed.length, routeN, icN, monoN, simstack: r.simstack.length, otherN }, native: keyUs > 0 };
+    samples: { managed: r.managed.length, routeN, icN, monoN, simstack: r.simstack.length, otherN }, native: keyUs > 0,
+    who: who(r.native, r.rows.length > 1 ? (r.rows[r.rows.length - 1].t - r.rows[0].t) / 1000 : 0), waitMs };
+}
+
+// docs/160 §Results m1122: who owns the thread, from the [UnseenProbe] Bands counters in the same run (docs/322; disjoint sites
+// loco + pose + Sim task + autonomy). Rows: household (+ selected + unknown scope), NPC near (bands whose upper edge <= FAR_M),
+// NPC far (lower edge >= FAR_M), no position; non-Sim = 1000 - their sum. Window = the /native before/after pair, i.e. the whole
+// profile (first 60 s included), while the buckets drop the first 60 s [inferred: small mismatch].
+export const FAR_M = 150;
+export function who(nat: Run['native'], seconds: number) {
+  const a = nat?.after ?? {}, b = nat?.before ?? {};
+  const edges = n(a, 'ubEdges');
+  if (!edges || !(n(a, 'ubReady') & 32) || !(seconds > 0)) return undefined;
+  const em = Array.from({ length: edges }, (_, i) => n(a, `ubEdgeM_${i}`));
+  const row = (r: number) => [0, 4, 5, 6].reduce((s, site) => s + n(a, `ubUs_${site}_${r}`) - n(b, `ubUs_${site}_${r}`), 0) / 1000 / seconds;
+  let near = 0, far = 0, mixed = 0;
+  for (let r = 0; r <= edges; r++) {
+    const lo = r ? em[r - 1] : 0, hi = r < edges ? em[r] : Infinity;
+    if (hi <= FAR_M) near += row(r); else if (lo >= FAR_M) far += row(r); else mixed += row(r); // a band across FAR_M: shown apart
+  }
+  const household = row(7), noPos = row(8), sims = household + near + far + mixed + noPos;
+  return { household, near, far, mixed, noPos, sims, nonSim: 1000 - sims, seconds };
 }
 
 export function report(x: ReturnType<typeof analyze>) {
@@ -144,7 +166,14 @@ export function report(x: ReturnType<typeof analyze>) {
     '| Bucket | ms/s | Share of sim-thread time | Frames >= 300 ms it leads | Top 5 contributors (ms/s) |', '|---|---|---|---|---|',
     ...BUCKETS.map(b => `| ${b} | ${x.ms[b].toFixed(1)} | ${(x.ms[b] * 100 / (total || 1)).toFixed(1)}% | ${x.ledOf[b]} | ${x.contrib[b]} |`),
     `| **sum** | ${total.toFixed(1)} | 100% | | |`,
-    ...(Object.keys(x.otherTimers).length ? ['', `"other" timers (ms/s, overlap the buckets): ${Object.entries(x.otherTimers).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', ')}`] : [])].join('\n');
+    ...(Object.keys(x.otherTimers).length ? ['', `"other" timers (ms/s, overlap the buckets): ${Object.entries(x.otherTimers).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', ')}`] : []),
+    '', `wait / idle (route-job waits + publish sync + IdleSimulationCycle 0x7694B0): ${x.waitMs.toFixed(1)} ms/s; busy ${(1000 - x.waitMs).toFixed(1)} ms/s`,
+    ...(x.who ? ['', `Who (ms/s over ${x.who.seconds.toFixed(0)} s, [UnseenProbe] Bands loco + pose + Sim task + autonomy; near < ${FAR_M} m, far >= ${FAR_M} m):`, '',
+      '| Owner | ms/s | Share of sim-thread time |', '|---|---|---|',
+      ...([['household + selected + unknown scope', x.who.household], [`NPC near (< ${FAR_M} m)`, x.who.near], [`NPC far (>= ${FAR_M} m)`, x.who.far],
+        ...(x.who.mixed ? [[`NPC in a band across ${FAR_M} m`, x.who.mixed]] : []), ['NPC no position', x.who.noPos],
+        ['non-Sim + unattributed (1000 - the rows above)', x.who.nonSim]] as [string, number][]).map(([k, v]) => `| ${k} | ${v.toFixed(1)} | ${(v / 10).toFixed(1)}% |`)]
+      : ['', 'Who: no [UnseenProbe] Bands counters with the task sites in this run'])].join('\n');
 }
 
 const jsonl = (f: string) => existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } }) : [];
@@ -197,6 +226,14 @@ function selfCheck() {
   assert.match(x.contrib['Mono script'], /autonomy search/); assert.match(x.contrib['route sync plans'], /Route_Plan <- Sims3\.Gameplay\.Actors\.SimRoutingComponent\.DoRoute/);
   assert.match(x.contrib['other (untimed, sync, idle)'], /^ntdll\.dll/); // Mono and locomotion samples are not "other"
   assert.match(report(x), /\| \*\*sum\*\* \| 1000\.0 \|/);
+  assert.equal(x.who, undefined); assert.match(report(x), /Who: no \[UnseenProbe\] Bands/);
+  // who: edges 50,150,400 -> rows 0,1 near, 2,3 far; household row 7, no position 8; site 1 (waits) is a part, never added
+  const ub = { ubEdges: 3, ubEdgeM_0: 50, ubEdgeM_1: 150, ubEdgeM_2: 400, ubReady: 0x7f, ubUs_0_0: 10e6, ubUs_5_1: 20e6, ubUs_6_2: 30e6, ubUs_4_3: 40e6,
+    ubUs_1_3: 99e6, ubUs_5_7: 50e6, ubUs_0_8: 1e6 };
+  const wh = who({ before: { ubUs_0_0: 4e6 }, after: ub }, 100)!;
+  close(wh.near, 260, 'near'); close(wh.far, 700, 'far'); close(wh.household, 500, 'household'); close(wh.noPos, 10, 'no position');
+  close(wh.nonSim, 1000 - 1470, 'non-Sim'); assert.equal(who({ after: { ...ub, ubReady: 0x1f } }, 100), undefined); // task sites off
+  close(who({ after: { ...ub, ubEdgeM_1: 200 } }, 100)!.mixed, 200, '50-200 m band straddles 150 m');
   console.log('fixture ok');
   // real data: the newest finished, profiled run with managed samples and stage columns (any queue); every bucket >= 0, sum =
   // wall. 2026-10-29: the newest such run was a [MonoThread] GcLock=1 job ts3prof had refused (1-row CSV) or one still running

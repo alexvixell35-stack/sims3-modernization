@@ -137,6 +137,7 @@ namespace Ts3Fixes
                 ScriptExecuteType t = InitOrig(postLoad);
                 if (sDrPins.Count > 0) try { sDrPins.Attach(Simulator.CurrentTask.Value, ObjectId.Value); } catch (Exception) { PatchCounters()[410]++; }
                 DrPlInit(this);
+                SdiUrnInit(this);  // docs/359: urnstones the world gains (SimDescIndex.cs)
                 return t;
             }
             public ScriptExecuteType InitOrig(bool postLoad) { return ScriptExecuteType.None; } // GameObject.Init

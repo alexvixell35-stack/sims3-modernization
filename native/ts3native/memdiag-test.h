@@ -483,6 +483,67 @@ static void TestMemDiag() {
         g_rcCensusOn = false, g_rcPrevN = 0, g_rcLockWaitMs = 500, g_rcHoldersAt = g_rcCensusN = 0;
     }
 
+    {   // [MemDiag] MainHeap (docs/362): a fake heap with two cores, the reader's sums and its refusals
+        static u8 mh[0x518], *mc0, *mc1;
+        static u8 mlk[0x1C];
+        static const u8* mhP = mh;
+        mc0 = (u8*)VirtualAlloc(NULL, 0x10000, MEM_COMMIT, PAGE_READWRITE), mc1 = (u8*)VirtualAlloc(NULL, 0x10000, MEM_COMMIT, PAGE_READWRITE);
+        assert(mc0 && mc1);
+        auto D = [](u8* p) -> DWORD& { return *(DWORD*)p; };
+        auto P = [](const u8* p) { return (DWORD)(uintptr_t)p; };
+        for (int i = 1; i < 128; i++) D(mh + 0x30 + 8 * i) = D(mh + 0x34 + 8 * i) = P(mh + 0x28 + 8 * i);  // empty bins
+        D(mh + 4) = 0x41, D(mh + 0x440) = P(mh + 0x30);  // max_fast 0x40 + flag bit, no top
+        // core 0: 0x8000 committed of 0x10000, last chunk free (0x3000, in bin 70); core 1: all 0x4000 committed, last chunk in use
+        D(mh + 0x460) = P(mc0), D(mc0 + 0x18) = P(mc1), D(mc1 + 0x18) = P(mh + 0x448);
+        D(mc0 + 4) = 0x8000, D(mc0 + 8) = 0x10000, D(mc1 + 4) = D(mc1 + 8) = 0x4000;
+        u8* f0 = mc0 + 0x8000 - 0x10 - 0x3000;
+        D(f0 + 4) = 0x3001, D(f0 + 8) = D(f0 + 0xC) = P(mh + 0x28 + 8 * 70);
+        D(mh + 0x30 + 8 * 70) = D(mh + 0x34 + 8 * 70) = P(f0);
+        D(mc0 + 0x8000 - 0x10) = 0x3000, D(mc0 + 0x8000 - 0xC) = 8;  // fencepost: previous chunk free
+        D(mc1 + 0x4000 - 0x10) = 0, D(mc1 + 0x4000 - 0xC) = 9;       // fencepost: previous chunk in use
+        u8* f1 = mc1 + 0x100;  // a 0x800 chunk in the unsorted bin, a 0x400 top, one 0x20 fastbin chunk
+        D(f1 + 4) = 0x801, D(f1 + 8) = D(f1 + 0xC) = P(mh + 0x30), D(mh + 0x38) = D(mh + 0x3C) = P(f1);
+        u8* tp = mc1 + 0x1000;
+        D(tp + 4) = 0x401, D(tp + 8) = D(tp + 0xC) = P(tp), D(mh + 0x440) = P(tp);
+        u8* fb = mc1 + 0x2000;
+        D(fb + 4) = 0x80000025, D(fb + 8) = 0xDEAD0001, D(fb + 0xC) = 0, D(mh + 0x10) = P(fb);  // fastbin link at +0xC; +8 is stale
+        const u8* const* savedMh = g_mdEaHeapSlot;
+        g_mdEaHeapSlot = &mhP;
+        Ts3nCounters& kc = ts3native_counters;
+        const LONG r0 = kc.mhcReads, fl0 = kc.mhcFails;
+        Ts3nMainHeap v;
+        g_mhLast.flags = 0;
+        assert(ts3native_mainheap(&v) == 1 && v.flags == 1 && v.cores == 2 && v.comKB == 48 && v.resKB == 80 && v.tailKB == 32);
+        assert(v.freeKB == (0x3000 + 0x800 + 0x400 + 0x20) >> 10 && v.bigKB == (0x3000 + 0x8000) >> 10 && v.chunks == 4);
+        assert(kc.mhcReads == r0 + 1 && kc.mhcFails == fl0 && kc.mhcCores == 2 && kc.mhcBigKB == 44 && kc.mhcFreeKB <= kc.mhcComKB);
+        assert(MhRead(&v) && v.flags == 5 && kc.mhcReads == r0 + 1);  // inside 1 s: the last answer, no walk
+        assert(MhIc(1) == 5 - 4 && MhIc(2) == 2 && MhIc(7) == 44 && MhIc(10) == -1);
+        // with the lock: taken and given back, depth word back at 0
+        InitializeCriticalSection((CRITICAL_SECTION*)mlk);
+        D(mh + 0x4E4) = P(mlk), g_mhLast.flags = 0;
+        assert(MhRead(&v) && v.flags == 3 && *(LONG*)(mlk + 0x18) == 0 && ((CRITICAL_SECTION*)mlk)->OwningThread == NULL);
+        // refusals: a bin list through NULL, a fencepost size past the core, no heap
+        D(f1 + 8) = 0, g_mhLast.flags = 0;
+        assert(!MhRead(&v) && !v.flags && kc.mhcFails == fl0 + 1 && ((CRITICAL_SECTION*)mlk)->OwningThread == NULL && !g_mhBusy);
+        D(f1 + 8) = P(mh + 0x30), D(mc0 + 0x8000 - 0x10) = 0x9000;
+        assert(!MhRead(&v));
+        D(mc0 + 0x8000 - 0x10) = 0x3000;
+        static const u8* noHeap = NULL;
+        g_mdEaHeapSlot = &noHeap;
+        assert(!MhRead(&v) && ts3native_mainheap(NULL) == 0);
+        g_mdEaHeapSlot = &mhP;
+        // the line
+        const bool mhWas = g_mhOn;
+        g_mhOn = true, g_mhLast.flags = 0;
+        MhLine(7, "load");
+        UdtLog(buf, sizeof(buf), h);
+        assert(strstr(buf, "diag: mheap #7 load cores=2 comKB=48 resKB=80 freeKB=15 tailKB=32 bigKB=44 chunks=4 us="));
+        assert(strstr(buf, " lock=1"));
+        g_mhOn = mhWas, g_mhLast.flags = 0, g_mdEaHeapSlot = savedMh;
+        DeleteCriticalSection((CRITICAL_SECTION*)mlk);
+        VirtualFree(mc0, 0, MEM_RELEASE), VirtualFree(mc1, 0, MEM_RELEASE);
+    }
+
     g_mdOn = wasOn, g_mdLegend = 0, g_mdPass = g_mdFail = 0;
     g_mdEaHeapSlot = savedEa, g_mdRcMgrSlot = savedRc;
     g_mdEaCoreSlot[0] = savedCore[0], g_mdEaCoreSlot[1] = savedCore[1];
@@ -490,6 +551,6 @@ static void TestMemDiag() {
     k.plKB = savedPl, k.spKB = savedSp;
     g_log = saved;
     CloseHandle(h);
-    printf("mem diag: allocation grouping (stacks, arenas), own-view mapped count + verdict, tags + world events, fake EA heap / GC / ResourceCache reads, line "
+    printf("mem diag: allocation grouping (stacks, arenas), own-view mapped count + verdict, tags + world events, fake EA heap / GC / ResourceCache reads, main-heap free walk (docs/362), line "
            "format + marks, self-test on this process (commit, arena, stack, mapping, routesnap heap, leak, OS cross-check) ok\n");
 }

@@ -9,7 +9,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // serviceleave (tuning kServiceLeave, off by default; docs/564 §1). EA bug fixes for service NPCs (never household
+    // serviceleave (tuning kServiceLeave, on since the docs/564 import: code default and package tuning both true; docs/564 §1). EA bug fixes for service NPCs (never household
     // Sims: only a ServiceSituation's own Worker is touched).
     //
     // (a) [verified, decompiled] Service states arm their one-shot timeouts as AlarmType.DeleteOnReset alarms owned by
@@ -40,6 +40,7 @@ namespace Ts3Fixes
     // Counters: [2522] babysitter periodic checks re-armed, [2523] repo-man no-op states left,
     // [2517] wait / leave timeouts re-armed, [2518] work-limit timeouts re-armed, [2519] repo man left with no
     // mailbox, [2520] states with no delay found, [2521] errors. Check: ServiceLeaveChecks.cs.
+    // A timeout the reset left live is not re-armed ([1832]; docs/357 §4, I-621-6: our own bug, fixed under this switch).
     public static partial class Fixes
     {
         static readonly MethodInfo sSlRepoOut = typeof(RepomanSituation.Leave).GetMethod("OnRouteOutOfHouse", kInstAll);
@@ -65,6 +66,8 @@ namespace Ts3Fixes
             if ((field == "mParentsLeaveAlarm" && method == "CheckForParentsLeave") || (field == "mParentsReturnAlarm" && method == "CheckForParentsReturn")) return 3;
             return 0;
         }
+        // (a) a timeout the reset left live (worker on a normal lot, docs/352 §1) keeps EA's own timer and time
+        internal static bool SlSkipLive(bool on, bool live) { return on && live; }
         // (a) the maid's finish timeout belongs to her working states only (EA never clears the handle after it fires)
         internal static bool SlMaidWorking(string childState)
         {
@@ -128,6 +131,8 @@ namespace Ts3Fixes
             if (kind == 0) return 0;
             AlarmHandle h = (AlarmHandle)f.GetValue(state);
             if (h == AlarmHandle.kInvalidHandle) return 0;  // EA had not armed it (or already cleared it)
+            // docs/357 §4 (I-621-6): a reset on a normal lot leaves the timer live (docs/352 §1); re-arming it would restart EA's delay from zero
+            if (SlSkipLive(true, SraLive(h))) { PatchCounters()[1832]++; return 0; }
             float hours;
             string name = state.GetType().Name;
             if (method == "TimeToFinish")

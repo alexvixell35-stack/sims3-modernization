@@ -18,7 +18,7 @@ Tags: **[verified]** = read in the decompile or disassembly; **[measured]** = fr
 | `0xC6D570` | `WorldManager_Update` | main | Calls scoring at `0xC6D6E4` unless `WM+0x258` (map view, S3SS sets it) [verified]. Arguments: frame dt (float), the camera point (from `0x962300` on the active camera `0x6E8400`), `param_4` = `!camera[+0x6DF]` (`0x961490`), and the camera [verified; meaning of `+0x6DF` not traced] |
 | `0xC6C290` | `WorldManager_ScoreAndStreamLots` | main | The whole pass, §3 [verified] |
 | `0xC65CB0` | `WorldManager_PushCameraSpeed` | main | Appends one speed sample to the list at `WM+0x310` (free list `WM+0x318`); the pass keeps the last 10 [verified shape] |
-| `0xC6A080` | `WorldManager_ActivateAllLots` | main | `WM+0xD8` set: `SetActive` on every lot (only the household lot when `WM+0xDA`), no scoring [verified code] |
+| `0xC6A080` | `WorldManager_ActivateAllLots` | main | `WM+0xD8` set: `SetActive` on every lot (only the household lot when `WM+0xDA`), no scoring [verified code] *[Corrected 2026-11-26, Boundless Atlas docs/021 §11: deactivates every lot (`SetActive(0)`), the lot at `WM+0x170` gets 1 only when `WM+0xDA`; "ActivateAllLots" is the wrong name]* |
 | `0xC68680` | `WorldManager_RebuildLotIndex` | main here | Runs when `WM+0x1CC` is dirty; rebuilds the lot vectors and a 16 m cell grid under the global lock `0x10786C8` (docs/60) [verified] |
 | `0xC60D30` | `WorldManager_FindLotById` | main | Finds the lot with id `WM+0x170/+0x174` (the active household's lot [inferred]) by a linear recursive scene-node search over `WM+0x9C`, once per pass [verified] |
 | `0xC7E1B0` | `LotGrid_FindLotAtPoint` | main | Lot under the camera point, on the object at `[0x11ECE58]`: rebuilds its grid when dirty (`0xC7DE60`), tests the large-lot list (`+0x38..+0x3C`), then the 16 m grid cell (`0xC7E100`) [verified] |
@@ -38,6 +38,8 @@ Tags: **[verified]** = read in the decompile or disassembly; **[measured]** = fr
 ## 3. One scoring pass, step by step
 
 1. Store the new camera point at `WM+0x3A0`. Return at once if `WM+0xD9`. If `WM+0xD8`: `ActivateAllLots` and return [verified].
+
+*Correction 2026-11-26 (Boundless Atlas `docs/021-s1-imposter-fog-camera.md` §1, §11 item 1): with `WM+0xD8` set, `0xC6A080` deactivates every lot, it does not activate them; "ActivateAllLots" is the wrong name.*
 2. **Camera speed gate** (only when `param_4`): speed = distance moved / dt (0 when dt is tiny), pushed into the 10-sample list; when the mean is **above** `Camera speed threshold` `WM+0xEC`, return [verified]. The pan profiles hit this path most of the time, which is why the live mean is ~15 µs [inferred].
 3. Rebuild the lot index if dirty (takes lock `0x10786C8`) [verified].
 4. Size the score array to the lot count (`WM+0x204..+0x208`). Priority 4 = the household lot (`FindLotById`), 3 = the lot under the camera (`LotGrid_FindLotAtPoint`, only with `param_4` or `WM+0xDA`), else `lot+0xC4`; with `param_4`, a priority below `Force LoD Min Priority` `[0x118432C]` becomes 0 [verified].

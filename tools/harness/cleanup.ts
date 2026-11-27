@@ -8,6 +8,7 @@
 //   (Apex, GI, DXVK, remix: game-copy/*/.git, game-copy/*/*/.git; each repo's own git). Removed only when ALL hold: branch
 //   merged into a target (this repo: master; others: feature/realtime-gi, main, master, origin/*; --target overrides) or its
 //   PR is merged/closed (gh, GH_TOKEN=$PERSONAL_GITHUB_TOKEN); `git status` clean; no commit outside the remotes and targets;
+//   probe-out of the worktree has no raw/result file (-hitches.jsonl ..., *.jsonl) missing from docs/PLAN.md tokens (not dropped);
 //   path or name not in a running process's command line, a running chain script (probe-out/queue/*.sh), a queue json those
 //   name, or job-running; not git-locked; no agent reservation (docs/data/registry-reservations.json) younger than 24 h and no
 //   commit/checkout in the last 2 h (a fresh worktree looks merged: the 11-17 one-off sweep removed one). --branch <b> names
@@ -127,6 +128,21 @@ function worktrees(repo: string, ours: boolean): Wt[] {
   })).filter(w => w.head && (!ours || low(w.path).startsWith(root)));
 }
 
+// A worktree's own (git-ignored) probe-out holds queue results and raw dumps that die with it (11-26: nonsim-split-1122 lost its
+// ME-1 band dumps). Digested = file name or job stem is a docs/PLAN token (same rule as doProbe). Returns first undigested file or ''.
+export function undigested(wtPath: string, main: string): string {
+  let docs: Set<string> | null = null;
+  for (const d of ['queue', 'profile']) {
+    let es: string[] = []; try { es = readdirSync(join(wtPath, 'probe-out', d)); } catch { continue; }
+    for (const f of es) {
+      if (!RAW_OUT.test(f) && !/.jsonl$/i.test(f)) continue;
+      docs ??= docTokens(main); const lf = f.toLowerCase();
+      if (!docs.has(lf) && !docs.has(rawStem(f)) && !docs.has(lf.replace(/.jsonl$/, ''))) return `${d}/${f}`;
+    }
+  }
+  return '';
+}
+
 // Why a worktree must stay ('' = removable).
 function blocker(w: Wt, x: Ctx, refs: string, named: boolean, dropped = false): string {
   if (w.locked) return `git-locked (${w.locked}): git worktree unlock when the agent is done`;
@@ -139,6 +155,7 @@ function blocker(w: Wt, x: Ctx, refs: string, named: boolean, dropped = false): 
     if (gd && x.now - Math.max(mtime(join(gd, 'logs', 'HEAD')), mtime(join(gd, 'HEAD'))) < x.recentH * H) return `commit/checkout < ${x.recentH} h ago (fresh worktrees look merged)`;
   }
   if (git(w.path, 'status', '--porcelain')) return 'uncommitted changes';
+  if (!dropped) { const u = undigested(w.path, x.main); if (u) return `probe-out not digested: ${u} (name it in docs/ or PLAN.md, or use dropped)`; }
   // dropped design: unmerged is fine, the branch ref keeps every commit (never deleted here)
   if (dropped) return w.branch && gitOk(w.repo, 'rev-parse', '-q', '--verify', `refs/heads/${w.branch}`) ? '' : 'detached HEAD: no branch keeps its commits';
   const cands = x.target ? [x.target] : w.ours ? ['master'] : ['feature/realtime-gi', 'main', 'master'].flatMap(b => [b, `origin/${b}`]);
@@ -509,8 +526,9 @@ function selfCheck(): number {
     mkdirSync(main); g(main, 'init', '-q', '-b', 'master'); writeFileSync(join(main, '.gitignore'), 'game-copy\nprobe-out\nbuild/\n.claude/worktrees/\n');
     mkdirSync(join(main, 'assets')); writeFileSync(join(main, 'assets', 'mesh.obj'), 'tracked model'); g(main, 'add', '-A'); g(main, 'commit', '-qm', 'base'); g(main, 'remote', 'add', 'origin', 'https://github.com/o/r.git');
     const wt = (n: string) => join(main, '.claude', 'worktrees', n);
-    for (const n of ['merged', 'unmerged', 'dirty', 'chained', 'reserved', 'lockedwt']) g(main, 'worktree', 'add', '-q', wt(n), '-b', `b/${n}`);
+    for (const n of ['merged', 'unmerged', 'dirty', 'chained', 'reserved', 'lockedwt', 'rawout']) g(main, 'worktree', 'add', '-q', wt(n), '-b', `b/${n}`);
     symlinkSync(tgt, join(wt('merged'), 'game-copy'), 'junction');
+    mkdirSync(join(wt('rawout'), 'probe-out', 'queue'), { recursive: true }); writeFileSync(join(wt('rawout'), 'probe-out', 'queue', 'qq-1126-hitches.jsonl'), 'band dump');
     writeFileSync(join(wt('unmerged'), 'u.txt'), 'u'); g(wt('unmerged'), 'add', '-A'); g(wt('unmerged'), 'commit', '-qm', 'not in master');
     writeFileSync(join(wt('dirty'), 'wip.txt'), 'wip');
     g(main, 'worktree', 'lock', '--reason', 'agent', wt('lockedwt'));
@@ -537,8 +555,11 @@ function selfCheck(): number {
     assert.ok(!existsSync(wt('merged')), 'merged clean worktree removed');
     assert.ok(existsSync(join(tgt, 'Game', 'TS3W.exe')), 'junction target intact');
     assert.ok(!existsSync(join(main, 'game-copy', 'rb', 'apex-done')), 'separate-repo merged worktree removed with its own git');
-    for (const [n, re] of [['unmerged', /not merged/], ['dirty', /uncommitted/], ['chained', /referenced by a running chain/], ['reserved', /agent reservation doc-1/], ['lockedwt', /git-locked/]] as const)
+    for (const [n, re] of [['rawout', /probe-out not digested: queue\/qq-1126-hitches\.jsonl/], ['unmerged', /not merged/], ['dirty', /uncommitted/], ['chained', /referenced by a running chain/], ['reserved', /agent reservation doc-1/], ['lockedwt', /git-locked/]] as const)
       assert.ok(existsSync(wt(n)) && lines.some(l => l.includes(wt(n)) && re.test(l)), `kept ${n}`);
+    // digested (named in docs) -> goes
+    lines.length = 0; mkdirSync(join(main, 'docs'), { recursive: true }); writeFileSync(join(main, 'docs', 'r.md'), 'see qq-1126-hitches.jsonl'); runAll(ctx(), 'worktrees');
+    assert.ok(!existsSync(wt('rawout')), 'digested probe-out: worktree removed');
     // chain gone: chained worktree goes
     lines.length = 0; runAll(ctx(), 'worktrees'); assert.ok(!existsSync(wt('chained')), 'unreferenced once the chain ended');
     // PR closed per gh: unmerged commit pushed? no remote -> still blocked by unpushed commits

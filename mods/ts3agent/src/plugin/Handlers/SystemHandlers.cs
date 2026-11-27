@@ -34,6 +34,8 @@ namespace Ts3Agent
             RegisterSimHealth(); // SimHealthHandlers.cs: soak health census
             RegisterInteractionSweep(); // InteractionSweepHandlers.cs, docs/268
             RegisterFightOrphan(); // FightOrphanHandlers.cs, repro ip-fight-orphan
+            RegisterSimResetAlarms(); // SimResetAlarmsHandlers.cs, repro sim-reset-alarms (docs/357)
+            RegisterServiceLeaveLive(); // ServiceLeaveLiveHandlers.cs, repro service-leave-reset live arms (docs/357 §4)
             RegisterHouseboatLegRepro(); // HouseboatLegReproHandlers.cs, docs/853 §2-§3
             RegisterBoatRoamRepro(); // BoatRoamReproHandlers.cs, docs/853 §4
             RegisterPetRepro(); // PetReproHandlers.cs, docs/656 §6

@@ -2830,3 +2830,14 @@ Budget per usage window (PLAN.md "Action plan"): lanes G + M 30%, lane H 50%, of
 | 2026-11-24 | 15:55 | 5h -, 7d 86% | G | bp-lothook-edit-town | |
 | 2026-11-24 | 16:13 | 5h -, 7d 87% | G | ip-tuneiso-off | |
 | 2026-11-24 | 16:30 | 5h -, 7d 87% | G | bp-lothook-edit-town | |
+| 2026-11-27 | 06:53 | 5h -, 7d 30% | G | atlas-p0-2048 | |
+| 2026-11-27 | 07:15 | 5h -, 7d 31% | G | atlas-p0-4096 | |
+| 2026-11-27 | 07:20 | 5h -, 7d 32% | G | atlas-8192-install-2048 | |
+| 2026-11-27 | 07:20 | 5h -, 7d 32% | G | atlas-8192-load-thinu-8192 | |
+| 2026-11-27 | 07:41 | 5h -, 7d 33% | G | atlas-main-smoke-off-sv | |
+| 2026-11-27 | 08:06 | 5h -, 7d 34% | G | atlas-p0-4096 | |
+| 2026-11-27 | 08:14 | 5h -, 7d 35% | G | atlas-p0-4096 | |
+| 2026-11-27 | 08:53 | 5h -, 7d 37% | G | atlas-8192-load-thing-8192 | |
+| 2026-11-27 | 08:57 | 5h -, 7d 37% | G | atlas-8192-load-strip-8192 | |
+| 2026-11-27 | 09:03 | 5h -, 7d 38% | G | atlas-8192-load-thing-8192 | |
+| 2026-11-27 | 09:03 | 5h -, 7d 38% | G | atlas-8192-load-strip-8192 | |

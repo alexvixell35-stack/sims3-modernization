@@ -1,0 +1,410 @@
+{
+ "note": "apex-staleobj-stress-1125-m1124g (2026-11-25, feature/apex-staleobj-1125; FIX PROOF, correctness only, not timing): vb-owner-delete-stress x5 on diag set m1124g (m1124e + HeapCall tags: in GC heap, handled/continued, counter hcdAv656277) with the Apex fork build apex.stale-obj-1125 (Apex fork fix/stale-bake-light d20cb385 on fix/lamp-registry-dead-light 599155a4: TerrainStamps stamps a bake lamp only while LevelLightShare::LightLive, docs/260 §9) in Bin state apex-fork-asi (release bridge). Proof: 0 heapcall: lines and hcdAv656277 = 0 (the in-module AV at TS3W 0x656277) in every job; apex.lampdead-1125 alone left 2 heapcall: lines in 5 jobs. Job 6: Apex-alone control (asi none, ourMods false: no ts3native / ts3fixes) runs the same repro once, to rule out our P5c object parking; it judges game alive / no crash only. All 6 jobs run (no stop on fail). Est 5 x ~7 min + control ~10 min + launches = ~55 min.",
+ "agentPackage": "game-copy/ts3agent.package.m1124d",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1",
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start",
+    "compat: Apex Radiance not found at start; ApexStandDown=1"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  },
+  "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+   "match": [
+    "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+   ],
+   "noMatch": [
+    "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+    "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+   ]
+  },
+  "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+   "match": [
+    "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+   ],
+   "noMatch": [
+    "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+   ]
+  },
+  "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+   "match": [
+    "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+   ],
+   "noMatch": [
+    "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+    "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+   ]
+  },
+  "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+   "match": [
+    "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+   ],
+   "noMatch": [
+    "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+   ]
+  },
+  "^ts3native 0\\.36\\.305-m1124g ": {
+   "match": [
+    "ts3native 0.36.305-m1124g 2026-11-25 10:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.305-m1124e 2026-11-24 23:30:00",
+    "ts3native 0.36.305-m1124g2 2026-11-25 10:00:00",
+    "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+   ]
+  },
+  "^OK   crash log: heapcall detector \\(docs/51 §610\\)": {
+   "match": [
+    "OK   crash log: heapcall detector (docs/51 §610): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 2 minidumps at most"
+   ],
+   "noMatch": [
+    "crash log: heapcall detector off ([Crash] HeapCall=0)",
+    "crash log: first 16 first-chance exceptions, an AV in another module once per address"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi 14662 KB v4\\.1\\.0\\.0, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 14662 KB v4.1.0.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: ApexRadiance.asi 16293 KB v4.1.0.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB",
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  },
+  "^heapcall: ": {
+   "match": [
+    "heapcall: #1 wild code C0000096 (info 00000000 00000000) eip 6867694C [heap 0x68640000+0x3694C prot 04 \"Ligh\"] thread 42716 at 07:23:31.036 tick 152131828 step 10; bytes at eip: 6C 70"
+   ],
+   "noMatch": [
+    "OK   crash log: heapcall detector (docs/51 §610) on: heap eip lines 48, wild 8, dumps 2",
+    "  heapcall stack (16 return addresses from esp): TS3W+0x2C4BA9"
+   ]
+  },
+  "^OK   crash log: heapcall detector \\(docs/51 §610\\).*; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277": {
+   "match": [
+    "OK   crash log: heapcall detector (docs/51 §610): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 2 minidumps at most; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277"
+   ],
+   "noMatch": [
+    "OK   crash log: heapcall detector (docs/51 §610): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 2 minidumps at most",
+    "OK   crash log: heapcall detector (docs/51 §610): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 2 minidumps at most; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00000000"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-staleobj-stress-1",
+   "note": "[est 7 min] Apex stale bake lamp fix proof 1/5: vb-owner-delete-stress on diag set m1124g with ApexRadiance.asi apex.stale-obj-1125; pass = no heapcall: line and hcdAv656277 = 0 (apex.lampdead-1125 alone: 2 heapcall: lines in 5 jobs), reuseSession",
+   "asi": "game-copy/ts3native.asi.m1124g",
+   "iniBase": "game-copy/ts3native.ini.m1124d",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+   "pinReason": "diag set m1124g (feature/apex-staleobj-1125 on feature/apex-lampdead-1125 a1a232ce0): asi ts3native.asi.m1124g (0.36.305-m1124g, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage)); Apex asi apex.stale-obj-1125 (builds.json, 14662 KB) via Bin state apex-fork-asi",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "reuseSession": {
+    "maxJobs": 5,
+    "onFail": "restart"
+   },
+   "ini": {
+    "Crash.Log": 1,
+    "CrashForensics.Light": 1,
+    "CrashForensics.VbGuard": 1,
+    "EaCrashFixes.VbFreeDelayMs": 2000,
+    "EaCrashFixes.VbOwnerDelay": 1,
+    "RouteSnap.DoorMemoX": 3,
+    "RouteSnap.DoorMemoXMs": 250,
+    "Crash.HeapCall": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "noSamplers": true,
+     "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+     "repro": "vb-owner-delete-stress",
+     "noProf": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.305-m1124g ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+    "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+    "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+    "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi 14662 KB v4\\.1\\.0\\.0, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\).*; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277": 1
+   },
+   "logForbid": {
+    "^heapcall: ": 0
+   },
+   "nativeRequire": "@hcdAv656277<=0"
+  },
+  {
+   "id": "bp-staleobj-stress-2",
+   "note": "[est 7 min] Apex stale bake lamp fix proof 2/5: vb-owner-delete-stress on diag set m1124g with ApexRadiance.asi apex.stale-obj-1125; pass = no heapcall: line and hcdAv656277 = 0 (apex.lampdead-1125 alone: 2 heapcall: lines in 5 jobs), reuseSession",
+   "asi": "game-copy/ts3native.asi.m1124g",
+   "iniBase": "game-copy/ts3native.ini.m1124d",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+   "pinReason": "diag set m1124g (feature/apex-staleobj-1125 on feature/apex-lampdead-1125 a1a232ce0): asi ts3native.asi.m1124g (0.36.305-m1124g, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage)); Apex asi apex.stale-obj-1125 (builds.json, 14662 KB) via Bin state apex-fork-asi",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "reuseSession": {
+    "maxJobs": 5,
+    "onFail": "restart"
+   },
+   "ini": {
+    "Crash.Log": 1,
+    "CrashForensics.Light": 1,
+    "CrashForensics.VbGuard": 1,
+    "EaCrashFixes.VbFreeDelayMs": 2000,
+    "EaCrashFixes.VbOwnerDelay": 1,
+    "RouteSnap.DoorMemoX": 3,
+    "RouteSnap.DoorMemoXMs": 250,
+    "Crash.HeapCall": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "noSamplers": true,
+     "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+     "repro": "vb-owner-delete-stress",
+     "noProf": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.305-m1124g ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+    "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+    "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+    "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi 14662 KB v4\\.1\\.0\\.0, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\).*; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277": 1
+   },
+   "logForbid": {
+    "^heapcall: ": 0
+   },
+   "nativeRequire": "@hcdAv656277<=0"
+  },
+  {
+   "id": "bp-staleobj-stress-3",
+   "note": "[est 7 min] Apex stale bake lamp fix proof 3/5: vb-owner-delete-stress on diag set m1124g with ApexRadiance.asi apex.stale-obj-1125; pass = no heapcall: line and hcdAv656277 = 0 (apex.lampdead-1125 alone: 2 heapcall: lines in 5 jobs), reuseSession",
+   "asi": "game-copy/ts3native.asi.m1124g",
+   "iniBase": "game-copy/ts3native.ini.m1124d",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+   "pinReason": "diag set m1124g (feature/apex-staleobj-1125 on feature/apex-lampdead-1125 a1a232ce0): asi ts3native.asi.m1124g (0.36.305-m1124g, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage)); Apex asi apex.stale-obj-1125 (builds.json, 14662 KB) via Bin state apex-fork-asi",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "reuseSession": {
+    "maxJobs": 5,
+    "onFail": "restart"
+   },
+   "ini": {
+    "Crash.Log": 1,
+    "CrashForensics.Light": 1,
+    "CrashForensics.VbGuard": 1,
+    "EaCrashFixes.VbFreeDelayMs": 2000,
+    "EaCrashFixes.VbOwnerDelay": 1,
+    "RouteSnap.DoorMemoX": 3,
+    "RouteSnap.DoorMemoXMs": 250,
+    "Crash.HeapCall": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "noSamplers": true,
+     "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+     "repro": "vb-owner-delete-stress",
+     "noProf": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.305-m1124g ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+    "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+    "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+    "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi 14662 KB v4\\.1\\.0\\.0, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\).*; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277": 1
+   },
+   "logForbid": {
+    "^heapcall: ": 0
+   },
+   "nativeRequire": "@hcdAv656277<=0"
+  },
+  {
+   "id": "bp-staleobj-stress-4",
+   "note": "[est 7 min] Apex stale bake lamp fix proof 4/5: vb-owner-delete-stress on diag set m1124g with ApexRadiance.asi apex.stale-obj-1125; pass = no heapcall: line and hcdAv656277 = 0 (apex.lampdead-1125 alone: 2 heapcall: lines in 5 jobs), reuseSession",
+   "asi": "game-copy/ts3native.asi.m1124g",
+   "iniBase": "game-copy/ts3native.ini.m1124d",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+   "pinReason": "diag set m1124g (feature/apex-staleobj-1125 on feature/apex-lampdead-1125 a1a232ce0): asi ts3native.asi.m1124g (0.36.305-m1124g, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage)); Apex asi apex.stale-obj-1125 (builds.json, 14662 KB) via Bin state apex-fork-asi",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "reuseSession": {
+    "maxJobs": 5,
+    "onFail": "restart"
+   },
+   "ini": {
+    "Crash.Log": 1,
+    "CrashForensics.Light": 1,
+    "CrashForensics.VbGuard": 1,
+    "EaCrashFixes.VbFreeDelayMs": 2000,
+    "EaCrashFixes.VbOwnerDelay": 1,
+    "RouteSnap.DoorMemoX": 3,
+    "RouteSnap.DoorMemoXMs": 250,
+    "Crash.HeapCall": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "noSamplers": true,
+     "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+     "repro": "vb-owner-delete-stress",
+     "noProf": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.305-m1124g ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+    "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+    "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+    "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi 14662 KB v4\\.1\\.0\\.0, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\).*; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277": 1
+   },
+   "logForbid": {
+    "^heapcall: ": 0
+   },
+   "nativeRequire": "@hcdAv656277<=0"
+  },
+  {
+   "id": "bp-staleobj-stress-5",
+   "note": "[est 7 min] Apex stale bake lamp fix proof 5/5: vb-owner-delete-stress on diag set m1124g with ApexRadiance.asi apex.stale-obj-1125; pass = no heapcall: line and hcdAv656277 = 0 (apex.lampdead-1125 alone: 2 heapcall: lines in 5 jobs), reuseSession",
+   "asi": "game-copy/ts3native.asi.m1124g",
+   "iniBase": "game-copy/ts3native.ini.m1124d",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+   "pinReason": "diag set m1124g (feature/apex-staleobj-1125 on feature/apex-lampdead-1125 a1a232ce0): asi ts3native.asi.m1124g (0.36.305-m1124g, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage)); Apex asi apex.stale-obj-1125 (builds.json, 14662 KB) via Bin state apex-fork-asi",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "reuseSession": {
+    "maxJobs": 5,
+    "onFail": "restart"
+   },
+   "ini": {
+    "Crash.Log": 1,
+    "CrashForensics.Light": 1,
+    "CrashForensics.VbGuard": 1,
+    "EaCrashFixes.VbFreeDelayMs": 2000,
+    "EaCrashFixes.VbOwnerDelay": 1,
+    "RouteSnap.DoorMemoX": 3,
+    "RouteSnap.DoorMemoXMs": 250,
+    "Crash.HeapCall": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "noSamplers": true,
+     "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+     "repro": "vb-owner-delete-stress",
+     "noProf": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.305-m1124g ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+    "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+    "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+    "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi 14662 KB v4\\.1\\.0\\.0, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\).*; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277": 1
+   },
+   "logForbid": {
+    "^heapcall: ": 0
+   },
+   "nativeRequire": "@hcdAv656277<=0"
+  },
+  {
+   "id": "bp-staleobj-control-apexalone",
+   "note": "[est 10 min] Apex-alone control (clean-baseline control arm as in compat-overlap-1122): apex.stale-obj-1125 in Bin state apex-fork-asi, our ts3native / ts3fixes moved out (asi none, ourMods false), the same vb-owner-delete-stress repro once on Baseline-BP. Rules out our P5c object parking as the cause; our detector is not loaded, so it judges game alive / no crash only.",
+   "asi": "none",
+   "ourMods": false,
+   "save": "Baseline-BP",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "timeoutMin": 25,
+   "run": {
+    "repro": "vb-owner-delete-stress"
+   },
+   "scriptErrorsMax": 0
+  }
+ ]
+}

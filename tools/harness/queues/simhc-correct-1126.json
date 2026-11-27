@@ -1,0 +1,124 @@
+{
+  "note": "simhc-correct-1126 (WRITTEN, DRY-RUN ONLY, NOT RUN: a game chain was running): docs/362, correctness of the IsSimThread internal call and the main-heap core reader ([MemDiag] MainHeap=1, counters v227 mhc*). One BP 10 min natural job, release defaults + MainHeap=1, Bin state apex (Apex + RTX Remix bridge: tools/turbo-compat.ts snapshot -> state apex -> restore). Pass: version read-back, the \"main heap on\" line, >= 2 diag: mheap lines with cores >= 1, committed >= 1 MB, a largest free run, read under the heap lock; no \"no answer\" line (the reader refuses a walk whose free bytes exceed the committed bytes, so free <= committed holds on every printed line); mhc counters read back; ts3fixes reads IsSimThread 1 on the sim thread; 0 script errors. Reads only: no Sim, lot or save is changed, household and selected Sims see no different code path (nothing here looks at a Sim). Not a timing queue: each mheap line holds the main heap lock for its us= value. node tools/harness/queue.ts tools/harness/queues/simhc-correct-1126.json --no-smoke",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "rewind": "off",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.306-simhc1 ": {
+      "match": [
+        "ts3native 0.36.306-simhc1 2026-11-26 19:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 16:30:00",
+        "ts3native 0.36.306-simhc10 2026-11-26 19:00:00"
+      ]
+    },
+    "^mem diag: main heap on \\(docs/362\\): \\[MemDiag\\] MainHeap=1, ": {
+      "match": [
+        "mem diag: main heap on (docs/362): [MemDiag] MainHeap=1, a diag: mheap line (cores, free chunks, largest free run of heap [0x11CB864]) at each diag: mem line, under the heap lock"
+      ],
+      "noMatch": [
+        "mem diag light (docs/191): diag: mem + memsus lines at each memory at line, every 5 min of play"
+      ]
+    },
+    "^diag: mheap #\\d+ \\S+ cores=[1-9]\\d* comKB=[1-9]\\d{3,} resKB=[1-9]\\d{3,} freeKB=\\d+ tailKB=\\d+ bigKB=[1-9]\\d* chunks=[1-9]\\d* us=\\d+ lock=1$": {
+      "match": [
+        "diag: mheap #2 periodic cores=238 comKB=611200 resKB=1265664 freeKB=48211 tailKB=654464 bigKB=15872 chunks=18233 us=2140 lock=1",
+        "diag: mheap #1 load cores=1 comKB=4096 resKB=16384 freeKB=0 tailKB=12288 bigKB=12288 chunks=1 us=3 lock=1"
+      ],
+      "noMatch": [
+        "diag: mheap #2 periodic cores=0 comKB=611200 resKB=1265664 freeKB=48211 tailKB=654464 bigKB=15872 chunks=18233 us=2140 lock=1",
+        "diag: mheap #2 periodic cores=238 comKB=512 resKB=1265664 freeKB=48211 tailKB=654464 bigKB=15872 chunks=18233 us=2140 lock=1",
+        "diag: mheap #2 periodic cores=238 comKB=611200 resKB=1265664 freeKB=48211 tailKB=654464 bigKB=0 chunks=18233 us=2140 lock=1",
+        "diag: mheap #2 periodic cores=238 comKB=611200 resKB=1265664 freeKB=48211 tailKB=654464 bigKB=15872 chunks=18233 us=2140 lock=0",
+        "diag: mheap #2 periodic no answer",
+        "diag: mem #2 periodic cores=238 comKB=611200 resKB=1265664 freeKB=48211 tailKB=654464 bigKB=15872 chunks=18233 us=2140 lock=1"
+      ]
+    },
+    "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": {
+      "match": [
+        "ts3fixes: simthread: IsSimThread 1 on the sim thread, call there (docs/362)"
+      ],
+      "noMatch": [
+        "ts3fixes: simthread: IsSimThread 0 on the sim thread, call there (docs/362)",
+        "ts3fixes: simthread: IsSimThread 0 on the sim thread, call missing (docs/362)"
+      ]
+    },
+    "^diag: mheap #\\d+ \\S+ no answer": {
+      "match": [
+        "diag: mheap #2 periodic no answer"
+      ],
+      "noMatch": [
+        "diag: mheap #2 periodic cores=238 comKB=611200 resKB=1265664 freeKB=48211 tailKB=654464 bigKB=15872 chunks=18233 us=2140 lock=1"
+      ]
+    },
+    "^ts3fixes: simthread: IsSimThread (0 |\\d on the sim thread, call missing)": {
+      "match": [
+        "ts3fixes: simthread: IsSimThread 0 on the sim thread, call there (docs/362)",
+        "ts3fixes: simthread: IsSimThread 0 on the sim thread, call missing (docs/362)"
+      ],
+      "noMatch": [
+        "ts3fixes: simthread: IsSimThread 1 on the sim thread, call there (docs/362)"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-simhc-correct",
+      "note": "[est 15 min] BP 10 min natural, release defaults + [MemDiag] MainHeap=1 (Light stays on: diag: mem at the load and every 5 min, a diag: mheap line after each).",
+      "asi": "game-copy/ts3native.asi.simhc-1126",
+      "iniBase": "game-copy/ts3native.ini.simhc-1126",
+      "fixesPackage": "game-copy/ts3fixes.package.simhc-1126",
+      "pinReason": "feature/native-simthread-heapcores-1126 at ebaea5a87 (docs/data/builds.json): ts3native.asi.simhc-1126 sha256 a5c94d60405a (0.36.306-simhc1 = master set m1126b + IsSimThread / MainHeap internal calls, ts3native_mainheap, [MemDiag] MainHeap, counters v227, PortalFlagRefs chunk rebuild); ini ts3native.ini.simhc-1126 sha256 66024a674965 = the branch ini (MainHeap=0 there, this job sets it); ts3fixes.package.simhc-1126 sha256 9a2526ea81e9 tuning a2b0b2797cfb = m1126b + OnSimThread read-back; agent stays m1126 (agentPackage)",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "MemDiag.MainHeap": 1
+      },
+      "nativeRequire": "mhcReads>=2,mhcFails==0,@mhcCores>=1,@mhcComKB>=1024,@mhcBigKB>=1,@mhcChunks>=1",
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-simhc1 ": 1,
+        "^mem diag: main heap on \\(docs/362\\): \\[MemDiag\\] MainHeap=1, ": 1,
+        "^diag: mheap #\\d+ \\S+ cores=[1-9]\\d* comKB=[1-9]\\d{3,} resKB=[1-9]\\d{3,} freeKB=\\d+ tailKB=\\d+ bigKB=[1-9]\\d* chunks=[1-9]\\d* us=\\d+ lock=1$": 2,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^diag: mheap #\\d+ \\S+ no answer": 0,
+        "^ts3fixes: simthread: IsSimThread (0 |\\d on the sim thread, call missing)": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      }
+    }
+  ]
+}

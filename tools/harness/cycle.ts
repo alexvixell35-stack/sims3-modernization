@@ -2,6 +2,10 @@
 //   node tools/harness/cycle.ts --restart        detach probe, close game, install our packages, clear script cache
 //   python tools/probe/ts3probe.py serve --launch   (start separately; it must outlive this script)
 //   node tools/harness/cycle.ts --save X.sims3   wait for the agent, load the save, end in live mode
+//   node tools/harness/cycle.ts --save X.sims3 --direct   the probe started the game with -worldFile:"X.sims3" (queue job key
+//     launch "direct", Apex Radiance's launcher path): no main menu and no load_save, only the wait for that world (same
+//     timeouts and guards), then the save read back from game_state and one "direct load:" line (load-split.ts DIRECT_LOAD_RE);
+//     FAIL when the game sits at the main menu instead
 // Windows-only by nature (TS3W.exe, taskkill).
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -13,9 +17,10 @@ import { focusGame, giveFocusBack } from './focus-game.ts';
 import { captureHang, hangDir, launchGuard, stallGuard } from './game-alive.ts';
 import { BIN, GAME_EXE, killLeftovers } from './game-exe.ts';
 import { defaultSpec, problems, vanilla } from './vanilla.ts';
-import { loadSplitLine, peakPrivateMB } from './load-split.ts';
+import { atMenu, directLoadLine, loadSplitLine, peakPrivateMB, sameSave } from './load-split.ts';
 
-const { values } = parseArgs({ options: { save: { type: 'string' }, restart: { type: 'boolean' }, port: { type: 'string', default: '47891' } } });
+const { values } = parseArgs({ options: { save: { type: 'string' }, restart: { type: 'boolean' }, direct: { type: 'boolean' }, port: { type: 'string', default: '47891' } } });
+const direct = !!values.direct;
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const USER_DIR = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
 const base = `http://127.0.0.1:${values.port}`;
@@ -122,7 +127,9 @@ if (values.save) {
   // EA per-launch helpers killed (never the EA app), the reason named
   const startGuard = stallGuard('game start', { port: Number(values.port), liveOnly: true }), hang = launchGuard(Number(values.port));
   // TS3_AGENT_WAIT_S: many-mods saves with a cleared script cache can need more than 300 s at the menu (kit-ab-1121 rerun3)
-  await until('agent answering', Number(process.env.TS3_AGENT_WAIT_S ?? 300), async () => (await agent('ping')).ok === true, 1000, async () => {
+  // direct: the world may load before the agent answers (the save loads from MainMenuState.Startup), so a loaded world counts too
+  await until('agent answering', Number(process.env.TS3_AGENT_WAIT_S ?? 300), async () => (await agent('ping')).ok === true
+    || (direct && (await get('agentstatus', 5000)).worldLoaded === true), 1000, async () => {
     const why = await startGuard();
     if (why) return why;
     const h = await hang();
@@ -134,9 +141,10 @@ if (values.save) {
   // after it under [MonoJit] Mode=2 (2026-11-06: 1M verified calls before the menu). A load sent before the menu is lost: the
   // queued main-menu transition quits the fresh world. The menu guard fails a real stall; this cap only ends a menu without the dialog.
   // Accepting it during a load leaves the game stuck on the loading screen, so clear it first and wait for quiet.
-  let quietSince = Date.now(), sawWarning = false;
+  // direct: no menu to wait for (the load already runs); a dialog during the load is the world-load loop's accept below
+  let quietSince = Date.now(), sawWarning = direct;
   const t0 = Date.now(), menuGuard = stallGuard('main menu', { port: Number(values.port) });
-  while (Date.now() - t0 < 330000 && (!sawWarning ? Date.now() - t0 < 300000 : Date.now() - quietSince < 5000)) {
+  while (!direct && Date.now() - t0 < 330000 && (!sawWarning ? Date.now() - t0 < 300000 : Date.now() - quietSince < 5000)) {
     const why = await menuGuard();
     if (why) throw new Error(why);
     const d = await agent('auto_dialog');
@@ -153,6 +161,7 @@ if (values.save) {
   // On a slow first start (script cache just rebuilt) the reply can time out although the load started
   // (2026-10-16 bp-university-travel): check load_file before sending it again, so a load never starts twice.
   // queue job key agentArm: an agent watcher that must be on before the load (sim_gone_load)
+  if (process.env.TS3_AGENT_ARM && direct) throw new Error(`agentArm ${process.env.TS3_AGENT_ARM}: needs the menu load (launch direct loads before the agent can arm)`);
   if (process.env.TS3_AGENT_ARM) {
     const arm = process.env.TS3_AGENT_ARM, a = await agent(arm, { arm: true, file: values.save });
     if (!a.ok) throw new Error(`agentArm ${arm}: ${a.error}`);
@@ -167,11 +176,11 @@ if (values.save) {
       log(`agentArm ${arm}: ${st?.reads} of ${st?.want} done`);
     }
   }
-  const tLoad = Date.now();
-  let r = await agent('load_save', { file: values.save });
+  const tLoad = direct ? tStart : Date.now(); // direct: the load starts with the game
+  let r = direct ? { ok: true } : await agent('load_save', { file: values.save });
   const loadGuard = stallGuard('world load', { port: Number(values.port) }); // the agent is silent while loading: heartbeat, flag, commit, log
   // still pending: the last menu poll has no answer yet (sim busy), so this load_save was not sent
-  for (let i = 0; !r.ok && /no reply|still pending/.test(r.error ?? '') && i < 24; i++) {
+  for (let i = 0; !direct && !r.ok && /no reply|still pending/.test(r.error ?? '') && i < 24; i++) {
     await sleep(5000);
     const why = await loadGuard();
     if (why) throw new Error(why);
@@ -190,7 +199,7 @@ if (values.save) {
   // machine (a pending NextState nobody takes, paused, shut down) and the hang capture (stacks, managed stack). Log only.
   let snapAt = Date.now() + 120000, snapped = false; // then one try per 30 s: no answer during a real load
   const snap = async (cmd: string, args?: object) => JSON.stringify(await agent(cmd, args).catch((e: unknown) => ({ error: String(e) }))).slice(0, 2000);
-  let waits = 0;
+  let waits = 0, menuSince = 0, menuWhy = ''; // menuWhy goes out through the guard: until() swallows a throw in its check
   await agent('dialog_expect', { seconds: 60 }); // a modal blocking the load: the autopilot leaves it to the accept below (ts3agent 03e2bfe)
   await until('world loaded', 600, async () => {
     if ((await get('agentstatus', 5000)).worldLoaded === true) return true;
@@ -202,9 +211,16 @@ if (values.save) {
         log(`load not started after 120 s, sim alive: game_state ${JSON.stringify(gs.result)}; async_log ${await snap('async_log')}; state machine ${await snap('reflect_get', { path: 'Sims3.Gameplay.GameStates.sSingleton.mStateMachine', depth: 3 })}; ${await captureHang(hangDir(), { port: Number(values.port) }).catch(e => `hang capture failed: ${e}`)}`);
       }
     }
+    // direct: a game at the main menu for 60 s did not take -worldFile (Steam relaunched it without the switch, or the switch
+    // was refused); never load_save as a fallback, the job tests the direct path
+    if (direct && waits % 20 === 19) {
+      const gs = await agent('game_state');
+      menuSince = atMenu(gs) ? menuSince || Date.now() : 0;
+      if (menuSince && Date.now() - menuSince > 60000) menuWhy = `direct load: the game is at the main menu, not in ${values.save} (-worldFile not taken; game_state ${JSON.stringify(gs.result)})`;
+    }
     if (++waits % 20 === 0) { await agent('dialog_expect', { seconds: 60 }); const d = await agent('auto_dialog', { accept: true }); if (d.ok && d.result.open) log(`dialog "${d.result.title}" -> ${d.result.clicked}`); } // accept: a modal blocking the load we asked for (docs/236 #3)
     return false;
-  }, 500, loadGuard);
+  }, 500, async () => menuWhy || loadGuard());
   // the load is done: end the window armed above (re-armed every 10 s while loading, so it ran ~60 s past the load), or a
   // modal right after the load (a mod's welcome) waits that long with nobody clicking it (2026-11-03)
   await agent('dialog_expect', { seconds: 0 });
@@ -237,7 +253,12 @@ if (values.save) {
     }, 1000, stallGuard('enter live mode', { port: Number(values.port) }));
   }
   // never leave the game in front (the game takes focus at launch): return it to the window saved by queue.ts
-  log(loadSplitLine(tStart, tMenu, tLoad, Date.now(), peakPrivateMB(GAME_EXE.replace(/\.exe$/i, ''))));
+  const tLive = Date.now();
+  if (direct) { // the save the game loaded, read back: another save (a relaunch with another switch) is a FAIL, never a PASS
+    if (!sameSave(values.save, s.result?.load_file)) throw new Error(`direct load: in a world, but load_file ${s.result?.load_file ?? 'null'} is not ${values.save}`);
+    log(directLoadLine(values.save, tStart, tLive, s.result.load_file));
+  }
+  log(loadSplitLine(tStart, tMenu, tLoad, tLive, peakPrivateMB(GAME_EXE.replace(/\.exe$/i, ''))));
   log(`ready: ${JSON.stringify((await agent('game_state')).result)}; focus: ${giveFocusBack()}; window ${focusGame() ? 'focused' : 'NOT focused'}`);
   // record the change set this run uses, so a later crash can be tied to it (crash-ledger.ts triage)
   log(execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'crash-ledger.ts'), 'snapshot']).toString().trim());

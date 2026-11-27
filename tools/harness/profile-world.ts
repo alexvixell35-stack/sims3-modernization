@@ -523,7 +523,10 @@ const reproFail = async (why: string) => {
 };
 // the note goes into the log line: worst-hitches.ts labels the step's window by its arm ("fire off #3" -> reflect_call off)
 const nativeMarks = new Map<string, any>(); // native_mark / native_check windows (fixes-require.ts nativeWindowStep)
+let reproSeq = 0; // docs/51 §948: the step number in ts3native_reprostep ([Crash] HeapCall lines name it) and in repro.jsonl "seq"
 const reproStep = async (s: any) => {
+  const seq = ++reproSeq;
+  await get(`nativeexport?name=ts3native_reprostep&value=${seq}`).catch(() => null); // an older asi has no export: null, ignored
   const call = () => s.cmd === 'native_set' ? nativeSet(s.args)
     : s.cmd === 'native_mark' || s.cmd === 'native_check' ? nativeWindowStep(s, () => get('native'), nativeMarks)
     // spawn_sims builds N Sims in one sim-thread call: 3-6 s at count 10, 8.1 s under load (bp-hhtoo-off 2026-11-16), past the 8 s default
@@ -534,7 +537,7 @@ const reproStep = async (s: any) => {
     dialog: async () => JSON.stringify((await ag('pending_dialogs').catch(() => null))?.result ?? null).slice(0, 300) });
   // an async_log reply is the record of what the sim thread did (a method touch's outcome, docs/526 section 8): logged whole
   console.log(`${stamp()} repro ${values.repro} step ${s.cmd}${s.note ? ` [${s.note}]` : ''}${isSetup(s) ? ' (setup)' : ''}: ${JSON.stringify(r).slice(0, s.cmd === 'async_log' ? 4000 : (s as any).max ?? 200)}`);
-  appendFileSync(`${pre}-repro.jsonl`, JSON.stringify({ t: stamp(), cmd: s.cmd, args: s.args, note: s.note, r }) + '\n'); // full result: the log line is cut
+  appendFileSync(`${pre}-repro.jsonl`, JSON.stringify({ t: stamp(), seq, cmd: s.cmd, args: s.args, note: s.note, r }) + '\n'); // full result: the log line is cut
   stepAnswers.push({ cmd: s.tally ?? s.cmd, r }); // "tally": count this step under its own name in stepsRequire (per-arm visits)
   // fail fast, as repro.ts: a failed setup step means the rest of the run measures nothing (2026-10-19 bp-ab-wildflowertask
   // ended PASS after wildflower_drain failed); "optional": true steps may fail. The queue closes the game after the job.

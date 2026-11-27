@@ -1,0 +1,82 @@
+{
+  "note": "Apex direct-world load smoke (2026-11-27, feature/harness-apex-direct-world-1127), DRY-RUN ONLY: Rodney schedules it between test jobs (Bin state apex or apex-oop-atlas, as found). One Sunset Valley load per path on master set m1126b: job 1 starts the game with -worldFile:\"Baseline-SV.sims3\" (launch direct, no main menu, no load_save), job 2 the same job on the menu path. Compare row.loadSplit.totalS (launch->live) and row.startMs. Direct runs first, so a script cache rebuild after a build lands on it (the comparison then understates the gain). Pass = both PASS, job 1 logs \"launch direct ok\" and a load split with launch->menu \"-\".",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "rewind": "off",
+  "jobs": [
+    {
+      "id": "sv-direct-world",
+      "note": "[est 6 min] [natural play, no cheats] launch direct: Baseline-SV straight from the -worldFile switch; cycle.ts --direct must log \"direct load: -worldFile:\\\"Baseline-SV.sims3\\\" ... load_file Baseline-SV.sims3\"; 2 min profile window.",
+      "launch": "direct",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "master set m1126b (0.36.306-m1126b), as master-smoke-m1126.json: the load path is the only difference between the two jobs",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "save": "Baseline-SV",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 2
+        }
+      },
+      "timeoutMin": 15,
+      "regexCases": {
+        "^ts3native 0\\.36\\.306-m1126b ": {
+          "match": [
+            "ts3native 0.36.306-m1126b 2026-11-26 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+            "ts3native 0.36.306-m1126b2 2026-11-26 16:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sv-menu-load",
+      "note": "[est 7 min] [natural play, no cheats] the old path for the same job: main menu, Mod Scripts Found, load_save Baseline-SV; 2 min profile window.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "master set m1126b (0.36.306-m1126b), as master-smoke-m1126.json: the load path is the only difference between the two jobs",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "save": "Baseline-SV",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 2
+        }
+      },
+      "timeoutMin": 15,
+      "regexCases": {
+        "^ts3native 0\\.36\\.306-m1126b ": {
+          "match": [
+            "ts3native 0.36.306-m1126b 2026-11-26 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+            "ts3native 0.36.306-m1126b2 2026-11-26 16:30:00"
+          ]
+        }
+      }
+    }
+  ]
+}

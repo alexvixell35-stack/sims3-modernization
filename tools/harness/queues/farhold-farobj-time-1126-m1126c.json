@@ -1,0 +1,199 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farhold-farobj-time-1126 (docs/358, WRITTEN, NOT RUN; TIMING, needs quiet machine: Spotify, IDE and java closed, other CPU < 10%): FarLight off vs on in one load, --ab farobjlight. Run only after farhold-farobj-correct-1126 passed. queue.ts runs its smoke first. Each job: 25 min, 5-min slices: warm-up, then off, on, on, off = 10 min per arm (ABBA). ms/s by band per arm and the per-slice switch read-back: node tools/harness/farobj-report.ts probe-out/profile/<tag>-ab-fixes.jsonl (lot reaction pulse ms/s for the bands <50, 50-150, 150-400, 400-1000, >=1000 m; the on arm must drop only in the bands past 150 m; exit 1 = a slice ran with other switch values or an on slice ended with no FarLight lot); sim thread: node tools/harness/wait-ab.ts <tag> and node tools/profile-compare.mjs <tag>:on <tag>:off. Pass: pulse ms/s in the far bands lower on than off, sim-thread ms/s on <= off within noise, hitch p99.9 / max not worse, farobjHhPulseSkip 0. Gain estimate docs/350 §15: 16-23 / 19-29 / 6-10 ms/s (BP / IP / SV) [inferred; see ledger I-627-3 for why less is likely before far Sims exist]; ON rule: 3-5 ms/s consistent gain + correctness + the save matrix. farhold has no timing arm: nothing parks a lot in play yet. Bin state apex. Est ~100 min.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+        "ts3native 0.36.299-m1122 2026-11-22 06:55:20",
+        "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+        "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^ts3fixes: farobj: .*, hh skip [1-9]": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 1, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 12, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": {
+      "match": [
+        "ts3fixes: farobj: HOUSEHOLD CHECK MISSED on lot 0x3A91F2C0D4E81B07, record dropped"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 1",
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 2",
+        "ts3fixes: farhub: end, world True, task True, wanted True, paused False, owners 1, loads 1, quits 0, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 10"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhub: end, world True, task True, wanted True, paused False, owners 1, loads 1, quits 0, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: .*, ownerConflict [1-9]": {
+      "match": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 1, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-farobj-ab",
+      "note": "[est 32 min] BP 25 min in-load ABBA (5-min slices: warm-up, then off, on, on, off = 10 min per arm), --ab farobjlight; farobj + farobjpulseprobe on in both arms (the probe times every 16th pulse body by distance band, same cost in both arms; the boundary pass and its records run in both arms, so an on slice skips from its first pass). Per-arm switch read-back: the patches snapshot at every slice switch in <tag>-ab-fixes.jsonl; farobj-report.ts prints it per slice and exits 1 when a slice shows other values. needs quiet machine.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": true,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 45,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "noSamplers": true,
+          "slice": 5,
+          "ab": "farobjlight",
+          "fixesOn": "farobj,farobjpulseprobe",
+          "fixesRequire": "farobjPasses>=4,farobjLight>=1,farobjSkipReact>=1,farobjProbeNB0>=1,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "ip-farobj-ab",
+      "note": "[est 32 min] IP 25 min in-load ABBA (5-min slices: warm-up, then off, on, on, off = 10 min per arm), --ab farobjlight; farobj + farobjpulseprobe on in both arms (the probe times every 16th pulse body by distance band, same cost in both arms; the boundary pass and its records run in both arms, so an on slice skips from its first pass). Per-arm switch read-back: the patches snapshot at every slice switch in <tag>-ab-fixes.jsonl; farobj-report.ts prints it per slice and exits 1 when a slice shows other values. needs quiet machine.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": true,
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 45,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "noSamplers": true,
+          "slice": 5,
+          "ab": "farobjlight",
+          "fixesOn": "farobj,farobjpulseprobe",
+          "fixesRequire": "farobjPasses>=4,farobjLight>=1,farobjSkipReact>=1,farobjProbeNB0>=1,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "sv-farobj-ab",
+      "note": "[est 32 min] SV 25 min in-load ABBA (5-min slices: warm-up, then off, on, on, off = 10 min per arm), --ab farobjlight; farobj + farobjpulseprobe on in both arms (the probe times every 16th pulse body by distance band, same cost in both arms; the boundary pass and its records run in both arms, so an on slice skips from its first pass). Per-arm switch read-back: the patches snapshot at every slice switch in <tag>-ab-fixes.jsonl; farobj-report.ts prints it per slice and exits 1 when a slice shows other values. needs quiet machine.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": true,
+      "save": "Baseline-SV-Spring",
+      "timeoutMin": 45,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "noSamplers": true,
+          "slice": 5,
+          "ab": "farobjlight",
+          "fixesOn": "farobj,farobjpulseprobe",
+          "fixesRequire": "farobjPasses>=4,farobjLight>=1,farobjSkipReact>=1,farobjProbeNB0>=1,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    }
+  ]
+}

@@ -338,6 +338,14 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDeadRefPerLot value="False" />
     <kDeadRefDescRev value="False" />
     <kViewerPushDelta value="True" />
+    <kViewerRideHooks value="False" />
+    <kViewerRideHookShadow value="False" />
+    <kFarHold value="False" />
+    <kFarHoldShadow value="False" />
+    <kFarObj value="False" />
+    <kFarObjLight value="False" />
+    <kFarObjShadow value="False" />
+    <kFarObjPulseProbe value="False" />
     <kDeadRefConvo value="True" />
     <kTakeARiskGuard value="True" />
     <kMiniHomeLot value="True" />
@@ -419,6 +427,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMoveInPartner value="True" />
     <kReaperFlow value="True" />
     <kServiceLeave value="True" />
+    <kSimResetAlarms value="False" />
+    <kSimResetAlarmsMode value="1" />
+    <kSimResetAlarmProbe value="False" />
     <kVisitGreetAlarm value="True" />
     <kFieldTripAdult value="True" />
     <kAutonomyFailBlock value="True" />

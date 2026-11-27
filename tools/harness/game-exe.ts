@@ -2,6 +2,7 @@
 //   TS3_BIN          Game\Bin folder (default: Steam library path)
 //   TS3_EXE          game process/file name (default TS3W.exe; EA app: TS3.exe or Sims3Launcher.exe)
 //   TS3_LAUNCH       direct (default: start <TS3_BIN>\<TS3_EXE>) | ea (EALauncher.exe with TS3_EA_URI, then wait for the TS3_EXE process)
+//                    | steam (steam://run/47890//<args>: the game arguments and a launch-direct job's -worldFile in the URL, then wait for TS3_EXE)
 //   TS3_EA_URI, TS3_EA_LAUNCHER   EA launch URI and EALauncher.exe path (defaults below)
 //   TS3_MACHINE      machine tag (default main): result rows/files of any other machine carry it and never mix with the main machine's (docs/TESTING.md)
 //   node tools/harness/game-exe.ts --self-check   no process is started
@@ -117,7 +118,7 @@ if (import.meta.main) {
     assert.ok(!LEFTOVER_EXES('ea').some(n => /EADesktop/i.test(n)), 'never the EA app');
     assert.ok(isSteamGame('TS3W.exe') && isSteamGame('ts3w.EXE') && !isSteamGame('TS3.exe') && !isSteamGame('Sims3Launcher.exe'));
     assert.ok(GAME_EXE.length > 0 && GAME_NAME === GAME_EXE.replace(/\.exe$/i, '') && !/\.exe$/i.test(GAME_NAME));
-    assert.ok(['direct', 'ea'].includes(LAUNCH), `TS3_LAUNCH "${LAUNCH}": use direct or ea`);
+    assert.ok(['direct', 'ea', 'steam'].includes(LAUNCH), `TS3_LAUNCH "${LAUNCH}": use direct, ea or steam`);
     assert.match(EA_URI, /^origin2:\/\/game\/launch\/\?offerIds=/);
     assert.equal(machineTag('main'), ''); assert.equal(machineTag('ea-laptop'), 'ea-laptop');
     // docs/236 #20: only PIDs the run did not see are reported, whatever their command line; -test alone means nothing

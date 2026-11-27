@@ -14,7 +14,7 @@
 //
 // [EaCrashFixes] PortalFlagRefs (0.36.152, docs/67 §30.5, counters v146 pf*): the cause behind those pairs. Two writers of a
 // waypoint's blocked flag (record + 1, bit 0x80) index R with a pair they never check: 0x82A190 with a lot portal's stored
-// id (chunk = id & 0x3FFF, waypoint = id >> 14 & 0x3FF), 0x82B590 with a neighbour decoded from a lot waypoint's references.
+// id (chunk = id & 0x3FFF, waypoint = id >> 14 & 0x3FF; graphs above 16,384 chunks: the chunk rebuilt, PfFullChunk), 0x82B590 with a neighbour decoded from a lot waypoint's references.
 // For a waypoint past its chunk's count the record offset is read from the next bytes, and the flag write lands inside
 // another record: on Baseline-IP it cleared bit 15 of two references (dz +1 became dz -3), which then sent the A* off the
 // graph. Fix: both index computations become jumps to stubs that skip the write (writer 1: the next portal; writer 2: the
@@ -165,26 +165,72 @@ static LONG PfOk(const u8* world, DWORD chunk, DWORD wp, DWORD id, int which) {
     }
     return 0;
 }
-static LONG __stdcall PfIdOk(const u8* world, DWORD id) { return PfOk(world, id & 0x3FFF, (id >> 14) & 0x3FF, id, 1); }
+// docs/362 §6 (found by Atlas docs/026, its reader R7): the portal id keeps its chunk in 14 bits, enough for 16,384 chunks
+// (4096 m). On a larger graph the full chunk is rebuilt: p = the chunk under the portal's own position (row * width +
+// column, 32 m chunks, world origin subtracted); the referenced chunk is the one within -8192..+8191 of p whose low
+// 14 bits are the stored ones. 16,384 chunks or fewer: the stored bits, exactly as the game, with no float work.
+// how: 0 = the stored bits by rule, 1 = rebuilt, 2 = could not rebuild (the stored bits). Same answers as Atlas's
+// [World8192] Routing readers, so both mods agree on a portal's chunk.
+static DWORD PfFullChunk(DWORD id, float x, float z, float ox, float oz, DWORD w, DWORD h, int* how) {
+    const DWORD stored = id & 0x3FFF;
+    const u64 n = (u64)w * h;
+    *how = 0;
+    if (n <= 16384) return stored;
+    if (x == 0 && z == 0) {  // a position never set
+        if (id & 0xFFFFFF) *how = 2;
+        return stored;
+    }
+    *how = 2;
+    if (n > 65536) return stored;  // past 8192 m the other forms of the reference are 16-bit too
+    const double col = floor(((double)x - ox) / 32.0), row = floor(((double)z - oz) / 32.0);
+    if (!(col >= 0 && col < w && row >= 0 && row < h)) return stored;  // outside the graph, or NaN
+    const long p = (long)row * (long)w + (long)col;
+    const long full = p - 8192 + (((long)stored - p + 8192) & 16383);
+    if (full < 0 || (u64)full >= n) return stored;
+    *how = 1;
+    return (DWORD)full;
+}
+// the world manager: origin x / z at +0xB4 / +0xB8 (Atlas docs/010; read only on graphs above 16,384 chunks)
+static const u8* const* g_pfWorldMgr = (const u8* const*)(uintptr_t)TS3A(0x011ECBC4);
+static volatile LONG g_pfRebuilt, g_pfFallback;
+// portal: id at +0x4C, world position x / z at +0x50 / +0x54
+static DWORD PfPortalChunk(const u8* world, const u8* portal, DWORD id) {
+    const DWORD w = *(const DWORD*)(world + 0x54), h = *(const DWORD*)(world + 0x58);
+    if ((u64)w * h <= 16384) return id & 0x3FFF;
+    int how = 2;
+    DWORD full = id & 0x3FFF;
+    const float x = *(const float*)(portal + 0x50), z = *(const float*)(portal + 0x54);
+    const u8* wm = *g_pfWorldMgr;
+    if (wm) full = PfFullChunk(id, x, z, *(const float*)(wm + 0xB4), *(const float*)(wm + 0xB8), w, h, &how);
+    if (how == 1) {
+        if (InterlockedIncrement(&g_pfRebuilt) == 1)
+            Log("ea fix: PortalFlagRefs: routing graph %lu x %lu chunks: lot portal chunks are rebuilt from the stored 14 bits and the portal position (docs/362)", w, h);
+    } else if (how == 2 && InterlockedIncrement(&g_pfFallback) <= 8)
+        Log("ea fix: PortalFlagRefs: lot portal id 0x%08lX at (%g, %g): chunk not rebuilt, the stored 14 bits are used (graph %lu x %lu chunks%s)", id, x, z, w, h,
+            wm ? "" : ", no world manager");
+    return full;
+}
+// the portal's chunk when its pair is a waypoint of R, else -1
+static LONG __stdcall PfIdChunk(const u8* world, const u8* portal) {
+    const DWORD id = *(const DWORD*)(portal + 0x4C);
+    const DWORD chunk = PfPortalChunk(world, portal, id);
+    return PfOk(world, chunk, (id >> 14) & 0x3FF, id, 1) ? (LONG)chunk : -1;
+}
 static LONG __stdcall PfPairOk(const u8* world, DWORD chunk, DWORD wp) { return PfOk(world, chunk, wp, 0, 2); }
 
-// Writer 1 (0x82A1CF): ecx = the portal's id, esi = the world; eax and edx are written next. Skip = the next portal.
+// Writer 1 (0x82A1CF): ecx = the portal's id ([portal+0x4C], loaded at 0x82A1CC), [edi] = the portal, esi = the world;
+// eax and edx are written next (eax = R's chunk offsets, edx = the chunk). Skip = the next portal.
 static __declspec(naked) void PfStub1() {
     __asm {
-        push eax
         push ecx
-        push edx
-        push ecx
+        push dword ptr [edi]
         push esi
-        call PfIdOk
-        test eax, eax
-        pop edx
+        call PfIdChunk
         pop ecx
-        pop eax
-        jz skip
+        cmp eax, -1
+        je skip
+        mov edx, eax
         mov eax, [esi + 0x5C]
-        mov edx, ecx
-        and edx, 0x3FFF
         jmp dword ptr [g_pf1Back]
     skip:
         jmp dword ptr [g_pf1Skip]

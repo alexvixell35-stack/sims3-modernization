@@ -1,0 +1,352 @@
+{
+  "note": "atlas-rebase-strip-compare-1127: Boundless Atlas docs/022 §8.8.16 R-9 live comparison (one-way slide plus strip build equals the world loaded at the shifted origin, hashes per structure), boundless-atlas feature/rebase-terrain-slide-1127 7174381 (Atlas 0.3.15 + R-8 + R-9 grid half, rebase=8). Job 1 window half on the generated set AtlasStripSet, job 2 reference half on AtlasStrip_8192.world; then node tools/strip-compare.ts <job 1 atlas.log> <job 2 atlas.log>. Needs queue key extraAsi, game-copy/atlas-r9b-1127/atlas.asi (sha256 pinned), game-copy/mod-sets/atlas-r9-1127, AtlasStrip_8192.world and the AtlasStripSet set plus strip pack installed (see job 1 note). Dry run validated only; not run (written 2026-11-27).",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^\\[Rewind\\] Park on: ": {
+      "match": [
+        "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+      ],
+      "noMatch": [
+        "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)",
+        "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
+      ]
+    },
+    "^atlas 0\\.3\\.15 .*\\brebase=8\\b": {
+      "match": [
+        "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=8 oop=0 seed=0"
+      ],
+      "noMatch": [
+        "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=6 oop=0 seed=0"
+      ]
+    },
+    "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
+      "match": [
+        "atlas:icalls ready 3: groups 0x03FE"
+      ],
+      "noMatch": [
+        "atlas:icalls ready 1: groups 0x03FE",
+        "atlas:icalls ready 3: groups 0x3FE"
+      ]
+    },
+    "^atlas:icalls rebase SKIP ": {
+      "match": [
+        "atlas:icalls rebase SKIP no script domain in 600 s (host 0x00000000): 9 internal calls not registered"
+      ],
+      "noMatch": [
+        "atlas:icalls rebase: 9 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ]
+    },
+    "^atlas:rebase (FAULT|ERROR|DAMAGED) ": {
+      "match": [
+        "atlas:rebase FAULT in pass O"
+      ],
+      "noMatch": [
+        "atlas:rebase gate out: 1.00 ms, frames 2, slices 1"
+      ]
+    },
+    "^atlas:rebase (SKIP|off) ": {
+      "match": [
+        "atlas:rebase SKIP shape 0x66CE10",
+        "atlas:rebase off (Enable=0)"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 4, shape 77/77, 9 internal calls registered"
+      ]
+    },
+    "^atlas:rebase (hub: )?RESULT FAIL ": {
+      "match": [
+        "atlas:rebase RESULT FAIL roundtrip step (-32, 0)",
+        "atlas:rebase hub: RESULT FAIL fault (damaged)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 9"
+      ]
+    },
+    "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:rebase self-check: PASS (307 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:rebase self-check: FAIL (307 checks, 4 failed)"
+      ]
+    },
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^OK   ea fix: PortalFlagRefs ": {
+      "match": [
+        "OK   ea fix: PortalFlagRefs (docs/67 §30.5): lot portal blocked-flag writes through pairs outside R are skipped (0x0082A1CF, 0x0082B6B1)"
+      ],
+      "noMatch": [
+        "SKIP ea fix: PortalFlagRefs: bytes at 0x0082A1CF / 0x0082B6B1 differ (another mod or a probe build owns them): not installed",
+        "OK   ea fix: WorldAStarRefs (docs/67 §30): world A* neighbours outside the routing graph are skipped (0x00676F2A)"
+      ]
+    },
+    "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": {
+      "match": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack D:\\g\\ts3native\\atlas\\sets\\AtlasStripSet\\AtlasStripSet.strip.package; StripProve=1 (test only: one-way slides with a ready strip pack pass the unmapped list)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 11/12 match, first mismatch: cell dtor; strip pack D:\\g\\x.strip.package; StripProve=1 (x)",
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=0 (x)"
+      ]
+    },
+    "^atlas:rebase R-9 strip pack: .*AtlasStripSet\\.strip\\.package registered, priority -2000 ": {
+      "match": [
+        "atlas:rebase R-9 strip pack: D:\\g\\AtlasStripSet.strip.package registered, priority -2000 (adds 1, drops 0, failures 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 strip pack: D:\\g\\AtlasStripSet.strip.package not registered (open failed): entered strips refuse r9-no-source"
+      ]
+    },
+    "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 8 cells, sources 24/24, lots in the leaving strip 0 \\(paged shells \\d+\\): ready$": {
+      "match": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells, sources 24/24, lots in the leaving strip 0 (paged shells 0): ready"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells (first source (2048, 0)), sources 0/24, lots in the leaving strip 0 (paged shells 0)"
+      ]
+    },
+    "^atlas:rebase R-9 grid: region \\(1, 0\\) .*AtlasStripSet_r01_00\\.world: header version \\d+, scratch TerrainData loaded$": {
+      "match": [
+        "atlas:rebase R-9 grid: region (1, 0) D:\\g\\InstalledWorlds\\AtlasStripSet_r01_00.world: header version 11, scratch TerrainData loaded"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 grid: region (1, 0) D:\\g\\InstalledWorlds\\AtlasStripSet_r01_00.world: header version 11, scratch TerrainData FAILED"
+      ]
+    },
+    "^atlas:rebase R-9 grid: 1 regions, type map 32768 blocks \\(\\d+ detail blocks reused\\), blend tiles swapped$": {
+      "match": [
+        "atlas:rebase R-9 grid: 1 regions, type map 32768 blocks (120 detail blocks reused), blend tiles swapped"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 grid: region (1, 0) r9-grid-quant"
+      ]
+    },
+    "^atlas:rebase R-9 step: 8 cells built, 0 differ from the plan$": {
+      "match": [
+        "atlas:rebase R-9 step: 8 cells built, 0 differ from the plan"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 step: 8 cells built, 1 differ from the plan: FAIL (rollback rebuilds the cells that wrapped in)"
+      ]
+    },
+    "^atlas:rebase R-9 hash strip [a-z-]+ cells 8: [0-9A-F]{8}$": {
+      "match": [
+        "atlas:rebase R-9 hash strip type-map cells 8: 0A1B2C3D"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 hash ref type-map cells 8: 0A1B2C3D",
+        "atlas:rebase R-9 hash strip type-map cells 8: 0a1b2c3d"
+      ]
+    },
+    "^atlas:rebase RESULT PASS slide": {
+      "match": [
+        "atlas:rebase RESULT PASS slide step (-256, 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: terrain entered strip"
+      ]
+    },
+    "^atlas:rebase R-9 (REFUSED|ERROR|FAIL) ": {
+      "match": [
+        "atlas:rebase R-9 REFUSED r9-grid-quant: grid half not moved, no cell built (step FAIL, rollback)",
+        "atlas:rebase R-9 FAIL strip step"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells, sources 24/24, lots in the leaving strip 0 (paged shells 0): ready"
+      ]
+    },
+    "^atlas:rebase R-9 grid: .*FAILED$": {
+      "match": [
+        "atlas:rebase R-9 grid: region (1, 0) x.world: header version 0, scratch TerrainData FAILED"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 grid: region (1, 0) x.world: header version 11, scratch TerrainData loaded"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED ": {
+      "match": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: x"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS slide step (-256, 0)"
+      ]
+    },
+    "^atlas:rebase R-9 hash ref [a-z-]+ cells 8: [0-9A-F]{8}$": {
+      "match": [
+        "atlas:rebase R-9 hash ref blend cells 8: 0A1B2C3D"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 hash ref blend cells 7: 0A1B2C3D",
+        "atlas:rebase R-9 hash strip blend cells 8: 0A1B2C3D"
+      ]
+    },
+    "^atlas:rebase R-9 striphash \\[2048, 2304\\) x \\[0, 2048\\) minus \\(256, 0\\): 8$": {
+      "match": [
+        "atlas:rebase R-9 striphash [2048, 2304) x [0, 2048) minus (256, 0): 8"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 striphash [2048, 2304) x [0, 2048) minus (256, 0): -1"
+      ]
+    },
+    "^atlas:rebase hub: RESULT CHECKED rebase striphash: 8 cells hashed; nothing written$": {
+      "match": [
+        "atlas:rebase hub: RESULT CHECKED rebase striphash: 8 cells hashed; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT CHECKED rebase striphash: refused -1; nothing written"
+      ]
+    },
+    "^atlas:rebase R-9 hash ref: ": {
+      "match": [
+        "atlas:rebase R-9 hash ref: no terrain cell owner (R-7 CellKeys=1 needed)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 hash ref blend cells 8: 0A1B2C3D"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-rebase-r9-compare-window",
+      "note": "[est 20 min] Atlas docs/022 §8.8.16 R-9 live comparison, window half, on AtlasStripSet.world (2048 m main world of the generated set): rebase slidecheck -256 0, then the real one-way rebase slide -256 0 with [Rebase] StripPack=AtlasStripSet StripProve=1 (test only). Pass: strip pack registered, two R-9 plans ready, region (1, 0) loaded into a scratch TerrainData, grid moved, 8 cells built with 0 differences, seven hash lines, the slide passes. Then: node tools/strip-compare.ts <this atlas.log> <atlas-rebase-r9-compare-ref atlas.log> must say RESULT equal. Depends on: AtlasStrip_8192.world installed; node tools/world-regions.ts split <AtlasStrip_8192.world> --set AtlasStripSet --root <game folder>; node tools/strip-pack.ts pack <game folder>/ts3native/atlas/sets/AtlasStripSet/AtlasStripSet.atlas.json (boundless-atlas). No household, no save.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-r9-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-terrain-slide-1127 7174381 (Atlas 0.3.15 + R-8 + R-9 grid half, rebase=8), game-copy/atlas-r9b-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-r9-1127 ('rebase striphash').",
+      "save": "menu",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-r9b-1127/atlas.asi",
+        "sha256": "d84e9736de41fce80f10a0e7296ba78938fac3ae1905aac0d6c997d68140772d",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 0,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 1,
+          "Rebase.StripBuild": 1,
+          "Rebase.StripPack": "AtlasStripSet",
+          "Rebase.StripProve": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 .*\\brebase=8\\b": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": 1,
+          "^atlas:rebase R-9 strip pack: .*AtlasStripSet\\.strip\\.package registered, priority -2000 ": 1,
+          "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 8 cells, sources 24/24, lots in the leaving strip 0 \\(paged shells \\d+\\): ready$": 2,
+          "^atlas:rebase R-9 grid: region \\(1, 0\\) .*AtlasStripSet_r01_00\\.world: header version \\d+, scratch TerrainData loaded$": 1,
+          "^atlas:rebase R-9 grid: 1 regions, type map 32768 blocks \\(\\d+ detail blocks reused\\), blend tiles swapped$": 1,
+          "^atlas:rebase R-9 step: 8 cells built, 0 differ from the plan$": 1,
+          "^atlas:rebase R-9 hash strip [a-z-]+ cells 8: [0-9A-F]{8}$": 7,
+          "^atlas:rebase RESULT PASS slide": 1
+        },
+        "logForbid": {
+          "^atlas:rebase R-9 (REFUSED|ERROR|FAIL) ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase R-9 grid: .*FAILED$": 0,
+          "^atlas:rebase RESULT REFUSED ": 0,
+          "^atlas:icalls rebase SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-rebase-r9-compare-window"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    },
+    {
+      "id": "atlas-rebase-r9-compare-ref",
+      "note": "[est 15 min] Atlas docs/022 §8.8.16 R-9 live comparison, reference half: AtlasStrip_8192.world loaded whole (W8192 patches as atlas-rebase-r9-strip-8192), rebase striphash 2048 0 2304 2048 256 0, read-only. Pass: seven R-9 hash ref lines over 8 cells. Compare with the window job by tools/strip-compare.ts. No household, no save.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-r9-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1,
+        "EaCrashFixes.PortalFlagRefs": 0
+      },
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-terrain-slide-1127 7174381 (Atlas 0.3.15 + R-8 + R-9 grid half, rebase=8), game-copy/atlas-r9b-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-r9-1127 ('rebase striphash').",
+      "save": "menu",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-r9b-1127/atlas.asi",
+        "sha256": "d84e9736de41fce80f10a0e7296ba78938fac3ae1905aac0d6c997d68140772d",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 0,
+          "Rebase.CellKeys": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 .*\\brebase=8\\b": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase R-9 hash ref [a-z-]+ cells 8: [0-9A-F]{8}$": 7,
+          "^atlas:rebase R-9 striphash \\[2048, 2304\\) x \\[0, 2048\\) minus \\(256, 0\\): 8$": 1,
+          "^atlas:rebase hub: RESULT CHECKED rebase striphash: 8 cells hashed; nothing written$": 1
+        },
+        "logForbid": {
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase R-9 hash ref: ": 0,
+          "^atlas:icalls rebase SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-rebase-r9-compare-ref"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: PortalFlagRefs ": 0
+      }
+    }
+  ]
+}

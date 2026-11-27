@@ -1,0 +1,314 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farmodel-bands-1123-rerun1-1126 (2026-11-26): rerun of farmodel-bands-1123-m1123 (bands-1126: smoke FAIL twice, lots 0 (household 0, pushes 0) because PushViewersDelta never called PushLots since 73bada462, bugfix/nonsim-lot-push-delta-1126). Repinned to master set m1126b (0.36.306-m1126b asi + ini) with ts3fixes.package.nslot1 (m1126b source + the lot push fix) and agent ts3agent.package.m1126 (agent of sets m1126/m1126b). Purpose unchanged: docs/332 ME-1 band edges for docs/322 §4 / docs/324 / docs/331. [previous] farmodel-bands-1123-m1123 (2026-11-23): farmodel-bands-1123 repinned to master set m1123 (0.36.299-m1123; asi + ini + ts3fixes from game-copy/*.m1123, agent installed by probe-out/queue/chain-m1123.sh). [previous] farmodel-bands-1123 (docs/332 ME-1, WRITTEN, no new build; correctness + attribution, not timing; any machine): rerun of nonsim-split-1122 (docs/329) on the same nsplit1 set with [UnseenProbe] Bands=150,200,300,450,1000 (6 bands: <150, 150-200, 200-300, 300-450, 450-1000, >=1000 m) = the far-Sim tier edges of docs/324 §1.3 (T1 150, T1->T2 200, per-world T3 candidate ~300, T3 450) and the far-object park edges of docs/331 §1.3 (L1 150, L3 200). Answers: NPC ms/s and Sims per tier band (docs/324 P1 band rerun, decision 1: T3 at 300 or 450 m per world) and non-Sim far-lot ms/s past 200 m (docs/331 §2.1 at the park edge). The tool-cost job is dropped (measured in docs/329). Job 1 smoke (BP 3 min, stops the queue on fail), then BP / IP / SV 10 min, seed 12345, -disablestoryprogression (as docs/329). Bin state apex (Apex latest + RTX Remix bridge, snapshot -> state apex -> restore) via probe-out/queue/chain-farmodel-bands-1123.sh, queue.ts run from the nonsim-split-1122 worktree (its builds.json and agent). Household untouched: measurement only, read-only hooks, household + selected + unknown scope in their own row. Read: cd .claude/worktrees/nonsim-split-1122 && node tools/harness/unseen-band-report.ts <native.json> and node tools/harness/nonsim-split-report.ts.",
+  "rewind": "off",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-farmodel-bands-smoke",
+      "note": "[est 9 min] docs/332 ME-1 (far-model band edges 150/200/300/450/1000 m = docs/324 T1/T2/T3-calibration/T3 and docs/331 L2/L3 edges):  SMOKE (measurement proof, stops the queue on fail): BP 3 min, release defaults + [HitchAttr] Enabled=1 + [UnseenProbe] Enabled=1 Bands=150,200,300,450,1000 + [AnimPhase] Enabled=1 Split=1 + [Diag] TaskSeam=1 + [Diag] NonSimSplit=1 (docs/329: owner per task run and band per object / lot, household actors, lots and their objects in the hh row), stutter profiler + both stack samplers (managed minutes 1-4, native 5-8). Measurement only: every hook calls EA with the same arguments, nothing in a Sim, lot or save changes (household untouched by construction: read-only, seed 12345 as sim-budget-m1122). Pass: version + every switch read back (HitchAttr, bands edges, task seam, anim split, nonsim OK line with bands), a nonsim dump with runs, owners, a lot table with a household lot and Sim-held (simdrv) nodes, Apex + bridge lines, 0 script errors, ub* counters moved. Then check by hand that nonsim-split-report.ts prints the owner table and class totals.Read: node tools/harness/nonsim-split-report.ts (from the lane worktree: owner x band x class table, far-lot removable ms/s, docs/329).",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] master set m1126b (0.36.306-m1126b) + ts3fixes.package.nslot1 (lot table on the viewerpushdelta path), repinned 2026-11-26 from m1123",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "timeoutMin": 20,
+      "stopQueueOnFail": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenProbe.Enabled": 1,
+        "UnseenProbe.Bands": "150,200,300,450,1000",
+        "AnimPhase.Enabled": 1,
+        "AnimPhase.Split": 1,
+        "Diag.TaskSeam": 1,
+        "Diag.NonSimSplit": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3
+        }
+      },
+      "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   unseen bands \\(docs/322\\): edges 150,200,300,450,1000 m \\(6 bands": 1,
+        "^unseen bands: ready 0x7[37BF], ": 1,
+        "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+        "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^OK   HitchAttr: sim waits for the route job per frame": 1,
+        "^OK   nonsim split \\(\\[Diag\\] NonSimSplit=1, docs/329\\): .*\\(\\[UnseenProbe\\] Bands\\)": 1,
+        "^nonsim split: \\d+ s, runs [1-9]\\d*, owners [1-9]\\d* .*lots [1-9]\\d* \\(household [1-9].*simdrv nodes [1-9]": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam|nonsim split)": 0
+      }
+    },
+    {
+      "id": "bp-farmodel-bands",
+      "note": "[est 15 min] docs/332 ME-1 (far-model band edges 150/200/300/450/1000 m = docs/324 T1/T2/T3-calibration/T3 and docs/331 L2/L3 edges):  BP 10 min natural play (profile seed 12345, no forced actions), release defaults + [HitchAttr] Enabled=1 + [UnseenProbe] Enabled=1 Bands=150,200,300,450,1000 + [AnimPhase] Enabled=1 Split=1 + [Diag] TaskSeam=1 + [Diag] NonSimSplit=1 (docs/329: owner per task run and band per object / lot, household actors, lots and their objects in the hh row), stutter profiler + both stack samplers (managed minutes 1-4, native 5-8). Measurement only: every hook calls EA with the same arguments, nothing in a Sim, lot or save changes (household untouched by construction: read-only, seed 12345 as sim-budget-m1122). Pass: version + every switch read back (HitchAttr, bands edges, task seam, anim split, nonsim OK line with bands), a nonsim dump with runs, owners, a lot table with a household lot and Sim-held (simdrv) nodes, Apex + bridge lines, 0 script errors, ub* counters moved. Attribution shares with heavy tools on, not a timing verdict. Read: node tools/harness/nonsim-split-report.ts (from the lane worktree: owner x band x class table, far-lot removable ms/s, docs/329).",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] master set m1126b (0.36.306-m1126b) + ts3fixes.package.nslot1 (lot table on the viewerpushdelta path), repinned 2026-11-26 from m1123",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": true,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenProbe.Enabled": 1,
+        "UnseenProbe.Bands": "150,200,300,450,1000",
+        "AnimPhase.Enabled": 1,
+        "AnimPhase.Split": 1,
+        "Diag.TaskSeam": 1,
+        "Diag.NonSimSplit": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   unseen bands \\(docs/322\\): edges 150,200,300,450,1000 m \\(6 bands": 1,
+        "^unseen bands: ready 0x7[37BF], ": 1,
+        "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+        "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^OK   HitchAttr: sim waits for the route job per frame": 1,
+        "^OK   nonsim split \\(\\[Diag\\] NonSimSplit=1, docs/329\\): .*\\(\\[UnseenProbe\\] Bands\\)": 1,
+        "^nonsim split: \\d+ s, runs [1-9]\\d*, owners [1-9]\\d* .*lots [1-9]\\d* \\(household [1-9].*simdrv nodes [1-9]": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam|nonsim split)": 0
+      }
+    },
+    {
+      "id": "ip-farmodel-bands",
+      "note": "[est 15 min] docs/332 ME-1 (far-model band edges 150/200/300/450/1000 m = docs/324 T1/T2/T3-calibration/T3 and docs/331 L2/L3 edges):  IP 10 min natural play (profile seed 12345, no forced actions), release defaults + [HitchAttr] Enabled=1 + [UnseenProbe] Enabled=1 Bands=150,200,300,450,1000 + [AnimPhase] Enabled=1 Split=1 + [Diag] TaskSeam=1 + [Diag] NonSimSplit=1 (docs/329: owner per task run and band per object / lot, household actors, lots and their objects in the hh row), stutter profiler + both stack samplers (managed minutes 1-4, native 5-8). Measurement only: every hook calls EA with the same arguments, nothing in a Sim, lot or save changes (household untouched by construction: read-only, seed 12345 as sim-budget-m1122). Pass: version + every switch read back (HitchAttr, bands edges, task seam, anim split, nonsim OK line with bands), a nonsim dump with runs, owners, a lot table with a household lot and Sim-held (simdrv) nodes, Apex + bridge lines, 0 script errors, ub* counters moved. Attribution shares with heavy tools on, not a timing verdict. Read: node tools/harness/nonsim-split-report.ts (from the lane worktree: owner x band x class table, far-lot removable ms/s, docs/329).",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] master set m1126b (0.36.306-m1126b) + ts3fixes.package.nslot1 (lot table on the viewerpushdelta path), repinned 2026-11-26 from m1123",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": true,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenProbe.Enabled": 1,
+        "UnseenProbe.Bands": "150,200,300,450,1000",
+        "AnimPhase.Enabled": 1,
+        "AnimPhase.Split": 1,
+        "Diag.TaskSeam": 1,
+        "Diag.NonSimSplit": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   unseen bands \\(docs/322\\): edges 150,200,300,450,1000 m \\(6 bands": 1,
+        "^unseen bands: ready 0x7[37BF], ": 1,
+        "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+        "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^OK   HitchAttr: sim waits for the route job per frame": 1,
+        "^OK   nonsim split \\(\\[Diag\\] NonSimSplit=1, docs/329\\): .*\\(\\[UnseenProbe\\] Bands\\)": 1,
+        "^nonsim split: \\d+ s, runs [1-9]\\d*, owners [1-9]\\d* .*lots [1-9]\\d* \\(household [1-9].*simdrv nodes [1-9]": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam|nonsim split)": 0
+      }
+    },
+    {
+      "id": "sv-farmodel-bands",
+      "note": "[est 15 min] docs/332 ME-1 (far-model band edges 150/200/300/450/1000 m = docs/324 T1/T2/T3-calibration/T3 and docs/331 L2/L3 edges):  SV 10 min natural play (profile seed 12345, no forced actions), release defaults + [HitchAttr] Enabled=1 + [UnseenProbe] Enabled=1 Bands=150,200,300,450,1000 + [AnimPhase] Enabled=1 Split=1 + [Diag] TaskSeam=1 + [Diag] NonSimSplit=1 (docs/329: owner per task run and band per object / lot, household actors, lots and their objects in the hh row), stutter profiler + both stack samplers (managed minutes 1-4, native 5-8). Measurement only: every hook calls EA with the same arguments, nothing in a Sim, lot or save changes (household untouched by construction: read-only, seed 12345 as sim-budget-m1122). Pass: version + every switch read back (HitchAttr, bands edges, task seam, anim split, nonsim OK line with bands), a nonsim dump with runs, owners, a lot table with a household lot and Sim-held (simdrv) nodes, Apex + bridge lines, 0 script errors, ub* counters moved. Attribution shares with heavy tools on, not a timing verdict. Read: node tools/harness/nonsim-split-report.ts (from the lane worktree: owner x band x class table, far-lot removable ms/s, docs/329).",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] master set m1126b (0.36.306-m1126b) + ts3fixes.package.nslot1 (lot table on the viewerpushdelta path), repinned 2026-11-26 from m1123",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": true,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenProbe.Enabled": 1,
+        "UnseenProbe.Bands": "150,200,300,450,1000",
+        "AnimPhase.Enabled": 1,
+        "AnimPhase.Split": 1,
+        "Diag.TaskSeam": 1,
+        "Diag.NonSimSplit": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   unseen bands \\(docs/322\\): edges 150,200,300,450,1000 m \\(6 bands": 1,
+        "^unseen bands: ready 0x7[37BF], ": 1,
+        "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+        "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^OK   HitchAttr: sim waits for the route job per frame": 1,
+        "^OK   nonsim split \\(\\[Diag\\] NonSimSplit=1, docs/329\\): .*\\(\\[UnseenProbe\\] Bands\\)": 1,
+        "^nonsim split: \\d+ s, runs [1-9]\\d*, owners [1-9]\\d* .*lots [1-9]\\d* \\(household [1-9].*simdrv nodes [1-9]": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam|nonsim split)": 0
+      }
+    }
+  ],
+  "regexCases": {
+    "^OK   unseen bands \\(docs/322\\): edges 150,200,300,450,1000 m \\(6 bands": {
+      "match": [
+        "OK   unseen bands (docs/322): edges 150,200,300,450,1000 m (6 bands + household + no position), nearest of camera target / position and household Sims; sites locomotion, waits, footprint, plans, pose ([AnimPhase] Split), Sim tasks + autonomy ([Diag] TaskSeam); a minute line each"
+      ],
+      "noMatch": [
+        "OK   unseen bands (docs/322): edges 50,150,400,1000 m (5 bands + household + no position), nearest of camera target / position and household Sims",
+        "FAIL unseen bands: [UnseenProbe] Bands=150,50 is not 1-6 ascending whole metres, off"
+      ]
+    },
+    "^unseen bands: ready 0x7[37BF], ": {
+      "match": [
+        "unseen bands: ready 0x7F, passes 9000, Sim agent updates b0 1 b1 2 b2 3 b3 4 b4 5 hh 6 none 0; autonomy actors named 40, runs with none 1, camera-only asks 0",
+        "unseen bands: ready 0x73, passes 1"
+      ],
+      "noMatch": [
+        "unseen bands: ready 0x1F, passes 9000",
+        "unseen bands: ready 0x6B, passes 9000",
+        "unseen bands: ready 0x3, passes 1",
+        "unseen bands loco (n/ms per band, docs/322): b0 1/0"
+      ]
+    },
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": {
+      "match": [
+        "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites + 2 invoke sites, per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+      ],
+      "noMatch": [
+        "task seam off ([Diag] TaskSeam=0)"
+      ]
+    },
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": {
+      "match": [
+        "OK   anim split (docs/22 §6.1): anxReady 1007 (pose sites on, clip sites on, 0x571C3C behind [UnseenAnim], locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)"
+      ],
+      "noMatch": [
+        "FAIL anim split (docs/22 §6.1): anxReady 1006 (pose sites off, clip sites on)"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^OK   HitchAttr: sim waits for the route job per frame": {
+      "match": [
+        "OK   HitchAttr: sim waits for the route job per frame (ts3native_hitchattr, read by stutter-profile.js)"
+      ],
+      "noMatch": [
+        "OK   HitchAttr JobNameMs=300: \"rtjob wait:\" lines for sim waits on the running route job",
+        "HitchAttr off"
+      ]
+    },
+    "^OK   nonsim split \\(\\[Diag\\] NonSimSplit=1, docs/329\\): .*\\(\\[UnseenProbe\\] Bands\\)": {
+      "match": [
+        "OK   nonsim split ([Diag] NonSimSplit=1, docs/329): owner per task run (class / delegate / invoked object), band per object ([UnseenProbe] Bands); household actors, household lots and their objects in the hh row; a dump in this log every 60 s"
+      ],
+      "noMatch": [
+        "OK   nonsim split ([Diag] NonSimSplit=1, docs/329): owner per task run (class / delegate / invoked object), band per object (no [UnseenProbe] Bands: rows none / glob only); household actors",
+        "nonsim split off ([Diag] NonSimSplit=0)"
+      ]
+    },
+    "^nonsim split: \\d+ s, runs [1-9]\\d*, owners [1-9]\\d* .*lots [1-9]\\d* \\(household [1-9].*simdrv nodes [1-9]": {
+      "match": [
+        "nonsim split: 600 s, runs 1340000, owners 913 (full 0), unresolved 0 ms, no slot 0 ms, lots 120 (household 1, pushes 30, bad 0), locates 50000, simdrv nodes 60, edges 4, self 150 ns per run; rows us = bands 0-6, hh, none, glob (docs/329)"
+      ],
+      "noMatch": [
+        "nonsim split: 60 s, runs 0, owners 0 (full 0), unresolved 0 ms, no slot 0 ms, lots 0 (household 0, pushes 0, bad 0), locates 0, simdrv nodes 0, edges 4, self 0 ns per run; rows us",
+        "nonsim split: 600 s, runs 1340000, owners 913 (full 0), unresolved 0 ms, no slot 0 ms, lots 120 (household 0, pushes 30, bad 0), locates 50000, simdrv nodes 60, edges 4",
+        "nonsim split: 600 s, runs 9, owners 9 (full 0), unresolved 0 ms, no slot 0 ms, lots 120 (household 1, pushes 3, bad 0), locates 5, simdrv nodes 0, edges 4",
+        "nonsim split: 213 s, runs 1394525, owners 927 (full 0), unresolved 0 ms, no slot 0 ms, lots 0 (household 0, pushes 0, bad 0), locates 291594, simdrv nodes 130, edges 5, self 383 ns per run; rows us = bands 0-6, hh, none, glob (docs/329)"
+      ]
+    },
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam|nonsim split)": {
+      "match": [
+        "SKIP nonsim split ([Diag] NonSimSplit=1): needs [Diag] TaskSeam=1 (its task-run seam), off",
+        "FAIL unseen bands: [UnseenProbe] Bands=150,50 is not 1-6 ascending whole metres, off",
+        "SKIP task seam ([Diag] TaskSeam): no verified addresses for this exe"
+      ],
+      "noMatch": [
+        "OK   nonsim split ([Diag] NonSimSplit=1, docs/329): owner",
+        "nonsim split off ([Diag] NonSimSplit=0)"
+      ]
+    },
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 07:55:29"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.299-m1123 2026-11-26 17:34:43",
+        "ts3native 0.36.306-m1126 2026-11-26 07:26:08",
+        "ts3native 0.36.306-m1126bx 2026-11-26 07:55:29"
+      ]
+    }
+  }
+}

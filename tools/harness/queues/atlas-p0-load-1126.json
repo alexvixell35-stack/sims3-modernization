@@ -1,0 +1,181 @@
+{
+  "note": "atlas-p0-load-1126: Boundless Atlas package P0 (boundless-atlas docs/008 §4; Rodney 2026-11-26 lifted the no-large-world-loads rule for these three loads). Run 1 used empty worlds (no lots): the 2048 control loaded the world file but never left the loading screen; the same with the menu dialog handled first (run 4) and with the unchanged lot-free template; cause not named yet (Atlas docs/010). This queue therefore loads THIN worlds: shipped Sunset Valley with its lots in the origin quadrant, the grown area flat and empty. Correctness / discovery, no timing claim; the load time is one sample. Bin state apex (tools/turbo-compat.ts snapshot -> state apex -> restore). PREP (game closed): in boundless-atlas `node tools/world-empty.ts build \"<s3m>/game-copy/worlds/Sunset Valley.world\" <s3m>/game-copy/worlds/p0/AtlasP0thin_<size>.world --size <size> --thin` for 2048, 4096, 8192; `native/atlas/build.cmd`, copy out/atlas.asi to <s3m>/game-copy/atlas-main3/atlas.asi; back up <Documents>/Electronic Arts/The Sims 3; `node tools/world-gen.ts install game-copy/worlds/p0/AtlasP0thin_<size>.world` (copies to <Documents>/.../InstalledWorlds; nothing goes into the game install except the per-job atlas.asi + atlas.ini that queue.ts removes again). AFTER: `node tools/world-gen.ts install <each> --uninstall`. Each job: menu -> load_world (LiveMode) -> in_world -> ~2 min of camera poses (origin quadrant, far corner, far x and z edges) -> quit. Read from the job log: load step time, \"memory\" lines (commit / private / largest free MB per step), script errors (scriptErrorsMax 0), crash / hang capture. Read-backs: ts3native version line; atlas.log version line, the physics root line (off for 2048 and 4096, 4096 -> 8192 with read back 0x46000000 for 8192) and the scene quadtree line (2048 depth 6 without the key, 4096 depth 7, 8192 depth 8). Kill criteria (docs/008): a load failure two triage rounds cannot name, or largest free under ~1.2 GB after the load. Job 1 is the control: a FAIL there is the generator, the install path or the harness, not size. REPINNED 2026-11-26 to the master set m1126b (was m1124d / m1124f) with atlas.asi 0.1.1-p0, bytes pinned. The thin 4096 / 8192 worlds still crash until the generator writes the missing terrain cell records (Atlas docs/017 §2); the CAW-made worlds are in queue atlas-p0-caw-1126. Read-backs added 2026-11-26 (rule review): queue.ts logs each merged Default.ini key as read back from the file; atlas.asi 0.1.1-p0 logs the scene quadtree the renderer built (root size and depth; its pointer chain is [inferred], Atlas docs/017 §5, so a miss on that one line with everything else passing is the read-back, not the world).",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^atlas 0\\.3\\.9 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.9 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.8 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.9 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 built Nov 26 2026 13:07:33, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.2.2-p0 built Nov 26 2026 15:30:00, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^physics root: off \\(PhysicsRootM=0\\), 0x00FEFBCC holds 4096$": {
+      "match": [
+        "physics root: off (PhysicsRootM=0), 0x00FEFBCC holds 4096"
+      ],
+      "noMatch": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000",
+        "physics root: SKIP address not mapped (PhysicsRootM=8192)"
+      ]
+    },
+    "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000$": {
+      "match": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000"
+      ],
+      "noMatch": [
+        "physics root: off (PhysicsRootM=0), 0x00FEFBCC holds 4096",
+        "physics root: SKIP not the expected game image (reader 0x00000000, value 0, PhysicsRootM=8192)",
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x45800000"
+      ]
+    },
+    "^scene quadtree: root 2048 x \\d+ x 2048 m, depth 6$": {
+      "match": [
+        "scene quadtree: root 2048 x 1024 x 2048 m, depth 6"
+      ],
+      "noMatch": [
+        "scene quadtree: root 4096 x 1024 x 4096 m, depth 7",
+        "scene quadtree: SKIP scene manager not made in 300 s",
+        "scene quadtree: root 2048 x 1024 x 2048 m, depth 7"
+      ]
+    },
+    "^scene quadtree: root 4096 x \\d+ x 4096 m, depth 7$": {
+      "match": [
+        "scene quadtree: root 4096 x 1024 x 4096 m, depth 7"
+      ],
+      "noMatch": [
+        "scene quadtree: root 2048 x 1024 x 2048 m, depth 6",
+        "scene quadtree: SKIP not the expected game image",
+        "scene quadtree: root 4096 x 1024 x 2048 m, depth 7"
+      ]
+    },
+    "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": {
+      "match": [
+        "scene quadtree: root 8192 x 1024 x 8192 m, depth 8"
+      ],
+      "noMatch": [
+        "scene quadtree: root 4096 x 1024 x 4096 m, depth 7",
+        "scene quadtree: SKIP scene manager has no quadtree"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-p0-2048",
+      "note": "[est 10 min] Control: thin 2048 m world (Sunset Valley through the same generator, same size). atlas.asi loaded, switch off (physics root stays 4096), no Default.ini change. Pass: in_world, 2 min alive, no script error. Its load time and memory lines are the reference.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas 7c27eee, atlas 0.3.9): game-copy/atlas-main3/atlas.asi (sha256 b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10) and game-copy/mod-sets/atlas-main3 (atlas.package sha256 5780848d4d32c51d414ced432836d25dc55e36f0c42ab223008bbc1a1dbe523a); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.1.1-p0 (game-copy/atlas-main3/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main3/atlas.asi",
+        "sha256": "b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.9 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: off \\(PhysicsRootM=0\\), 0x00FEFBCC holds 4096$": 1,
+          "^scene quadtree: root 2048 x \\d+ x 2048 m, depth 6$": 1
+        }
+      },
+      "run": {
+        "repro": "atlas-p0-load-2048"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      }
+    },
+    {
+      "id": "atlas-p0-4096",
+      "note": "[est 12 min] 4096 m: fits without a code patch (Atlas docs/006). atlas.asi loaded, switch off; Default.ini SceneQuadTree=4096,512,7 (B5). Report load time and memory vs job 1.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas 7c27eee, atlas 0.3.9): game-copy/atlas-main3/atlas.asi (sha256 b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10) and game-copy/mod-sets/atlas-main3 (atlas.package sha256 5780848d4d32c51d414ced432836d25dc55e36f0c42ab223008bbc1a1dbe523a); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.1.1-p0 (game-copy/atlas-main3/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "defaultIni": {
+        "Config.SceneQuadTree": "4096,512,7"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main3/atlas.asi",
+        "sha256": "b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.9 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: off \\(PhysicsRootM=0\\), 0x00FEFBCC holds 4096$": 1,
+          "^scene quadtree: root 4096 x \\d+ x 4096 m, depth 7$": 1
+        }
+      },
+      "run": {
+        "repro": "atlas-p0-load-4096"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      }
+    },
+    {
+      "id": "atlas-p0-8192",
+      "note": "[est 15 min] 8192 m: atlas.asi PhysicsRootM=8192 (B1, in memory only) + Default.ini SceneQuadTree=8192,512,8 (B5). EA-format paint (first 65,536 tiles), R 256 x 256 chunks, waypoints only in chunks up to index 16,191. Kill criterion: largest free under ~1.2 GB after the load.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas 7c27eee, atlas 0.3.9): game-copy/atlas-main3/atlas.asi (sha256 b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10) and game-copy/mod-sets/atlas-main3 (atlas.package sha256 5780848d4d32c51d414ced432836d25dc55e36f0c42ab223008bbc1a1dbe523a); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.1.1-p0 (game-copy/atlas-main3/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main3/atlas.asi",
+        "sha256": "b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10",
+        "ini": {
+          "WorldSize.PhysicsRootM": 8192
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.9 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000$": 1,
+          "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": 1
+        }
+      },
+      "run": {
+        "repro": "atlas-p0-load-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      }
+    }
+  ]
+}

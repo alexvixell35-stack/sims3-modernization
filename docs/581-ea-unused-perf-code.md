@@ -94,6 +94,8 @@ may be unloaded when not needed [inferred]. Value for us: address space (the 32-
 popping back or a reload hitch when the camera swings). Test: one in-load A/B of address-space headroom with the key
 forced on (S3SS-style config override or SGR edit), plus a camera-sweep hitch repro.
 
+*Correction 2026-11-26 (Boundless Atlas `docs/021-s1-imposter-fog-camera.md` §5, §11 item 3): the key has a reader (`0xAD9F80`, `0xADA2B0`, third argument of `0x6F4860`). It is a load-mode switch (False: model loaded at once; True: load deferred), not a distance unload of the kind this section hoped for [verified code; that True lets the model leave when unseen is inferred].*
+
 ### 2.4 `CullUndergroundBuildBuyStructures` [verified key, inferred effect]
 
 Read in four places: `0xC0B4C0` and `0xC0E140` (copy into scene part `+0x352`), the constructor `0xC0EDB0` (same

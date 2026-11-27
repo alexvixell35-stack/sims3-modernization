@@ -422,6 +422,18 @@ function selfCheck(): void {
     const out = pretty.replace(re, '');
     assert.ok(!out.includes('gi' + 'f_') && out.includes('stove_wall_goto'), 'pretty gif steps removed, others kept');
     assert.equal(JSON.parse(out.replace(/,\s*]/g, ']')).length, 1, 'result is JSON');
+    // profile-world.ts gif block rule: matches with and without the reproSeq line before reproStep (4f2afb56a added it), not before other code
+    const pw = new RegExp(cfg.edits.find(e => e.file === 'tools/harness/profile-world.ts')!.replace[1][0], 'gm');
+    const blk = '// Repro GIF windows (x):\nconst gs = async () => {\n  return 1;\n};\n';
+    assert.equal((blk + 'let reproSeq = 0; // n\nconst reproStep = 1;\n').replace(pw, ''), 'let reproSeq = 0; // n\nconst reproStep = 1;\n', 'gif block before reproSeq removed');
+    assert.equal((blk + 'const reproStep = 1;\n').replace(pw, ''), 'const reproStep = 1;\n', 'gif block before reproStep removed');
+    assert.equal((blk + 'const other = 1;\n').replace(pw, ''), blk + 'const other = 1;\n', 'gif block before other code not matched');
+    for (const e of cfg.edits) { // every rule still matches its real file, so a stale rule fails here, not in a chain's publish step
+      const f = join(ROOT, e.file);
+      if (!existsSync(f)) continue;
+      const t = readFileSync(f, 'utf8');
+      for (const [r] of e.replace) assert.ok(new RegExp(r, 'm').test(t), `public-strip rule matches ${e.file}: /${r}/`);
+    }
   }
   assert.equal(leftovers(`${pc}`).length, 1, 'leftover found');
   assert.ok(!isText(Buffer.from([65, 0, 66])) && isText(Buffer.from('abc')), 'binary detection');

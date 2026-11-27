@@ -1,0 +1,450 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] atlas-8192-patches-1126: Boundless Atlas 8192 m in-memory patches (its docs/026; designs its docs/008 B1-B3, docs/010, docs/019), atlas.asi 0.2.1-w8192 with [World8192] Routing=1, PaintIndex=1, PhysicsRoot=1. NOT RUN: prepared 2026-11-26, other jobs had the game. DEPENDS ON feature/atlas-p0-load-1126 being merged first: the queue.ts key extraAsi with tools/harness/extra-asi.ts, the defaultIni read-back, the repro atlas-p0-load-2048 and the Bin restore in tools/turbo-compat.ts come from that branch; this branch (based on master) adds only this file and the repro atlas-8192-load-thinu-8192 (both branches append to repros.json: keep both entries at the merge). Dry-run 2026-11-26 on a throwaway merge of the two branches. Correctness / discovery, no timing claim. Bin state apex (tools/turbo-compat.ts snapshot -> state apex -> restore). PREP (game closed, all outside git): boundless-atlas native/atlas/build.cmd, copy out/atlas.asi to <s3m>/game-copy/atlas-main/atlas.asi and put its sha256 into every job when it was rebuilt (the pinned bytes are 0.2.1-w8192, the build of 2026-11-26 19:23:09 from Atlas fa2967b (rule-review fixes, Atlas docs/026 §10: routing stubs keep SSE / x87, site graphs, rollback, read-fail exits, v3 save guards), paged-lot probe included and off, self-check 210 of 210, p1 29 of 29); node tools/world-empty.ts build \"<s3m>/game-copy/worlds/Sunset Valley.world\" <s3m>/game-copy/worlds/p0/AtlasP0thinU_8192.world --size 8192 --thin --uniform-grid; back up <Documents>/Electronic Arts/The Sims 3; node tools/world-gen.ts install for AtlasP0thin_2048.world and AtlasP0thinU_8192.world. AFTER: the same with --uninstall. WORLD GATE: the 8192 m jobs wait until a generated or CAW-made world of that size loads at all (Atlas docs/014: the thin 8192 m world without the uniform grid crashed at 0xC2C1B5; the uniform-grid 4096 m load is job 3 of atlas-p0-caw-1126 on the P0 branch). Job 1 needs no large world and can run first. Read from each job log: the atlas.log lines (one per site: installed / skipped (reason)), the w8192 counters line, memory lines, script errors, crash / hang capture. Every job forbids in atlas.log (extraAsi.logForbid, from the P0 branch's queue.ts): a 'w8192 routing: fallback' line, FAILED, (PARTIAL), 'self-check: FAIL', READ-BACK DIFFERS and 'w8192: SKIP'; so an early counters line with fallback 0 cannot pass a job that falls back later. Every job keeps the mod's PortalFlagRefs rule (required in jobs 1-2, forbidden in 3-4). Jobs 1-3 do NOT prove a chunk above 16,383 read back (the thin world has waypoints only up to chunk 16,191) or a version-4 paint map; job 4 is for both. STRIP WORLD (job 4, added 2026-11-26, dry-run only, Atlas docs/026 §9): node tools/world-empty.ts build <s3m>/game-copy/worlds/p0/AtlasCawFlat_4096.world <s3m>/game-copy/worlds/p0/AtlasStrip_8192.world --size 8192 --strip (built 2026-11-26 19:04, 161,800,602 bytes, sha256 ca2fe15a64cd1961eeb78842caa39ae15a641cad6c77a64af1623b45c03cdc74; node tools/world-empty.ts check <file> --size 8192 --strip must print rules OK), then node tools/world-gen.ts install for it. It is the CAW-made flat 4096 m world (4 empty lots, no road, no Sim) grown to 8192 m: lots at (500, 3500) and (4000, 4000) sit in chunks 27,919 and 32,125, 3,973 of 6,998 waypoints are above chunk 16,383, and the paint map is format version 4 with 262,144 tiles. It does not load without PaintIndex=1 (a vanilla game refuses the version-4 map at the header check). No bisect on a failure: static triage first.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^w8192 routing: fallback": {
+      "match": [
+        "w8192 routing: fallback to the stored 14 bits: portal reference 0x1A004123 at (0, 0), graph 256 x 256 chunks",
+        "w8192 routing: fallback to the stored 14 bits: portal reference 0x00000064 at (100, 9000), graph 256 x 256 chunks, no world manager"
+      ],
+      "noMatch": [
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0; wide maps kept at v3: small graph 0, player save 0",
+        "w8192 Routing R2 0x00654E83: installed (6 bytes, expected bytes matched, read back ok)"
+      ]
+    },
+    "FAILED": {
+      "match": [
+        "w8192 Routing R2 0x00654E83: FAILED (VirtualProtect failed)",
+        "w8192 Routing R1 0x0063DC60: rollback FAILED"
+      ],
+      "noMatch": [
+        "w8192 Routing: 0 of 7 sites installed (not installed, rolled back after a failed write)",
+        "w8192 self-check: PASS (210 checks, 0 failed)"
+      ]
+    },
+    "\\(PARTIAL\\)": {
+      "match": [
+        "w8192 Routing: 5 of 7 sites installed (PARTIAL)",
+        "w8192 PaintIndex: 3 of 7 sites installed (PARTIAL)"
+      ],
+      "noMatch": [
+        "w8192 Routing: 6 of 7 sites installed",
+        "w8192 PaintIndex: 0 of 7 sites installed (not installed)"
+      ]
+    },
+    "self-check: FAIL": {
+      "match": [
+        "w8192 self-check: FAIL (210 checks, 2 failed)",
+        "w8192 self-check: FAIL stub keeps xmm0-7, the x87 stack, its control word and MXCSR"
+      ],
+      "noMatch": [
+        "w8192 self-check: PASS (210 checks, 0 failed)",
+        "w8192: SKIP self-check failed; Routing=1 and PaintIndex=1 not installed"
+      ]
+    },
+    "READ-BACK DIFFERS": {
+      "match": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x45800000 (READ-BACK DIFFERS), [World8192] PhysicsRoot=1"
+      ],
+      "noMatch": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, [World8192] PhysicsRoot=1",
+        "w8192 Routing R2 0x00654E83: FAILED (read-back differs)"
+      ]
+    },
+    "^w8192: SKIP": {
+      "match": [
+        "w8192: SKIP not TS3W.exe Steam 1.67 (link stamp 0x5A1B2C3D, image size 0x00E60000); Routing=1 and PaintIndex=1 not installed, EA 1.69 is not mapped",
+        "w8192: SKIP self-check failed; Routing=1 and PaintIndex=1 not installed"
+      ],
+      "noMatch": [
+        "w8192 Routing R7 0x0082A1D4: skipped (a jump is already at 0x0082A1CF (another module owns the site))",
+        "scene quadtree: SKIP not the expected game image"
+      ]
+    },
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 18:37:48"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^OK   ea fix: PortalFlagRefs ": {
+      "match": [
+        "OK   ea fix: PortalFlagRefs (docs/67 §30.5): lot portal blocked-flag writes through pairs outside R are skipped (0x0082A1CF, 0x0082B6B1)"
+      ],
+      "noMatch": [
+        "SKIP ea fix: PortalFlagRefs: bytes at 0x0082A1CF / 0x0082B6B1 differ (another mod or a probe build owns them): not installed",
+        "OK   ea fix: WorldAStarRefs (docs/67 §30): world A* neighbours outside the routing graph are skipped (0x00676F2A)"
+      ]
+    },
+    "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=1 rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.2.2-w8192 built Nov 26 2026 15:30:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=2 loadA=4 w8192=0 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=2 loadA=4 w8192=2 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": {
+      "match": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, [World8192] PhysicsRoot=1"
+      ],
+      "noMatch": [
+        "physics root: off (PhysicsRootM=0), 0x00FEFBCC holds 4096",
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x45800000 (READ-BACK DIFFERS), [World8192] PhysicsRoot=1",
+        "physics root: SKIP address not mapped (PhysicsRootM=8192)"
+      ]
+    },
+    "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "w8192 self-check: PASS (210 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "w8192 self-check: FAIL (163 checks, 2 failed)",
+        "w8192: SKIP self-check failed; Routing=1 and PaintIndex=1 not installed",
+        "p1 self-check: PASS (28 checks, 0 failed), page format version 1, header 64 bytes"
+      ]
+    },
+    "^w8192 Routing R[1-7] 0x00[0-9A-F]{6}: installed \\(\\d bytes, expected bytes matched, read back ok\\)$": {
+      "match": [
+        "w8192 Routing R1 0x0063DC60: installed (5 bytes, expected bytes matched, read back ok)",
+        "w8192 Routing R7 0x0082A1D4: installed (6 bytes, expected bytes matched, read back ok)"
+      ],
+      "noMatch": [
+        "w8192 Routing R1 0x0063DC60: skipped (bytes differ; found E9 12 34 56 78)",
+        "w8192 Routing R2 0x00654E83: skipped (another Routing site differs, the switch is all-or-nothing)",
+        "w8192 Routing R3 0x00655514: FAILED (read-back differs)",
+        "w8192 PaintIndex header bound 0x00C21A85: installed (6 bytes, expected bytes matched, read back ok)"
+      ]
+    },
+    "^w8192 Routing R7 0x0082A1D4: skipped \\(ts3native\\.ini \\[EaCrashFixes\\] PortalFlagRefs=1 owns ": {
+      "match": [
+        "w8192 Routing R7 0x0082A1D4: skipped (ts3native.ini [EaCrashFixes] PortalFlagRefs=1 owns 0x0082A1CF..0x0082A1D9; its stub keeps the 14-bit decode)"
+      ],
+      "noMatch": [
+        "w8192 Routing R7 0x0082A1D4: installed (6 bytes, expected bytes matched, read back ok)",
+        "w8192 Routing R7 0x0082A1D4: skipped (a jump is already at 0x0082A1CF (another module owns the site))"
+      ]
+    },
+    "^w8192 Routing: 6 of 7 sites installed$": {
+      "match": [
+        "w8192 Routing: 6 of 7 sites installed"
+      ],
+      "noMatch": [
+        "w8192 Routing: 7 of 7 sites installed",
+        "w8192 Routing: 0 of 7 sites installed (not installed)",
+        "w8192 Routing: 4 of 7 sites installed (PARTIAL)",
+        "w8192 Routing: off (Routing=0)"
+      ]
+    },
+    "^w8192 Routing: 7 of 7 sites installed$": {
+      "match": [
+        "w8192 Routing: 7 of 7 sites installed"
+      ],
+      "noMatch": [
+        "w8192 Routing: 6 of 7 sites installed",
+        "w8192 Routing: 0 of 7 sites installed (not installed)",
+        "w8192 Routing: off (Routing=0)"
+      ]
+    },
+    "^w8192 PaintIndex .* 0x00C2[0-9A-F]{4}: installed \\(\\d+ bytes, expected bytes matched, read back ok\\)$": {
+      "match": [
+        "w8192 PaintIndex reader 1 index 0x00C23BD4: installed (15 bytes, expected bytes matched, read back ok)",
+        "w8192 PaintIndex saver flag write 2 0x00C22905: installed (5 bytes, expected bytes matched, read back ok)"
+      ],
+      "noMatch": [
+        "w8192 PaintIndex reader 2 index 0x00C23F4A: skipped (bytes differ; found 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90)",
+        "w8192 PaintIndex saver 1 tag 0x00C22A9B: FAILED (VirtualProtect failed)",
+        "w8192 Routing R1 0x0063DC60: installed (5 bytes, expected bytes matched, read back ok)"
+      ]
+    },
+    "^w8192 PaintIndex: 7 of 7 sites installed$": {
+      "match": [
+        "w8192 PaintIndex: 7 of 7 sites installed"
+      ],
+      "noMatch": [
+        "w8192 PaintIndex: 0 of 7 sites installed (not installed)",
+        "w8192 PaintIndex: 3 of 7 sites installed (PARTIAL)",
+        "w8192 PaintIndex: off (PaintIndex=0)"
+      ]
+    },
+    "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": {
+      "match": [
+        "scene quadtree: root 8192 x 1024 x 8192 m, depth 8"
+      ],
+      "noMatch": [
+        "scene quadtree: root 2048 x 1024 x 2048 m, depth 6",
+        "scene quadtree: SKIP not the expected game image",
+        "scene quadtree: root 8192 x 1024 x 4096 m, depth 8"
+      ]
+    },
+    "^w8192 counters: routing graph 256 x 256 chunks, rebuilt [1-9]\\d* \\(above 16383: 0\\), fallback 0; ": {
+      "match": [
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 412 (above 16383: 0), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0"
+      ],
+      "noMatch": [
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 412 (above 16383: 0), fallback 3; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 0 (above 16383: 0), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 1 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 412 (above 16383: 9), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 64 x 64 chunks, rebuilt 5 (above 16383: 0), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0"
+      ]
+    },
+    "^w8192 counters: routing graph 256 x 256 chunks, rebuilt [1-9]\\d* \\(above 16383: [1-9]\\d*\\), fallback 0; ": {
+      "match": [
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 262144 (largest index 262143), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 3 (above 16383: 1), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0"
+      ],
+      "noMatch": [
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 412 (above 16383: 0), fallback 0; paint wide tiles read 262144 (largest index 262143), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 2; paint wide tiles read 262144 (largest index 262143), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 0 (above 16383: 0), fallback 0; paint wide tiles read 262144 (largest index 262143), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 128 x 128 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0"
+      ]
+    },
+    "^w8192 counters: routing graph .*; paint wide tiles read [1-9]\\d* \\(largest index 262143\\), read fails 0, ": {
+      "match": [
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 262144 (largest index 262143), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 0 x 0 chunks, rebuilt 0 (above 16383: 0), fallback 0; paint wide tiles read 262144 (largest index 262143), read fails 0, tags written v3 0 v4 0, wide tiles written 0"
+      ],
+      "noMatch": [
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 65536 (largest index 65535), read fails 0, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 262100 (largest index 262143), read fails 44, tags written v3 0 v4 0, wide tiles written 0",
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 131072 (largest index 131071), read fails 0, tags written v3 0 v4 0, wide tiles written 0"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-8192-install-2048",
+      "note": "[est 8 min] Smoke on a world that is known to load (thin 2048 m, PASS on the P0 branch): all three switches on, sims3-modernization PortalFlagRefs as shipped (1), so Atlas stands down at R7. Pass: self-check PASS in the game process, 6 routing sites + 7 paint sites installed with read-back, R7 skipped with its reason, physics root 8192, in_world, 2 min alive, no script error. On this 64 x 64 chunk graph every stub returns the vanilla 14 bits and a version-3 map is read as vanilla, so the game must behave as without the module.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.2.1-w8192 (game-copy/atlas-main/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=1 rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": 1,
+          "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^w8192 Routing R[1-7] 0x00[0-9A-F]{6}: installed \\(\\d bytes, expected bytes matched, read back ok\\)$": 6,
+          "^w8192 Routing R7 0x0082A1D4: skipped \\(ts3native\\.ini \\[EaCrashFixes\\] PortalFlagRefs=1 owns ": 1,
+          "^w8192 Routing: 6 of 7 sites installed$": 1,
+          "^w8192 PaintIndex .* 0x00C2[0-9A-F]{4}: installed \\(\\d+ bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 PaintIndex: 7 of 7 sites installed$": 1
+        },
+        "logForbid": {
+          "^w8192 routing: fallback": 0,
+          "FAILED": 0,
+          "\\(PARTIAL\\)": 0,
+          "self-check: FAIL": 0,
+          "READ-BACK DIFFERS": 0,
+          "^w8192: SKIP": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-p0-load-2048"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   ea fix: PortalFlagRefs ": 1
+      }
+    },
+    {
+      "id": "atlas-8192-load-thinu-8192",
+      "note": "[est 15 min] Thin 8192 m world with the uniform id grid, all three switches on, PortalFlagRefs as shipped (R7 left to the mod), Default.ini SceneQuadTree=8192,512,8. Pass: install lines as job 1, in_world, 2 min of camera poses, and a counters line with the 256 x 256 graph, rebuilt > 0, nothing above chunk 16,383 and fallback 0 (Atlas docs/010 I-010-2: every portal with a reference has its position set). A missing counters line means no Sim crossed a lot portal in the 2 min (not reached, rerun longer), not a patch failure. Kill criterion as P0: largest free under about 1.2 GB after the load.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.2.1-w8192 (game-copy/atlas-main/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=1 rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": 1,
+          "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^w8192 Routing R[1-7] 0x00[0-9A-F]{6}: installed \\(\\d bytes, expected bytes matched, read back ok\\)$": 6,
+          "^w8192 Routing R7 0x0082A1D4: skipped \\(ts3native\\.ini \\[EaCrashFixes\\] PortalFlagRefs=1 owns ": 1,
+          "^w8192 Routing: 6 of 7 sites installed$": 1,
+          "^w8192 PaintIndex .* 0x00C2[0-9A-F]{4}: installed \\(\\d+ bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
+          "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": 1,
+          "^w8192 counters: routing graph 256 x 256 chunks, rebuilt [1-9]\\d* \\(above 16383: 0\\), fallback 0; ": 1
+        },
+        "logForbid": {
+          "^w8192 routing: fallback": 0,
+          "FAILED": 0,
+          "\\(PARTIAL\\)": 0,
+          "self-check: FAIL": 0,
+          "READ-BACK DIFFERS": 0,
+          "^w8192: SKIP": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-8192-load-thinu-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   ea fix: PortalFlagRefs ": 1
+      }
+    },
+    {
+      "id": "atlas-8192-load-thinu-8192-r7",
+      "note": "[est 15 min] Job 2 with sims3-modernization [EaCrashFixes] PortalFlagRefs=0, so Atlas owns R7 too (Atlas docs/010 J5, the other arm). Pass: 7 of 7 routing sites installed, the mod's PortalFlagRefs line absent (switch read-back), everything else as job 2.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.2.1-w8192 (game-copy/atlas-main/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "ini": {
+        "EaCrashFixes.PortalFlagRefs": 0
+      },
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=1 rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": 1,
+          "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^w8192 Routing R[1-7] 0x00[0-9A-F]{6}: installed \\(\\d bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 Routing: 7 of 7 sites installed$": 1,
+          "^w8192 PaintIndex .* 0x00C2[0-9A-F]{4}: installed \\(\\d+ bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
+          "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": 1,
+          "^w8192 counters: routing graph 256 x 256 chunks, rebuilt [1-9]\\d* \\(above 16383: 0\\), fallback 0; ": 1
+        },
+        "logForbid": {
+          "^w8192 routing: fallback": 0,
+          "FAILED": 0,
+          "\\(PARTIAL\\)": 0,
+          "self-check: FAIL": 0,
+          "READ-BACK DIFFERS": 0,
+          "^w8192: SKIP": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-8192-load-thinu-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: PortalFlagRefs ": 0
+      }
+    },
+    {
+      "id": "atlas-8192-load-strip-8192",
+      "note": "[est 15 min] Strip world AtlasStrip_8192.world (Atlas docs/026 §9): all three switches on, sims3-modernization [EaCrashFixes] PortalFlagRefs=0 so Atlas owns all seven routing sites (the mod's R7 stub still decodes 14 bits, Atlas docs/026 gap 5). Pass: install lines as job 3 (7 of 7 routing, 7 of 7 paint), in_world, 2 min of camera poses over the four lots, and two counters facts: (a) paint: wide tiles read above 0 with largest index 262,143 and no read fail = the version-4 map went through the reader stub up to its last tile; (b) routing: rebuilt above 0 with at least one result above chunk 16,383 and fallback 0. (b) needs a portal reader to run: the world has no Sim and no road, so a counters line with rebuilt 0 means NOT REACHED (no reader ran at load), not a patch failure; the next step is then the same job with a household moved into the lot at (500, 3500) and a route to the lot at (4000, 4000) (Atlas docs/010 J3). A load that fails in the paint loader with every site installed points at the wide reader path (first run of it in the game). Kill criterion as P0: largest free under about 1.2 GB after the load.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.2.1-w8192 (game-copy/atlas-main/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "ini": {
+        "EaCrashFixes.PortalFlagRefs": 0
+      },
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=1 rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": 1,
+          "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^w8192 Routing R[1-7] 0x00[0-9A-F]{6}: installed \\(\\d bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 Routing: 7 of 7 sites installed$": 1,
+          "^w8192 PaintIndex .* 0x00C2[0-9A-F]{4}: installed \\(\\d+ bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
+          "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": 1,
+          "^w8192 counters: routing graph .*; paint wide tiles read [1-9]\\d* \\(largest index 262143\\), read fails 0, ": 1,
+          "^w8192 counters: routing graph 256 x 256 chunks, rebuilt [1-9]\\d* \\(above 16383: [1-9]\\d*\\), fallback 0; ": 1
+        },
+        "logForbid": {
+          "^w8192 routing: fallback": 0,
+          "FAILED": 0,
+          "\\(PARTIAL\\)": 0,
+          "self-check: FAIL": 0,
+          "READ-BACK DIFFERS": 0,
+          "^w8192: SKIP": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-8192-load-strip-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: PortalFlagRefs ": 0
+      }
+    }
+  ]
+}

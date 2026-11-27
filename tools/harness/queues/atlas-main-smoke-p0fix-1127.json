@@ -1,0 +1,509 @@
+{
+  "note": "atlas-main-smoke-1127-p0fix (2026-11-27): atlas-main-smoke-1126 on the Atlas P0 findings fix build (boundless-atlas docs/052 §4): both arms on game-copy/atlas-p0fix-1127/atlas.asi, script half as mod set game-copy/mod-sets/atlas-p0fix-1127. Causes: the on arm's rebase self-check failed in the game (driver test, fake main thread late at startup; fixed in the test, docs/052 §4, inferred) and PagedLots inspect stayed queued for 180 s (no poll task: no \"p1: script half ready\" line in 17 logs; startup race, inferred). The on arm still needs \"atlas:rebase self-check: PASS\" and \"p1: script half ready\" and now also the inspect RESULT PASS line; repro atlas-main-smoke-on-sv-p0fix waits for PagedLots.State() task=true (poll task running) before its first Start. Rebase read-backs move to version 9 and 10 internal calls (StripHash added since 0.3.15). [inferred] (from the 861eb7d source and docs/052, not seen in a game log yet): the 0.3.16 version line (rebase=9; the rest as 0.3.15), the \"scene box:\" line, the \"config probe:\" line, rebase \"version 9 ... 10 internal calls registered\", \"native version 9\", \"atlas:icalls rebase: 10 registered\", the inspect RESULT PASS line, State() task. atlas-main-smoke-1126: smoke for the merged Atlas main build (boundless-atlas d0be788, atlas 0.3.10; branch feature/atlas-main-queues-1126), about 10 min on Sunset Valley. RUN THIS QUEUE FIRST, before every other atlas-* queue (measurement-smoke rule): job 1 all switches off (startup line, loader A self-check, off lines, SaveBracket status, nothing installed), job 2 probe, loader A and rebase on (one P1 cycle, one loader A cycle, rebase 0 0, a save and a reload). Atlas build pinned by extraAsi.sha256, script half by the atlas-main mod set. NOT RUN: written 2026-11-26 while a game chain may be running; no game launch from this lane. 2026-11-26 repin to atlas-main5 (0.3.10, docs/031 §12): the first smoke-on run (0.3.6) crashed at its first reflect_call because no Atlas internal call was ever registered (wait on the wrong domain offset); 0.3.10 registers through one wait, logs atlas:icalls lines, and the on job now polls PagedLots.State native=true before its first Start. 2026-11-27: every job repinned to Atlas main 0.3.15 (boundless-atlas main 212e136, game-copy/atlas-main13/atlas.asi sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919, mod set game-copy/mod-sets/atlas-main13); new logRequire 'atlas:icalls ready 3'; the repros wait for the settled script half (AtlasNative.Groups log, ready 3, waiting 0) before their first Atlas step. 0.3.15 read-backs (version line, rebase 6 / rebase-4, freeze native 3 and script 0.2.1-fz2, oop client 3 protocol 4, plugin 3) are inferred from the 212e136 source, not seen in a log yet.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^physics root: off \\(PhysicsRootM=0\\), 0x00FEFBCC holds 4096$": {
+      "match": [
+        "physics root: off (PhysicsRootM=0), 0x00FEFBCC holds 4096"
+      ],
+      "noMatch": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000",
+        "physics root: SKIP address not mapped (PhysicsRootM=8192)"
+      ]
+    },
+    "^w8192 Routing: off \\(Routing=0\\)$": {
+      "match": [
+        "w8192 Routing: off (Routing=0)"
+      ],
+      "noMatch": [
+        "w8192 Routing: 7 of 7 sites installed"
+      ]
+    },
+    "^w8192 PaintIndex: off \\(PaintIndex=0\\)$": {
+      "match": [
+        "w8192 PaintIndex: off (PaintIndex=0)"
+      ],
+      "noMatch": [
+        "w8192 PaintIndex: 7 of 7 sites installed"
+      ]
+    },
+    "^paged lots: off \\(Probe=0\\)$": {
+      "match": [
+        "paged lots: off (Probe=0)"
+      ],
+      "noMatch": [
+        "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ]
+    },
+    "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:loadA self-check PASS (18 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:loadA self-check FAIL (18 checks, 2 failed)",
+        "loadA self-check: PASS (18 checks, 0 failed)"
+      ]
+    },
+    "^atlas:loadA start version 4 LoaderA=0 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: off, loadA takes EA's path$": {
+      "match": [
+        "atlas:loadA start version 4 LoaderA=0 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: off, loadA takes EA's path"
+      ],
+      "noMatch": [
+        "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on",
+        "atlas:loadA start version 4 LoaderA=0 BudgetMs=3 Verbose=0 shape 11/11 self-check FAIL: off, loadA takes EA's path"
+      ]
+    },
+    "^atlas:rebase off \\(Enable=0\\)$": {
+      "match": [
+        "atlas:rebase off (Enable=0)"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 2, shape 48/48, 5 internal calls registered"
+      ]
+    },
+    "^atlas:freeze off \\(FreezeLeftBehind=0\\)$": {
+      "match": [
+        "atlas:freeze off (FreezeLeftBehind=0)"
+      ],
+      "noMatch": [
+        "atlas:freeze native 1 on (FreezeLeftBehind=1, Verbose=0), 2 internal calls registered"
+      ]
+    },
+    "^atlas:rings start version 2 Fog=0 ImposterPager=0 SaveGuard=0 EdgeClouds=0 MaxClouds=48 Verbose=0 SquareM=512 D1Rings=4 fog \\S+ m: off$": {
+      "match": [
+        "atlas:rings start version 2 Fog=0 ImposterPager=0 SaveGuard=0 EdgeClouds=0 MaxClouds=48 Verbose=0 SquareM=512 D1Rings=4 fog 0-2048 m: off"
+      ],
+      "noMatch": [
+        "atlas:rings start version 2 Fog=1 ImposterPager=1 SaveGuard=1 EdgeClouds=1 MaxClouds=48 Verbose=0 SquareM=512 D1Rings=1 fog 0-512 m shape 13/13 self-check PASS: fog on, pager on, saveguard on, clouds on"
+      ]
+    },
+    "^atlas:(loadA|rings|rebase|freeze) .*(FAIL|SKIP|installed)": {
+      "match": [
+        "atlas:rings start version 2 Fog=1 ImposterPager=1 SaveGuard=1 EdgeClouds=1 MaxClouds=48 Verbose=0 SquareM=512 D1Rings=1 fog 0-512 m: SKIP self-check failed"
+      ],
+      "noMatch": [
+        "atlas:rebase off (Enable=0)"
+      ]
+    },
+    "^w8192 .*(installed|FAIL|SKIP)": {
+      "match": [
+        "w8192 Routing: 7 of 7 sites installed"
+      ],
+      "noMatch": [
+        "w8192 Routing: off (Routing=0)"
+      ]
+    },
+    "^(paged lots: probe on|atlas:save bracket |atlas:freeze native|p1: script half ready|atlas:rings script ready|atlas:rebase script half ready)": {
+      "match": [
+        "atlas:save bracket SaveGame ok, SaveTravel ok"
+      ],
+      "noMatch": [
+        "paged lots: off (Probe=0)"
+      ]
+    },
+    "^(physics root: 4096 -> |paged lots: SKIP|w8192: SKIP)": {
+      "match": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000"
+      ],
+      "noMatch": [
+        "physics root: off (PhysicsRootM=0), 0x00FEFBCC holds 4096"
+      ]
+    },
+    "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": {
+      "match": [
+        "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ],
+      "noMatch": [
+        "paged lots: off (Probe=0)",
+        "paged lots: probe on (Probe=1, FarM=250), 23 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ]
+    },
+    "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": {
+      "match": [
+        "p1 self-check: PASS (30 checks, 0 failed), page format version 1, header 64 bytes"
+      ],
+      "noMatch": [
+        "p1 self-check: FAIL (30 checks, 1 failed), page format version 1, header 64 bytes"
+      ]
+    },
+    "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": {
+      "match": [
+        "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on"
+      ],
+      "noMatch": [
+        "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 10/11 self-check PASS: SKIP, loadA takes EA's path",
+        "atlas:loadA start version 4 LoaderA=0 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: off, loadA takes EA's path",
+        "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=1 shape 11/11 self-check PASS: on",
+        "atlas:loadA start version 3 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on"
+      ]
+    },
+    "^p1: script half ready \\(loadA-4\\), native probe version 2$": {
+      "match": [
+        "p1: script half ready (loadA-4), native probe version 2"
+      ],
+      "noMatch": [
+        "p1: script half ready, native probe version 1",
+        "p1: script half ready (loadA-3), native probe version 2"
+      ]
+    },
+    "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS out lot 0x00000000004F3A21 objects 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL page-out write -21 (lot untouched)",
+        "p1: RESULT PASS out lot 0x00000000004F3A21 objects 0"
+      ]
+    },
+    "^p1: RESULT PASS drop [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS drop 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL drop left 3 objects (page-in will report the id clashes)"
+      ]
+    },
+    "^p1: RESULT PASS in$": {
+      "match": [
+        "p1: RESULT PASS in"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL page-in -21",
+        "p1: RESULT PASS loadA path A"
+      ]
+    },
+    "^p1: RESULT PASS verify objects [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS verify objects 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL verify census differs (3 lines)",
+        "p1: RESULT FAIL verify dangling 2"
+      ]
+    },
+    "^p1: RESULT PASS loadA path A$": {
+      "match": [
+        "p1: RESULT PASS loadA path A"
+      ],
+      "noMatch": [
+        "p1: RESULT PASS loadA path EA",
+        "p1: RESULT FAIL loadA -31",
+        "p1: RESULT PASS in"
+      ]
+    },
+    "^atlas:save bracket SaveGame ok, SaveTravel ok$": {
+      "match": [
+        "atlas:save bracket SaveGame ok, SaveTravel ok"
+      ],
+      "noMatch": [
+        "atlas:save bracket SaveGame already compiled, SaveTravel ok",
+        "atlas:save bracket handler loadA order 10"
+      ]
+    },
+    "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:rebase self-check: PASS (168 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:rebase self-check: FAIL (168 checks, 4 failed)",
+        "atlas:rebase self-check: FAIL budget 0: one slice"
+      ]
+    },
+    "^atlas:rebase verify: slots [1-9]\\d*, mismatches 0, physics drops 0$": {
+      "match": [
+        "atlas:rebase verify: slots 61234, mismatches 0, physics drops 0"
+      ],
+      "noMatch": [
+        "atlas:rebase verify: slots 61234, mismatches 3, physics drops 0",
+        "atlas:rebase verify: slots 61234, mismatches 0, physics drops 2"
+      ]
+    },
+    "^atlas:rebase RESULT PASS identity step \\(0, 0\\) slots [1-9]\\d*$": {
+      "match": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 61234"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS roundtrip step (-32, 0) slots 61234",
+        "atlas:rebase RESULT FAIL identity step (0, 0): 2 mismatches, 0 drops, route worker woke 0"
+      ]
+    },
+    "^(p1 self-check: FAIL|atlas:loadA self-check FAIL|atlas:rebase self-check: FAIL|atlas:loadA start .* self-check FAIL)": {
+      "match": [
+        "atlas:loadA self-check FAIL (18 checks, 2 failed)"
+      ],
+      "noMatch": [
+        "atlas:loadA self-check PASS (18 checks, 0 failed)"
+      ]
+    },
+    "^(p1: RESULT FAIL|p1: RESULT REFUSED|atlas:rebase (RESULT (FAIL|REFUSED)|MISMATCH|FAULT|ERROR|DAMAGED|SKIP|off) )": {
+      "match": [
+        "atlas:rebase RESULT REFUSED binade (code -5)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 61234"
+      ]
+    },
+    "^(atlas:save (gate-refused|bracket-error|travel-unrefusable)|atlas:loadA (shape-mismatch|save-hook-failed|no-park|release-all|w1-refused))": {
+      "match": [
+        "atlas:save gate-refused gate=rebase kind=save code=4281420 (no handler, no EA save; EA's save-failed dialog)"
+      ],
+      "noMatch": [
+        "atlas:save bracket SaveGame ok, SaveTravel ok"
+      ]
+    },
+    "^paged lots: (off|SKIP)": {
+      "match": [
+        "paged lots: off (Probe=0)"
+      ],
+      "noMatch": [
+        "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ]
+    },
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^\\[Rewind\\] Park on: ": {
+      "match": [
+        "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+      ],
+      "noMatch": [
+        "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)",
+        "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
+      ]
+    },
+    "^atlas:icalls log: 1 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 1 flag set$": {
+      "match": [
+        "atlas:icalls log: 1 registered 4180 ms after start of wait (domain 0x0A1B2C3D), group 1 flag set"
+      ],
+      "noMatch": [
+        "atlas:icalls p1: 24 registered 4180 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set",
+        "atlas:icalls log SKIP no script domain in 600 s (host 0x00000000): 1 internal calls not registered"
+      ]
+    },
+    "^atlas:log native on, 1 internal call registered \\(Atlas\\.AtlasNative::Log\\)$": {
+      "match": [
+        "atlas:log native on, 1 internal call registered (Atlas.AtlasNative::Log)"
+      ],
+      "noMatch": [
+        "atlas:log SKIP not-steam-1.67, Atlas.AtlasNative::Log not registered"
+      ]
+    },
+    "^atlas:icalls p1: 24 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 2 flag set$": {
+      "match": [
+        "atlas:icalls p1: 24 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set"
+      ],
+      "noMatch": [
+        "atlas:icalls p1: 23 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set",
+        "atlas:icalls p1 waiting 10 s: host [0x011EE514] = 0x00000000, domain [host+0xACC] = 0"
+      ]
+    },
+    "^atlas:icalls \\S+ SKIP ": {
+      "match": [
+        "atlas:icalls p1 SKIP no script domain in 600 s (host 0x1234ABCD): 24 internal calls not registered"
+      ],
+      "noMatch": [
+        "atlas:icalls p1 waiting 10 s: host [0x011EE514] = 0x1234ABCD, domain [host+0xACC] = 0",
+        "atlas:icalls p1: 24 registered 3 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set"
+      ]
+    },
+    "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
+      "match": [
+        "atlas:icalls ready 3: groups 0x000A"
+      ],
+      "noMatch": [
+        "atlas:icalls ready 1: groups 0x000A",
+        "atlas:icalls ready 3: groups 0x0A",
+        "atlas:icalls oop: 5 registered 12 ms after start of wait (domain 0x1A2B3C4D), group 3 flag set"
+      ]
+    },
+    "^atlas 0\\.3\\.16 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=9 oop=\\d+ seed=\\d+ born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.16 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=9 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 09:48:44, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.16 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 09:48:44, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.16 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=9 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 09:48:44, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.3.9 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 9, shape \\d+/\\d+, 10 internal calls registered$": {
+      "match": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 9, shape 92/92, 10 internal calls registered"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 6, shape 92/92, 9 internal calls registered",
+        "atlas:rebase off (Enable=0)",
+        "atlas:rebase SKIP self-check failed"
+      ]
+    },
+    "^atlas:rebase script half ready \\(rebase-4\\), native version 9$": {
+      "match": [
+        "atlas:rebase script half ready (rebase-4), native version 9"
+      ],
+      "noMatch": [
+        "atlas:rebase script half ready (rebase-4), native version 6",
+        "atlas:rebase script half ready (rebase-4), native version 0"
+      ]
+    },
+    "^atlas:icalls rebase: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": {
+      "match": [
+        "atlas:icalls rebase: 10 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ],
+      "noMatch": [
+        "atlas:icalls rebase: 9 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set",
+        "atlas:icalls rebase SKIP waited 120000 ms"
+      ]
+    },
+    "^p1: RESULT PASS inspect lots \\d+ pageable \\d+ auto 0x[0-9A-F]{16}$": {
+      "match": [
+        "p1: RESULT PASS inspect lots 57 pageable 31 auto 0x0E3F1A0000000012"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL native inspect 1, inspect lots 57 pageable 31 auto 0x0E3F1A0000000012",
+        "p1: RESULT PASS in",
+        "p1: RESULT REFUSED native probe off"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-main-smoke-off-sv",
+      "note": "[est 3 min] Atlas main smoke, every switch off on Sunset Valley (Baseline-SV): the startup line with all six feature integers, loader A's self-check PASS (the only self-check that runs with everything off; the others sit behind their switch), each feature's off line, SaveBracket.Status() through reflect_call (swaps \"not tried\", no gates, no handlers) and nothing installed (no probe, no hook, no script half).",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-27 to the Atlas P0 findings fix build (boundless-atlas bugfix/atlas-p0-findings-1127 861eb7d, atlas 0.3.16, its docs/052): game-copy/atlas-p0fix-1127/atlas.asi (sha256 55c212f551f5bb82d74c4cc248bde07291eb30d062e476e5b649fbbd07f08adc); script half game-copy/mod-sets/atlas-p0fix-1127 (atlas.package sha256 f75dd443d9c912a567cc51c96da0b7e03dac0ec87ed78bda84440285c6934d09). Older build names in this text are history. Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: the merged Atlas main build (boundless-atlas d0be788, atlas 0.3.10): game-copy/atlas-main5/atlas.asi (sha256 fae05359661efbead58b2cf9930cba7222d9e6390889db9ba09fc4beba196e0d, the 0.3.10 pin) and its script half as mod set game-copy/mod-sets/atlas-main5 (atlas.package sha256 ba9227944ae486883304f8e709fcb8cd826d665621fc9f494d3580e4886b55ee). Every Atlas switch off.",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-p0fix-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "extraAsi": {
+        "asi": "game-copy/atlas-p0fix-1127/atlas.asi",
+        "sha256": "55c212f551f5bb82d74c4cc248bde07291eb30d062e476e5b649fbbd07f08adc",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "World8192.Routing": 0,
+          "World8192.PaintIndex": 0,
+          "PagedLots.Probe": 0,
+          "PagedLots.LoaderA": 0,
+          "PagedLots.SaveGuard": 0,
+          "Rings.Fog": 0,
+          "Rings.ImposterPager": 0,
+          "Rings.EdgeClouds": 0,
+          "Regions.FreezeLeftBehind": 0,
+          "Rebase.Enable": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.16 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=9 oop=\\d+ seed=\\d+ born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: off \\(PhysicsRootM=0\\), 0x00FEFBCC holds 4096$": 1,
+          "^w8192 Routing: off \\(Routing=0\\)$": 1,
+          "^w8192 PaintIndex: off \\(PaintIndex=0\\)$": 1,
+          "^paged lots: off \\(Probe=0\\)$": 1,
+          "^atlas:rebase off \\(Enable=0\\)$": 1,
+          "^atlas:freeze off \\(FreezeLeftBehind=0\\)$": 1,
+          "^atlas:rings start version 2 Fog=0 ImposterPager=0 SaveGuard=0 EdgeClouds=0 MaxClouds=48 Verbose=0 SquareM=512 D1Rings=4 fog \\S+ m: off$": 1,
+          "^atlas:icalls log: 1 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 1 flag set$": 1,
+          "^atlas:log native on, 1 internal call registered \\(Atlas\\.AtlasNative::Log\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": 0,
+          "^atlas:loadA start version 4 LoaderA=0 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: off, loadA takes EA's path$": 0,
+          "^atlas:(loadA|rings|rebase|freeze) .*(FAIL|SKIP|installed)": 0,
+          "^w8192 .*(installed|FAIL|SKIP)": 0,
+          "^(paged lots: probe on|atlas:save bracket |atlas:freeze native|p1: script half ready|atlas:rings script ready|atlas:rebase script half ready)": 0,
+          "^(physics root: 4096 -> |paged lots: SKIP|w8192: SKIP)": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-main-smoke-off-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      }
+    },
+    {
+      "id": "atlas-main-smoke-on-sv",
+      "note": "[est 8 min] Atlas main smoke, probe on (Probe=1, LoaderA=1, Rebase.Enable=1) on Sunset Valley (Baseline-SV): one P1 cycle (out, drop, in, verify), one loader A cycle (out, drop, loadA, status, verify), rebase 0 0 (identity), SaveBracket.Status() (gate rebase, handler loadA), a save (allowed), an in-session reload and the verify after it. Rings and the frozen-Sim hold stay off. Pass: every RESULT PASS, nothing refused, no script error.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-27 to the Atlas P0 findings fix build (boundless-atlas bugfix/atlas-p0-findings-1127 861eb7d, atlas 0.3.16, its docs/052): game-copy/atlas-p0fix-1127/atlas.asi (sha256 55c212f551f5bb82d74c4cc248bde07291eb30d062e476e5b649fbbd07f08adc); script half game-copy/mod-sets/atlas-p0fix-1127 (atlas.package sha256 f75dd443d9c912a567cc51c96da0b7e03dac0ec87ed78bda84440285c6934d09). Older build names in this text are history. Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: the merged Atlas main build (boundless-atlas d0be788, atlas 0.3.10): game-copy/atlas-main5/atlas.asi (sha256 fae05359661efbead58b2cf9930cba7222d9e6390889db9ba09fc4beba196e0d, the 0.3.10 pin) and its script half as mod set game-copy/mod-sets/atlas-main5 (atlas.package sha256 ba9227944ae486883304f8e709fcb8cd826d665621fc9f494d3580e4886b55ee). Job ini Rewind.Park=1 (the rebase gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it.",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-p0fix-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "extraAsi": {
+        "asi": "game-copy/atlas-p0fix-1127/atlas.asi",
+        "sha256": "55c212f551f5bb82d74c4cc248bde07291eb30d062e476e5b649fbbd07f08adc",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "PagedLots.FarM": 250,
+          "PagedLots.LoaderA": 1,
+          "PagedLots.BudgetMs": 3,
+          "PagedLots.Verbose": 0,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.16 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=9 oop=\\d+ seed=\\d+ born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+          "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+          "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": 1,
+          "^p1: script half ready \\(loadA-4\\), native probe version 2$": 1,
+          "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 2,
+          "^p1: RESULT PASS drop [1-9]\\d*$": 2,
+          "^p1: RESULT PASS in$": 1,
+          "^p1: RESULT PASS verify objects [1-9]\\d*$": 3,
+          "^p1: RESULT PASS loadA path A$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 9, shape \\d+/\\d+, 10 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 9$": 1,
+          "^atlas:rebase verify: slots [1-9]\\d*, mismatches 0, physics drops 0$": 1,
+          "^atlas:rebase RESULT PASS identity step \\(0, 0\\) slots [1-9]\\d*$": 1,
+          "^atlas:icalls log: 1 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 1 flag set$": 1,
+          "^atlas:log native on, 1 internal call registered \\(Atlas\\.AtlasNative::Log\\)$": 1,
+          "^atlas:icalls p1: 24 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 2 flag set$": 1,
+          "^atlas:icalls rebase: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^p1: RESULT PASS inspect lots \\d+ pageable \\d+ auto 0x[0-9A-F]{16}$": 1
+        },
+        "logForbid": {
+          "^(p1 self-check: FAIL|atlas:loadA self-check FAIL|atlas:rebase self-check: FAIL|atlas:loadA start .* self-check FAIL)": 0,
+          "^(p1: RESULT FAIL|p1: RESULT REFUSED|atlas:rebase (RESULT (FAIL|REFUSED)|MISMATCH|FAULT|ERROR|DAMAGED|SKIP|off) )": 0,
+          "^(atlas:save (gate-refused|bracket-error|travel-unrefusable)|atlas:loadA (shape-mismatch|save-hook-failed|no-park|release-all|w1-refused))": 0,
+          "^paged lots: (off|SKIP)": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-main-smoke-on-sv-p0fix"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    }
+  ]
+}

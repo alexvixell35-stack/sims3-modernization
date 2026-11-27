@@ -14,7 +14,7 @@ static void __fastcall AdFakeAdd(u8* state, void*, DWORD keyLo, DWORD keyHi, DWO
 }
 
 static void TestAudioStateDup() {
-    static_assert(offsetof(Ts3nCounters, adMode) == 0x6304 && offsetof(Ts3nCounters, adSkipped) == 0x6310 && sizeof(Ts3nCounters) == 6883 * 4,
+    static_assert(offsetof(Ts3nCounters, adMode) == 0x6304 && offsetof(Ts3nCounters, adSkipped) == 0x6310 && sizeof(Ts3nCounters) == 6894 * 4,
                   "counters v919 layout after v198 (docs/registry.md)");
     static u8 state[0x200], pool[48 * 64];
     const AdAddFn sAdd = g_adAdd;

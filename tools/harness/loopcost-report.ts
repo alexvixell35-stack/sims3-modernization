@@ -3,7 +3,7 @@
 // cadence, on = new), the ms per wall second of deadrefsweep (deadrefsweep_total_ms) and of the viewer push (viewerpush_ms),
 // plus calls, items and sends per second. Slice 0 is warm-up (not counted). Counters are cumulative ints, so deltas per slice.
 //   node tools/harness/loopcost-report.ts [--arm sw1,sw2] <probe-out/profile/<tag>-ab-fixes.jsonl> [...]
-//   --arm: the switches that name the arm (all must agree; default deadrefcadence,viewerpushdelta). docs/334 LC-1: --arm deadrefexact.
+//   --arm: the switches that name the arm (all must agree; default deadrefcadence,viewerpushdelta). docs/334 LC-1: --arm deadrefexact; docs/335 LC-4: --arm viewerridehooks.
 //   node tools/harness/loopcost-report.ts --self-check
 import { readFileSync } from 'node:fs';
 
@@ -11,7 +11,7 @@ type Snap = { i: number; s: number; c: Record<string, number | boolean> };
 export type ArmSum = { secs: number; slices: number; v: Record<string, number> };
 const KEYS = ['deadrefsweep_total_ms', 'deadrefsweep_passes', 'deadrefsweep_slices', 'deadrefcadence_snapshots', 'deadrefcadence_desc_skipped',
   'deadrefcadence_sim_skipped', 'viewerpush_ms', 'viewerpush_wakes', 'viewerpush_table_sends', 'viewerpush_held_sends', 'viewerpush_actor_walks',
-  'viewerpush_actors_walked', 'viewerpush_walks_skipped', 'deadrefexact_partitions', 'deadrefexact_shared_lists', 'deadrefexact_rereads', ...Array.from({ length: 15 }, (_, p) => `deadrefsweep_p${p + 1}_ms`)];
+  'viewerpush_actors_walked', 'viewerpush_walks_skipped', 'viewerridehooks_set_wakes', 'viewerridehooks_walks', 'deadrefexact_partitions', 'deadrefexact_shared_lists', 'deadrefexact_rereads', ...Array.from({ length: 15 }, (_, p) => `deadrefsweep_p${p + 1}_ms`)];
 
 export function parse(text: string): Snap[] { return text.split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l) as Snap); }
 
@@ -66,7 +66,8 @@ function selfCheck(): void {
   const r3 = perArm([ex(0, 0, false, 0), ex(1, 300, false, 300), ex(2, 600, true, 600), ex(3, 900, false, 1200)], ['deadrefexact']);
   const ok3 = r3.problems.length === 0 && r3.on.slices === 1 && r3.off.slices === 1 && Math.abs(rate(r3.on, 'deadrefsweep_total_ms') - 1) < 1e-9
     && Math.abs(rate(r3.off, 'deadrefsweep_total_ms') - 2) < 1e-9 && perArm([ex(0, 0, true, 0), ex(1, 300, true, 1), { i: 2, s: 600, c: {} }], ['deadrefexact']).problems.some(p => /missing/.test(p));
-  ok2 = ok2 && ok3;
+  const one = perArm(snaps.map(x => ({ ...x, c: { ...x.c, viewerridehooks: x.c.deadrefcadence, viewerpushdelta: true } })), ['viewerridehooks']);  // docs/335: arm by viewerridehooks alone
+  ok2 = ok2 && ok3 && one.problems.length === 0 && one.on.slices === 2 && one.off.slices === 2;
   console.log(ok && ok2 ? 'loopcost-report self-check: PASS' : 'loopcost-report self-check: FAIL');
   if (!(ok && ok2)) process.exit(1);
 }

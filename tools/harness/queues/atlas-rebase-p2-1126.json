@@ -1,0 +1,456 @@
+{
+  "note": "atlas-rebase-p2-1126: Boundless Atlas docs/022 §8.8.11 live rebase package P2 (passes V, T, M natively, Rd in the script half, the one-way slide command with its refusals). Job 1 on Sunset Valley: identity, two one-chunk round trips with every pass, identity. Job 2 on the 8192 m strip world (W8192 patches on, paging on): identity, a round trip, the one-way slide \"rebase slide -32 0\" (expected REFUSED by the native dry run while holders stay unmapped; nothing written), identity. NOT RUNNABLE ON MASTER YET: the job keys extraAsi and defaultIni come with branch feature/atlas-p0-load-1126 (dry-run verified against that branch's queue.ts on 2026-11-26). Never run. Job 2 also needs AtlasStrip_8192.world installed (PREP in the queue atlas-8192-patches-1126: Atlas tools/world-empty.ts build --strip, world-gen.ts install; back up Documents/Electronic Arts/The Sims 3 first, uninstall after). Verdict: identity runs PASS bit for bit with passes V and T listing items, the script half logs its Rd line, round trips never FAIL (REFUSED by the binade / physics-root rule allowed), the slide is refused with the unmapped list and never passes, no MISMATCH / FAULT / ERROR line; gate-out timings recorded, not gated.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^\\[Rewind\\] Park on: ": {
+      "match": [
+        "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+      ],
+      "noMatch": [
+        "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)",
+        "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
+      ]
+    },
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^atlas 0\\.3\\.\\d+ .*\\brebase=3\\b": {
+      "match": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=3 built Nov 26 2026 21:35:17, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.9 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=3 oop=1 seed=1 built Nov 26 2026 22:42:00, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 18:00:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.2.2-rebase1 built Nov 26 2026 15:30:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.9 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=4 oop=1 seed=1 built Nov 26 2026 22:52:12, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.9 p1=2 rebase=30 oop=1 built x"
+      ]
+    },
+    "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:rebase self-check: PASS (278 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:rebase self-check: FAIL (278 checks, 2 failed)",
+        "atlas:rebase self-check: FAIL slide: entered column cleared (count 0), the rest kept, colours flooded once"
+      ]
+    },
+    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 3, shape 74/74, 7 internal calls registered$": {
+      "match": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 3, shape 74/74, 7 internal calls registered"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 2, shape 48/48, 5 internal calls registered",
+        "atlas:rebase off (Enable=0)",
+        "atlas:rebase SKIP shape 73/74, first mismatch: scene model writer 0x6FCF50 (matrix arg)"
+      ]
+    },
+    "^atlas:rebase script half ready \\(rebase-3\\), native version 3$": {
+      "match": [
+        "atlas:rebase script half ready (rebase-3), native version 3"
+      ],
+      "noMatch": [
+        "atlas:rebase script half ready (rebase-2), native version 2",
+        "atlas:rebase script half ready (rebase-3), native version 0"
+      ]
+    },
+    "^atlas:rebase workers drained: route worker parked \\(idle\\), mono worker (idle|off), ": {
+      "match": [
+        "atlas:rebase workers drained: route worker parked (idle), mono worker idle, pagers: none in this build"
+      ],
+      "noMatch": [
+        "atlas:rebase workers drained: route worker absent, mono worker off, pagers: none in this build"
+      ]
+    },
+    "^atlas:rebase gate in: mode identity step \\(0, 0\\) window ": {
+      "match": [
+        "atlas:rebase gate in: mode identity step (0, 0) window x [0, 2048) z [0, 2048), frame 4123, SliceMs 8"
+      ],
+      "noMatch": [
+        "atlas:rebase gate in: mode roundtrip step (-32, 0) window x [0, 2048) z [0, 2048), frame 4123, SliceMs 8"
+      ]
+    },
+    "^atlas:rebase lists P2: scene models [1-9]\\d* roots ": {
+      "match": [
+        "atlas:rebase lists P2: scene models 8123 roots (2210 attached left to EA's writer), rail track points 0, road elements 412 (bridges 2), ponds 3 (with lookup nodes 40), locomotion bodies 1 (other kinds 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase lists P2: scene models 0 roots (0 attached left to EA's writer), rail track points 0, road elements 0 (bridges 0), ponds 0 (with lookup nodes 0), locomotion bodies 0 (other kinds 0)",
+        "atlas:rebase lists: objects 5321 roots (812 children left), shapes 4410, lots 98 (3 other nodes), camera slots 20, chunks 64 x 64, colour index 4096, slots 61234, 3.10 ms"
+      ]
+    },
+    "^atlas:rebase pass (V|T) done dir 0: items [1-9]\\d*, ": {
+      "match": [
+        "atlas:rebase pass V done dir 0: items 8123, shifted 8100, 12.20 ms, slices 2",
+        "atlas:rebase pass T done dir 0: items 470, shifted 470, 1.30 ms, slices 1"
+      ],
+      "noMatch": [
+        "atlas:rebase pass T done dir 0: items 0, shifted 0, 0.00 ms, slices 1",
+        "atlas:rebase pass M done dir 0: items 3, shifted 3, 0.01 ms, slices 1",
+        "atlas:rebase pass V not built (render copy)"
+      ]
+    },
+    "^atlas:rebase lists P2: scene models \\d+ roots ": {
+      "match": [
+        "atlas:rebase lists P2: scene models 0 roots (0 attached left to EA's writer), rail track points 0, road elements 0 (bridges 0), ponds 0 (with lookup nodes 0), locomotion bodies 0 (other kinds 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase lists: objects 5321 roots (812 children left), shapes 4410, lots 98 (3 other nodes), camera slots 20, chunks 64 x 64, colour index 4096, slots 61234, 3.10 ms"
+      ]
+    },
+    "^atlas:rebase pass (Rt|L) done dir 0: items [1-9]\\d*, ": {
+      "match": [
+        "atlas:rebase pass Rt done dir 0: items 1, shifted 1, 0.30 ms, slices 1",
+        "atlas:rebase pass L done dir 0: items 24, shifted 24, 0.02 ms, slices 1"
+      ],
+      "noMatch": [
+        "atlas:rebase pass O done dir 0: items 5321, shifted 5300, 1.20 ms, slices 1",
+        "atlas:rebase pass L done dir 0: items 0, shifted 0, 0.00 ms, slices 1"
+      ]
+    },
+    "^atlas:rebase pass (O|P|Rt|L) done dir 0: items [1-9]\\d*, ": {
+      "match": [
+        "atlas:rebase pass O done dir 0: items 5321, shifted 5300, 1.20 ms, slices 1",
+        "atlas:rebase pass Rt done dir 0: items 1, shifted 1, 0.30 ms, slices 1"
+      ],
+      "noMatch": [
+        "atlas:rebase pass O done dir 0: items 0, shifted 0, 0.00 ms, slices 1",
+        "atlas:rebase pass V done dir 0: items 10, shifted 10, 0.10 ms, slices 1"
+      ]
+    },
+    "^atlas:rebase gate out: \\d+\\.\\d\\d ms, frames \\d+, slices [1-9]\\d* ": {
+      "match": [
+        "atlas:rebase gate out: 41.20 ms, frames 6, slices 6 (main 6, sim 0, reposts 0), worst slice 8.10 ms (pass V), finish on sim 0"
+      ],
+      "noMatch": [
+        "atlas:rebase gate out: 41.20 ms, frames 6, slices 0 (main 0, sim 0, reposts 0), worst slice 0.00 ms (pass -), finish on sim 0"
+      ]
+    },
+    "^atlas:rebase verify: slots [1-9]\\d*, mismatches 0, physics drops 0$": {
+      "match": [
+        "atlas:rebase verify: slots 161234, mismatches 0, physics drops 0"
+      ],
+      "noMatch": [
+        "atlas:rebase verify: slots 161234, mismatches 3, physics drops 0",
+        "atlas:rebase verify: slots 161234, mismatches 0, physics drops 2"
+      ]
+    },
+    "^atlas:rebase RESULT PASS identity step \\(0, 0\\) slots [1-9]\\d*$": {
+      "match": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 161234"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS roundtrip step (-32, 0) slots 161234",
+        "atlas:rebase RESULT FAIL identity step (0, 0): mismatch, 2 mismatches, 0 drops, rollback clean"
+      ]
+    },
+    "^atlas:rebase pass Rd \\(script half\\): objects [1-9]\\d*, Vector3 fields \\d+, ": {
+      "match": [
+        "atlas:rebase pass Rd (script half): objects 3120, Vector3 fields 2214, in the window 1800 (typed 0, unclassified 1800), round trip moved 0, skipped inexact 0, mismatches 0"
+      ],
+      "noMatch": [
+        "atlas:rebase pass Rd precheck (script half): objects 3120, Vector3 fields 2214, in the window 1800 (typed 0, unclassified 1800), round trip moved 0, skipped inexact 0, mismatches 0",
+        "atlas:rebase pass Rd (script half): objects 0, Vector3 fields 0, in the window 0 (typed 0, unclassified 0), round trip moved 0, skipped inexact 0, mismatches 0"
+      ]
+    },
+    "^atlas:rebase RESULT (PASS roundtrip step \\(-32, 0\\)|REFUSED (binade|physics-root))": {
+      "match": [
+        "atlas:rebase RESULT PASS roundtrip step (-32, 0) slots 161234",
+        "atlas:rebase RESULT REFUSED binade: first scene model id 0x0000000700000400 field +0xB0 value 1.5 (inexact 1, caught 0, root 0); nothing written",
+        "atlas:rebase RESULT REFUSED physics-root: 3 shapes would leave [0, 8192]; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT FAIL roundtrip step (-32, 0): mismatch, 1 mismatches, 0 drops, rollback clean",
+        "atlas:rebase RESULT REFUSED busy",
+        "atlas:rebase RESULT PASS slide step (-32, 0) slots 10"
+      ]
+    },
+    "^atlas:rebase RESULT (PASS roundtrip step \\(0, -32\\)|REFUSED (binade|physics-root))": {
+      "match": [
+        "atlas:rebase RESULT PASS roundtrip step (0, -32) slots 161234",
+        "atlas:rebase RESULT REFUSED binade: first lot id 0x0000000000000032 field +0x198 value 30.5 (inexact 0, caught 1, root 0); nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT FAIL roundtrip step (0, -32): mismatch, 1 mismatches, 0 drops, rollback clean",
+        "atlas:rebase RESULT REFUSED mono-worker-unknown"
+      ]
+    },
+    "^atlas:rebase hub: slide check: window x \\[[-\\d.]+, [-\\d.]+\\) z \\[[-\\d.]+, [-\\d.]+\\), Sims in the dropped column \\d+ \\(household scope 0\\), paging on$": {
+      "match": [
+        "atlas:rebase hub: slide check: window x [0, 8192) z [0, 8192), Sims in the dropped column 0 (household scope 0), paging on"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: slide check: window x [0, 8192) z [0, 8192), Sims in the dropped column 2 (household scope 1), paging on",
+        "atlas:rebase hub: slide check: paging off ([PagedLots] Probe=0 or the probe absent)"
+      ]
+    },
+    "^atlas:rebase gate in: mode slide-check step \\(-32, 0\\) window ": {
+      "match": [
+        "atlas:rebase gate in: mode slide-check step (-32, 0) window x [0, 8192) z [0, 8192), frame 9000, SliceMs 8"
+      ],
+      "noMatch": [
+        "atlas:rebase gate in: mode slide step (-32, 0) window x [0, 8192) z [0, 8192), frame 9000, SliceMs 8",
+        "atlas:rebase gate in: mode roundtrip step (-32, 0) window x [0, 8192) z [0, 8192), frame 9000, SliceMs 8"
+      ]
+    },
+    "^atlas:rebase precheck slide: dropped column items \\d+, unmapped holders [1-9]\\d*: terrain tables": {
+      "match": [
+        "atlas:rebase precheck slide: dropped column items 0, unmapped holders 5: terrain tables (heights, footprint and water grids, type map, cell and paint tables); routing world-lot tree, footprint polygons, portals, finished paths, lot planner matrices; FrameDatabase queued frames (positions of streamed models); unparented effects and Swarm particles; scene maps SceneObjectLocationMap, regional fog map, lot scene node map"
+      ],
+      "noMatch": [
+        "atlas:rebase precheck slide: dropped column items 0, unmapped holders 0"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED (one-way-unmapped|dropped-column-occupied): ": {
+      "match": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 5 holders would stay in the old frame; nothing written",
+        "atlas:rebase RESULT REFUSED dropped-column-occupied: 3 items, first lot id 0x0000000000000032; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED binade: first object id 0x1 field +0x20 value 1.5 (inexact 1, caught 0, root 0); nothing written",
+        "atlas:rebase RESULT CHECKED slide step (-32, 0): the precheck passes; nothing written (dry run)"
+      ]
+    },
+    "^atlas:rebase hub: RESULT REFUSED native precheck \\(code -(9|10)\\)$": {
+      "match": [
+        "atlas:rebase hub: RESULT REFUSED native precheck (code -10)",
+        "atlas:rebase hub: RESULT REFUSED native precheck (code -9)"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT REFUSED native precheck (code -5)",
+        "atlas:rebase hub: RESULT REFUSED paging-off"
+      ]
+    },
+    "^atlas:rebase MISMATCH ": {
+      "match": [
+        "atlas:rebase MISMATCH holder scene model id 0x000000070000040C field +0xB8 old 0x44B71000 (1464.5) new 0x44B73000 (1465.5)",
+        "atlas:rebase MISMATCH holder script field Sim.mDest id 0x000000000000ABCD old (1, 2) new (3, 4)",
+        "atlas:rebase MISMATCH and 4 more"
+      ],
+      "noMatch": [
+        "atlas:rebase verify: slots 10, mismatches 0, physics drops 0"
+      ]
+    },
+    "^atlas:rebase (FAULT|ERROR|DAMAGED) ": {
+      "match": [
+        "atlas:rebase FAULT 0xC0000005 at 0x006FCF62 in main, pass V dir 0 cursor 12 of 4410. The world may be damaged: do not save.",
+        "atlas:rebase ERROR physics tree drop count 0 -> 2: 2 shapes left the tree",
+        "atlas:rebase DAMAGED rollback did not restore every value: every later command refused, saves blocked"
+      ],
+      "noMatch": [
+        "atlas:rebase fallback to the sim thread: main-frame-stalled, at dir 0 pass O cursor 0, main frame 10 (rebaseFinishOnSim 1)"
+      ]
+    },
+    "^atlas:rebase RESULT FAIL ": {
+      "match": [
+        "atlas:rebase RESULT FAIL identity step (0, 0): mismatch, 1 mismatches, 0 drops, rollback clean",
+        "atlas:rebase RESULT FAIL fault (damaged; do not save)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 5"
+      ]
+    },
+    "^atlas:rebase (SKIP|off) ": {
+      "match": [
+        "atlas:rebase SKIP shape 73/74, first mismatch: road network WM+0x5C",
+        "atlas:rebase off (Enable=0)"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 3, shape 74/74, 7 internal calls registered"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-)": {
+      "match": [
+        "atlas:rebase RESULT REFUSED mono-worker-unknown",
+        "atlas:rebase RESULT REFUSED step-not-chunk (dx 16 dz 0)",
+        "atlas:rebase RESULT REFUSED slide-zero (dx 0 dz 0)",
+        "atlas:rebase RESULT REFUSED snapshot-full (161234 slots)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED binade: first object id 0x1 field +0x20 value 1.5 (inexact 1, caught 0, root 0); nothing written",
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 5 holders would stay in the old frame; nothing written"
+      ]
+    },
+    "^atlas:rebase hub: RESULT (REFUSED|FAIL) (command|damaged|route-worker-busy|drain|code|paging-off|household-in-dropped-column|one-way-unmapped-script)": {
+      "match": [
+        "atlas:rebase hub: RESULT REFUSED route-worker-busy",
+        "atlas:rebase hub: RESULT REFUSED code -6, black layer off",
+        "atlas:rebase hub: RESULT REFUSED paging-off",
+        "atlas:rebase hub: RESULT REFUSED household-in-dropped-column: 1 household, selected or unknown-scope Sims, first Bella Goth at (10, 400)",
+        "atlas:rebase hub: RESULT REFUSED one-way-unmapped-script: 1800 script fields of unknown meaning hold positions in the window"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT PASS rebase 0 0, script half: objects 1, black layer off",
+        "atlas:rebase hub: RESULT REFUSED binade (code -5), black layer off",
+        "atlas:rebase hub: RESULT REFUSED native precheck (code -10)"
+      ]
+    },
+    "^atlas:rebase RESULT (PASS slide|CHECKED slide)": {
+      "match": [
+        "atlas:rebase RESULT PASS slide step (-32, 0) slots 10",
+        "atlas:rebase RESULT CHECKED slide step (-32, 0): the precheck passes; nothing written (dry run)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS roundtrip step (-32, 0) slots 10",
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 5 holders would stay in the old frame; nothing written"
+      ]
+    },
+    "^OK   ea fix: PortalFlagRefs ": {
+      "match": [
+        "OK   ea fix: PortalFlagRefs (docs/67 §30.5): lot portal blocked-flag writes through pairs outside R are skipped (0x0082A1CF, 0x0082B6B1)"
+      ],
+      "noMatch": [
+        "SKIP ea fix: PortalFlagRefs: bytes at 0x0082A1CF / 0x0082B6B1 differ (another mod or a probe build owns them): not installed",
+        "OK   ea fix: WorldAStarRefs (docs/67 §30): world A* neighbours outside the routing graph are skipped (0x00676F2A)"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-rebase-p2-sv",
+      "note": "[est 15 min] Atlas docs/022 §8.8.11 rebase P2 on Sunset Valley (Baseline-SV): rebase 0 0, rebase -32 0, rebase 0 -32, rebase 0 0 with every built pass (O P V T Rt M L, Rd in the script half). Pass: identities PASS with 0 mismatches and passes V and T listing items, Rd line each run, round trips PASS or REFUSED (binade, physics-root), never FAIL; no script error.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-rebase-p2",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from branch feature/rebase-p2-1126 (Atlas main 0.3.6 + rebase=3; game-copy/atlas-rebase-p2/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-rebase-p2 (atlas.package sha256 71a3fcf614bb299789eedc19fdd8cb80aa847d366767d2543530252a0419ac09, build rebase-3 read back by the \"script half ready\" line).",
+      "save": "Baseline-SV",
+      "timeoutMin": 40,
+      "extraAsi": {
+        "asi": "game-copy/atlas-rebase-p2/atlas.asi",
+        "sha256": "2c52edaf480430c97fe30d8d6339cd0672855eef0a4219929c65a62b6e6bc72f",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ .*\\brebase=3\\b": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 3, shape 74/74, 7 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-3\\), native version 3$": 1,
+          "^atlas:rebase workers drained: route worker parked \\(idle\\), mono worker (idle|off), ": 4,
+          "^atlas:rebase gate in: mode identity step \\(0, 0\\) window ": 2,
+          "^atlas:rebase lists P2: scene models [1-9]\\d* roots ": 2,
+          "^atlas:rebase pass (V|T) done dir 0: items [1-9]\\d*, ": 4,
+          "^atlas:rebase pass (O|P|Rt|L) done dir 0: items [1-9]\\d*, ": 8,
+          "^atlas:rebase gate out: \\d+\\.\\d\\d ms, frames \\d+, slices [1-9]\\d* ": 2,
+          "^atlas:rebase verify: slots [1-9]\\d*, mismatches 0, physics drops 0$": 2,
+          "^atlas:rebase RESULT PASS identity step \\(0, 0\\) slots [1-9]\\d*$": 2,
+          "^atlas:rebase pass Rd \\(script half\\): objects [1-9]\\d*, Vector3 fields \\d+, ": 2,
+          "^atlas:rebase RESULT (PASS roundtrip step \\(-32, 0\\)|REFUSED (binade|physics-root))": 1,
+          "^atlas:rebase RESULT (PASS roundtrip step \\(0, -32\\)|REFUSED (binade|physics-root))": 1
+        },
+        "logForbid": {
+          "^atlas:rebase MISMATCH ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-)": 0,
+          "^atlas:rebase hub: RESULT (REFUSED|FAIL) (command|damaged|route-worker-busy|drain|code|paging-off|household-in-dropped-column|one-way-unmapped-script)": 0,
+          "^atlas:rebase RESULT (PASS slide|CHECKED slide)": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-rebase-p2-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    },
+    {
+      "id": "atlas-rebase-p2-strip-8192",
+      "note": "[est 20 min] Atlas docs/022 §8.8.11 rebase P2 on AtlasStrip_8192.world (new game, no household; [World8192] Routing=1 PaintIndex=1 PhysicsRoot=1, Default.ini SceneQuadTree=8192,512,8, s3 [EaCrashFixes] PortalFlagRefs=0 as in atlas-8192-load-strip-8192; [PagedLots] Probe=1 so the slide gets past paging-off). rebase 0 0, rebase -32 0, rebase slide -32 0, rebase 0 0. Pass: identities PASS, the round trip PASS or REFUSED (binade, physics-root), the slide logs its slide-check line (household scope 0, paging on), the native dry run (gate in slide-check, precheck slide naming the unmapped holders) and RESULT REFUSED one-way-unmapped or dropped-column-occupied, never PASS; no script error. The world needs PaintIndex=1 to load. Depends on: AtlasStrip_8192.world installed (Atlas tools world-empty.ts build --strip, then world-gen.ts install; queue atlas-8192-patches-1126) and the W8192 patches in this atlas.asi. Fail-fast prep: the repro calls Atlas.RebaseNative.Version at the menu (throws at once when the rebase internal calls are absent), and load_world refuses an uninstalled world with \"unknown world file\" before any wait.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-rebase-p2",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1,
+        "EaCrashFixes.PortalFlagRefs": 0
+      },
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from branch feature/rebase-p2-1126 (Atlas main 0.3.6 + rebase=3; game-copy/atlas-rebase-p2/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-rebase-p2 (atlas.package sha256 71a3fcf614bb299789eedc19fdd8cb80aa847d366767d2543530252a0419ac09, build rebase-3 read back by the \"script half ready\" line).",
+      "save": "menu",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-rebase-p2/atlas.asi",
+        "sha256": "2c52edaf480430c97fe30d8d6339cd0672855eef0a4219929c65a62b6e6bc72f",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ .*\\brebase=3\\b": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 3, shape 74/74, 7 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-3\\), native version 3$": 1,
+          "^atlas:rebase workers drained: route worker parked \\(idle\\), mono worker (idle|off), ": 4,
+          "^atlas:rebase gate in: mode identity step \\(0, 0\\) window ": 2,
+          "^atlas:rebase lists P2: scene models \\d+ roots ": 2,
+          "^atlas:rebase pass (Rt|L) done dir 0: items [1-9]\\d*, ": 4,
+          "^atlas:rebase gate out: \\d+\\.\\d\\d ms, frames \\d+, slices [1-9]\\d* ": 2,
+          "^atlas:rebase verify: slots [1-9]\\d*, mismatches 0, physics drops 0$": 2,
+          "^atlas:rebase RESULT PASS identity step \\(0, 0\\) slots [1-9]\\d*$": 2,
+          "^atlas:rebase pass Rd \\(script half\\): objects [1-9]\\d*, Vector3 fields \\d+, ": 2,
+          "^atlas:rebase RESULT (PASS roundtrip step \\(-32, 0\\)|REFUSED (binade|physics-root))": 1,
+          "^atlas:rebase hub: slide check: window x \\[[-\\d.]+, [-\\d.]+\\) z \\[[-\\d.]+, [-\\d.]+\\), Sims in the dropped column \\d+ \\(household scope 0\\), paging on$": 1,
+          "^atlas:rebase gate in: mode slide-check step \\(-32, 0\\) window ": 1,
+          "^atlas:rebase precheck slide: dropped column items \\d+, unmapped holders [1-9]\\d*: terrain tables": 1,
+          "^atlas:rebase RESULT REFUSED (one-way-unmapped|dropped-column-occupied): ": 1,
+          "^atlas:rebase hub: RESULT REFUSED native precheck \\(code -(9|10)\\)$": 1
+        },
+        "logForbid": {
+          "^atlas:rebase MISMATCH ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-)": 0,
+          "^atlas:rebase hub: RESULT (REFUSED|FAIL) (command|damaged|route-worker-busy|drain|code|paging-off|household-in-dropped-column|one-way-unmapped-script)": 0,
+          "^atlas:rebase RESULT (PASS slide|CHECKED slide)": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-rebase-p2-strip-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: PortalFlagRefs ": 0
+      }
+    }
+  ]
+}

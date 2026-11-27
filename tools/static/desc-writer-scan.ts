@@ -2,6 +2,7 @@
 // .dll files), runs mods/ts3fixes/src/DescWriterScan.cs over them on .NET Framework, prints per assembly the kinds it makes
 // untrusted, its writer methods and the scan time. Windows (.NET Framework csc), needs game-copy/assemblies.
 //   node tools/static/desc-writer-scan.ts <file.package|file.dll>...
+//   DWS_SIMDESC=1 node tools/static/desc-writer-scan.ts ...   the simdescindex writer scan instead (docs/359 §5)
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';

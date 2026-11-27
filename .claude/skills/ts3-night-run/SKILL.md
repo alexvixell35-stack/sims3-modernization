@@ -31,6 +31,9 @@ Plan file: `{ "night": "night-1125", "cutoff": "07:45", "rgbOffUntil": "09:00", 
 - the generated script has no rm / del / Remove-Item and no elevation, and every child reads `/dev/null`
 
 ## What the generated chain does
+- takes the chain lock `probe-out/queue/night-chain.lock` first (one chain at a time, since 2026-11-27: nogame / wait-job-end
+  alone miss the gap between another chain's queues); a second chain waits for it, a dead owner's lock is taken over, the
+  EXIT trap releases it
 - waits for TS3W.exe and the running job to end; main checkout on master; Bin snapshot + `trap restore EXIT` (Bin state per queue:
   `queue-rewind.ts state` -> apex or apex-rewind, bridge only, no DXVK arms)
 - per queue: dry-run (refused = skipped), agent copied into the worktree's `build/ts3agent.package` and put back after,

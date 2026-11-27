@@ -1,0 +1,434 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] atlas-frozen-sim-1126: Boundless Atlas FZ-1 (docs/022 §11.4), the frozen left-behind Sim hold, four jobs (three on, one OFF arm) on Sunset Valley (Baseline-SV, Keaton household of 2: the member that is not selected is held). NOT RUNNABLE ON MASTER YET: the job key extraAsi comes with branch feature/atlas-p0-load-1126 (this branch is cut from it); dry-run checked against that queue.ts on 2026-11-26. Never run. Reading the result: hold-sv and save-sv PASS = every line in extraAsi.logRequire, none of logForbid, check PASS diffs 0; a check FAIL lists up to 12 diff lines (atlas:freeze check diff) in Bin\\atlas.log: the first is where the hold leaked. control-sv must show diffs > 0 (proves the compare sees an unheld Sim change). A RESULT REFUSED (no candidate, selected, pregnant) is not evidence; rerun after fixing the save.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=1 rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.2.2-fz built Nov 26 2026 15:30:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=0 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^atlas:freeze native 1 on \\(FreezeLeftBehind=1, Verbose=0\\), 2 internal calls registered$": {
+      "match": [
+        "atlas:freeze native 1 on (FreezeLeftBehind=1, Verbose=0), 2 internal calls registered"
+      ],
+      "noMatch": [
+        "atlas:freeze off (FreezeLeftBehind=0)",
+        "atlas:freeze native 1 on (FreezeLeftBehind=1, Verbose=1), 2 internal calls registered"
+      ]
+    },
+    "^atlas:freeze RESULT PASS hold sim \\d+ \\(.+\\): alarms \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, one-shot R2 \\d+\\), aging off-list, static lists \\d+, tick \\d+, check armed \\(\\d+ items\\)$": {
+      "match": [
+        "atlas:freeze RESULT PASS hold sim 1234567890 (Kirk Keaton): alarms 9 (R1 4 R2 5 R3 0, one-shot R2 2), aging off-list, static lists 0, tick 4815000, check armed (212 items)"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT REFUSED hold sim 1234567890: selected",
+        "atlas:freeze RESULT PASS hold sim 1234567890 (Kirk Keaton): alarms 9 (R1 4 R2 5 R3 0, one-shot R2 2), aging off-list, static lists 0, tick 4815000"
+      ]
+    },
+    "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): H \\d+ ticks \\(48\\.\\d\\d h\\), alarms back \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, dropped 0\\), stamps moved [1-9]\\d* ": {
+      "match": [
+        "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 108000 ticks (48.00 h), alarms back 9 (R1 4 R2 5 R3 0, dropped 0), stamps moved 31 (whole days 1, written while held 4), guard hits pump 812 actors 40 descriptions 2 listeners 0 decay 2"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT PASS release sim 1234567890 (save): H 54000 ticks (24.00 h), alarms back 9 (R1 4 R2 5 R3 0, dropped 0), stamps moved 31 (whole days 1, written while held 4), guard hits pump 1 actors 0 descriptions 0 listeners 0 decay 0",
+        "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 108000 ticks (48.00 h), alarms back 8 (R1 4 R2 4 R3 0, dropped 1), stamps moved 31 (whole days 1, written while held 4), guard hits pump 812 actors 40 descriptions 2 listeners 0 decay 2",
+        "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 108000 ticks (48.00 h), alarms back 9 (R1 4 R2 5 R3 0, dropped 0), stamps moved 0 (whole days 0, written while held 4), guard hits pump 812 actors 40 descriptions 2 listeners 0 decay 2"
+      ]
+    },
+    "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): H \\d+ ticks \\(\\d+\\.\\d\\d h\\), alarms back \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, dropped 0\\), stamps moved [1-9]\\d* ": {
+      "match": [
+        "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 54100 ticks (24.04 h), alarms back 9 (R1 4 R2 5 R3 0, dropped 0), stamps moved 30 (whole days 1, written while held 4), guard hits pump 400 actors 20 descriptions 1 listeners 0 decay 1"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT PASS release sim 1234567890 (save): H 54000 ticks (24.00 h), alarms back 9 (R1 4 R2 5 R3 0, dropped 0), stamps moved 31 (whole days 1, written while held 4), guard hits pump 1 actors 0 descriptions 0 listeners 0 decay 0"
+      ]
+    },
+    "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): .* guard hits pump [1-9]\\d* ": {
+      "match": [
+        "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 108000 ticks (48.00 h), alarms back 9 (R1 4 R2 5 R3 0, dropped 0), stamps moved 31 (whole days 1, written while held 4), guard hits pump 812 actors 40 descriptions 2 listeners 0 decay 2"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 108000 ticks (48.00 h), alarms back 9 (R1 4 R2 5 R3 0, dropped 0), stamps moved 31 (whole days 1, written while held 4), guard hits pump 0 actors 40 descriptions 2 listeners 0 decay 2"
+      ]
+    },
+    "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 1, diffs 0$": {
+      "match": [
+        "atlas:freeze check PASS sim 1234567890: items 212, segments 1, diffs 0"
+      ],
+      "noMatch": [
+        "atlas:freeze check FAIL sim 1234567890: items 212, segments 1, diffs 3",
+        "atlas:freeze check PASS sim 1234567890: items 212, segments 2, diffs 0"
+      ]
+    },
+    "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 2, diffs 0$": {
+      "match": [
+        "atlas:freeze check PASS sim 1234567890: items 212, segments 2, diffs 0"
+      ],
+      "noMatch": [
+        "atlas:freeze check PASS sim 1234567890: items 212, segments 1, diffs 0",
+        "atlas:freeze check FAIL sim 1234567890: items 212, segments 2, diffs 1"
+      ]
+    },
+    "^atlas:freeze save released 1 before the native save$": {
+      "match": [
+        "atlas:freeze save released 1 before the native save"
+      ],
+      "noMatch": [
+        "atlas:freeze travel-save released 1 before the native save",
+        "atlas:freeze save released 2 before the native save"
+      ]
+    },
+    "^atlas:freeze save held again 1/1 after the native save \\(result 0\\)$": {
+      "match": [
+        "atlas:freeze save held again 1/1 after the native save (result 0)"
+      ],
+      "noMatch": [
+        "atlas:freeze save held again 0/1 after the native save (result 0)",
+        "atlas:freeze travel-save held again 1/1 after the native save (result 0)"
+      ]
+    },
+    "^atlas:freeze RESULT PASS watch sim \\d+ \\(.+\\): control arm, no hold, [1-9]\\d* items$": {
+      "match": [
+        "atlas:freeze RESULT PASS watch sim 1234567890 (Kirk Keaton): control arm, no hold, 212 items"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT PASS hold sim 1234567890 (Kirk Keaton): alarms 9",
+        "atlas:freeze RESULT PASS watch sim 1234567890 (Kirk Keaton): control arm, no hold, 0 items"
+      ]
+    },
+    "^atlas:freeze RESULT PASS control sim \\d+: diffs [1-9]\\d* ": {
+      "match": [
+        "atlas:freeze RESULT PASS control sim 1234567890: diffs 57 (an unheld Sim must differ, else the check cannot see a change)"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT FAIL control sim 1234567890: diffs 0 (an unheld Sim must differ, else the check cannot see a change)"
+      ]
+    },
+    "^atlas:freeze ERROR ": {
+      "match": [
+        "atlas:freeze ERROR step release fields sim 1234567890: NullReferenceException: Object reference not set"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 108000 ticks (48.00 h)"
+      ]
+    },
+    "^atlas:freeze hook-refused ": {
+      "match": [
+        "atlas:freeze hook-refused EventListener.DoesEventApply: already compiled"
+      ],
+      "noMatch": [
+        "atlas:freeze on 0.1.0-fz1 (FreezeLeftBehind=1, Verbose=0), hooks 23/23"
+      ]
+    },
+    "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": {
+      "match": [
+        "atlas:freeze RESULT FAIL atlas:freeze check FAIL sim 1: items 3, segments 1, diffs 1",
+        "atlas:freeze check FAIL sim 1234567890: items 212, segments 1, diffs 2",
+        "atlas:freeze self-check FAIL after 3 checks: tick units of this game build differ"
+      ],
+      "noMatch": [
+        "atlas:freeze check PASS sim 1234567890: items 212, segments 1, diffs 0",
+        "atlas:freeze RESULT PASS control sim 1: diffs 57 (an unheld Sim must differ, else the check cannot see a change)"
+      ]
+    },
+    "^atlas:freeze RESULT REFUSED ": {
+      "match": [
+        "atlas:freeze RESULT REFUSED hold sim 1234567890: nraas-storyprogression"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT PASS hold sim 1234567890 (Kirk Keaton): alarms 9"
+      ]
+    },
+    "^atlas:freeze field-missing ": {
+      "match": [
+        "atlas:freeze field-missing Sim.LastSipTime"
+      ],
+      "noMatch": [
+        "atlas:freeze v field sim 1 field/Sim.LastSipTime#0"
+      ]
+    },
+    "^atlas:freeze SKIP ": {
+      "match": [
+        "atlas:freeze SKIP not-steam-1.67 (link stamp 0x12345678, image size 0x00E5A000)"
+      ],
+      "noMatch": [
+        "atlas:freeze off (FreezeLeftBehind=0)"
+      ]
+    },
+    "^atlas:freeze aging-readd ": {
+      "match": [
+        "atlas:freeze aging-readd sim 1234567890: back on the aging list while held, taken off again"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT PASS hold sim 1234567890 (Kirk Keaton): alarms 9 (R1 4 R2 5 R3 0, one-shot R2 2), aging off-list"
+      ]
+    },
+    "^atlas:freeze on 0\\.1\\.1-fz1 \\(FreezeLeftBehind=1, Verbose=0\\), hooks 21/21, save bracket ok, self-check PASS \\(\\d+ checks\\), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent$": {
+      "match": [
+        "atlas:freeze on 0.1.1-fz1 (FreezeLeftBehind=1, Verbose=0), hooks 21/21, save bracket ok, self-check PASS (6 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent"
+      ],
+      "noMatch": [
+        "atlas:freeze on 0.1.0-fz1 (FreezeLeftBehind=1, Verbose=0), hooks 23/23, self-check PASS (6 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent",
+        "atlas:freeze on 0.1.1-fz1 (FreezeLeftBehind=1, Verbose=0), hooks 20/21, save bracket ok, self-check PASS (6 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent",
+        "atlas:freeze on 0.1.1-fz1 (FreezeLeftBehind=1, Verbose=0), hooks 21/21, save bracket SaveGame already compiled, SaveTravel ok, self-check PASS (6 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent",
+        "atlas:freeze on 0.1.1-fz1 (FreezeLeftBehind=1, Verbose=0), hooks 0/0, save bracket not registered, self-check PASS (6 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression loaded (stand down, no swaps)"
+      ]
+    },
+    "^atlas:freeze status: on True, hooks 21/21, save bracket ok, held 0, release pending 0, ": {
+      "match": [
+        "atlas:freeze status: on True, hooks 21/21, save bracket ok, held 0, release pending 0, holds 1, releases 1 (failed 0, selected 0), refused 0, errors 0"
+      ],
+      "noMatch": [
+        "atlas:freeze status: on True, hooks 21/21, save bracket ok, held 0, release pending 1, holds 1, releases 1 (failed 1, selected 0)",
+        "atlas:freeze status: on True, hooks 23/23, held 0, holds 1"
+      ]
+    },
+    "^atlas:freeze off \\(FreezeLeftBehind=0\\)$": {
+      "match": [
+        "atlas:freeze off (FreezeLeftBehind=0)"
+      ],
+      "noMatch": [
+        "atlas:freeze off (FreezeLeftBehind=2)",
+        "atlas:freeze native 1 on (FreezeLeftBehind=1, Verbose=0), 2 internal calls registered"
+      ]
+    },
+    "^atlas:freeze on ": {
+      "match": [
+        "atlas:freeze on 0.1.1-fz1 (FreezeLeftBehind=1, Verbose=0), hooks 21/21, save bracket ok"
+      ],
+      "noMatch": [
+        "atlas:freeze off (FreezeLeftBehind=0)",
+        "atlas:freeze native 1 on (FreezeLeftBehind=1, Verbose=0), 2 internal calls registered"
+      ]
+    },
+    "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": {
+      "match": [
+        "atlas:freeze unhide-skip 1: the call moved a held Sim out of its household, not put back",
+        "atlas:freeze release-retry sim 12: still pending (x)",
+        "atlas:freeze selected sim 12: held Sim selected, released",
+        "atlas:freeze load-rehold cleared 1: another save or world loaded"
+      ],
+      "noMatch": [
+        "atlas:freeze RESULT PASS release sim 12 (auto): H 108000 ticks (48.00 h)",
+        "atlas:freeze load-rehold sim 12: held"
+      ]
+    },
+    "^atlas:save bracket-error ": {
+      "match": [
+        "atlas:save bracket-error handler freeze pre save: NullReferenceException"
+      ],
+      "noMatch": [
+        "atlas:save bracket handler freeze order 20",
+        "atlas:save bracket SaveGame ok, SaveTravel ok"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-frozen-sim-hold-sv",
+      "note": "[est 20 min] hold one household Sim for 48 sim-hours at ultra, auto release, compare with the snapshot taken at the hold (motives, buffs, age, relationships, careers, alarms, stamps)",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas branch feature/frozen-sim-1126 9110abc (version 0.1.1-fz1, after the rule review of 99a5ad2): game-copy/atlas-main/atlas.asi (bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-main (atlas.package sha256 37b657e847ea, read back by the version in the required startup line).",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-main",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 85,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "Regions.FreezeLeftBehind": 1,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=1 rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:freeze native 1 on \\(FreezeLeftBehind=1, Verbose=0\\), 2 internal calls registered$": 1,
+          "^atlas:freeze RESULT PASS hold sim \\d+ \\(.+\\): alarms \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, one-shot R2 \\d+\\), aging off-list, static lists \\d+, tick \\d+, check armed \\(\\d+ items\\)$": 1,
+          "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): H \\d+ ticks \\(48\\.\\d\\d h\\), alarms back \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, dropped 0\\), stamps moved [1-9]\\d* ": 1,
+          "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): .* guard hits pump [1-9]\\d* ": 1,
+          "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 1, diffs 0$": 1,
+          "^atlas:freeze on 0\\.1\\.1-fz1 \\(FreezeLeftBehind=1, Verbose=0\\), hooks 21/21, save bracket ok, self-check PASS \\(\\d+ checks\\), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent$": 1,
+          "^atlas:freeze status: on True, hooks 21/21, save bracket ok, held 0, release pending 0, ": 1
+        },
+        "logForbid": {
+          "^atlas:freeze ERROR ": 0,
+          "^atlas:freeze hook-refused ": 0,
+          "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+          "^atlas:freeze RESULT REFUSED ": 0,
+          "^atlas:freeze field-missing ": 0,
+          "^atlas:freeze SKIP ": 0,
+          "^atlas:freeze aging-readd ": 0,
+          "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+          "^atlas:save bracket-error ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-frozen-sim-hold-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1
+      }
+    },
+    {
+      "id": "atlas-frozen-sim-save-sv",
+      "note": "[est 25 min] the same with an EA save after 24 sim-hours (scratch save Repro-FrozenSim-1126): release before the native save, hold again after, check over two segments",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas branch feature/frozen-sim-1126 9110abc (version 0.1.1-fz1, after the rule review of 99a5ad2): game-copy/atlas-main/atlas.asi (bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-main (atlas.package sha256 37b657e847ea, read back by the version in the required startup line).",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-main",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 100,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "Regions.FreezeLeftBehind": 1,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=1 rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:freeze native 1 on \\(FreezeLeftBehind=1, Verbose=0\\), 2 internal calls registered$": 1,
+          "^atlas:freeze RESULT PASS hold sim \\d+ \\(.+\\): alarms \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, one-shot R2 \\d+\\), aging off-list, static lists \\d+, tick \\d+, check armed \\(\\d+ items\\)$": 1,
+          "^atlas:freeze save released 1 before the native save$": 1,
+          "^atlas:freeze save held again 1/1 after the native save \\(result 0\\)$": 1,
+          "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): H \\d+ ticks \\(\\d+\\.\\d\\d h\\), alarms back \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, dropped 0\\), stamps moved [1-9]\\d* ": 1,
+          "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 2, diffs 0$": 1,
+          "^atlas:freeze on 0\\.1\\.1-fz1 \\(FreezeLeftBehind=1, Verbose=0\\), hooks 21/21, save bracket ok, self-check PASS \\(\\d+ checks\\), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent$": 1,
+          "^atlas:freeze status: on True, hooks 21/21, save bracket ok, held 0, release pending 0, ": 1
+        },
+        "logForbid": {
+          "^atlas:freeze ERROR ": 0,
+          "^atlas:freeze hook-refused ": 0,
+          "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+          "^atlas:freeze RESULT REFUSED ": 0,
+          "^atlas:freeze field-missing ": 0,
+          "^atlas:freeze SKIP ": 0,
+          "^atlas:freeze aging-readd ": 0,
+          "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+          "^atlas:save bracket-error ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-frozen-sim-save-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1
+      }
+    },
+    {
+      "id": "atlas-frozen-sim-control-sv",
+      "note": "[est 20 min] vanilla twin (control arm): the same Sim and 48 sim-hours, snapshot and compare without a hold; must differ",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas branch feature/frozen-sim-1126 9110abc (version 0.1.1-fz1, after the rule review of 99a5ad2): game-copy/atlas-main/atlas.asi (bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-main (atlas.package sha256 37b657e847ea, read back by the version in the required startup line).",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-main",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 85,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "Regions.FreezeLeftBehind": 1,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=1 rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:freeze native 1 on \\(FreezeLeftBehind=1, Verbose=0\\), 2 internal calls registered$": 1,
+          "^atlas:freeze RESULT PASS watch sim \\d+ \\(.+\\): control arm, no hold, [1-9]\\d* items$": 1,
+          "^atlas:freeze RESULT PASS control sim \\d+: diffs [1-9]\\d* ": 1,
+          "^atlas:freeze on 0\\.1\\.1-fz1 \\(FreezeLeftBehind=1, Verbose=0\\), hooks 21/21, save bracket ok, self-check PASS \\(\\d+ checks\\), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent$": 1,
+          "^atlas:freeze status: on True, hooks 21/21, save bracket ok, held 0, release pending 0, ": 1
+        },
+        "logForbid": {
+          "^atlas:freeze ERROR ": 0,
+          "^atlas:freeze hook-refused ": 0,
+          "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+          "^atlas:freeze RESULT REFUSED ": 0,
+          "^atlas:freeze field-missing ": 0,
+          "^atlas:freeze SKIP ": 0,
+          "^atlas:freeze aging-readd ": 0,
+          "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+          "^atlas:save bracket-error ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-frozen-sim-control-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1
+      }
+    },
+    {
+      "id": "atlas-frozen-sim-off-sv",
+      "note": "[est 10 min] OFF arm: the same pins with [Regions] FreezeLeftBehind=0. The asi logs off and registers nothing, the script half swaps nothing (State.on false, hold refused), the game runs 6 sim-hours at ultra",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas branch feature/frozen-sim-1126 9110abc (version 0.1.1-fz1, after the rule review of 99a5ad2): game-copy/atlas-main/atlas.asi (bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-main (atlas.package sha256 37b657e847ea, read back by the version in the required startup line).",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-main",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 85,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "Regions.FreezeLeftBehind": 0,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=1 rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:freeze off \\(FreezeLeftBehind=0\\)$": 1
+        },
+        "logForbid": {
+          "^atlas:freeze on ": 0,
+          "^atlas:freeze ERROR ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-frozen-sim-off-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1
+      }
+    }
+  ]
+}

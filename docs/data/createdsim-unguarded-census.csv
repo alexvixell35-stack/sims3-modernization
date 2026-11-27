@@ -1,0 +1,286 @@
+assembly,namespace,class,method,line,receiver,member,kind,driver,reach,basis
+Sims3GameplaySystems,Sims3.Gameplay,GameEntryMovingModel,ResetSim,550,simDesc,OnHomeLotChanged,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay,GameEntryMovingModel,ResetSim,551,simDesc,SetObjectToReset,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay,GameStates,ImportTravellingHousehold,2163,simDescription3,BuffManager,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Abstracts,MarineLifeStateFinalInvestigate,Run,35,mTarget,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Abstracts,MarineLifeStateInvestigate,Run,35,mTarget,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,ParentWithdrawChildIfAgedUpToIneligible,1812,ownerDescription,ShowTNSAndPlayStingIfSelectable,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,OnDaycareSituationExit,2901,OwnerDescription,,copy-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,OnDaycareSituationExit,2908,OwnerDescription,IsFemale,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,OnDaycareSituationExit,2988,OwnerDescription,IsFemale,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,GetDaycareChildReportLocalizedString,3055,OwnerDescription,IsFemale,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,GetDaycareChildReportLocalizedString,3056,OwnerDescription,IsFemale,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,GetDaycareChildReportLocalizedString,3057,OwnerDescription,IsFemale,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,GetDaycareChildReportLocalizedString,3058,OwnerDescription,IsFemale,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Daycare,GetDaycareChildReportLocalizedString,3059,OwnerDescription,IsFemale,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareChildManager,ChildDied,143,mDaycare.OwnerDescription,ShowTNSAndPlayStingIfSelectable,deref-unguarded,event,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareChildManagerProblemChild.ProblemChildVictoryHelper,VictoryCallback,42,simDescription,,copy-unguarded,alarm,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareChildManagerProblemChild,(field),126,childSimDesc,Motives,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareChildManagerProblemChild,AddProblemChildScore,205,childSimDescription,,copy-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareChildManagerProblemChild,AddProblemChildScore,208,mDaycare.OwnerDescription,,copy-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareChildMonitor,UpdateChild,111,childSimDesc,ThoughtBalloonManager,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareChildMonitor,ClearPersistentThoughtBalloon,134,childSimDesc,ThoughtBalloonManager,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareToddlerPickupSituation,OnLateParentPickup,162,ownerDescription,,copy-unguarded,situation,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareWorkdaySituation,EvaluateMotiveFail,499,childSimDesc,Motives,deref-unguarded,alarm,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,DaycareWorkdaySituation,EvaluateMotiveFail,501,childSimDesc,Motives,deref-unguarded,alarm,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,FireFightingJob,MakeMapTagForRandomJobVisible,172,Occupation.OwnerDescription,,copy-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,FireFightingJob,OnEarthquakeStartTNSCallback,211,Occupation.OwnerDescription,,copy-unguarded,alarm,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,FireFightingJob,OnEarthquakeButtonPressed,235,activeFireFighter.OwnerDescription,,copy-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,FireFightingJob,TimeoutOccurred,683,Occupation.OwnerDescription,,copy-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,CreateAngryGhost,218,ghost,Autonomy,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,CreateAngryGhost,219,ghost,Autonomy,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,CreateAngryGhost,220,ghost,AddInteraction,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,CreateAngryGhost,221,ghost,AddSoloInteraction,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,CreateAngryGhost,240,ghost,SwitchToOutfitWithoutSpin,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,GetRandomRoomWeightedBySize,482,Occupation.OwnerDescription,GetAllowedRooms,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,UnhideGhostsInRoom,738,ghost,SetOpacity,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,UnhideGhostsInRoom,739,ghost,FadeIn,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,VerifyConsistency,781,Occupation.OwnerDescription,,copy-unguarded,alarm,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,GhostHunter.GhostHunterJob,SetupTasks,926,Occupation.OwnerDescription,Motives,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,InteriorDesigner.ShowOpportunityDialog,Run,74,renovation.Occupation.OwnerDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,InteriorDesigner.ShowOpportunityDialog,AcceptJobEnterRenovationModeButtonPressed,117,renovation.Occupation.OwnerDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,InteriorDesigner.ShowOpportunityDialog,AcceptJobVisitLotModeButtonPressed,125,renovation.Occupation.OwnerDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,InteriorDesigner.Renovation,(field),1965,spec.mOccupation.OwnerDescription,,copy-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,InteriorDesigner.Renovation,PushPerformJob,2031,Occupation.OwnerDescription,,copy-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Lifeguard.PanicAttack,DrownDelegate,795,simDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,MagicianCareer,SetAttributesForNewJob,1179,OwnerDescription,SkillManager,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,PerformanceArtistCareer,SetAttributesForNewJob,1199,OwnerDescription,SkillManager,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,PerformanceArtistCareer,SetAttributesForNewJob,1200,OwnerDescription,SkillManager,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,PortfolioActiveCareer,TryPushTakePhoto,231,OwnerDescription,InteractionQueue,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,Stylist.MakeoverSituation,ForceLeaveJob,823,Job.Occupation.OwnerDescription,,copy-unguarded,situation,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,ToddlerDaycareChildMonitor,UpdateChild,48,mDaycare.OwnerDescription,ShowTNSAndPlayStingIfSelectable,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,ToddlerDaycareChildMonitor,UpdateChild,48,mDaycare.OwnerDescription,IsFemale,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.ActiveCareer.ActiveCareers,ToddlerDaycareChildMonitor,IsCaredFor,59,mDaycare.OwnerDescription,Household,deref-unguarded,other,live,rule: active careers are player professions
+Sims3GameplaySystems,Sims3.Gameplay.Actors,Sim.DEBUG_SummonGenie,Run,29545,OccultGenie.CreateGenie(Target; null),,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Actors,Sim.Placeholder,DoDematerialize,44298,SimDescription,,copy-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.Actors,Sim,AcceptableClothingForCareer,61331,SimDescription,CurrentOutfitCategory,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,AgingState,AgeTransitionCompleted,380,SimDescription,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffImminentNemesis.BuffInstanceImminentNemesis,OnSocialization,49,TargetSim,BuffManager,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffImminentNemesis.BuffInstanceImminentNemesis,OnSocialization,55,TargetSim,BuffManager,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffMalePregnancy.BuffInstanceMalePregnancy,OnTimeOutUpdated,51,TargetSim,,copy-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffMalePregnancy.BuffInstanceMalePregnancy,OnTimeOutUpdated,70,TargetSim,RequestWalkStyle,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffTransformation.BuffTransformationInstance,OnLoadFixup,110,TargetSim,AbortOutfitDelayedSwap,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffTransformation.BuffTransformationInstance,GenerateAndApplyTransformOutfit,132,TargetSim,CurrentOutfitCategory,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffTransformation.BuffTransformationInstance,GenerateAndApplyTransformOutfit,137,TargetSim,CurrentOutfitIndex,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffTransformation.BuffTransformationInstance,GenerateAndApplyTransformOutfit,146,TargetSim,SwitchToOutfitDelayed,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffTransformation.BuffTransformationInstance,ApplyTransformedOutfitSwap,154,TargetSim,GetCensorType,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffTransformation.BuffTransformationInstance,ApplyTransformedOutfitSwap,156,TargetSim,DoOutfitDelayedSwap,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffTransformation.BuffTransformationInstance,ApplyTransformedOutfitSwap,159,TargetSim,EnableCensor,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffVampireBite.BuffInstanceBuffVampireBite,Dispose,62,TargetSim,RemoveAlarm,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,BuffVampireBite.BuffInstanceBuffVampireBite,ReturnFromTravelCallback,93,TargetSim,,copy-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,FlightOfFelicity.BuffInstanceFlightOfFelicity,AddMoodAlarm,85,TargetSim,AddAlarmRepeating,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,FlightOfFelicity.BuffInstanceFlightOfFelicity,CheckIfMoodLost,91,TargetSim,MoodManager,deref-unguarded,alarm,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,FlightOfFelicity.BuffInstanceFlightOfFelicity,CheckIfMoodLost,93,TargetSim,BuffManager,deref-unguarded,alarm,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,HealthManager,TemperatureChange,485,mOwnerDescription,BuffManager,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,MidlifeCrisisManager,CreateInitialState,430,mOwnerDescription,SocialComponent,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,OccultVampire,FixUpOccult,545,simDescription,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,PetManager,CheckForSpecialCaseSleepingSpot,297,Owner,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ActorSystems,SimBuilderTask,SwapModel,819,SimDescription,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Careers,AfterschoolActivity,IsDuringActivityTime,1383,simDescription,,copy-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Business.TransferToPoliticalCareer,RunEvent,275,c.OwnerDescription,,copy-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Business.PlayPrankOnCoworker,OnEndOfDay,399,business.SimConspiringPrank,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Business.PlayPrankOnCoworker,PerformPrank,437,business.SimConspiringPrank,,copy-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Business.PlayPrankOnCoworker,SetAnotherAlarm,487,business.SimConspiringPrank,,copy-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Business.PlayPrankOnCoworker,CheckIfAttemptingPrankOnConsecutiveDay,501,business.SimAffectedByPrank,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career.EventReward,RunEvent,1012,c.OwnerDescription,IsFemale,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career.EventReward,RunEvent,1012,c.OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career.EventOpportunity,RunEvent,1167,c.OwnerDescription,OpportunityManager,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career.EventRaise,Likelihood,1225,c.OwnerDescription,BuffManager,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,SetUpSkippingWorkAlarm,2928,OwnerDescription,,copy-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,StartWorking,3035,OwnerDescription,,copy-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,ClearPriorFunMotiveDelta,3087,OwnerDescription,,copy-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,SetFunMotiveDelta,3112,OwnerDescription,,copy-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,HungerSolverAlarmHandler,3186,OwnerDescription,,copy-unguarded,alarm,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,ShowRaiseTNS,3849,OwnerDescription,IsFemale,deref-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,CheckForHolidayBonus,3877,OwnerDescription,,copy-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,GeneratePromotionText,3954,OwnerDescription,IsFemale,deref-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,GeneratePromotionText,3955,OwnerDescription,IsFemale,deref-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,GeneratePromotionText,3960,OwnerDescription,IsFemale,deref-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,GeneratePromotionText,3962,OwnerDescription,IsFemale,deref-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Career,DoDemotionWarning,4081,OwnerDescription,IsFemale,deref-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Culinary.EventGetFood,RunEvent,129,c.OwnerDescription,Inventory,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Culinary.EventGetFood,RunEvent,131,c.OwnerDescription,Inventory,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Culinary.EventGetFood,RunEvent,132,c.OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Job,OnStartDisplayIntroductoryTns,476,Occupation.OwnerDescription,,copy-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Journalism,UpdateReport,401,OwnerDescription,ShowTNSIfSelectable,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Journalism,UpdateReport,401,OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Journalism,UpdateReport,408,OwnerDescription,ShowTNSIfSelectable,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Journalism,UpdateReport,408,OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Journalism,UpdateReview,492,OwnerDescription,ShowTNSIfSelectable,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Journalism,UpdateReview,492,OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Journalism,UpdateReview,497,OwnerDescription,ShowTNSIfSelectable,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Journalism,UpdateReview,497,OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,LawEnforcement,RegularWorkDayEndAlarmHandler,595,OwnerDescription,AddAlarm,deref-unguarded,other,hazard,read by hand; docs/349 §3.2
+Sims3GameplaySystems,Sims3.Gameplay.Careers,LawEnforcement,UpdateReport,889,OwnerDescription,ShowTNSIfSelectable,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,LawEnforcement,UpdateReport,889,OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,LawEnforcement,UpdateReport,894,OwnerDescription,ShowTNSIfSelectable,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,LawEnforcement,UpdateReport,894,OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,LawEnforcement,EndOfBeeperEventHandler,975,OwnerDescription,AddExitReason,deref-unguarded,alarm,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Medical,RemoveLotAlarm,781,OwnerDescription,RemoveAlarm,deref-unguarded,other,hazard,read by hand; docs/349 §3.2
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Medical,OnTriggerEmergency,803,OwnerDescription,,copy-unguarded,alarm,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Medical,PerformedFollowUp,878,OwnerDescription,CareerManager,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Medical,EndOfBeeperEventHandler,1087,OwnerDescription,AddExitReason,deref-unguarded,alarm,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,MedicalJob,SetupTask,58,ownerDescription,AddInteraction,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,MedicalJob,CleanupTask,78,ownerDescription,RemoveInteractionByType,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Music,SetLevel,382,OwnerDescription,TraitManager,deref-unguarded,other,hazard,read by hand; docs/349 §3.2
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Occupation,LeaveJob,3638,OwnerDescription,IsFemale,deref-unguarded,other,gated,read by hand: selectable-only or UI caller
+Sims3GameplaySystems,Sims3.Gameplay.Careers,ProSports,StartWorking,842,OwnerDescription,AddCardioAndMuscleDelta,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,ProSports,FinishWorking,855,OwnerDescription,ResetShapeDelta,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,School,AddHomeworkToStudent,1489,OwnerDescription,,copy-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,School,UpdateDetention,1845,OwnerDescription,IsFemale,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,School,FriendsAfterSchool,1866,OwnerDescription,,copy-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,School,SimsGoingToVisit,1977,OwnerDescription,School,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Science.AddWeirdBuff,RunEvent,113,c.OwnerDescription,ObjectId,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Science.AddWeirdBuff,RunEvent,115,c.OwnerDescription,BuffManager,deref-unguarded,other,live,rule: buff instances exist only on a live Sim (BuffManager belongs to the Sim)
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Science.Explosion,RunEvent,139,c.OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Science.Explosion,RunEvent,140,c.OwnerDescription,BuffManager,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Science.ParticipateInExperiment,RunEvent,192,c.OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Science.ParticipateInExperiment,RunEvent,196,c.OwnerDescription,BuffManager,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Science.ParticipateInExperiment,RunEvent,198,c.OwnerDescription,BuffManager,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.Careers,Science.ParticipateInExperiment,RunEvent,202,c.OwnerDescription,ObjectId,deref-unguarded,other,live,rule: called from the work / school interaction or a Sim-owned alarm
+Sims3GameplaySystems,Sims3.Gameplay.CAS,CASLogic,LoadSim,12400,simDesc,CurrentOutfitIndex,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.CAS,SimDescription,IsWearingMaternityOutfit,4277,this,CurrentOutfit,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ChildAndTeenUpdates,TeenMoodSwings,GetChanceForMoodSwing,163,simDescription,School,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Core,ThumbnailHelper,PrepareThumbnailForSimsUsingObject,1472,item2,CurrentOutfit,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Core,ThumbnailHelper,BuildSimsForPoses,1539,description,CurrentOutfit,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Core,ThumbnailHelper,PreparePhotoBoothSimsForThumbnail,1660,item,CurrentOutfit,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Core,ThumbnailHelper,PrepareSelfPhotoSimsForThumbnail,2420,item,CurrentOutfit,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.DynamicChallenges,DynamicChallenge,OnCompletion,370,simDescription,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ObjectComponents,BoobyTrapComponent,CanTriggerTrap,190,potentialVictim,BuffManager,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ObjectComponents,SimBuilderTaskSculpture,Simulate,60,SimDescription,CurrentOutfit,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.ObjectComponents,SimBuilderTaskSculpture,Simulate,62,SimDescription,CurrentOutfit,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Objects,TownieMaker.MakeServiceNPC,Run,112,simDescription,Destroy,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Objects,TownieMaker.AddToPetPool,Run,294,simDescription,Destroy,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Objects,TownieMaker.Unsummon,Run,860,simDescription,Destroy,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Objects,Urnstone.ReapSoul,Run,946,Target.DeadSimsDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Objects,Urnstone,ImportUrnstone,2027,actor.SimDescription,Destroy,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.Objects.Misc,BalancingBall,GetAllProxyInteractions,316,SimOwner,OccupationAsPerformanceCareer,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.Objects.Misc,GiantRingOfFire,GetAllProxyInteractions,512,SimOwner,OccupationAsPerformanceCareer,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.Objects.Miscellaneous,Homework.HelpWithHomework,Run,1007,Target.OwningSimDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Objects.Rewards,GenieLamp.RubLamp,Run,117,Target.mGenieDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Objects.Rewards,GenieLamp.ReturnToLamp,Run,257,Target.mGenieDescription,InteractionQueue,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Objects.Rewards,GenieLamp.ReturnToLamp,Run,274,occultGenie.Summoner.SimDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Objects.Rewards,GenieLamp,PlayReturnToLamp,409,mGenieDescription,,copy-unguarded,other,live,rule: object code runs from an interaction on the object
+Sims3GameplaySystems,Sims3.Gameplay.Opportunities,Opportunity,ForceAcquaintanceAndInstantiateOffScreen,3058,owner,LotCurrent,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.PetSystems,PetAdoption.AdoptPetFromSim,FinishAdoption,80,pet,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Pools,Pool,SkinnyDippersReactToTeenOrBelow,954,simDescription,,copy-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.Roles,RoleManager,UpdateAndGetRolesThatNeedPeople,205,this,Add,deref-unguarded,other,guarded,read: guard on an earlier line or operand the heuristic missed
+Sims3GameplaySystems,Sims3.Gameplay.Roles,RoleManagerTask,Simulate,88,this,Count,deref-unguarded,other,guarded,read: guard on an earlier line or operand the heuristic missed
+Sims3GameplaySystems,Sims3.Gameplay.Services,GrimReaperSituation.PostChessMatch,Init,249,lastGraveCreated.DeadSimsDescription,,copy-unguarded,situation,untraced,situation: participant list not traced
+Sims3GameplaySystems,Sims3.Gameplay.Situations,FieldTripSituation,(field),343,primaryStudent,,copy-unguarded,situation,untraced,situation: participant list not traced
+Sims3GameplaySystems,Sims3.Gameplay.Situations,ImprovedProtestSituation.ProtestOutcomeVictory,GiveLifetimeHappiness,1265,simDescription,BuffManager,deref-unguarded,situation,untraced,situation: participant list not traced
+Sims3GameplaySystems,Sims3.Gameplay.Situations,ImprovedProtestSituation.ProtestOutcomeVictory,AffectSkills,1296,simDescription,BuffManager,deref-unguarded,situation,untraced,situation: participant list not traced
+Sims3GameplaySystems,Sims3.Gameplay.Situations,ImprovedProtestSituation.ProtestOutcomeVictory,AffectAcademics,1306,simDescription,BuffManager,deref-unguarded,situation,untraced,situation: participant list not traced
+Sims3GameplaySystems,Sims3.Gameplay.Situations,WeddingParty,(field),62,sim.Partner,,copy-unguarded,other,guarded,read: guard on an earlier line or operand the heuristic missed
+Sims3GameplaySystems,Sims3.Gameplay.Situations,WeddingParty,(field),68,sim.Partner,AddWeddingDayBuff,deref-unguarded,other,guarded,read: guard on an earlier line or operand the heuristic missed
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Bartending,OnStopBartending,4559,mSkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Bartending,OnStopBartending,4559,mSkillOwner,ObjectId,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Bartending,ShouldCreateNewDrink,4615,mSkillOwner,MoodManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,CatHuntingSkill,StartMapTagAlarm,524,mSkillOwner,RemoveAlarm,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,CatHuntingSkill,StartMapTagAlarm,526,mSkillOwner,AddAlarm,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,CatHuntingSkill,RemoveMapTagsAlarmCallback,532,mSkillOwner,MapTagManager,deref-unguarded,alarm,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,SendFoundHuntableEventsAndTNS,477,SkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,SendFoundHuntableEventsAndTNS,477,SkillOwner,ObjectId,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,MakeFailureObject,486,SkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,MakeFailureObject,486,SkillOwner,ObjectId,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,AddHuntableToInventory,505,SkillOwner,Inventory,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,StartMapTagAlarm,520,mSkillOwner,RemoveAlarm,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,StartMapTagAlarm,522,mSkillOwner,AddAlarm,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,RemoveMapTagsAlarmCallback,528,mSkillOwner,MapTagManager,deref-unguarded,alarm,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,ShowRGMTNS,547,SkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,ShowRGMTNS,547,SkillOwner,ObjectId,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,ShowRGMTNS,550,SkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,ShowRGMTNS,550,SkillOwner,ObjectId,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,ShowRGMTNS,553,SkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,DogHuntingSkill,ShowRGMTNS,553,SkillOwner,ObjectId,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Handiness,IsUpgradeSuccessful,572,mSkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,InventingSkill,NotifyOfCommunityDetonation,1378,mSkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,InventingSkill,NotifyOfCommunityDetonation,1384,mSkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,InventingSkill,NotifyOfCommunityDetonation,1391,mSkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,InventingSkill,NotifyOfCommunityDetonation,1396,mSkillOwner,RemoveAlarm,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,InventingSkill,NotifyOfCommunityDetonation,1409,mSkillOwner,ShowTNSIfSelectable,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,InventingSkill,NotifyOfCommunityDetonation,1413,mSkillOwner,AddAlarm,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Jumping,AddJumpAttempted,474,SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Racing,AddGallopDistance,490,SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Racing,AddTrainForRacingTime,509,SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Skill,UpdateSkill,1104,SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill.SmartPhoneBlogAppListener,OnBlogTopicEvent,335,mSocialSkill.SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill.SmartPhoneBlogAppListener,OnBlogTopicEvent,337,mSocialSkill.SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill.SmartPhoneBlogAppListener,OnBlogTopicEvent,338,mSocialSkill.SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,CanSimTakeSmartPhonePhoto,1174,SkillOwner,Inventory,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,TakeSmartPhonePhoto,1179,SkillOwner,Inventory,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetCurrentStarRating,1694,SkillOwner,SkillManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,AddFollowersFromPost,1854,SkillOwner,SkillManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,MailABuyoutOffer,1943,SkillOwner,ObjectId,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetTickerText,1988,SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetRandomizedBlogTitles,2194,SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetFollowersFromTraits,2215,SkillOwner,TraitManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetFollowersFromTraits,2229,SkillOwner,TraitManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetFollowersFromTraits,2243,SkillOwner,TraitManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetFollowersFromInfluence,2260,SkillOwner,SkillManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetFollowersFromInfluence,2266,SkillOwner,SkillManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetFollowersFromInfluence,2272,SkillOwner,SkillManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetFollowersFromSkill,2327,SkillOwner,SkillManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,GetFollowersFromSkill,2331,SkillOwner,Occupation,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,CreateTNSOfBlogPost,2349,SkillOwner,IsFemale,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,CreateTNSOfBlogPost,2350,SkillOwner,ObjectId,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,AcceptBuyOutOffer,2371,SkillOwner,SkillManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,SocialNetworkingSkill,AcceptBuyOutOffer,2373,SkillOwner,ModifyFunds,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,TrickSkill,TrickPerformed,641,SkillOwner,BuffManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Writing,SetWritingQuality,1928,mSkillOwner,PlayReaction,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Skills,Writing,GetTraitBonus,2126,mSkillOwner,,copy-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,ActiveTopicTestFunctions,HasJournalismCareer,235,parameter,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,ActiveTopicTestFunctions,HasLawEnforcementCareer,241,parameter,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,ActiveTopicTestFunctions,IsCurrentlyScuba,267,parameter,Posture,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,ActiveTopicTestFunctions,HasConqueredTheBullBuff,332,active,BuffManager,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,Conversation,ResetRomanticContext,1731,sim.Partner,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,InformationLearnedAboutSim,prop SignKnown,283,mLearner,IsActiveSim,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,InformationLearnedAboutSim,prop SignKnown,292,mLearner,IsActiveSim,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,InformationLearnedAboutSim,prop AlmaMaterKnown,316,mLearner,IsActiveSim,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Socializing,InformationLearnedAboutSim,LearnAllTraitChips,653,sim,IsActiveSim,deref-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.UI,HudModel,DestroyPassportSim,5377,simDescription,OnReset,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.UI,HudModel,DestroyPassportSim,5378,simDescription,Destroy,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplaySystems,Sims3.Gameplay.Utilities,GreetingCardTakePhotoHelper.GetPhotoTakenWith,HandleBabiesAndToddlers,247,list2[i],,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Utilities,GreetingCardTakePhotoHelper.GetPhotoTakenWith,Run,332,mSelectedSim,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplaySystems,Sims3.Gameplay.Utilities,OnlineDatingManager.OnlineDatingRecord,SimMovedToLot,166,mOwnerSimDescription,,copy-unguarded,event,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Utilities,OnlineDatingManager,GetLiarStatus,744,simDesc,,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Visa,ReturnHomeBehaviorInHomeWorld,SetupReturnHomeInteractions,129,mCarTravelers[i],,copy-unguarded,other,untraced,not traced
+Sims3GameplaySystems,Sims3.Gameplay.Visa,ReturnHomeBehaviorInHomeWorld,ScatterEarlyDepartureSim,173,mEarlyDepartureSims[i],,copy-unguarded,other,untraced,not traced
+Sims3GameplayObjects,Sims3.Gameplay.Objects.CookingObjects,WeddingCake.CutWeddingCake,Run,111,Actor.Partner,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.CookingObjects,WeddingCake.PartnerJoinInCake,Run,165,Actor.Partner,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.CookingObjects,WeddingCake,SetPreWeddingCakeSituation,417,wedSim.Partner,,copy-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Electronics,Computer,FinalizeWriting,8392,writingSkill.SkillOwner,Inventory,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Electronics,Computer,FinalizeWriting,8400,writingSkill.SkillOwner,LotHome,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Electronics,Computer,FinalizeWriting,8401,writingSkill.SkillOwner,Inventory,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Electronics,Computer,FinalizeWriting,8414,writingSkill.SkillOwner,ModifyFunds,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Electronics,Computer,FinalizeComic,8468,writingSkill.SkillOwner,LotHome,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Electronics,Computer,FinalizeComic,8469,writingSkill.SkillOwner,Inventory,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Electronics,Computer,FinalizeComic,8477,writingSkill.SkillOwner,ModifyFunds,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Electronics,Phone.ViewText,OnCallConnected,8842,this,,copy-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.HobbiesSkills,BandInstrumentSituation.GetMemberToLot,PushGoToLot,55,Parent.Invitee,,copy-unguarded,alarm,live,rule: skill code runs from the owner's own actions
+Sims3GameplayObjects,Sims3.Gameplay.Objects.HobbiesSkills,BandInstrumentSituation.JoinJammingSession,TryToJoinJam,227,Parent.Invitee,,copy-unguarded,situation,live,rule: skill code runs from the owner's own actions
+Sims3GameplayObjects,Sims3.Gameplay.Objects.HobbiesSkills,BotMakingStation.CustomizeServobotB,LoopDel,1220,simDescription,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.HobbiesSkills,BowlingLane.BowlInBowlingLane,BowlingLoop,586,this,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.HobbiesSkills,BowlingLane.BowlInBowlingLane,EveryoneIsDone,641,this,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.HobbiesSkills,SculptingStation.SimBuilderTask,Simulate,1284,SimDescription,CurrentOutfit,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.HobbiesSkills,SculptingStation.SimBuilderTask,Simulate,1286,SimDescription,CurrentOutfit,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.HobbiesSkills,Telescope.TelescopeDiscovery,TelescopeDiscovery,84,discoveredBy,SkillManager,deref-unguarded,other,live,rule: skill code runs from the owner's own actions
+Sims3GameplayObjects,Sims3.Gameplay.Objects.MarineLife,Shark.SharkStateAttackCircle,PlanAndDoNextAttackRoute,414,mTarget,Position,deref-unguarded,alarm,live,rule: object code runs from an interaction on the object
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Miscellaneous,VelvetRopes,CanSimEnter,1224,sim,InteractionQueue,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Miscellaneous,VelvetRopes,CanSimEnter,1272,sim,GetSituationOfType,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Miscellaneous,VelvetRopes,DoesSimHaveLimitedAccess,1288,sim,BuffManager,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Miscellaneous,VelvetRopes,DoesSimHaveLimitedAccess,1292,sim,TraitManager,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Miscellaneous,VelvetRopes,DoesSimHaveLimitedAccess,1301,sim,BuffManager,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.Miscellaneous,VelvetRopes,IsOpportunityActivatedOnLot,1330,sim,OpportunityManager,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3GameplayObjects,Sims3.Gameplay.Objects.RabbitHoles,CityHall.Celebrate,Run,131,guestOfHonor,LotCurrent,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.RabbitHoles,Hospital.CreateBabyWith,AfterExitingRabbitHole,1111,SimDescription.Find(mTargetDescription),SimInRabbitHolePosture,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.RabbitHoles,Hospital.CreateBabyWith,MakeBaby,1166,actor,Household,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.RabbitHoles,Hospital.CreateBabyWith,MakeBaby,1183,actor,Household,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.RabbitHoles,Hospital.CreateBabyWith,MakeBaby,1191,actor,Position,deref-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.RabbitHoles,Hospital.CreateBabyWith,MakeBaby,1211,actor,,copy-unguarded,interaction,live,rule: inside an interaction class
+Sims3GameplayObjects,Sims3.Gameplay.Objects.RabbitHoles,ScienceLab,SetupNewClone,1912,parentDesc,LotCurrent,deref-unguarded,other,live,rule: object code runs from an interaction on the object
+Sims3StoreObjects,Sims3.Store.Objects,FVShoppingRegister,SellConsignedItems,710,simDescription,,copy-unguarded,other,live,rule: object code runs from an interaction on the object
+Sims3StoreObjects,Sims3.Store.Objects,PokerTable,SetupRound,2560,SimDescription.Find(mPlayers[j]),InteractionQueue,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3StoreObjects,Sims3.Store.Objects,PokerTable,WaitForPlayersToCompleteAction,2669,SimDescription.Find(num),InteractionQueue,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3StoreObjects,Sims3.Store.Objects,PokerTable,ActionsAreComplete,2692,SimDescription.Find(num),InteractionQueue,deref-unguarded,ui,live,rule: UI / dialog class (household or picked Sim)
+Sims3StoreObjects,Sims3.Store.Objects,SpellBook.CastSpell,SpellSummon,361,RandomUtil.GetRandomObjectFromList(list3),,copy-unguarded,interaction,live,rule: inside an interaction class

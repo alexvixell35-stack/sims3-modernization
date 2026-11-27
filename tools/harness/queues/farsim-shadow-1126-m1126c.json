@@ -1,0 +1,271 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farsim-shadow-1126 (WRITTEN, NOT RUN: the machine was busy with other runs): FS-4 of docs/340, the shadow calibration queue of the far-Sim state machine (docs/345 SD-1; build notes docs/354). Correctness + shadow measurement, not a timing A/B: 3 jobs, BP / IP / SV, 10 min each, fresh loads (different saves), Bin state apex (Apex + RTX Remix bridge via tools/turbo-compat.ts snapshot -> state apex -> restore). Gate (docs/340 §6.3 FS-4): 3 jobs PASS and the error tables read; every household counter 0; script errors 0. Story progression stays ON (EA's own NPC life is what the model is compared with). Far radius per world: BP 450 m, IP 450 m, SV 300 m (working values, docs/345 §4.2). Run from a tree that has the repro farsim-shadow-session: node tools/harness/queue.ts tools/harness/queues/farsim-shadow-1126.json --no-smoke. Read at the end of the job ts3native.log: \"ts3fixes: farsim: shadow state end <near|hour> <state> ea home:.. sleep:..\" (model state against EA activity) and its \"total n N agree A pct P\" row, \"shadow err end <near|hour> placeM ..\", \"shadow err end <near|hour> need:<motive> ..\", \"shadow err end near relDrift ..\", and the totals / household / bystate / excl / needs / visits lines. Of the household counters, ownerConflict and driftHousehold cannot rise in the shadow build (EA owns every Sim; a drift pair with a scope side is skipped before any delta, counted as scopeskipped on the relDrift line): their 0 is no evidence here, the live checks are householdInFar, hhCaughtInFar, fViolations, illegal and stoodDown.",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+        "ts3native 0.36.299-iprobe1 2026-11-22 10:45:00",
+        "ts3native 0.36.299-m1122 2026-11-22 07:00:00"
+      ]
+    },
+    "^ts3fixes: farsim: shadow on \\(docs/345\\), model v1, seed [0-9a-f]{16}, work 1 venue 1 visit 1 drift 1, R_live \\d+ R_far \\d+ m, pass \\d+ min; compare only, ": {
+      "match": [
+        "ts3fixes: farsim: shadow on (docs/345), model v1, seed 9c41d2e07b53a611, work 1 venue 1 visit 1 drift 1, R_live 150 R_far 450 m, pass 5 min; compare only, nothing is parked, moved, held or written"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow on (docs/345), model v1, seed 9c41d2e07b53a611, work 0 venue 0 visit 0 drift 0, R_live 150 R_far 450 m, pass 5 min; compare only, nothing is parked, moved, held or written",
+        "ts3fixes: farsim: shadow on (docs/345), model v2, seed 9c41d2e07b53a611, work 1 venue 1 visit 1 drift 1, R_live 150 R_far 450 m, pass 5 min; compare only, nothing is parked, moved, held or written"
+      ]
+    },
+    "^ts3fixes: farsim: shadow totals end: model v1 passes [1-9]\\d* sims [1-9]\\d* .* goFar [1-9]\\d* .* errors 0$": {
+      "match": [
+        "ts3fixes: farsim: shadow totals end: model v1 passes 96 sims 143 records 71 high 74 dwell 12 due 38 plans 61 snaps 38 transitions 412 goFar 44 goLive 9 goLiveFallback 0 noSafePoint 17 flap 0 catchUp 0 gone 2 stateOff 0 edgeOther 3 comparisons 118 skippedPaused 240 errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow totals end: model v1 passes 96 sims 143 records 71 high 74 dwell 12 due 38 plans 61 snaps 38 transitions 412 goFar 0 goLive 9 goLiveFallback 0 noSafePoint 17 flap 0 catchUp 0 gone 2 stateOff 0 edgeOther 3 comparisons 118 skippedPaused 240 errors 0",
+        "ts3fixes: farsim: shadow totals end: model v1 passes 96 sims 143 records 71 high 74 dwell 12 due 38 plans 61 snaps 38 transitions 412 goFar 44 goLive 9 goLiveFallback 0 noSafePoint 17 flap 0 catchUp 0 gone 2 stateOff 0 edgeOther 3 comparisons 118 skippedPaused 240 errors 2",
+        "ts3fixes: farsim: shadow totals state: model v1 passes 96 sims 143 records 71 high 74 dwell 12 due 38 plans 61 snaps 38 transitions 412 goFar 44 goLive 9 goLiveFallback 0 noSafePoint 17 flap 0 catchUp 0 gone 2 stateOff 0 edgeOther 3 comparisons 118 skippedPaused 240 errors 0",
+        "ts3fixes: farsim: shadow totals end: model v1 passes 0 sims 143 records 71 high 74 dwell 12 due 38 plans 61 snaps 38 transitions 412 goFar 44 goLive 9 goLiveFallback 0 noSafePoint 17 flap 0 catchUp 0 gone 2 stateOff 0 edgeOther 3 comparisons 118 skippedPaused 240 errors 0"
+      ]
+    },
+    "^ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar \\d+ scopePromoted \\d+$": {
+      "match": [
+        "ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar 0 scopePromoted 1"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow household end: householdInFar 1 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar 0 scopePromoted 1",
+        "ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 1 hhBlockedAtGoFar 0 scopePromoted 1",
+        "ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 12 illegal 0 stoodDown 0 hhBlockedAtGoFar 0 scopePromoted 1",
+        "ts3fixes: farsim: shadow household state: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar 0 scopePromoted 1"
+      ]
+    },
+    "^ts3fixes: farsim: shadow state end hour total n [1-9]\\d* agree \\d+ pct \\d+$": {
+      "match": [
+        "ts3fixes: farsim: shadow state end hour total n 118 agree 81 pct 68"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow state end hour total n 0 agree 0 pct 0",
+        "ts3fixes: farsim: shadow state end near total n 9 agree 4 pct 44",
+        "ts3fixes: farsim: shadow state end hour FarHome ea home:61 sleep:2 transit:5 work:0 school:0 venue:9 visit:1 other:0"
+      ]
+    },
+    "^ts3fixes: farsim: shadow err end hour placeM n [1-9]\\d* meanabs \\d+ bias -?\\d+ max \\d+ buckets le25:\\d+ le50:\\d+ le100:\\d+ le200:\\d+ le400:\\d+ over:\\d+ samelot \\d+ of \\d+$": {
+      "match": [
+        "ts3fixes: farsim: shadow err end hour placeM n 118 meanabs 64 bias 64 max 912 buckets le25:70 le50:11 le100:9 le200:12 le400:8 over:8 samelot 79 of 118"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow err end hour placeM n 0 meanabs 0 bias 0 max 0 buckets le25:0 le50:0 le100:0 le200:0 le400:0 over:0 samelot 0 of 0",
+        "ts3fixes: farsim: shadow err end hour need:Hunger n 118 meanabs 3 bias -1 max 22 buckets le2:80 le5:20 le10:10 le20:7 le40:1 over:0"
+      ]
+    },
+    "^ts3fixes: farsim: shadow err end hour need:\\w+ n [1-9]\\d* meanabs \\d+ bias -?\\d+ max \\d+ buckets ": {
+      "match": [
+        "ts3fixes: farsim: shadow err end hour need:Hunger n 118 meanabs 3 bias -1 max 22 buckets le2:80 le5:20 le10:10 le20:7 le40:1 over:0"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow err end hour need:Hunger n 0 meanabs 0 bias 0 max 0 buckets le2:0 le5:0 le10:0 le20:0 le40:0 over:0",
+        "ts3fixes: farsim: shadow err end near relDrift n 4 meanabs 1 bias 0 max 2 buckets le0:1 le1:2 le3:1 le6:0 le15:0 over:0 modelsum 1 easum 2 scopeskipped 0"
+      ]
+    },
+    "^ts3fixes: farsim: shadow excl end: household [1-9]\\d* selected \\d+ unknownScope \\d+ tie \\d+ ": {
+      "match": [
+        "ts3fixes: farsim: shadow excl end: household 4 selected 0 unknownScope 2 tie 6 noHome 11 situation 3 service 9 pregnant 1 ageUp 0 dying 0 pendingEvent 0 placeholder 0 pet 7 timedBuff 31 heldClass 0 modOwned 0 readerNeedsSim 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow excl end: household 0 selected 0 unknownScope 2 tie 6 noHome 11 situation 3 service 9 pregnant 1 ageUp 0 dying 0 pendingEvent 0 placeholder 0 pet 7 timedBuff 31 heldClass 0 modOwned 0 readerNeedsSim 0"
+      ]
+    },
+    "^ts3fixes: farsim: shadow needs end: goLiveBelow40 \\d+ goLiveNeedMin -?\\d+ eaBelow40 \\d+ curveBelowClamp \\d+ ": {
+      "match": [
+        "ts3fixes: farsim: shadow needs end: goLiveBelow40 2 goLiveNeedMin -63 eaBelow40 1 curveBelowClamp 1 goLiveDistress not-measured"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow visits end: proposed 3 handover 1 friendHours 44 eaArrivals 2 driftPairDays 12 driftModel 3 driftEa -1"
+      ]
+    },
+    "^ts3fixes: farsim: shadow visits end: proposed \\d+ handover \\d+ friendHours \\d+ eaArrivals \\d+ driftPairDays \\d+ driftModel -?\\d+ driftEa -?\\d+$": {
+      "match": [
+        "ts3fixes: farsim: shadow visits end: proposed 3 handover 1 friendHours 44 eaArrivals 2 driftPairDays 12 driftModel 3 driftEa -1"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow needs end: goLiveBelow40 2 goLiveNeedMin -63 eaBelow40 1 curveBelowClamp 1 goLiveDistress not-measured"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^ts3fixes: farsim: shadow household \\S+: .*\\b(householdInFar|hhCaughtInFar|driftHousehold|ownerConflict|fViolations|illegal|stoodDown) [1-9]": {
+      "match": [
+        "ts3fixes: farsim: shadow household end: householdInFar 1 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar 0 scopePromoted 1",
+        "ts3fixes: farsim: shadow household state: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 1 hhBlockedAtGoFar 0 scopePromoted 1",
+        "ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 3 stoodDown 0 hhBlockedAtGoFar 0 scopePromoted 1"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar 0 scopePromoted 1",
+        "ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar 2 scopePromoted 5"
+      ]
+    },
+    "^ts3fixes: farsim: shadow totals \\S+: .* errors [1-9]": {
+      "match": [
+        "ts3fixes: farsim: shadow totals end: model v1 passes 96 sims 143 records 71 high 74 dwell 12 due 38 plans 61 snaps 38 transitions 412 goFar 44 goLive 9 goLiveFallback 0 noSafePoint 17 flap 0 catchUp 0 gone 2 stateOff 0 edgeOther 3 comparisons 118 skippedPaused 240 errors 2",
+        "ts3fixes: farsim: shadow totals state: model v1 passes 96 sims 143 records 71 high 74 dwell 12 due 38 plans 61 snaps 38 transitions 412 goFar 44 goLive 9 goLiveFallback 0 noSafePoint 17 flap 0 catchUp 0 gone 2 stateOff 0 edgeOther 3 comparisons 118 skippedPaused 240 errors 10"
+      ],
+      "noMatch": [
+        "ts3fixes: farsim: shadow totals end: model v1 passes 96 sims 143 records 71 high 74 dwell 12 due 38 plans 61 snaps 38 transitions 412 goFar 44 goLive 9 goLiveFallback 0 noSafePoint 17 flap 0 catchUp 0 gone 2 stateOff 0 edgeOther 3 comparisons 118 skippedPaused 240 errors 0"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-farsim-shadow",
+      "note": "[est 15 min] BP 10 min, repro farsim-shadow-session: far-Sim state machine in shadow (docs/345, docs/354, FS-4 of docs/340). PASS = switch read-back (\"shadow on ... work 1 venue 1 visit 1 drift 1\"), boundary passes ran, at least one go-far, the hour tables have samples (error tables read), every household counter 0 (householdInFar, hhCaughtInFar, driftHousehold, ownerConflict, fViolations, illegal, stoodDown), 0 shadow errors, 0 script errors. Compare only: no Sim, lot, motive, alarm or save is written and no EA method is hooked; household, selected and unknown-scope Sims are Excluded at every entry. The only forced step is the active Sim's player-directed visit to the farthest community lot. Read at the end of the job ts3native.log: \"ts3fixes: farsim: shadow state end <near|hour> <state> ea home:.. sleep:..\" (model state against EA activity) and its \"total n N agree A pct P\" row, \"shadow err end <near|hour> placeM ..\", \"shadow err end <near|hour> need:<motive> ..\", \"shadow err end near relDrift ..\", and the totals / household / bystate / excl / needs / visits lines. Of the household counters, ownerConflict and driftHousehold cannot rise in the shadow build (EA owns every Sim; a drift pair with a scope side is skipped before any delta, counted as scopeskipped on the relDrift line): their 0 is no evidence here, the live checks are householdInFar, hhCaughtInFar, fViolations, illegal and stoodDown.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] feature/farsim-shadow-1126 047c192c6 (on master 29075bf0c): master set m1126b asi + ini (0.36.306-m1126b, no native change) + ts3fixes.package.farsim-shadow-1126 sha256 b97b6e2c9e51 = master ts3fixes + FarSimModel.cs / FarSimShadow.cs (farsim, farsimshadow, farsimwork, farsimvenue, farsimvisit, farsimdrift, all off)",
+      "releaseDefaults": true,
+      "gameArgs": [],
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UserDiag.LinesPerPrefix": 8000
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^ts3fixes: farsim: shadow on \\(docs/345\\), model v1, seed [0-9a-f]{16}, work 1 venue 1 visit 1 drift 1, R_live \\d+ R_far \\d+ m, pass \\d+ min; compare only, ": 1,
+        "^ts3fixes: farsim: shadow totals end: model v1 passes [1-9]\\d* sims [1-9]\\d* .* goFar [1-9]\\d* .* errors 0$": 1,
+        "^ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar \\d+ scopePromoted \\d+$": 1,
+        "^ts3fixes: farsim: shadow state end hour total n [1-9]\\d* agree \\d+ pct \\d+$": 1,
+        "^ts3fixes: farsim: shadow err end hour placeM n [1-9]\\d* meanabs \\d+ bias -?\\d+ max \\d+ buckets le25:\\d+ le50:\\d+ le100:\\d+ le200:\\d+ le400:\\d+ over:\\d+ samelot \\d+ of \\d+$": 1,
+        "^ts3fixes: farsim: shadow err end hour need:\\w+ n [1-9]\\d* meanabs \\d+ bias -?\\d+ max \\d+ buckets ": 1,
+        "^ts3fixes: farsim: shadow excl end: household [1-9]\\d* selected \\d+ unknownScope \\d+ tie \\d+ ": 1,
+        "^ts3fixes: farsim: shadow needs end: goLiveBelow40 \\d+ goLiveNeedMin -?\\d+ eaBelow40 \\d+ curveBelowClamp \\d+ ": 1,
+        "^ts3fixes: farsim: shadow visits end: proposed \\d+ handover \\d+ friendHours \\d+ eaArrivals \\d+ driftPairDays \\d+ driftModel -?\\d+ driftEa -?\\d+$": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farsim: shadow household \\S+: .*\\b(householdInFar|hhCaughtInFar|driftHousehold|ownerConflict|fViolations|illegal|stoodDown) [1-9]": 0,
+        "^ts3fixes: farsim: shadow totals \\S+: .* errors [1-9]": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "farsim-shadow-session"
+        }
+      }
+    },
+    {
+      "id": "ip-farsim-shadow",
+      "note": "[est 15 min] IP 10 min, repro farsim-shadow-session: far-Sim state machine in shadow (docs/345, docs/354, FS-4 of docs/340). PASS = switch read-back (\"shadow on ... work 1 venue 1 visit 1 drift 1\"), boundary passes ran, at least one go-far, the hour tables have samples (error tables read), every household counter 0 (householdInFar, hhCaughtInFar, driftHousehold, ownerConflict, fViolations, illegal, stoodDown), 0 shadow errors, 0 script errors. Compare only: no Sim, lot, motive, alarm or save is written and no EA method is hooked; household, selected and unknown-scope Sims are Excluded at every entry. The only forced step is the active Sim's player-directed visit to the farthest community lot. Read at the end of the job ts3native.log: \"ts3fixes: farsim: shadow state end <near|hour> <state> ea home:.. sleep:..\" (model state against EA activity) and its \"total n N agree A pct P\" row, \"shadow err end <near|hour> placeM ..\", \"shadow err end <near|hour> need:<motive> ..\", \"shadow err end near relDrift ..\", and the totals / household / bystate / excl / needs / visits lines. Of the household counters, ownerConflict and driftHousehold cannot rise in the shadow build (EA owns every Sim; a drift pair with a scope side is skipped before any delta, counted as scopeskipped on the relDrift line): their 0 is no evidence here, the live checks are householdInFar, hhCaughtInFar, fViolations, illegal and stoodDown.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] feature/farsim-shadow-1126 047c192c6 (on master 29075bf0c): master set m1126b asi + ini (0.36.306-m1126b, no native change) + ts3fixes.package.farsim-shadow-1126 sha256 b97b6e2c9e51 = master ts3fixes + FarSimModel.cs / FarSimShadow.cs (farsim, farsimshadow, farsimwork, farsimvenue, farsimvisit, farsimdrift, all off)",
+      "releaseDefaults": true,
+      "gameArgs": [],
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UserDiag.LinesPerPrefix": 8000
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^ts3fixes: farsim: shadow on \\(docs/345\\), model v1, seed [0-9a-f]{16}, work 1 venue 1 visit 1 drift 1, R_live \\d+ R_far \\d+ m, pass \\d+ min; compare only, ": 1,
+        "^ts3fixes: farsim: shadow totals end: model v1 passes [1-9]\\d* sims [1-9]\\d* .* goFar [1-9]\\d* .* errors 0$": 1,
+        "^ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar \\d+ scopePromoted \\d+$": 1,
+        "^ts3fixes: farsim: shadow state end hour total n [1-9]\\d* agree \\d+ pct \\d+$": 1,
+        "^ts3fixes: farsim: shadow err end hour placeM n [1-9]\\d* meanabs \\d+ bias -?\\d+ max \\d+ buckets le25:\\d+ le50:\\d+ le100:\\d+ le200:\\d+ le400:\\d+ over:\\d+ samelot \\d+ of \\d+$": 1,
+        "^ts3fixes: farsim: shadow err end hour need:\\w+ n [1-9]\\d* meanabs \\d+ bias -?\\d+ max \\d+ buckets ": 1,
+        "^ts3fixes: farsim: shadow excl end: household [1-9]\\d* selected \\d+ unknownScope \\d+ tie \\d+ ": 1,
+        "^ts3fixes: farsim: shadow needs end: goLiveBelow40 \\d+ goLiveNeedMin -?\\d+ eaBelow40 \\d+ curveBelowClamp \\d+ ": 1,
+        "^ts3fixes: farsim: shadow visits end: proposed \\d+ handover \\d+ friendHours \\d+ eaArrivals \\d+ driftPairDays \\d+ driftModel -?\\d+ driftEa -?\\d+$": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farsim: shadow household \\S+: .*\\b(householdInFar|hhCaughtInFar|driftHousehold|ownerConflict|fViolations|illegal|stoodDown) [1-9]": 0,
+        "^ts3fixes: farsim: shadow totals \\S+: .* errors [1-9]": 0
+      },
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "farsim-shadow-session"
+        }
+      }
+    },
+    {
+      "id": "sv-farsim-shadow",
+      "note": "[est 15 min] SV 10 min, repro farsim-shadow-session: far-Sim state machine in shadow (docs/345, docs/354, FS-4 of docs/340). PASS = switch read-back (\"shadow on ... work 1 venue 1 visit 1 drift 1\"), boundary passes ran, at least one go-far, the hour tables have samples (error tables read), every household counter 0 (householdInFar, hhCaughtInFar, driftHousehold, ownerConflict, fViolations, illegal, stoodDown), 0 shadow errors, 0 script errors. Compare only: no Sim, lot, motive, alarm or save is written and no EA method is hooked; household, selected and unknown-scope Sims are Excluded at every entry. The only forced step is the active Sim's player-directed visit to the farthest community lot. Read at the end of the job ts3native.log: \"ts3fixes: farsim: shadow state end <near|hour> <state> ea home:.. sleep:..\" (model state against EA activity) and its \"total n N agree A pct P\" row, \"shadow err end <near|hour> placeM ..\", \"shadow err end <near|hour> need:<motive> ..\", \"shadow err end near relDrift ..\", and the totals / household / bystate / excl / needs / visits lines. Of the household counters, ownerConflict and driftHousehold cannot rise in the shadow build (EA owns every Sim; a drift pair with a scope side is skipped before any delta, counted as scopeskipped on the relDrift line): their 0 is no evidence here, the live checks are householdInFar, hhCaughtInFar, fViolations, illegal and stoodDown.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] feature/farsim-shadow-1126 047c192c6 (on master 29075bf0c): master set m1126b asi + ini (0.36.306-m1126b, no native change) + ts3fixes.package.farsim-shadow-1126 sha256 b97b6e2c9e51 = master ts3fixes + FarSimModel.cs / FarSimShadow.cs (farsim, farsimshadow, farsimwork, farsimvenue, farsimvisit, farsimdrift, all off)",
+      "releaseDefaults": true,
+      "gameArgs": [],
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UserDiag.LinesPerPrefix": 8000
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^ts3fixes: farsim: shadow on \\(docs/345\\), model v1, seed [0-9a-f]{16}, work 1 venue 1 visit 1 drift 1, R_live \\d+ R_far \\d+ m, pass \\d+ min; compare only, ": 1,
+        "^ts3fixes: farsim: shadow totals end: model v1 passes [1-9]\\d* sims [1-9]\\d* .* goFar [1-9]\\d* .* errors 0$": 1,
+        "^ts3fixes: farsim: shadow household end: householdInFar 0 hhCaughtInFar 0 driftHousehold 0 ownerConflict 0 fViolations 0 illegal 0 stoodDown 0 hhBlockedAtGoFar \\d+ scopePromoted \\d+$": 1,
+        "^ts3fixes: farsim: shadow state end hour total n [1-9]\\d* agree \\d+ pct \\d+$": 1,
+        "^ts3fixes: farsim: shadow err end hour placeM n [1-9]\\d* meanabs \\d+ bias -?\\d+ max \\d+ buckets le25:\\d+ le50:\\d+ le100:\\d+ le200:\\d+ le400:\\d+ over:\\d+ samelot \\d+ of \\d+$": 1,
+        "^ts3fixes: farsim: shadow err end hour need:\\w+ n [1-9]\\d* meanabs \\d+ bias -?\\d+ max \\d+ buckets ": 1,
+        "^ts3fixes: farsim: shadow excl end: household [1-9]\\d* selected \\d+ unknownScope \\d+ tie \\d+ ": 1,
+        "^ts3fixes: farsim: shadow needs end: goLiveBelow40 \\d+ goLiveNeedMin -?\\d+ eaBelow40 \\d+ curveBelowClamp \\d+ ": 1,
+        "^ts3fixes: farsim: shadow visits end: proposed \\d+ handover \\d+ friendHours \\d+ eaArrivals \\d+ driftPairDays \\d+ driftModel -?\\d+ driftEa -?\\d+$": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farsim: shadow household \\S+: .*\\b(householdInFar|hhCaughtInFar|driftHousehold|ownerConflict|fViolations|illegal|stoodDown) [1-9]": 0,
+        "^ts3fixes: farsim: shadow totals \\S+: .* errors [1-9]": 0
+      },
+      "save": "Baseline-SV-Spring",
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "farsim-shadow-session"
+        }
+      }
+    }
+  ]
+}

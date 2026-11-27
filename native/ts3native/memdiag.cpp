@@ -78,6 +78,136 @@ static bool MdEaCores(double* com, double* res, DWORD* n) {
         return seen != NULL;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
+// [MemDiag] MainHeap (docs/362): free space inside the cores of the main EA heap [0x11CB864] only. Reads, under the heap's
+// own lock ([heap+0x4E4], the CRITICAL_SECTION + depth word +0x18 that Malloc 0x4E69D0 takes, same order), so one read
+// holds every main-heap alloc / free for its walk time (us): on demand or at the diag: mem rate, never per frame; a
+// second read inside kMhMinGapMs returns the last answer. Layout [verified, exe bytes]: bins 1-127 = list heads at
+// heap +0x28 + 8*i linked through chunk +8 (0x4E5EA6, 0x4E6032), size = chunk +4 & 0x7FFFFFF8 (0x4E56A6), top
+// [heap+0x440] (heap+0x30 = none, 0x4E549A), fastbin of chunk size s at heap + (s >> 3) * 4, s <= [heap+4], linked through chunk +0xC (0x4E5E80, 0x4E62A7, Free 0x4E51DB);
+// a core's last chunk ends at the fencepost core + committed - 0x10, free when the fencepost size bit 0 is clear, its
+// size then the fencepost's prev_size (0x4E555B-0x4E5574); the heap commits a core's reserved tail before it adds a
+// core (0x4E54F4-0x4E5536), so last free chunk + tail is one run. Chunks held by a thread cache ([Alloc], Apex
+// FastMemory) count as in use, as EA's heap sees them.
+struct Ts3nMainHeap {   // ts3native_mainheap's out block (9 DWORD, fixed; KB = 1024 bytes)
+    DWORD flags;        // bit 0 values valid, bit 1 read under the heap lock, bit 2 the last answer (asked again inside 1 s)
+    DWORD cores;        // cores in the ring
+    DWORD comKB, resKB; // their committed / reserved bytes
+    DWORD freeKB;       // free chunks in committed core memory (bins, top, fastbins)
+    DWORD tailKB;       // reserved, not committed core tails
+    DWORD bigKB;        // largest free run: the largest free chunk, or a core's last free chunk + its uncommitted tail
+    DWORD chunks;       // free chunks walked
+    DWORD us;           // walk time (the lock hold)
+};
+static const DWORD kMhMaxChunks = 4000000, kMhMinGapMs = 1000;
+static Ts3nMainHeap g_mhLast;
+static DWORD g_mhTick;
+static volatile LONG g_mhBusy;
+static bool g_mhOn;  // [MemDiag] MainHeap=1: a "diag: mheap" line after every diag: mem line
+
+static bool MhWalk(const u8* h, Ts3nMainHeap* o) {
+    __try {
+        u64 com = 0, res = 0, freeB = 0;
+        DWORD big = 0, cores = 0, chunks = 0;
+        for (const u8* c = *(const u8* const*)(h + 0x460); c && c != h + 0x448; c = *(const u8* const*)(c + 0x18)) {
+            const DWORD cc = *(const DWORD*)(c + 4), cr = *(const DWORD*)(c + 8);
+            if (++cores > 4096 || cc > cr || cc < 0x40) return false;
+            com += cc, res += cr;
+            const DWORD* fp = (const DWORD*)(c + cc - 0x10);
+            DWORD run = cr - cc;
+            if (!(fp[1] & 1)) {
+                if (fp[0] > cc) return false;
+                run += fp[0];
+            }
+            if (run > big) big = run;
+        }
+        if (!cores) return false;
+        for (int i = 1; i < 128; i++) {
+            const u8* b = h + 0x28 + 8 * i;
+            for (const u8* c = *(const u8* const*)(b + 8); c != b; c = *(const u8* const*)(c + 8)) {
+                if (!c || ++chunks > kMhMaxChunks) return false;
+                const DWORD sz = *(const DWORD*)(c + 4) & 0x7FFFFFF8;
+                freeB += sz;
+                if (sz > big) big = sz;
+            }
+        }
+        const u8* top = *(const u8* const*)(h + 0x440);
+        if (top && top != h + 0x30) {
+            const DWORD sz = *(const DWORD*)(top + 4) & 0x7FFFFFF8;
+            freeB += sz, chunks++;
+            if (sz > big) big = sz;
+        }
+        const DWORD maxFast = *(const DWORD*)(h + 4) & ~7u;
+        for (DWORD s = 16; s <= maxFast && s <= 0x40; s += 16)
+            for (const u8* c = *(const u8* const*)(h + (s >> 3) * 4); c; c = *(const u8* const*)(c + 0xC)) {
+                if (++chunks > kMhMaxChunks) return false;
+                freeB += *(const DWORD*)(c + 4) & 0x7FFFFFF8;
+            }
+        if (freeB > com) return false;
+        o->cores = cores, o->comKB = (DWORD)(com >> 10), o->resKB = (DWORD)(res >> 10), o->freeKB = (DWORD)(freeB >> 10);
+        o->tailKB = (DWORD)((res - com) >> 10), o->bigKB = big >> 10, o->chunks = chunks;
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static bool MhHeap(const u8** h, u8** lk) {
+    __try {
+        *h = *g_mdEaHeapSlot;
+        *lk = *h ? *(u8* const*)(*h + 0x4E4) : NULL;
+        return *h != NULL;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// false = no answer (heap not there, a list that does not hold, or another thread is reading now: ask again later)
+static bool MhRead(Ts3nMainHeap* o) {
+    Ts3nCounters& k = ts3native_counters;
+    Ts3nMainHeap v = {};
+    *o = v;
+    if (InterlockedExchange(&g_mhBusy, 1)) return false;
+    bool ok = (g_mhLast.flags & 1) && GetTickCount() - g_mhTick < kMhMinGapMs;
+    if (ok) v = g_mhLast, v.flags |= 4;
+    else {
+        const u8* h;
+        u8* lk;
+        if (MhHeap(&h, &lk) && (!lk || Readable(lk, 0x1C))) {
+            LARGE_INTEGER f, a, b;
+            QueryPerformanceFrequency(&f), QueryPerformanceCounter(&a);
+            if (lk) EnterCriticalSection((CRITICAL_SECTION*)lk), ++*(LONG*)(lk + 0x18);
+            ok = MhWalk(h, &v);
+            if (lk) --*(LONG*)(lk + 0x18), LeaveCriticalSection((CRITICAL_SECTION*)lk);
+            QueryPerformanceCounter(&b);
+            v.us = (DWORD)((b.QuadPart - a.QuadPart) * 1000000 / f.QuadPart);
+            v.flags = ok ? 1u | (lk ? 2u : 0u) : 0;
+        }
+        InterlockedIncrement(&k.mhcReads);
+        if (!ok) InterlockedIncrement(&k.mhcFails);
+        else {
+            k.mhcCores = (LONG)v.cores, k.mhcComKB = (LONG)v.comKB, k.mhcResKB = (LONG)v.resKB, k.mhcFreeKB = (LONG)v.freeKB;
+            k.mhcTailKB = (LONG)v.tailKB, k.mhcBigKB = (LONG)v.bigKB, k.mhcChunks = (LONG)v.chunks, k.mhcUs = (LONG)v.us;
+            g_mhLast = v, g_mhTick = GetTickCount();
+        }
+    }
+    *o = v;
+    InterlockedExchange(&g_mhBusy, 0);
+    return ok;
+}
+// for other modules in the process (Atlas atlas.asi): GetProcAddress(GetModuleHandleW(L"ts3native.asi"), "ts3native_mainheap")
+extern "C" __declspec(dllexport) int __cdecl ts3native_mainheap(Ts3nMainHeap* out) {
+    Ts3nMainHeap v;
+    const bool ok = MhRead(&v);
+    if (out) *out = v;
+    return ok;
+}
+// Ts3Fixes.AutShadowNative::MainHeap (autshadow-run.cpp): 0 = read now (1 ok / 0 no answer), 1-9 = that DWORD of the last answer
+static int __cdecl MhIc(int field) {
+    Ts3nMainHeap v;
+    if (!field) return MhRead(&v);
+    return field > 0 && field <= 9 ? (int)((const DWORD*)&g_mhLast)[field - 1] : -1;
+}
+static void MhLine(LONG n, const char* tag) {
+    if (!g_mhOn) return;
+    Ts3nMainHeap v;
+    if (!MhRead(&v)) { Log("diag: mheap #%ld %s no answer", n, tag); return; }
+    Log("diag: mheap #%ld %s cores=%lu comKB=%lu resKB=%lu freeKB=%lu tailKB=%lu bigKB=%lu chunks=%lu us=%lu lock=%d", n, tag, v.cores, v.comKB,
+        v.resKB, v.freeKB, v.tailKB, v.bigKB, v.chunks, v.us, (v.flags & 2) != 0);
+}
 static bool MdGc(DWORD* out) {
     __try {
         for (int i = 0; i < 3; i++) out[i] = *(const volatile DWORD*)g_mdGc[i];
@@ -1157,6 +1287,7 @@ static void MdAfterSample(const char* what, const char* ev, const UdMemStat& s, 
     RcRefTypesLine(n, MdTag(what), ev); // no-op unless [MemDiag] RcRefTypes=1
     CtMemLine(n, MdTag(what));          // no-op unless [CasTrim] Probe=1
     MaLine(n, MdTag(what));             // no-op unless [MemDiag] Access=1
+    MhLine(n, MdTag(what));             // no-op unless [MemDiag] MainHeap=1 (docs/362)
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1440,6 +1571,8 @@ static void ApplyMemDiag(const wchar_t* ini) {
     ts3native_counters.rrcOn = g_rsOn ? 1 + g_ryOn : 0, ts3native_counters.rrcHookNs = (LONG)(g_rsNs + 0.5);
     if (g_ryOn) Log("mem diag: rc ref history on: 1 in %lu new part compositors, first %d events each", g_ryEvery, RY_EV);
     g_rgOn = g_rcCensusOn && GetPrivateProfileIntW(L"MemDiag", L"RcCensusGraph", 0, ini) > 0 && RgAlloc();
+    g_mhOn = g_mdOn && GetPrivateProfileIntW(L"MemDiag", L"MainHeap", 0, ini) > 0;
+    if (g_mhOn) Log("mem diag: main heap on (docs/362): [MemDiag] MainHeap=1, a diag: mheap line (cores, free chunks, largest free run of heap [0x11CB864]) at each diag: mem line, under the heap lock");
     if (g_rgOn) Log("mem diag: rc graph on: part compositor child references (vtables 0x%08lX, 0x%08lX, vector +0x28) at each census", g_rgVt[0], g_rgVt[1]);
     if (g_rsOn) Log("mem diag: rc ref callers on (docs/191): part compositor AddRef / Release counted by caller (vtables 0x%08lX, 0x%08lX), "
                     "cache finds that return one by caller and caller chain (0x%08lX slot 6); our work %.0f ns a call, %.0f ns a find chain",

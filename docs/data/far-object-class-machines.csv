@@ -1,0 +1,692 @@
+class,census_group,route,machine,release_action,sites
+AcademicCareer,"FS careers, school, skills",EA,never held,live,2
+AcademicCareer,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+AcademicCourse,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+AcademicSituationBase,FS situations and parties,EA,never held,live,2
+ActiveCareer,"FS careers, school, skills",EA,never held,live,3
+ActiveFireFighter,"FS careers, school, skills",EA,never held,live,1
+ActiveFireFighter,"FS careers, school, skills",FS,SD-1,docs/345 6.5,3
+ActiveTimerNode,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+AgeUpNpcSituation,"FS buffs, occult, actor systems",EA,never held,live,2
+AgingManager,"FS buffs, occult, actor systems",EA,never held,live,7
+AgingState,"FS buffs, occult, actor systems",EA,never held,live,1
+AlarmClock,FO other objects,FS,SD-1,docs/345 6.5,2
+AlienSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+AlienUtils,"FS buffs, occult, actor systems",EA,never held,live,2
+AncientCoinPile,FO other objects,"lot (global, by owner lot)",K1 Elapsed,Leave,1
+Annex,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,5
+Anniversary,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+AntFarm,FO other objects,lot,K3 SeededEa,Replay,1
+AppleBobbingContestTank,FO other objects,lot,K1 Elapsed,Leave,5
+ArriveHomeBehaviorInVacationWorld,"FS household, social, travel, UI",EA,never held,live,1
+Astronomer,"FS careers, school, skills",EA,never held,live,1
+AthleticGameObject,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,1
+AthleticGameObject,"FO rabbit holes, doors, shells, base objects",FS,SD-1,docs/345 6.5,1
+AttractionNPCBehaviorController,"FS household, social, travel, UI",EA,never held,live,3
+AutographSessionSituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+Autonomy,"FS household, social, travel, UI",EA,never held,live,2
+BabyDragon,FO store objects,lot,K6 Generic,Leave,3
+BabyDragon,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,12
+BabyMonitor,FO store objects,lot,K4 Handoff,blocks park while armed (FarLight) unless it has a chore mapping,2
+BabysitterSituationBase,FS services and roles,FS,SD-1,docs/345 6.5,7
+BabySwing,FO store objects,FS,SD-1,docs/345 6.5,2
+BakeSaleTable,FO other objects,filter,G-F global walker,"skip parked lots, model computes",1
+BakeSaleTable,FO other objects,lot,K4 Handoff,Leave,1
+BakeSaleTable,FO other objects,FS,SD-1,docs/345 6.5,1
+BandInstrumentSituation,FO other objects,FS,SD-1,docs/345 6.5,2
+BarAdvanced,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+BarBrawlSituation,FS situations and parties,EA,never held,live,1
+BartenderServiceSituation,FS services and roles,FS,SD-1,docs/345 6.5,4
+Bartending,"FS careers, school, skills",EA,never held,live,9
+Bathtub,FO other objects,lot,K1 Elapsed,Leave,1
+BBallArcade,FO store objects,lot,K1 Elapsed,Leave,1
+BBallHoop,FO store objects,FS,SD-1,docs/345 6.5,1
+BBallHoop,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+BedData,FO other objects,lot,K1 Elapsed,Leave,1
+BeekeepingBox,FO spawners and collectables,lot,K2 ElapsedEvent,Replay,3
+BeekeepingBox,FO spawners and collectables,lot,K2 ElapsedEvent,Leave,1
+BeekeepingBox,FO spawners and collectables,lot,K3 SeededEa,Replay,3
+BeekeepingBox,FO spawners and collectables,FS,SD-1,docs/345 6.5,1
+BeekeepingBox,FO spawners and collectables,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,3
+BeingCarriedPetPosture,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BeingRiddenPosture,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,4
+BigLotShellDoor,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+BikeRack,FO other objects,lot,K1 Elapsed,Leave,1
+Bill,World and lot systems,lot,K5 UiCheck,"blocks park while armed, until read",1
+BlackjackTable,FO store objects,lot,K2 ElapsedEvent,Leave,1
+BladderFlowPotion,FO other objects,FS,SD-1,docs/345 6.5,1
+BoardBreaker,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+BoardingSchool,"FS careers, school, skills",EA,never held,live,2
+Boat,FO other objects,FS,SD-1,docs/345 6.5,1
+BodySculptor,FO other objects,lot,K1 Elapsed,Leave,1
+BonehildaCoffin,FO other objects,lot,K4 Handoff,blocks park while armed (FarLight) unless it has a chore mapping,1
+BonehildaCoffin,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+BonehildaSituation,FO other objects,FS,SD-1,docs/345 6.5,3
+BonFire,FO fire and cooking appliances,lot,K1 Elapsed,Leave,1
+BonFire,FO fire and cooking appliances,lot,K2 ElapsedEvent,Leave,4
+BonFire,FO fire and cooking appliances,lot,K3 SeededEa,Replay,1
+BonfireParty,FS situations and parties,EA,never held,live,4
+BorrowHorseSituation,FS situations and parties,FS,SD-1,docs/345 6.5,4
+BotShopRegister,FO other objects,filter,G-F global walker,"skip parked lots, model computes",2
+BowlingLane,FO other objects,lot,K1 Elapsed,Replay,2
+BubblingSprings,FO other objects,lot,K2 ElapsedEvent,Leave,1
+BubblingSprings,FO other objects,lot,K3 SeededEa,Leave,1
+Buff,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffABPMentallyRavenous,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffBeeAttack,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffBlinkingInAndOutOfExistence,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffConvinceThatSkyFalling,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffCottonMouth,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffCreepyCrawlies,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffDoIEvenExist,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffDowntrodden,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffDrowning,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffEmbracingTheFuture,"FS buffs, occult, actor systems",EA,never held,live,1
+BuffExhausted,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffGiddy,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffGiggleFits,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffGoldAndToads,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffHairball,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffHaunted,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffHerbNausea,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffJustMarried,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffLightningMagnet,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffLunacy,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffMalfunctioning,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffMummysCurse,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,6
+BuffNotSoHealthyGlow,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffOnFire,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,4
+BuffPestilencePlague,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,3
+BuffPlasmaticPlatitudes,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuffSaddled,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffSeasickness,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffSinged,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffSoaked,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffSoakedPet,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffStarvingForMoonlight,"FS buffs, occult, actor systems",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+BuffStarvingPet,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffTerrified,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+BuffTooSpicy,"FS buffs, occult, actor systems",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+BuffVampireBite,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,3
+BuffWretchingRainbows,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+BuildableShell,"FO rabbit holes, doors, shells, base objects",lot,K1 Elapsed,Replay,4
+BuildableShell,"FO rabbit holes, doors, shells, base objects",lot,K1 Elapsed,Leave,11
+Burglar,FS services and roles,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+BurglarAlarm,FO other objects,lot,K1 Elapsed,Replay,1
+BurglarSituation,FS services and roles,FS,SD-1,docs/345 6.5,4
+BurialGroundSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+Business,"FS careers, school, skills",EA,never held,live,1
+Business,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+ButlerSituation,FS services and roles,FS,SD-1,docs/345 6.5,2
+BuyModeSuite,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+Cabinet,FO other objects,target,G-T instance callback,hold by callback target lot,1
+Car,FO other objects,filter,G-F global walker,"skip parked lots, model computes",2
+Career,"FS careers, school, skills",EA,never held,live,6
+Career,"FS careers, school, skills",FS,SD-1,docs/345 6.5,3
+CareerEventManager,"FS careers, school, skills",FS,SD-1,docs/345 6.5,2
+CareerManager,"FS careers, school, skills",EA,never held,live,1
+CaregiverRoutingMonitor,"FS buffs, occult, actor systems",EA,never held,live,1
+CaregiverRoutingMonitor,"FS buffs, occult, actor systems",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+CarMotiveMobile,FO other objects,lot,K1 Elapsed,Replay,1
+CarNpcManager,FO other objects,EA,never held,live,2
+CarNpcWithNoDriver,FO other objects,lot,K1 Elapsed,Leave,1
+CarpoolManager,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,2
+CarpoolManager,FO other objects,FS,SD-1,docs/345 6.5,1
+CarRelationship,"FS household, social, travel, UI",EA,never held,live,1
+CarvedPumpkin,FO other objects,lot,K1 Elapsed,Leave,3
+CatHuntingSkill,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+CatToy,FO other objects,lot,K1 Elapsed,Leave,1
+CaughtSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+CelebrityManager,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,7
+ChairSectional,FO other objects,EA,never held,live,1
+ChangingPainting,FO other objects,"lot (global, by owner lot)",K1 Elapsed,Leave,2
+ChickenCoopClassic,FO store objects,lot,K5 UiCheck,"blocks park while armed, until read",3
+ChickenCoopClassic,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+ChocolateFountain,FO store objects,lot,K2 ElapsedEvent,Leave,1
+ChocolateFountain,FO store objects,lot,K3 SeededEa,Replay,1
+CityHall,"FO rabbit holes, doors, shells, base objects",target,G-T instance callback,hold by callback target lot,3
+CityHall,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,4
+CleanableComponent,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,1
+Clothesline,FO other objects,lot,K1 Elapsed,Replay,1
+Clothesline,FO other objects,lot,K2 ElapsedEvent,Leave,1
+ClothingPileDry,FO other objects,lot,K1 Elapsed,Leave,1
+ClothingPileWet,FO other objects,lot,K1 Elapsed,Leave,1
+ClubLight,FO other objects,lot,K3 SeededEa,Leave,2
+ComeAndSeeComponent,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+Commands,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,2
+Computer,FO other objects,FS,SD-1,docs/345 6.5,3
+ConsignmentRegister,FO other objects,filter,G-F global walker,"skip parked lots, model computes",1
+Conversation,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,1
+CostumeChest,FO other objects,FS,SD-1,docs/345 6.5,1
+Coupon,FO other objects,lot,K1 Elapsed,Leave,1
+CowPlant,FO plants and garden,lot,K1 Elapsed,Leave,5
+Crib,FO other objects,FS,SD-1,docs/345 6.5,3
+CrowdMonster,FO other objects,"lot (global, by owner lot)",K2 ElapsedEvent,Leave,1
+CrystalBall,FO store objects,lot,K2 ElapsedEvent,Leave,1
+CrystalBall,FO store objects,lot,K5 UiCheck,"blocks park while armed, until read",8
+CrystalPlant,FO plants and garden,lot,K1 Elapsed,Leave,1
+DancerServiceSituation,FS services and roles,EA,never held,live,1
+Daycare,"FS careers, school, skills",FS,SD-1,docs/345 6.5,7
+DaycareChildManagerProblemChild,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+DaycareChildMonitor,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+DaycareToddlerDropoffSituation,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+DaycareTransportSituation,"FS careers, school, skills",EA,never held,live,2
+DaycareTransportSituation,"FS careers, school, skills",FS,SD-1,docs/345 6.5,2
+DaycareWorkdaySituation,"FS careers, school, skills",EA,never held,live,1
+DaycareWorkdaySituation,"FS careers, school, skills",FS,SD-1,docs/345 6.5,2
+DaylightLight,FO other objects,filter,G-F global walker,"skip parked lots, model computes",1
+DeepFryerVegas,FO store objects,lot,K1 Elapsed,Leave,1
+DeepFryerVegas,FO store objects,lot,K3 SeededEa,Leave,1
+DeepSnowEffectManager,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+DetonatedObjectRestorer,"FS careers, school, skills",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+DetonateObjectHelper,"FS careers, school, skills",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+DigitalFishTank,FO fishing and fish tanks,lot,K2 ElapsedEvent,Leave,1
+DigitalFishTank,FO fishing and fish tanks,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+Dishwasher,"FO food, dishes, trash, puddles",lot,K2 ElapsedEvent,Leave,2
+DJTurntable,FO other objects,FS,SD-1,docs/345 6.5,1
+DJTurntable,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+DoDjSituation,FS services and roles,FS,SD-1,docs/345 6.5,1
+DogDigHole,FO other objects,"lot (global, by owner lot)",K5 UiCheck,"blocks park while armed, until read",2
+DogHuntingSkill,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+Door,"FO rabbit holes, doors, shells, base objects",lot,K6 Generic,Leave,1
+DoPerformanceArtistSituation,FS services and roles,FS,SD-1,docs/345 6.5,1
+DoSongSituation,FS services and roles,FS,SD-1,docs/345 6.5,1
+DoTrickSituation,FS services and roles,FS,SD-1,docs/345 6.5,1
+DreamsAndPromisesManager,"FS household, social, travel, UI",EA,never held,live,1
+DrillHole,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",2
+DroopingFlower,FO plants and garden,lot,K2 ElapsedEvent,Leave,1
+Dryer,FO other objects,lot,K6 Generic,Leave,1
+DynamicChallengeManager,"FS household, social, travel, UI",EA,never held,live,2
+Easel,FO other objects,FS,SD-1,docs/345 6.5,1
+EatAtTop,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,1
+EatingContestStand,FO other objects,lot,K1 Elapsed,Leave,1
+EatingContestStand,FO other objects,lot,K2 ElapsedEvent,Leave,4
+EatingContestStand,FO other objects,lot,K4 Handoff,Leave,1
+Education,"FS careers, school, skills",EA,never held,live,1
+EffectsMachineBase,FO other objects,lot,K3 SeededEa,Leave,1
+EggHuntController,FO other objects,target,G-T instance callback,hold by callback target lot,1
+EiffelTower,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,2
+ElectroDanceSphere,FO other objects,FS,SD-1,docs/345 6.5,3
+ElevatorDoors,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+ElevatorDoors,FO other objects,"lot (global, by owner lot)",X0 interaction- or situation-scoped,not armed on an eligible lot,1
+ElevatorInterior,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,3
+Ep6EffectsMachine,FO other objects,lot,K1 Elapsed,Leave,2
+Ep6EffectsMachine,FO other objects,lot,K3 SeededEa,Replay,1
+EquestrianCenter,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,6
+EvilMagicGnomeUtil,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+FacePaintingBooth,FO other objects,FS,SD-1,docs/345 6.5,1
+FairyGold,FO other objects,lot,K1 Elapsed,Leave,1
+FairyHouse,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+FakeMetaAutonomySituation,FS services and roles,FS,SD-1,docs/345 6.5,2
+FallenRock,FO spawners and collectables,lot,K2 ElapsedEvent,Leave,2
+FilmCareerSituation,FS situations and parties,EA,never held,live,1
+Fire,FO fire and cooking appliances,lot,N-Fire,model,6
+FireDamageSituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+FirefighterSituation,FS services and roles,FS,SD-1,docs/345 6.5,1
+FireFightingJob,"FS careers, school, skills",FS,SD-1,docs/345 6.5,3
+FireManager,World and lot systems,lot,N-Fire,model,1
+FirePit,FO fire and cooking appliances,"lot (global, by owner lot)",K1 Elapsed,Leave,1
+FirePit,FO fire and cooking appliances,lot,K1 Elapsed,Leave,4
+Fireplace,FO fire and cooking appliances,lot,N-Fire,model,5
+FireworksBase,FO other objects,EA,never held,live,2
+FishBowlBase,FO fishing and fish tanks,lot,N-FishTank,model,4
+FishingSpot,FO fishing and fish tanks,lot,N-FishingSpot,model,3
+FishTank,FO fishing and fish tanks,lot,N-FishTank,model,8
+FlameFruit,"FO food, dishes, trash, puddles",lot,K1 Elapsed,Leave,1
+FlamingBag,FO other objects,lot,K2 ElapsedEvent,Leave,1
+FlightOfFelicity,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+FloodingSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+FoosballTable,FO other objects,lot,K3 SeededEa,Leave,1
+ForeignVisitorsSituation,FS situations and parties,EA,never held,live,4
+ForeignVisitorsSituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+FortuneTellerCareer,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+FreeVacationPickupSituation,FS situations and parties,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+FruitVeggieStand,FO store objects,target,G-T instance callback,hold by callback target lot,3
+FutureDescendantService,"FS household, social, travel, UI",EA,never held,live,1
+FXObject,FO other objects,lot,K2 ElapsedEvent,Leave,1
+FXObject,FO other objects,lot,K3 SeededEa,Replay,1
+FXTower,FO other objects,lot,K1 Elapsed,Replay,1
+GameDeveloperCareer,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+GameObject,"FO rabbit holes, doors, shells, base objects",filter,G-F global walker,"skip parked lots, model computes",1
+GameObject,"FO rabbit holes, doors, shells, base objects","lot (global, by owner lot)",NF rabbit hole (FarLight only),live,1
+GameStates,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,1
+GardenStation,FO store objects,lot,K1 Elapsed,Replay,1
+GardenStation,FO store objects,lot,K2 ElapsedEvent,Replay,2
+GenericPerformanceObject,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",1
+GenericPrivacySituation,FS situations and parties,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+GenieLamp,FO other objects,FS,SD-1,docs/345 6.5,1
+GeyserRift,FO other objects,"lot (global, by owner lot)",K3 SeededEa,Leave,2
+GhostHunter,"FS careers, school, skills",EA,never held,live,1
+GiftPile,FO other objects,lot,K4 Handoff,Leave,1
+Gig,"FS careers, school, skills",EA,never held,live,1
+GigOpportunity,FO other objects,FS,SD-1,docs/345 6.5,2
+Glass,"FO food, dishes, trash, puddles",lot,K4 Handoff,blocks park while armed (FarLight) unless it has a chore mapping,1
+GnubbField,FO other objects,FS,SD-1,docs/345 6.5,1
+GoboLight,FO other objects,lot,K1 Elapsed,Leave,2
+GoboStageLight,FO other objects,lot,K1 Elapsed,Leave,1
+GoHereWithSituation,FO other objects,EA,never held,live,2
+Grill,FO fire and cooking appliances,lot,K1 Elapsed,Replay,1
+GrimReaperSituation,FS services and roles,FS,SD-1,docs/345 6.5,3
+GroupingSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+GroupInteractionSituation,FS situations and parties,EA,never held,live,1
+GroupScienceStation,FO other objects,lot,K3 SeededEa,Leave,1
+GumballMachine,FO store objects,FS,SD-1,docs/345 6.5,1
+GypsyCaravan,"FO rabbit holes, doors, shells, base objects",FS,SD-1,docs/345 6.5,7
+HalfPipe,FO other objects,lot,K1 Elapsed,Rearm,2
+HarvestableShreds,FO other objects,lot,K2 ElapsedEvent,Replay,1
+HarvestPlant,FO plants and garden,lot,N-Harvest,model,2
+HauntedGnome,FO other objects,lot,K3 SeededEa,Leave,1
+HayPile,FO other objects,lot,K2 ElapsedEvent,Replay,1
+HealthManager,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,3
+HiddenRoomMarker,FO other objects,lot,K1 Elapsed,Replay,2
+HiddenRoomMarker,FO other objects,lot,K1 Elapsed,Leave,2
+Hideout,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,3
+HobbyShopRegister,FO other objects,filter,G-F global walker,"skip parked lots, model computes",1
+HolidayHouseLights,World and lot systems,filter,G-F global walker,"skip parked lots, model computes",1
+HolidayManager,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,5
+HolographicProjectionSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+HorseJump,FO other objects,FS,SD-1,docs/345 6.5,1
+HorseManager,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+HotTubBase,FO other objects,lot,K1 Elapsed,Rearm,2
+HotTubBase,FO other objects,lot,K1 Elapsed,Leave,1
+HotTubPosture,FO other objects,FS,SD-1,docs/345 6.5,1
+Houseboat,FO other objects,lot,K3 SeededEa,Leave,1
+Household,"FS household, social, travel, UI",EA,never held,live,13
+HouseParty,FS situations and parties,EA,never held,live,4
+HouseParty,FS situations and parties,FS,SD-1,docs/345 6.5,2
+HudModel,"FS household, social, travel, UI",EA,never held,live,2
+Hygienator,FO other objects,lot,K1 Elapsed,Leave,1
+Hypnotizer,FO store objects,lot,K4 Handoff,Leave,3
+IceCreamMaker,FO store objects,lot,K1 Elapsed,Leave,1
+IceCreamMaker,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,4
+IdleManager,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+ImaginaryDoll,FO other objects,lot,K4 Handoff,Leave,1
+ImaginaryDoll,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",1
+ImprovedProtestSituation,FS situations and parties,EA,never held,live,7
+ImprovedProtestSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+IndustrialOven,FO fire and cooking appliances,lot,K5 UiCheck,"blocks park while armed, until read",3
+InsectJig,FO spawners and collectables,lot,K1 Elapsed,Replay,1
+InsectSwarmsSituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+InteractionQueue,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+IntroTutorial,"FS household, social, travel, UI",EA,never held,live,2
+IntroTutorial,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+InventingSkill,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+InviteToLotSituation,FS situations and parties,FS,SD-1,docs/345 6.5,5
+Job,"FS careers, school, skills",EA,never held,live,1
+Journalism,"FS careers, school, skills",EA,never held,live,1
+JuiceKeggerParty,FS situations and parties,EA,never held,live,7
+Jukebox,FO other objects,lot,K1 Elapsed,Replay,1
+Jukebox,FO other objects,lot,K1 Elapsed,Leave,1
+JungleGymLookOutTower,FO other objects,lot,K1 Elapsed,Leave,1
+JunkPile,FO other objects,lot,K3 SeededEa,Replay,1
+KissingBooth,FO other objects,lot,X0 interaction-scoped,not armed on an eligible lot,1
+KrakenManager,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+KrakenManager,World and lot systems,"lot (global, by owner lot)",X0 interaction- or situation-scoped,not armed on an eligible lot,1
+LaserHarp,FO other objects,lot,K3 SeededEa,Replay,1
+LaundryManager,World and lot systems,filter,G-F global walker,"skip parked lots, model computes",1
+LawEnforcement,"FS careers, school, skills",EA,never held,live,1
+LawEnforcement,"FS careers, school, skills",FS,SD-1,docs/345 6.5,3
+LearnToDriveSkill,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+LifeEventRewards,"FS household, social, travel, UI",EA,never held,live,1
+LifeFruit,"FO food, dishes, trash, puddles",lot,K3 SeededEa,Leave,2
+Lifeguard,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+LightGlobule,FO other objects,lot,K3 SeededEa,Replay,1
+LitterPile,"FO food, dishes, trash, puddles",lot,N-Trash,model,1
+LogicGate,FO other objects,lot,K1 Elapsed,Leave,1
+LogicGate,FO other objects,lot,K3 SeededEa,Replay,1
+LookAtManager,"FS buffs, occult, actor systems","lot (global, by owner lot)",X0 interaction- or situation-scoped,not armed on an eligible lot,1
+Lot,World and lot systems,lot,K1 Elapsed,Rearm,1
+Lot,World and lot systems,"lot (global, by owner lot)",K2 ElapsedEvent,Replay,1
+Lot,World and lot systems,"lot (global, by owner lot)",K2 ElapsedEvent,Leave,1
+Lot,World and lot systems,"lot (global, by owner lot)",K4 Handoff,Leave,6
+Lot,World and lot systems,"lot (global, by owner lot)",K6 Generic,Leave,5
+Lot,World and lot systems,EA,never held,live,1
+Lot,World and lot systems,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+LotManager,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,3
+LotManager,World and lot systems,FS,SD-1,docs/345 6.5,1
+LunarCycleManager,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,4
+MagicCauldronRegency,FO store objects,lot,K2 ElapsedEvent,Leave,2
+MagicCauldronRegency,FO store objects,FS,SD-1,docs/345 6.5,1
+MagicGnome,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,3
+MagicGnome,FO other objects,lot,K2 ElapsedEvent,Leave,3
+MagicGnome,FO other objects,lot,K4 Handoff,Leave,2
+MagicGnomeBase,FO other objects,lot,K2 ElapsedEvent,Replay,1
+MagicGnomeCat,FO other objects,lot,K3 SeededEa,Replay,1
+MagicGnomeDog,FO other objects,lot,K3 SeededEa,Replay,1
+MagicGnomeElvis,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,2
+MagicGnomeFall,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+MagicGnomeSpring,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+MagicGnomeSummer,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+MagicGnomeVampire,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+MagicGnomeVampire,FO other objects,lot,K1 Elapsed,Replay,1
+MagicGnomeVampire,FO other objects,lot,K2 ElapsedEvent,Replay,1
+MagicGnomeWinter,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+MagicMirror,FO other objects,lot,K2 ElapsedEvent,Leave,2
+MagicMirror,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+MagicWand,FO other objects,"lot (global, by owner lot)",X0 interaction- or situation-scoped,not armed on an eligible lot,1
+MaidSituation,FS services and roles,FS,SD-1,docs/345 6.5,5
+Mailbox,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,5
+MailCarrierSituation,FS services and roles,FS,SD-1,docs/345 6.5,4
+MaintenanceComponent,"FS household, social, travel, UI",EA,never held,live,1
+MarineLifeSurfaceSpawner,FO spawners and collectables,target,G-T instance callback,hold by callback target lot,1
+MascotIntroSituation,FS situations and parties,EA,never held,live,3
+MascotIntroSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+MassageTable,FO store objects,FS,SD-1,docs/345 6.5,1
+Mausoleum,"FO rabbit holes, doors, shells, base objects",FS,SD-1,docs/345 6.5,2
+MechanicalBull,FO other objects,FS,SD-1,docs/345 6.5,1
+Medical,"FS careers, school, skills",FS,SD-1,docs/345 6.5,4
+Medical,"FS careers, school, skills",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+MedicalEmergencySituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+MeltedHeap,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+Meteor,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+Meteor,FO other objects,lot,K4 Handoff,Leave,1
+Meteor,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",1
+Meteor,FO other objects,lot,K6 Generic,Leave,1
+MeteorShower,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,2
+MeteorShower,FO other objects,lot,K4 Handoff,Leave,1
+MeteorShower,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",3
+MeteorShower,FO other objects,lot,K6 Generic,Leave,1
+Microwave,FO other objects,lot,K1 Elapsed,Leave,1
+MilitaryBase,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,1
+MinorPetTerrarium,FO spawners and collectables,lot,K1 Elapsed,Replay,1
+MoneyTree,FO plants and garden,lot,K2 ElapsedEvent,Leave,1
+MoodLamp,FO other objects,lot,K4 Handoff,Leave,1
+MoodLamp,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,4
+MoodModifier,FO other objects,FS,SD-1,docs/345 6.5,1
+MooringPost,FO other objects,lot,K2 ElapsedEvent,Leave,1
+MovieScreen,FO store objects,"lot (global, by owner lot)",K1 Elapsed,Leave,1
+MovieScreen,FO store objects,lot,K2 ElapsedEvent,Leave,1
+MovieScreen,FO store objects,lot,K3 SeededEa,Replay,1
+MovieScreen,FO store objects,FS,SD-1,docs/345 6.5,4
+MovieSet,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,4
+MovingWorldUtil,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,1
+MultiGameObjectBase,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,1
+MultiImageObject,FO other objects,lot,K1 Elapsed,Replay,1
+MusicalInstrument,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+MusicBox,FO other objects,lot,K1 Elapsed,Replay,1
+MysteriousDeviceDoor,FO other objects,lot,K1 Elapsed,Leave,1
+NectarMaker,"FO food, dishes, trash, puddles",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+NectarRack,"FO food, dishes, trash, puddles",lot,K1 Elapsed,Replay,1
+NewspaperDeliverySituation,FS services and roles,FS,SD-1,docs/345 6.5,2
+NPCMermaidManager,"FS buffs, occult, actor systems",EA,never held,live,2
+NpcParty,FS situations and parties,EA,never held,live,3
+NpcParty,FS situations and parties,FS,SD-1,docs/345 6.5,1
+NpcSeasonalPartyManager,FS situations and parties,EA,never held,live,1
+NPCShowManager,"FS careers, school, skills",EA,never held,live,2
+ObjectPedestal,FO other objects,lot,K4 Handoff,Leave,1
+ObjectSpawner,FO spawners and collectables,lot,N-Spawner,model,2
+OccultFairy,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,3
+OccultFrankenstein,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+OccultGenie,"FS buffs, occult, actor systems",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+OccultMagicPointSystem,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+OccultMermaid,"FS buffs, occult, actor systems",EA,never held,live,1
+OccultMermaid,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+OccultRobot,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+OccultVampire,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+OccultWerewolf,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,6
+OccultWitch,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+Occupation,"FS careers, school, skills",EA,never held,live,4
+OnlineGiftingManager,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,1
+OrientationSituation,FS situations and parties,EA,never held,live,1
+OrientationSituation,FS situations and parties,"lot (global, by owner lot)",X0 interaction- or situation-scoped,not armed on an eligible lot,2
+OscilatingVfxHelper,"FO food, dishes, trash, puddles",lot,K3 SeededEa,Leave,2
+PaperBoySituation,FS situations and parties,EA,never held,live,3
+ParentsLeavingTownSituation,FS situations and parties,EA,never held,live,12
+ParkingSpace,FO other objects,lot,K1 Elapsed,Leave,1
+Passport,"FS household, social, travel, UI",EA,never held,live,2
+PeaShooter,FO store objects,FS,SD-1,docs/345 6.5,2
+PerformanceCareer,"FS careers, school, skills",EA,never held,live,6
+PerformanceCareer,"FS careers, school, skills",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+PerformanceMeter,World and lot systems,lot,K1 Elapsed,Leave,1
+PerformerSituation,FS services and roles,EA,never held,live,1
+PetAdoption,"FS household, social, travel, UI",EA,never held,live,3
+PetFeedingStation,FO store objects,lot,K1 Elapsed,Replay,1
+PetPoolManager,"FS household, social, travel, UI",EA,never held,live,1
+PetPregnancy,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+PetSurfacePosture,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+Phone,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+Phone,FO other objects,FS,SD-1,docs/345 6.5,1
+PhoneCell,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+PhoneService,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+PicnicBasket,"FO food, dishes, trash, puddles",lot,K3 SeededEa,Leave,1
+PicnicSituation,"FO food, dishes, trash, puddles",EA,never held,live,1
+PinballMachine,FO store objects,lot,K1 Elapsed,Leave,1
+PinballMachineDecades,FO store objects,lot,K1 Elapsed,Leave,1
+PizzaDeliverySituation,FS services and roles,FS,SD-1,docs/345 6.5,4
+Plant,FO plants and garden,lot,N-Plant,model,1
+PlayDateManager,"FS careers, school, skills",EA,never held,live,3
+PlayInSandJig,FO other objects,lot,K3 SeededEa,Leave,1
+PokerTable,FO store objects,lot,K2 ElapsedEvent,Leave,1
+PoliceSituation,FS services and roles,FS,SD-1,docs/345 6.5,4
+PoliceStation,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,1
+Political,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+Pool,World and lot systems,lot,K1 Elapsed,Leave,1
+PortableMp3Player,FO other objects,lot,K1 Elapsed,Leave,1
+PortableMp3Player,FO other objects,lot,K3 SeededEa,Replay,1
+PortableMp3Player,FO other objects,lot,K3 SeededEa,Leave,1
+PostBoxJobBoard,World and lot systems,"lot (global, by owner lot)",K2 ElapsedEvent,Leave,2
+PostBuildBuyScrapCreator,FO other objects,EA,never held,live,1
+PostureSwitcher,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+PotionOfLiquidCourage,FO other objects,lot,K2 ElapsedEvent,Leave,1
+PotionOfLiquidCourage,FO other objects,lot,K3 SeededEa,Replay,1
+PotionShopConsignmentRegister,FO other objects,filter,G-F global walker,"skip parked lots, model computes",2
+Pregnancy,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,11
+PreparedFood,"FO food, dishes, trash, puddles",lot,N-Food,model,2
+PrivateEye,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+PrivateEyeInteractions,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+PromSituation,FS situations and parties,EA,never held,live,5
+ProSports,"FS careers, school, skills",EA,never held,live,5
+PuddleManager,World and lot systems,lot,N-Puddle,model,2
+Punishment,"FS careers, school, skills",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+PushableStatue,FO other objects,lot,K1 Elapsed,Leave,1
+PushableStatue,FO other objects,lot,K2 ElapsedEvent,Leave,1
+PvZSunFlower,FO store objects,lot,K2 ElapsedEvent,Replay,2
+PvZSunFlower,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+RabbitHole,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,3
+RabbitHolePartnershipDeed,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,2
+Reactor,FS services and roles,FS,SD-1,docs/345 6.5,1
+RealEstateManager,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,3
+RecycleBinOutdoor,FO other objects,lot,K1 Elapsed,Replay,1
+RelicStoreRegister,FO other objects,target,G-T instance callback,hold by callback target lot,1
+RentScheduler,World and lot systems,EA,never held,live,1
+RepairmanSituation,FS services and roles,FS,SD-1,docs/345 6.5,4
+RepomanSituation,FS services and roles,FS,SD-1,docs/345 6.5,5
+ResortMaintenanceSituation,FS services and roles,FS,SD-1,docs/345 6.5,2
+ResortManager,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,12
+ResortStaffedObjectComponent,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+ResortTower,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,1
+Responder,"FS household, social, travel, UI",EA,never held,live,1
+RestaurantInteraction,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,1
+RestaurantWithEvents,"FO rabbit holes, doors, shells, base objects",FS,SD-1,docs/345 6.5,1
+ReturnHomeBehaviorInHomeWorld,"FS household, social, travel, UI",EA,never held,live,2
+RewardsManager,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,2
+RidingPosture,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+RockClimbingWall,FO store objects,lot,K2 ElapsedEvent,Leave,1
+RockingChair,FO other objects,FS,SD-1,docs/345 6.5,1
+RodentsSituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+Role,FS services and roles,EA,never held,live,4
+RomanceVisibilityState,"FS household, social, travel, UI",EA,never held,live,1
+RoommateManager,"FS buffs, occult, actor systems",EA,never held,live,1
+RouletteTable,FO store objects,lot,K2 ElapsedEvent,Leave,1
+RoutineMachine,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+SandsOfUnderstandingComponent,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+Sarcophagus,FO other objects,"lot (global, by owner lot)",K2 ElapsedEvent,Leave,1
+SaunaClassic,FO store objects,lot,K1 Elapsed,Replay,1
+SaunaClassic,FO store objects,FS,SD-1,docs/345 6.5,2
+Scarecrow,FO other objects,lot,K1 Elapsed,Leave,1
+Scarecrow,FO other objects,lot,K6 Generic,Leave,1
+Scarecrow,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+ScavengerManager,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+ScenarioSituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+School,"FS careers, school, skills",EA,never held,live,5
+SchoolRabbitHole,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,3
+ScienceActivationGatheringSituation,FS situations and parties,EA,never held,live,1
+ScienceComponent,"FS household, social, travel, UI",EA,never held,live,3
+ScienceComponent,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+SculptureComponent,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,3
+SeaLifeJig,FO spawners and collectables,lot,K1 Elapsed,Replay,1
+Seasickness,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,1
+SeasonalLotMarker,FO other objects,lot,K1 Elapsed,Rearm,2
+SeasonalLotMarker,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",1
+SeasonsManager,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+ServiceSituation,FS services and roles,FS,SD-1,docs/345 6.5,3
+ServingContainer,"FO food, dishes, trash, puddles",lot,N-Dish,model,2
+ServingContainerGroup,"FO food, dishes, trash, puddles",lot,N-Dish,model,1
+ServingContainerSingle,"FO food, dishes, trash, puddles",lot,N-Dish,model,1
+ServoBotArena,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,3
+ServoBotPedestal,FO other objects,lot,K3 SeededEa,Replay,1
+Shark,FO fishing and fish tanks,FS,SD-1,docs/345 6.5,1
+ShoppingPedestal,FO other objects,lot,K1 Elapsed,Leave,1
+ShoppingPedestal,FO other objects,lot,K3 SeededEa,Replay,1
+ShoppingRabbitHole,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,4
+ShowStage,FO other objects,lot,K4 Handoff,Leave,1
+ShowStage,FO other objects,lot,K4 Handoff,blocks park while armed (FarLight) unless it has a chore mapping,1
+ShowStage,FO other objects,FS,SD-1,docs/345 6.5,2
+ShowStage,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,3
+ShowStage,FO other objects,"lot (global, by owner lot)",X0 interaction- or situation-scoped,not armed on an eligible lot,1
+Shuffleboard,FO other objects,FS,SD-1,docs/345 6.5,1
+Sim,"FS buffs, occult, actor systems",EA,never held,live,4
+Sim,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,19
+Sim,"FS buffs, occult, actor systems",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+SimDescription,"FS household, social, travel, UI",EA,never held,live,1
+SimFestManager,FS services and roles,EA,never held,live,1
+SimpleAura,FO other objects,lot,K2 ElapsedEvent,Leave,2
+SimScriptAdaptor,World and lot systems,FS,SD-1,docs/345 6.5,1
+SimUpdate,"FS buffs, occult, actor systems",EA,never held,live,1
+SingerCareer,"FS careers, school, skills",EA,never held,live,1
+SingerCareer,"FS careers, school, skills","lot (global, by owner lot)",X0 interaction- or situation-scoped,not armed on an eligible lot,1
+SkillBasedCareer,"FS careers, school, skills",EA,never held,live,1
+SkillMeter,World and lot systems,lot,K1 Elapsed,Rearm,1
+SkillMeter,World and lot systems,lot,K1 Elapsed,Leave,1
+SkillMeter,World and lot systems,FS,SD-1,docs/345 6.5,1
+SkinnyDipClothingPile,World and lot systems,lot,K2 ElapsedEvent,Leave,1
+SkipStone,FO fishing and fish tanks,FS,SD-1,docs/345 6.5,3
+SleepDreamManager,"FS careers, school, skills",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+SlidingBookcase,FO other objects,FS,SD-1,docs/345 6.5,1
+SlotMachine,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,3
+SlumberParty,FS situations and parties,EA,never held,live,1
+SmokeDetector,World and lot systems,lot,K2 ElapsedEvent,Leave,1
+SneakOntoLotSituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+SnowAngel,FO other objects,lot,K2 ElapsedEvent,Leave,2
+SnowWaterFight,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+SnubManager,"FS careers, school, skills",EA,never held,live,1
+SnubManager,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+SoccerGoal,FO other objects,lot,X0 interaction-scoped,not armed on an eligible lot,1
+SocialCallback,"FS household, social, travel, UI",EA,never held,live,1
+SocialCallback,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,1
+SocialComponent,"FS household, social, travel, UI",EA,never held,live,1
+SocialComponent,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,2
+SocialNetworkingSkill,"FS careers, school, skills",FS,SD-1,docs/345 6.5,2
+SocialWorkerAdoptionSituation,FS services and roles,FS,SD-1,docs/345 6.5,2
+SocialWorkerChildAbuseSituation,FS services and roles,FS,SD-1,docs/345 6.5,4
+SocialWorkerPetAdoptionSituation,FS services and roles,FS,SD-1,docs/345 6.5,1
+SocialWorkerPetPutUpSituation,FS services and roles,FS,SD-1,docs/345 6.5,2
+SolarPanel,FO other objects,lot,K1 Elapsed,Rearm,2
+SpaceSimulator,FO other objects,FS,SD-1,docs/345 6.5,1
+SpellBook,FO store objects,lot,K2 ElapsedEvent,Replay,1
+SpellBook,FO store objects,FS,SD-1,docs/345 6.5,1
+Sphinx,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+Spirit,FO spawners and collectables,lot,K3 SeededEa,Replay,1
+SpringDanceFloor,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",1
+Sprinkler,FO plants and garden,target,G-T instance callback,hold by callback target lot,1
+Sprinkler,FO plants and garden,"lot (global, by owner lot)",K1 Elapsed,Replay,1
+Sprinkler,FO plants and garden,lot,K2 ElapsedEvent,Replay,1
+Sprinkler,FO plants and garden,lot,K4 Handoff,blocks park while armed (FarLight) unless it has a chore mapping,1
+Sprinkler,FO plants and garden,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+Stadium,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,18
+StageLightObject,FO other objects,lot,K3 SeededEa,Replay,1
+StarLight,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,3
+StartAnythingButton,FO store objects,EA,never held,live,1
+StellarObservatory,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,6
+Stereo,FO other objects,"lot (global, by owner lot)",K2 ElapsedEvent,Replay,1
+Stereo,FO other objects,EA,never held,live,1
+StereoCommunity,FO other objects,lot,K1 Elapsed,Replay,2
+StinkJuicePotion,"FO food, dishes, trash, puddles",lot,K2 ElapsedEvent,Leave,1
+StocksManager,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+StoryProgressionService,"FS household, social, travel, UI",EA,never held,live,2
+Stove,FO fire and cooking appliances,lot,K1 Elapsed,Replay,1
+Stove,FO fire and cooking appliances,FS,SD-1,docs/345 6.5,1
+StrayPets,"FS household, social, travel, UI",EA,never held,live,1
+Stroller,FO other objects,lot,K1 Elapsed,Replay,1
+Stroller,FO other objects,lot,K2 ElapsedEvent,Leave,1
+Stroller,FO other objects,FS,SD-1,docs/345 6.5,1
+StylingStation,FO other objects,lot,K2 ElapsedEvent,Replay,1
+Stylist,"FS careers, school, skills",EA,never held,live,1
+Stylist,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+Subway,"FO rabbit holes, doors, shells, base objects","lot (global, by owner lot)",NF rabbit hole (FarLight only),live,2
+SubwayGrate,FO other objects,"lot (global, by owner lot)",K3 SeededEa,Leave,2
+SurfArea,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,2
+SwimmingInPool,World and lot systems,FS,SD-1,docs/345 6.5,2
+Tablet,FO store objects,FS,SD-1,docs/345 6.5,1
+TattooChair,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,4
+Telescope,FO other objects,lot,K1 Elapsed,Leave,5
+Terrain,World and lot systems,FS,SD-1,docs/345 6.5,6
+Theatre,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,15
+Tiberium,FO spawners and collectables,lot,K3 SeededEa,Leave,2
+TicketMachine,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,4
+TimeMachine,FO other objects,EA,never held,live,1
+TimeMachine,FO other objects,FS,SD-1,docs/345 6.5,1
+TimePortal,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,4
+TimePortal,FO other objects,lot,K1 Elapsed,Leave,3
+TimeTravelerSituation,FS services and roles,FS,SD-1,docs/345 6.5,4
+TombTrap,FO other objects,lot,K1 Elapsed,Leave,1
+TombTrap,FO other objects,lot,K2 ElapsedEvent,Leave,1
+TombTrap,FO other objects,lot,K3 SeededEa,Leave,2
+ToyOven,FO fire and cooking appliances,lot,K1 Elapsed,Replay,1
+TraitFunctions,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,3
+TraitFunctions,"FS buffs, occult, actor systems",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,3
+TraitManager,"FS buffs, occult, actor systems",FS,SD-1,docs/345 6.5,2
+TrashcanOutside,"FO food, dishes, trash, puddles",lot,K1 Elapsed,Replay,1
+TrashPile,"FO food, dishes, trash, puddles",lot,N-Trash,model,2
+TravelUtil,"FS household, social, travel, UI",FS,SD-1,docs/345 6.5,3
+TreasurePedestal,FO spawners and collectables,"lot (global, by owner lot)",K3 SeededEa,Replay,1
+Treehouse,FO other objects,lot,K1 Elapsed,Rearm,2
+TreeOfProsperity,FO store objects,lot,N-Tree,model,2
+TrickOrTreatSituation,FS situations and parties,EA,never held,live,2
+TutorialNpcChildSituationBase,FO other objects,FS,SD-1,docs/345 6.5,1
+TutorialNpcManager,FO other objects,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,2
+TutorSkillInteraction,"FS careers, school, skills",EA,never held,live,1
+TV,FO other objects,"lot (global, by owner lot)",K1 Elapsed,Leave,1
+TV,FO other objects,lot,K3 SeededEa,Replay,1
+TV,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+Umbrella,FO other objects,FS,SD-1,docs/345 6.5,1
+UnchartedIslandMarker,FO other objects,"lot (global, by owner lot)",K2 ElapsedEvent,Leave,2
+UnchartedIslandMarker,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",1
+UnderwaterCave,FO other objects,lot,K6 Generic,Leave,2
+UnicornPool,"FS household, social, travel, UI",EA,never held,live,2
+UniversityMascotSituation,"FS careers, school, skills",FS,SD-1,docs/345 6.5,1
+UpgradableComponent,"FS household, social, travel, UI",lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+Urnstone,FO other objects,lot,K3 SeededEa,Leave,1
+Urnstone,FO other objects,lot,K3 SeededEa,Replay,1
+Urnstone,FO other objects,lot,K5 UiCheck,"blocks park while armed, until read",1
+Urnstone,FO other objects,FS,SD-1,docs/345 6.5,1
+VaccinationSessionSituation,FS situations and parties,FS,SD-1,docs/345 6.5,2
+VelvetRopes,FO other objects,"lot (global, by owner lot)",K1 Elapsed,Leave,2
+VenueFlowUtility,World and lot systems,EA,never held,live,6
+Violin,FO store objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,3
+VisitorTracker,"FS household, social, travel, UI",EA,never held,live,1
+VisitSituation,FS situations and parties,FS,SD-1,docs/345 6.5,7
+VisualStateChange,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,2
+VomitPile,FO other objects,lot,K2 ElapsedEvent,Leave,1
+VRGoggles,FO other objects,FS,SD-1,docs/345 6.5,2
+WashingMachine,FO other objects,lot,K2 ElapsedEvent,Leave,1
+WashingMachine,FO other objects,lot,K3 SeededEa,Leave,2
+WeatherMachine,FO other objects,lot,K1 Elapsed,Leave,1
+WeatherMachine,FO other objects,lot,X0 interaction- or situation-scoped,not armed on an eligible lot,1
+WeatherStone,FO other objects,lot,K1 Elapsed,Replay,2
+WeddingAnniversary,World and lot systems,EA,G-W world or household singleton,live; object enter or leave on a parked lot promotes it,1
+WeddingCeremony,FS situations and parties,FS,SD-1,docs/345 6.5,6
+WeddingParty,FS situations and parties,FS,SD-1,docs/345 6.5,2
+WelcomeWagonSituation,FS situations and parties,EA,never held,live,1
+WelcomeWagonSituation,FS situations and parties,FS,SD-1,docs/345 6.5,1
+WhackASupernatural,FO other objects,FS,SD-1,docs/345 6.5,4
+Widget,FO other objects,lot,K1 Elapsed,Leave,1
+Widget,FO other objects,lot,K3 SeededEa,Leave,1
+Wildflower,FO spawners and collectables,filter,G-F global walker,"skip parked lots, model computes",1
+Wildflower,FO spawners and collectables,lot,N-Wildflower,model,2
+WildHorsePool,"FS household, social, travel, UI",EA,never held,live,1
+Windows,"FO rabbit holes, doors, shells, base objects",lot,NF rabbit hole (FarLight only),live,3
+WishingWell,FO store objects,lot,K3 SeededEa,Replay,1
+WishingWell,FO store objects,FS,SD-1,docs/345 6.5,1
+WooHoo,FO other objects,EA,never held,live,1
+Writing,"FS careers, school, skills",EA,never held,live,1

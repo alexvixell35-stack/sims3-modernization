@@ -1,8 +1,10 @@
 using Sims3.Gameplay.Services;
+using Sims3.Gameplay.Utilities;
+using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // serviceleave harness check (docs/564 §1). Read-only: nothing in the world changes.
+    // serviceleave harness check (docs/564 §1). Nothing in the world changes (one throwaway alarm is added and removed at once).
     public static partial class Fixes
     {
         // ServiceLeaveCheck run: (a) a reset worker in a wait / leave state and in a work-limit state, (b) a repo man
@@ -13,6 +15,7 @@ namespace Ts3Fixes
         //   off BROKEN = nothing re-armed, repo man stays; on FIXED = re-armed, repo man drives away.
         //   (docs/564 §2) babysitter periodic / leave / hunker-down alarms, repo-man no-op states (no household / no object).
         //   result  counters 2517-2523
+        static void SlCheckNoop() { }
         public static object ServiceLeaveCheck(string what)
         {
             int[] c = PatchCounters();
@@ -29,7 +32,20 @@ namespace Ts3Fixes
             bool control = SlRearmKind(on, false, false, false, "mAlarmHandle", "TimeToRoute") != 0 || SlRearmKind(on, true, true, false, "mAlarmHandle", "TimeToRoute") != 0
                 || SlRearmKind(on, true, false, true, "mAlarmHandle", "TimeToRoute") != 0 || SlRearmKind(on, true, false, false, "mDelayHandle", "DoSomething") != 0
                 || SlMaidWorking("LeaveLot`1") || !SlMaidWorking("Cleaning") || SlRepoLeave(on, true) || SlRepoIdleLeave(on, true, true, true);
-            bool any = wait || work || repo || sitter, all = wait && work && repo && sitter;
+            bool liveSkip = SlSkipLive(on, true);
+            control = control || SlSkipLive(on, false) || SlSkipLive(false, true);
+            // the live-timer lookup itself (SraLive gates every re-arm): a throwaway alarm is known, a removed one and the invalid handle are not
+            bool lookup = false;
+            try
+            {
+                AlarmHandle th = AlarmManager.Global.AddAlarm(1f, TimeUnit.Hours, SlCheckNoop, "ts3fixes serviceleave check", AlarmType.NeverPersisted, null);
+                bool known = SraLive(th);
+                AlarmManager.Global.RemoveAlarm(th);
+                lookup = known && !SraLive(th) && !SraLive(AlarmHandle.kInvalidHandle);
+            }
+            catch (System.Exception) { }
+            control = control || !lookup;
+            bool any = wait || work || repo || sitter || liveSkip, all = wait && work && repo && sitter && liveSkip;
             string live = "";
             int n = 0;
             try
@@ -42,7 +58,7 @@ namespace Ts3Fixes
             }
             catch (System.Exception e) { live = "live read threw " + e.GetType().Name; }
             string verdict = control ? "UNEXPECTED" : !on ? (any ? "UNEXPECTED" : "BROKEN") : (all ? "FIXED" : "UNEXPECTED");
-            return "serviceleave check (switch " + (on ? "on" : "off") + "): wait/leave re-armed=" + wait + ", work limit re-armed=" + work + ", babysitter re-armed=" + sitter + ", repo man leaves=" + repo
+            return "serviceleave check (switch " + (on ? "on" : "off") + "): wait/leave re-armed=" + wait + ", work limit re-armed=" + work + ", babysitter re-armed=" + sitter + ", repo man leaves=" + repo + ", live timeout left alone=" + liveSkip + ", live lookup=" + lookup
                 + ", controls=" + control + "; live: " + (live.Length == 0 ? "no service situations" : live) + "; verdict: " + verdict + "; " + counters;
         }
     }

@@ -157,6 +157,151 @@ GoHere has the largest overlap of any mod read so far. Our unseen-Sim fallbacks 
 
 In-game checks worth running: GoHere on and off on the same world (visit and unseen-routing counters), a townie created by StoryProgression seen after being off screen, a WooHooty text with Woohooer, and StoryProgression on and off on a big save (hitch p99, p99.9, max). Queue `compat-sp-1122` (StoryProgression, written, not started) waits for a hand download.
 
+## Every other NRaas project (source audit, 2026-11-22)
+Status: static only (no game runs), from the same NRaas source (github.com/Chain-Reaction/NRaas, commit `2f57186`, read and cited, never copied). 18 of the projects were also checked against their release binaries, which Rodney downloaded by hand. This pass covers every NRaas project in the source that the section above did not. Checks: the overlap kinds of docs/328 against the patched-method list of `node tools/compat-scan.ts` (936 patched game methods, 790 live with the v0.3.x release defaults), Sim-creation copies (docs/327), the always-animate, unseen-routing and story-progression areas, the error handler, Overwatch's missing-Sim rebuild and reset paths (docs/324 risk R1), and the audit checklist above (leaks, crash and hang causes, save risks, perf). Findings were checked against EA's 1.67 code; ones that match EA or end on their own were rejected. Reports to NRaas are drafted and not sent. Private notes, with our sample fixes, are in `probe-out/mod-audit-1122/nraas/` (not in git).
+
+### Which projects have a downloaded release
+Rodney's 26 hand-downloaded zips (list in `probe-out/mod-scope-1122/nraas-manual-1122.txt`) each hold one package. They cover exactly the projects of the section above: StoryProgression and its six modules, Traffic, Retuner, Relativity, Woohooer, Careers, Traveler, Hybrid, Portrait Panel, Dresser, Tagger, Saver, GoHere, Shooless, Mover, Consigner, MasterController, MasterController Cheats, MasterController Integration and Register. The Woohooer and Shooless zips do not include their object modules.
+
+Second batch (downloaded by hand, 2026-11-22 evening; copied into `game-copy/mod-sets/downloads/nraas-1122/`): 19 zips. Every zip opens and holds one package. Three browser duplicates (Cupcake, Debug Enabler, MasterController) are byte-identical to the originals and were skipped. The batch covers Animator V10, Anti Magic Scroll V9, Cupcake V6, Debug Enabler V54, Decensor V14, Dreamer V15, ErrorTrap V100 (two builds, Steam 1.67 and EA app 1.69), Home Opener V11, MasterController Expanded Tattoo V122, MasterController Progression V134, Once Read V13, Once Read Tablet V13, Overwatch V123, Pocket Protector Potion Case V1, Porter V42, Relationship Panel V21, Second Image V5 and Selector V14. These were scanned with the docs/328 rule layer (`compat-scan.ts --json` from branch `feature/compat-rules-1122`, with master's ts3fixes build and game assemblies). The release assemblies were also decompiled to check this section's findings and to look for static copies (below). Output: `probe-out/mod-audit-1122/nraas/scan-part2-1122.json` (not in git).
+
+Still not downloaded (verdicts below are **static from source, binary not checked**): Chemistry, Economizer, NoCD, Overwatch Expanded, Pocket Protector Tablet, Shooless Routine Machine, Shooless Uber Toilet, Sleep Freedom, Tempest, Vector, Written Word, and the eight Woohooer object modules (Eiffel Tower, Fixer Car, Hot Air Balloon, KamaSimtra, Massage Table, Sauna, Outdoor Shower, Toilet Stall).
+
+**Test install versions:**
+- Its ErrorTrap package is byte-identical to ErrorTrap V100 for Steam 1.67.
+- Its Overwatch package is byte-identical to Overwatch V123.
+- The two ErrorTrap builds hold the same two assemblies (same hashes). The packages differ in one byte of the ScriptCore resource wrapper, not in code. So everything said here about ErrorTrap holds for both editions.
+
+**Release against source.** The source (commit `2f57186`, a single-commit clone, so there is no history to diff) is one version ahead of the release for:
+
+| Project | Release | Source |
+|---|---|---|
+| Animator | V10 | 11 |
+| Anti Magic Scroll | V9 | 10 |
+| Debug Enabler | V54 | 55 |
+| Decensor | V14 | 15 |
+| Dreamer | V15 | 16 |
+| Home Opener | V11 | 12 |
+| Overwatch | V123 | 124 |
+| Porter | V42 | 43 |
+| Second Image | V5 | 6 |
+| MasterController Expanded Tattoo | V122 | 128 |
+
+The other eight downloaded projects match. Every finding above minor in this section was checked in the release assemblies and is present there:
+- Overwatch's harvest copy, its alarm marking, and its menu rebuild ignoring placeholders;
+- ErrorTrap's load-time rebuild;
+- Dreamer's every-event listener and its wish-update copy;
+- Anti Magic Scroll's learned-recipe listener.
+
+Not audited:
+- MasterController Tuning has no project in the source.
+- Packer is a desktop package editor and is never loaded by the game.
+- StoryProgression Template is a template for module authors.
+- The test projects are skipped.
+- `Obsolete/` holds 12 retired mods.
+- `Ani/` holds other authors' mods kept in the same repository. They are not NRaas mods.
+- The shared helper library is covered by the section above.
+
+### Verdicts
+Rule ids are those of docs/328. Resolutions:
+- **THEIRS-BETTER:** we stand down.
+- **OURS-BETTER:** our fix wins at runtime; we never edit their files.
+- **setting:** an NRaas option turns the conflicting part off. These go to the Apex installer settings list.
+- **none needed:** nothing conflicts.
+
+| Project | Binary | Rule verdict | Resolution | Findings above minor |
+|---|---|---|---|---|
+| ErrorTrap | V100, Steam 1.67 and EA 1.69 builds (test install = V100 Steam) | caveat: module-changed (its own ScriptCore changes only the script-error handler), module-current x18, named x14, derives x12, off-by-default x3 | OURS-BETTER, already built: our live `errortraploop` hook runs ErrorTrap's error handler first and adds the loop cut-off. Our other 19 ScriptCore patches (route plan and replan, reference table, off-screen road spot, saved tasks, CAS, persistence) match the game's code in its copy and apply | new, verified: on every world load it rebuilds every resident of a housed household that has no Sim object, unless a placeholder exists (no setting). Its load hitch and leaks are already fixed by `errortrapspread`, `errortraplookup` and `errortrapsims` |
+| Overwatch | V123 (test install = V123) | **caveat: static-copy** (proposed rule, below; the scan says compatible: derives x36, named x16, off-by-default x3) | OURS-BETTER (to build): hook its harvest copy by name, with a stand-down when the method is missing | caveat (confirmed, verified): it replaces EA's Harvest interaction on every plant and calls its own copy of the harvest step. That copy keeps EA's lost-extras bug, so our live `harvestextras` fix does not run for menu harvests (the journal part of our fix still does). No setting. perf (possible, not measured): every 15 sim-minutes it walks the whole global alarm queue and marks every one-shot alarm to run in its own task (no setting; our alarm-timing hook still sees every alarm). crash or duplicate Sim (possible, rare, menu only): a manual "Recover Missing Sims" run ignores placeholders, so EA's placeholder children can be built a second time (the nightly run respects them) |
+| Overwatch Expanded | no | compatible: no-overlap | none needed | - |
+| Debug Enabler | V54 | compatible: derives x240, named x8, off-by-default x2 | none needed | - (it builds Sims only when the player asks) |
+| Porter | V42 | compatible: derives x16, named x8, off-by-default x2 | none needed | - (it builds the imported household's Sims; both loops end) |
+| Selector | V14 | compatible: derives x16, named x5, off-by-default x2 | none needed | - |
+| Relationship Panel | V21 | compatible: derives x25, named x5, off-by-default x2 | none needed | - (it replaces one phone invite, which we do not patch) |
+| Economizer | no | compatible: no-overlap | none needed | - |
+| Dreamer | V15 | **caveat: static-copy** (proposed rule; the scan says compatible: derives x12, named x2, off-by-default x2) | OURS-BETTER (to build): hook its copy of the wish update by name and run our existing before and after steps | caveat (code verified, effect inferred): it listens to every event and runs its own copy of EA's wish update first, so EA's update, which we patch, almost never runs. `dnpupdateguard` loses nothing, because Dreamer catches the same error. But `wishupdatelost` never arms, and part 2 of `dreamcleanup` is skipped. No setting. perf (possible, not measured): every 30 sim-minutes it queues a full wish update for every NPC on the world lot, where EA updates only Sims an event marked |
+| Tempest | no | compatible: no-overlap, derives | none needed | - (its holiday rescheduling still calls EA, so our seasonal-party and trick-or-treat fixes run) |
+| Vector | no | compatible: derives | none needed | perf (possible, not measured): every 30 sim-minutes it lists every Sim in town and checks each, though real work happens only for infected Sims |
+| Sleep Freedom | no | compatible: derives | none needed | - (its bed-sharing override touches nothing we patch) |
+| Home Opener | V11 | compatible: derives x12, named x2, off-by-default | none needed | - |
+| Decensor | V14 | compatible: derives x16, named x2, off-by-default x2 | none needed | - |
+| Second Image | V5 | compatible: derives x12, named x2, off-by-default x2 | none needed | - |
+| NoCD, Written Word | no | compatible: no-overlap | none needed | - |
+| MasterController Expanded Tattoo | V122 | compatible: no-overlap | none needed | - (not on our CAS row-fix path) |
+| MasterController Progression | V134 | compatible: no-overlap | none needed | - (menu options over StoryProgression data) |
+| Woohooer Eiffel Tower | no | caveat: derives, override-calls-base x2 | accept (rare) | unseen NPCs on this visit lose our unseen-route shortcut (our fallbacks stand down for every NRaas interaction); EA's rabbit-hole fixes still run |
+| Woohooer KamaSimtra | no | caveat: the same unseen-route stand-down while the Rendezvous partner walks over | accept | its Sim creation is covered by the docs/327 `Sim.OnCreation` hook; the rabbit-hole wait is the one in the section above |
+| Woohooer Fixer Car, Hot Air Balloon, Outdoor Shower | no | compatible: no-overlap | none needed | - |
+| Woohooer Massage Table, Toilet Stall | no | compatible: override-calls-base | none needed | - |
+| Woohooer Sauna | no | compatible: no-overlap | none needed | - (the bathe step we patch is not replaced) |
+| Shooless Routine Machine | no | compatible: no-overlap | none needed | - (its teleports push EA's own work and school actions, so our work-trip fixes run) |
+| Shooless Uber Toilet | no | compatible: no-overlap | none needed | - |
+| Animator | V10 | compatible: derives x39, named x2, off-by-default x2, override-calls-base | none needed | - |
+| Cupcake | V6 | compatible: derives x20, named x3, off-by-default x2 | setting if it ever shows in hitch numbers: `mAutoRestock` (default on) | - (minor: a daily 5 AM restock of every bakery display in one task) |
+| Once Read | V13 | compatible: derives x20, named x3, off-by-default x2 | none needed | - (reading still goes through EA, so `bookcarry` runs) |
+| Once Read Tablet | V13 | compatible: derives x12 | none needed | perf (possible, not measured): its autonomy score lists every unread book in town, where EA lists only home-lot books, and removes duplicates with a linear search, so each score grows with the square of the town's book count |
+| Pocket Protector Potion Case | V1 | compatible: derives x17, named x2, off-by-default x2, override-calls-base | none needed (both sides keep the case's items; neither stands down; EA's own cases still need our fix) | - |
+| Pocket Protector Tablet | no | compatible: derives | none needed | - |
+| Chemistry | no | compatible: no-overlap | none needed | - |
+| Anti Magic Scroll | V9 | compatible: derives x12, named x3, off-by-default x2 | none needed | leak and save (possible; code verified, size not checked): it gives a recipe book whenever EA's "learned recipe" event fires. EA sends that for every way of learning a recipe (cooking level-ups and the restaurant natural-cook path too), not only for scrolls. So every Sim, townies included, collects recipe books that pile up in inventories and in the save |
+
+No project is incompatible. Every NRaas override of a method we patch calls the base method, including the interaction cleanup (`cleanupvfx`), interaction start (`initstacktrace`) and display-case reset (`displaycasereset`). The EA interactions these mods replace have no patched methods, apart from Overwatch's harvest.
+
+### Binary scan against the source audit
+The Binary column gives the release that was scanned and decompiled. "no" means not downloaded.
+
+Proposed rule `static-copy`:
+- Condition: a mod helper class has a static method that copies a game method we patch (same name, taking the game type as its first argument, or sitting in a class named after the game type with "Ex" added), and the mod calls that copy instead of the game's method.
+- Outcome: caveat.
+- Our fix does not run on the copy's path unless we hook the copy by name.
+- It is not yet in `docs/data/compat-rules.json` or `compat-scan.ts`, so the scan's rule column cannot show it. The copies were found with a scratch name check over the decompiled release assemblies.
+
+Mismatches between the scan and this audit (both are cases the scan cannot see):
+- **Overwatch:** the scan says compatible; the audit says caveat (static-copy of the harvest step, `harvestextras` lost for menu harvests).
+- **Dreamer:** the scan says compatible; the audit says caveat (static-copy of the wish update, `wishupdatelost` and part of `dreamcleanup` lost).
+
+Every other downloaded project gets the same outcome from both: compatible, or caveat for ErrorTrap.
+
+Scan noise: the `named` findings on every NRaas mod come from the shared NRaas helper type names (`NRaas.Common` and others) that each assembly compiles in. Our hooks look those names up only in the Overwatch and ErrorTrap assemblies. In the other mods' assemblies nothing is hooked, so these findings change nothing.
+
+New from the binaries: static copies of patched game methods in the shared NRaas helper code. These ship in ErrorTrap, Overwatch, Debug Enabler, Porter, Relationship Panel and Selector, and in every other NRaas mod that compiles the same helpers. All are inferred effects, no game runs.
+
+| Copy (shared helper) | Our patched method | Effect |
+|---|---|---|
+| Safe-location placement | `Sim.AttemptToPutInSafeLocation` (`hiddenroomspawn`) | compatible: the copy tries its own lot search first and falls back to EA's method, which our hook covers. Its own search ends at a lot spot such as the mailbox, outside any room |
+| Ghost spawn from an urn | `Urnstone.GhostSpawn` (`ghostspawnargs`) | compatible: our fix is for EA's overload that drops its own arguments. The NRaas copy passes its own and never calls that overload |
+| Adding an occult type | `OccultManager.AddOccultType` (`doorgen`, ON) | caveat (rare): our door-answer generation bump does not fire when NRaas adds an occult, so with the native door memo in mode 3 a stale door answer could be served until the next bump. The only occult that matters there is the tomb mummy. Unused in the part-2 mods. Reached from MasterController, MasterController Cheats, Hybrid and StoryProgression (zips of the first section) |
+| Overwatch's route helpers (create route, create route as adult, set route options) | `SimRoutingComponent.CreateRoute` / `CreateRouteAsAdult` / `SetRouteOptions` (AutShadow, RouteFixes) | caveat (known): used only by Overwatch's own routable-spot test. docs/184 §5 already judged it not worth extending `routablecache` to that test |
+| Overwatch's outfit switch without spin | `Sim.SwitchToOutfitWithoutSpin` (EaFixes null guards) | caveat (minor): Overwatch's outfit repairs skip our null guards on that call |
+| ErrorTrap's script-error handler | `ScriptProxy.OnScriptError` (`errortraploop`) | compatible: this is the module-changed finding above, already handled by our hook |
+
+### What this changes in our plans
+- **docs/324 R1 (far Sims):**
+  - The missing-Sim rebuild has two triggers, not one: Overwatch's nightly alarm and ErrorTrap's world-load check.
+  - The rebuild task is shared NRaas code that each assembly compiles in, so ErrorTrap, Overwatch, Debug Enabler, Porter, MasterController, StoryProgression, Careers, Register and Traveler each carry a copy with the same type name. A hook resolved by name must patch every loaded copy. Our current `HitchCause` timing hooks patch only Overwatch's copy.
+  - NRaas finds a placeholder only on the Sim's home lot, so a T4 placeholder must sit there with its description set.
+  - The promotion queue must skip the Sims NRaas also skips: boarding-school students, adults away while their parents-leaving-town situation runs, early vacation returners and SimPort travellers. Overwatch's on-by-default instantiation check destroys such a Sim right after it is built.
+- **docs/327:** the `Sim.OnCreation` hook sees every Sim these projects build, so its coverage needs no change. Still to check: that our fresh mark is cleared when Overwatch destroys a Sim it just built.
+- **docs/328:** add the `static-copy` rule (proposed above) to `compat-rules.json` and `compat-scan.ts`. Two scan improvements:
+  - Drop `named` findings for shared NRaas type names in assemblies our hooks never search.
+  - Extend the same name check to the shared-helper copies, since they ship in many NRaas mods. The scan's Overwatch and Dreamer rows read compatible until then.
+- **docs/134 I-199-1:** that note assumes EA's stuck-check alarm runs inline in the world lot's task. With Overwatch's alarm marking, it may run in its own task instead (inferred). A game check of the stuck-check counters with Overwatch on is needed.
+
+### Installer settings list (Apex)
+- Overwatch `mRecoverMissingSims` (default on): turn it off only when `farsimt4` is on, as a second layer behind the placeholder guard.
+- Keep Overwatch's stuck check (`mStuckCheck`, `mStuckCheckReset`) and instantiation check (`mInstantationCheck`) on, because our hooks already handle them.
+- Cupcake `mAutoRestock` (default on): optional, only if its 5 AM burst shows in hitch numbers.
+- Nothing else qualifies. No setting exists for Overwatch's alarm marking, its harvest replacement, ErrorTrap's load rebuild or Dreamer's wish-update copy, so runtime hooks are the only option for those.
+
+### Reports to NRaas (drafted, not sent)
+- Overwatch: the manual Recover Missing Sims run ignores placeholders.
+- Overwatch: its harvest copy keeps EA's lost-extras bug (low priority, since it is EA's bug).
+- Dreamer: its wish-update copy misses EA's lost-update fix path (EA's own bug).
+- Once Read Tablet: the book score is quadratic in the town's book count.
+- Anti Magic Scroll: it gives books for every way of learning a recipe.
+
+Sample fixes in words are in the private notes.
+
 ## MTS ranks 101-500: mods that overlap our fixes (2026-11-22)
 Status: static only. The ranks 101-500 extension of the compat set (docs/COMPATIBILITY.md) found new overlap rows; the 14 mods behind the first 48 items were audited with the same method and second review. 33 first-pass findings were rejected on review (mostly the same as EA's code or already guarded, loops that do end, mod data that EA drops cleanly on uninstall). Counts are crash / hang / leak / save / perf / minor after review. Author drafts are private and not sent.
 
@@ -223,6 +368,7 @@ Batch 4 (items 149-216; 18 first-pass findings rejected on review). A copy check
 ## Gaps
 - Ranks 101-500 audit: no game runs; Enhanced Vampires, Job Overhaul, Online Center and Randomizer partly skimmed; a few methods read from IL only.
 - NRaas: source of 2026-07-29 read, not the current release zips; no game runs; Woohooer's location add-ons skimmed only.
+- Every other NRaas project: 18 projects were checked against their release binary (19 zips, ErrorTrap in two builds); the 19 still not downloaded are static from source. The scan ran the rule layer from `feature/compat-rules-1122`, with master's ts3fixes build. Ten releases are one version behind the source, and only the findings above minor were re-checked in them. Not read line by line: Tempest's weather code, Vector's symptom files, Overwatch's load cleanups other than the ones named, and Debug Enabler's interactions. The binaries Rodney is downloading by hand still need the compat scan.
 - Second review: 42 of the 52 first-pass minor findings were not re-checked. What TS3's Mono throws for Builder Stuff's wrapped null handler (an error is expected on any .NET runtime, but its type on that Mono is not proven) and which later mods it skips depend on load order. Neither was run.
 - No game runs. Every in-game effect is reasoning from the code, and the hitch sizes of the perf findings are not measured.
 - Core mods: one build each was diffed. The other builds of the 2x mod (46) and the xCAS basics and 1.69 builds were not. For simler90's replaced assemblies, the change lists were read, but not every changed method was checked against vanilla.

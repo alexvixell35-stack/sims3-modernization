@@ -1,0 +1,114 @@
+{
+  "note": "docs/364 §5 (prepared 2026-11-26, DRY-RUN ONLY, NOT RUN): EA resource and package caches on today's stack (Bin state apex = Apex + RTX Remix bridge), sizes only, never timing. Existing numbers are older: ResourceCache census by type from castrim-live 2026-11-08 (no bridge), owner heap/cores from memdiag3-owners 2026-11-15 (Apex 3.2.3, top 12 rows), cache finds and package reads from memdiag2-access 2026-11-14 (no Apex). Job 1: [MemDiag] RcCensus + Access (ResourceCache MB and cold entries by type, finds/s, package reads/s in play; also shows whether Apex now owns slot 6 of the cache vtable: 'SKIP mem access' then). Job 2: AllocSitesOwners next to Apex with 32 rows a sample, to name the 90-100 MB 'gfx' and 100-108 MB 'cas' heap owners that the top 12 never showed. Heavy diagnostics: both jobs are sizes only. Master set m1126b, release defaults.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "rewind": "auto",
+  "jobs": [
+    {
+      "id": "bp-rescache-census",
+      "note": "[est 15 min] [natural play, no cheats] BP 10 min, RcCensus + Access. Read: rc census header MB / cold, the 0x00B2D882 (textures, counted only), 0x220557DA (STBL), 0x319E4F1D (OBJD) rows; memaccess rc get per window / win (finds per s), rd n and MB in play.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "master set m1126b (0.36.306-m1126b), the newest master build; RcCensus (docs/191) and Access (docs/190 phase 2) are in it, both default off",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "MemDiag.RcCensus": 1,
+        "MemDiag.Access": 1
+      },
+      "run": { "profile": { "seed": 12345, "noSamplers": true, "minutes": 10 } },
+      "timeoutMin": 25,
+      "scriptErrorsMax": 0,
+      "nativeRequire": "@maOn>=3,maLines>=1",
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^mem diag: rc census on \\(docs/191\\)": 1,
+        "^diag: rc census #\\d+ \\S+ entries=\\d+ \\(map \\d+\\) types=\\d+(?: \\+other)? MB=[\\d.]+ cold=\\d+ ": 2,
+        "^diag: rc census #\\d+ (?:type|grow) 0x00B2D882 n=\\d+ ": 1,
+        "^diag: memaccess #\\d+ periodic win=\\d+ rc get=[1-9]\\d* hit=[\\d.]+ miss=\\d+ keys=\\d+ ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^SKIP mem access": 0,
+        "^diag: rc census #\\d+ \\S+: map not readable": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      }
+    },
+    {
+      "id": "bp-rescache-owners",
+      "note": "[est 15 min] [natural play, no cheats] BP 10 min, AllocSitesOwners next to Apex, 32 rows a sample. Read: own heap gfx / cas / res / world, and the live rows whose from= lies in the gfx (0x60AA00-0x61B000, 0x688000-0x6CBF90, 0x6CE300-0x70D990, 0x799000-0x7A0F40) and cas (0x5A2C00-0x60AA00) ranges.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "master set m1126b (0.36.306-m1126b); AllocSites (docs/201) and AllocSitesOwners (docs/190 phase 3) are in it, default off",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesOwners": 1,
+        "MemDiag.AllocSitesWithApex": 1,
+        "MemDiag.AllocSitesTop": 32
+      },
+      "run": { "profile": { "seed": 12345, "noSamplers": true, "minutes": 10 } },
+      "timeoutMin": 25,
+      "scriptErrorsMax": 0,
+      "nativeRequire": "@aoOn>=7,aoLines>=1,@aoHeapKB>=1024",
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^alloc sites owners on \\(docs/190 phase 3\\): 67 TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode on \\(next to Apex Radiance": 1,
+        "^allocsites: #\\d+ \\S+.* own heap MB=[\\d.]+ .*\\bgfx=[\\d.]+": 2
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^SKIP alloc sites": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      }
+    }
+  ],
+  "regexCases": {
+    "^mem diag: rc census on \\(docs/191\\)": {
+      "match": ["mem diag: rc census on (docs/191): ResourceCache entries by type at each diag: mem line, under the cache lock"],
+      "noMatch": ["mem diag: rc census off"]
+    },
+    "^diag: rc census #\\d+ \\S+ entries=\\d+ \\(map \\d+\\) types=\\d+(?: \\+other)? MB=[\\d.]+ cold=\\d+ ": {
+      "match": ["diag: rc census #24 periodic entries=108851 (map 108851) types=57 MB=321.9 cold=232 ref1held=0 keyBad=0 walk=11.1 ms wait=0 ms"],
+      "noMatch": ["diag: rc census #24 periodic: skipped, cache lock busy for 50 ms", "diag: rc census #24 type 0x00B2D882 n=1327 (-3) MB=197.5 (-4.6) avgKB=152.4 cold=12"]
+    },
+    "^diag: rc census #\\d+ (?:type|grow) 0x00B2D882 n=\\d+ ": {
+      "match": ["diag: rc census #24 type 0x00B2D882 n=1327 (-3) MB=197.5 (-4.6) avgKB=152.4 cold=12 ref1=12 ref2=631 ref3+=684 ref1held=0 g=0x00000001 x264 e.g. 0x0006000000000000"],
+      "noMatch": ["diag: rc census #24 type 0x220557DA n=3057 (+0) MB=36.1 (+0.0) avgKB=12.1 cold=0"]
+    },
+    "^diag: memaccess #\\d+ periodic win=\\d+ rc get=[1-9]\\d* hit=[\\d.]+ miss=\\d+ keys=\\d+ ": {
+      "match": ["diag: memaccess #2 periodic win=221 rc get=326944 hit=100.0 miss=0 keys=15556 scan=529009 scanHit=64.1 anim get=295366 hit=100.0 miss=0 keys=1306 rd n=56 MB=0.2"],
+      "noMatch": ["diag: memaccess #1 load win=79 rc get=177239 hit=100.0 miss=0 keys=77689 scan=489129", "diag: memaccess #2 periodic win=221 rc get=0 hit=0.0 miss=0 keys=0 "]
+    },
+    "^diag: rc census #\\d+ \\S+: map not readable": {
+      "match": ["diag: rc census #3 periodic: map not readable (stopped after 10 of 100 entries, 1.0 ms)"],
+      "noMatch": ["diag: rc census #3 periodic entries=10 (map 10) types=2 MB=1.0 cold=0 "]
+    },
+    "^SKIP mem access": {
+      "match": ["SKIP mem access: cache vtable 0x00FFDD94 slot 6 holds 0x12345678, not Find 0x007324E0, rc counters off"],
+      "noMatch": ["mem access on (docs/190 phase 2): cache finds (slot 6 of 0x00FFDD94, chained to 0x007324E0)"]
+    },
+    "^alloc sites owners on \\(docs/190 phase 3\\): 67 TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode on \\(next to Apex Radiance": {
+      "match": ["alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 42 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)"],
+      "noMatch": ["alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 42 verified; Apex mode off"]
+    },
+    "^allocsites: #\\d+ \\S+.* own heap MB=[\\d.]+ .*\\bgfx=[\\d.]+": {
+      "match": ["allocsites: #3 periodic own heap MB=853.8 script=156.7 mono=147.9 cas=107.6 world=101.6 gfx=90.5 route=47.6"],
+      "noMatch": ["allocsites: #3 periodic own virt MB=1698.3 gc=401.4 apex=302.3 ea.gfx=30.5"]
+    },
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": ["ts3native 0.36.306-m1126b (built Nov 26 2026)"],
+      "noMatch": ["ts3native 0.36.306-m1126 (built Nov 26 2026)"]
+    }
+  }
+}

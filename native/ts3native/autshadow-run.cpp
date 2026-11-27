@@ -508,6 +508,9 @@ static int __cdecl AsIcConfig(int key) {
     }
 }
 static int __cdecl AsIcIsWorker() { return g_asWorkerTid && GetCurrentThreadId() == g_asWorkerTid; }
+// docs/362: 1 only on the game's sim thread [0x11D8A8C]; 0 = another thread, or the id is not set yet (the caller then takes the game's own path)
+static int __cdecl AsIcIsSimThread() { return *g_rtSimTidSlot && GetCurrentThreadId() == *g_rtSimTidSlot; }
+static int __cdecl MhIc(int field);  // memdiag.cpp
 // worker only, like Aborted/ResetAbort/Stopped: a sim-thread call is a no-op, so ts3fixes can warm the IC up on the sim at
 // load (docs/206 §15: Abort was one of the 7 cold give-ups); every ts3fixes caller is already behind OnWorker()
 static void __cdecl AsIcAbort(int reason) { if (AsIcIsWorker()) AsManagedAbort(reason); }
@@ -824,6 +827,8 @@ static void AsRegisterIcs() {
         {"Ts3Fixes.AutShadowNative::ImageSha", (const void*)AsIcImageSha},
         {"Ts3Fixes.AutShadowNative::ActorScope", (const void*)AsIcActorScope},
         {"Ts3Fixes.AutShadowNative::DumpCut", (const void*)AsIcDumpCut},
+        {"Ts3Fixes.AutShadowNative::IsSimThread", (const void*)AsIcIsSimThread},
+        {"Ts3Fixes.AutShadowNative::MainHeap", (const void*)MhIc},
     };
     if (!g_asAddIc) return;
     for (const auto& ic : kIcs) g_asAddIc(ic.name, ic.fn);

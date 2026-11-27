@@ -1,0 +1,244 @@
+{
+ "note": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes moved to master set m1126b (0.36.306-m1126b), agent stays m1126 (agentPackage), version read-back escaped. [previous] m1126 repin (2026-11-26, merge/cp0-1126, CP-0 of docs/340): pinned to master set m1126 (0.36.306-m1126); copy of lc4-viewer-push-correct-1123.json. lc4-viewer-push-correct-1123 (docs/335, WRITTEN, NOT RUN): correctness of viewerridehooks (docs/333 LC-4: the viewer push's held-table rides from hooks on RidingPosture.StartRiding and Sim.Mount / Dismount / BeingDismounted.Run, LotManager.Actors walked at load and every 10 s) with its diagnostic shadow (the walk-every-wake held set compared on every wake). Job 1 smoke (BP 3 min, stops the queue on fail); BP / IP / SV 10 min natural play; two Pets ride repros (NPC and household). Bin state apex. Est ~80 min.",
+ "agentPackage": "game-copy/ts3agent.package.m1126",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-lc4-smoke",
+   "note": "[est 9 min] SMOKE (stops the queue on fail): BP 3 min natural play, viewerridehooks + its shadow ON (viewerpushdelta / deadrefcadence ON as released). Pass: the hook ride set gives the same held table as a LotManager.Actors walk on every shadow wake (viewerridehooks_shadow_diff 0, household included: the household is held first on every wake, unchanged code), no floor walk found a ride the hooks missed (floor_miss 0), utViewerBad 0, 0 script errors. Read: viewerridehooks_set_tested per wake vs viewerpush_actors_walked per walk.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta,viewerridehooks,viewerridehookshadow",
+     "fixesRequire": "viewerpush_wakes>=20,viewerridehooks_walks>=1,viewerridehooks_set_wakes>=10,viewerridehooks_shadow_wakes>=10,viewerridehooks_shadow_diff<=0,viewerridehooks_floor_miss<=0",
+     "fixesReport": "viewerpush,viewerridehooks"
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "bp-lc4-correct",
+   "note": "[est 15 min] BP 10 min natural play (seed 12345), viewerridehooks + its shadow ON (viewerpushdelta / deadrefcadence ON as released). Pass: the hook ride set gives the same held table as a LotManager.Actors walk on every shadow wake (viewerridehooks_shadow_diff 0, household included: the household is held first on every wake, unchanged code), no floor walk found a ride the hooks missed (floor_miss 0), utViewerBad 0, 0 script errors. Read: viewerridehooks_set_tested per wake vs viewerpush_actors_walked per walk.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 22,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta,viewerridehooks,viewerridehookshadow",
+     "fixesRequire": "viewerpush_wakes>=100,viewerridehooks_walks>=1,viewerridehooks_set_wakes>=50,viewerridehooks_shadow_wakes>=50,viewerridehooks_shadow_diff<=0,viewerridehooks_floor_miss<=0",
+     "fixesReport": "viewerpush,viewerridehooks"
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-lc4-correct",
+   "note": "[est 15 min] IP 10 min natural play (seed 12345), viewerridehooks + its shadow ON (viewerpushdelta / deadrefcadence ON as released). Pass: the hook ride set gives the same held table as a LotManager.Actors walk on every shadow wake (viewerridehooks_shadow_diff 0, household included: the household is held first on every wake, unchanged code), no floor walk found a ride the hooks missed (floor_miss 0), utViewerBad 0, 0 script errors. Read: viewerridehooks_set_tested per wake vs viewerpush_actors_walked per walk.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 22,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta,viewerridehooks,viewerridehookshadow",
+     "fixesRequire": "viewerpush_wakes>=100,viewerridehooks_walks>=1,viewerridehooks_set_wakes>=50,viewerridehooks_shadow_wakes>=50,viewerridehooks_shadow_diff<=0,viewerridehooks_floor_miss<=0",
+     "fixesReport": "viewerpush,viewerridehooks"
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-lc4-correct",
+   "note": "[est 15 min] SV 10 min natural play (seed 12345), viewerridehooks + its shadow ON (viewerpushdelta / deadrefcadence ON as released). Pass: the hook ride set gives the same held table as a LotManager.Actors walk on every shadow wake (viewerridehooks_shadow_diff 0, household included: the household is held first on every wake, unchanged code), no floor walk found a ride the hooks missed (floor_miss 0), utViewerBad 0, 0 script errors. Read: viewerridehooks_set_tested per wake vs viewerpush_actors_walked per walk.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 22,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta,viewerridehooks,viewerridehookshadow",
+     "fixesRequire": "viewerpush_wakes>=100,viewerridehooks_walks>=1,viewerridehooks_set_wakes>=50,viewerridehooks_shadow_wakes>=50,viewerridehooks_shadow_diff<=0,viewerridehooks_floor_miss<=0",
+     "fixesReport": "viewerpush,viewerridehooks"
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc4-unseen-horses",
+   "note": "[est 14 min] NPC rides (needs Pets; repro unseen-horses, never run before: a hollow run = N/A, not PASS): 2 spawned Sims mount and ride away unseen. viewerridehooks + its shadow ON (viewerpushdelta / deadrefcadence ON as released). Pass: the hook ride set gives the same held table as a LotManager.Actors walk on every shadow wake (viewerridehooks_shadow_diff 0, household included: the household is held first on every wake, unchanged code), no floor walk found a ride the hooks missed (floor_miss 0), utViewerBad 0, 0 script errors. Read: viewerridehooks_set_tested per wake vs viewerpush_actors_walked per walk. Extra: the hooks noted the riders and horses (viewerridehooks_noted>=4).",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 8,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta,viewerridehooks,viewerridehookshadow",
+     "fixesRequire": "viewerpush_wakes>=100,viewerridehooks_walks>=1,viewerridehooks_set_wakes>=20,viewerridehooks_shadow_wakes>=20,viewerridehooks_shadow_diff<=0,viewerridehooks_floor_miss<=0,viewerridehooks_noted>=4",
+     "fixesReport": "viewerpush,viewerridehooks",
+     "repro": "unseen-horses",
+     "seed": 12345
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc4-household-ride",
+   "note": "[est 12 min] Household ride (needs Pets; repro rare-horse-ride, never run before: a hollow run = N/A, not PASS): the active Sim mounts a new household horse and rides to the farthest lot. viewerridehooks + its shadow ON (viewerpushdelta / deadrefcadence ON as released). Pass: the hook ride set gives the same held table as a LotManager.Actors walk on every shadow wake (viewerridehooks_shadow_diff 0, household included: the household is held first on every wake, unchanged code), no floor walk found a ride the hooks missed (floor_miss 0), utViewerBad 0, 0 script errors. Read: viewerridehooks_set_tested per wake vs viewerpush_actors_walked per walk. Extra: viewerridehooks_noted>=2.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 6,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta,viewerridehooks,viewerridehookshadow",
+     "fixesRequire": "viewerpush_wakes>=100,viewerridehooks_walks>=1,viewerridehooks_set_wakes>=20,viewerridehooks_shadow_wakes>=20,viewerridehooks_shadow_diff<=0,viewerridehooks_floor_miss<=0,viewerridehooks_noted>=2",
+     "fixesReport": "viewerpush,viewerridehooks",
+     "repro": "rare-horse-ride",
+     "seed": 12345
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ],
+ "regexCases": {
+  "^ts3native 0\\.36\\.306-m1126b ": {
+   "match": [
+    "ts3native 0.36.306-m1126b 2026-11-26 16:30:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+    "ts3native 0.36.299-m1122 2026-11-22 06:55:20",
+    "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+    "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ }
+}

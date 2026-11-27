@@ -28,6 +28,7 @@ static __declspec(naked) void WaTestSkip() {
 
 // PortalFlagRefs stubs: registers in, the same recorders out (no frame: both sites only use registers before the jump).
 static void (*g_pfRun)();
+static DWORD g_pfEdi = 0x33333333;  // writer 1 reads the portal through [edi]
 static void PfRunStub(void (*stub)(), DWORD a, DWORD c, DWORD d, const u8* world) {
     memset(g_waOut, 0, sizeof(g_waOut));
     g_pfRun = stub;
@@ -37,7 +38,7 @@ static void PfRunStub(void (*stub)(), DWORD a, DWORD c, DWORD d, const u8* world
         push edi
         mov esi, world
         mov ebx, 0x11111111
-        mov edi, 0x33333333
+        mov edi, g_pfEdi
         mov eax, a
         mov ecx, c
         mov edx, d
@@ -169,7 +170,7 @@ static void WaRunStub(const u8* r, DWORD chunk, DWORD wp, const u8* rec, const W
 static void TestWorldAStarRefs() {
     static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, waOn) == 0x5570 &&
                       offsetof(Ts3nCounters, waSkip) == 0x5574 && offsetof(Ts3nCounters, pfSkip) == 0x5584 &&
-                      sizeof(Ts3nCounters) == 6883 * 4,
+                      sizeof(Ts3nCounters) == 6894 * 4,
                   "counters v146 layout after v145 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
 
@@ -237,17 +238,80 @@ static void TestWorldAStarRefs() {
     memcpy(world + 0x54, r, 0x10);
     k.pfSkip[0] = k.pfSkip[1] = 0;
     const DWORD idOk = (2u << 14) | 0 | (1u << 29), idPast = (1u << 14) | 1, idOut = 0x3FFF, idHole = 3;
-    assert(PfIdOk(world, idOk) == 1 && PfIdOk(world, idPast) == 0 && PfIdOk(world, idOut) == 0 && PfIdOk(world, idHole) == 0);
+    alignas(4) static u8 portal[0x58];
+    static const u8* slot = portal;
+    auto PfId = [](const u8* wd, DWORD id) { *(DWORD*)(portal + 0x4C) = id; return PfIdChunk(wd, portal); };
+    assert(PfId(world, idOk) == 0 && PfId(world, idPast) == -1 && PfId(world, idOut) == -1 && PfId(world, idHole) == -1);
     assert(PfPairOk(world, 1, 0) == 1 && PfPairOk(world, 0, 3) == 0 && PfPairOk(world, (DWORD)-43, 0x207) == 0 && PfPairOk(world, 4, 0) == 0);
     assert(k.pfSkip[0] == 3 && k.pfSkip[1] == 3);
 
-    // writer 1: in range -> eax = R's chunk offsets, edx = id & 0x3FFF, ecx = id; else the next portal
+    // writer 1: in range -> eax = R's chunk offsets, edx = id & 0x3FFF, ecx = id, edi (the portal slot) kept; else the next portal
     g_pf1Back = g_pf2Back = (DWORD)(uintptr_t)&WaTestBack, g_pf1Skip = g_pf2Skip = (DWORD)(uintptr_t)&WaTestSkip;
+    g_pfEdi = (DWORD)(uintptr_t)&slot;
+    *(DWORD*)(portal + 0x4C) = idOk;
     PfRunStub(PfStub1, 0xAAAA, idOk, 0xDDDD, world);
     assert(g_waOut[0] == 1 && g_waOut[1] == (idOk & 0x3FFF) && g_waOut[2] == idOk && g_waOut[3] == (DWORD)(uintptr_t)offs);
-    assert(g_waOut[4] == 0x11111111 && g_waOut[5] == (DWORD)(uintptr_t)world && g_waOut[6] == 0x33333333);
+    assert(g_waOut[4] == 0x11111111 && g_waOut[5] == (DWORD)(uintptr_t)world && g_waOut[6] == g_pfEdi);
+    *(DWORD*)(portal + 0x4C) = idPast;
     PfRunStub(PfStub1, 0xAAAA, idPast, 0xDDDD, world);
-    assert(g_waOut[0] == 2 && g_waOut[4] == 0x11111111 && g_waOut[5] == (DWORD)(uintptr_t)world && g_waOut[6] == 0x33333333);
+    assert(g_waOut[0] == 2 && g_waOut[4] == 0x11111111 && g_waOut[5] == (DWORD)(uintptr_t)world && g_waOut[6] == g_pfEdi);
+    {   // docs/362 §6: the chunk rebuild. Formula cases as Atlas's self-check (docs/026), then the stub on a 256 x 256 graph.
+        int how = 0;
+        long wrong = 0, notRebuilt = 0;
+        for (long c = 0; c < 65536; c++)  // every chunk of 8192 m, the portal in it and in each of its 8 neighbours
+            for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++) {
+                    const long col = c % 256 + dx, row = c / 256 + dz;
+                    if (col < 0 || col > 255 || row < 0 || row > 255) continue;
+                    const DWORD id = 0xA5000000u | (7u << 14) | ((DWORD)c & 0x3FFF);
+                    if (PfFullChunk(id, col * 32.0f + 16.0f, row * 32.0f + 16.0f, 0, 0, 256, 256, &how) != (DWORD)c) wrong++;
+                    if (how != 1) notRebuilt++;
+                }
+        assert(!wrong && !notRebuilt);
+        assert(PfFullChunk(16383, 1.0f, 2047.0f, 0, 0, 256, 256, &how) == 16383 && how == 1);  // last 14-bit chunk stays
+        assert(PfFullChunk(0, 1.0f, 2049.0f, 0, 0, 256, 256, &how) == 16384 && how == 1);      // first chunk past 14 bits
+        assert(PfFullChunk(65535 & 0x3FFF, 8191.0f, 8191.0f, 0, 0, 256, 256, &how) == 65535 && how == 1);
+        assert(PfFullChunk((40000 + 31 * 256) & 0x3FFF, 2080.0f, 5000.0f, 0, 0, 256, 256, &how) == 40000 + 31 * 256 && how == 1);  // 31 rows from the portal
+        assert(PfFullChunk(20000 & 0x3FFF, 1032.0f + 500.0f, 2500.0f + 300.0f, 500.0f, 300.0f, 256, 256, &how) == 20000 && how == 1);  // world origin
+        assert(PfFullChunk((93 * 256 + 128) & 0x3FFF, 4100.0f, 3000.0f, 0, 0, 256, 128, &how) == 93 * 256 + 128 && how == 1);  // 8192 x 4096 m
+        // 16,384 chunks or fewer: the vanilla 14 bits whatever the position says
+        assert(PfFullChunk(0xFF000000u | 5000, 9000.0f, 9000.0f, 0, 0, 128, 128, &how) == 5000 && how == 0);
+        assert(PfFullChunk(0xFFFFFFFF, 100.0f, 100.0f, 0, 0, 64, 64, &how) == 0x3FFF && how == 0);
+        for (DWORD id = 0; id < 0x10000; id += 7) assert(PfFullChunk(id * 0x10001u, 8000.0f, 8000.0f, 0, 0, 128, 128, &how) == ((id * 0x10001u) & 0x3FFF) && how == 0);
+        // could not rebuild: the stored bits
+        assert(PfFullChunk(0x00004123, 0, 0, 0, 0, 256, 256, &how) == 0x123 && how == 2);  // position never set
+        assert(PfFullChunk(0x20000000, 0, 0, 0, 0, 256, 256, &how) == 0 && how == 0);      // no reference, no position
+        assert(PfFullChunk(100, -40.0f, 100.0f, 0, 0, 256, 256, &how) == 100 && how == 2);  // left of the graph
+        assert(PfFullChunk(100, 100.0f, 9000.0f, 0, 0, 256, 256, &how) == 100 && how == 2); // below it
+        assert(PfFullChunk(16000, 8.0f, 8.0f, 0, 0, 256, 256, &how) == 16000 && how == 2);  // would be negative
+        assert(PfFullChunk(100, 100.0f, 100.0f, 0, 0, 512, 512, &how) == 100 && how == 2);  // past 65,536 chunks
+        assert(PfFullChunk(100, HiF(0x7FC00000), 5.0f, 0, 0, 256, 256, &how) == 100 && how == 2);  // NaN
+        // the stub: a 256 x 256 graph whose every chunk has the one record at area + 0 (1 waypoint)
+        static DWORD offsBig[65536];
+        alignas(4) static u8 worldBig[0x64], wm[0xC0];
+        static const u8* wmP = wm;
+        static const u8* noWm = NULL;
+        *(DWORD*)(worldBig + 0x54) = 256, *(DWORD*)(worldBig + 0x58) = 256, *(DWORD**)(worldBig + 0x5C) = offsBig, *(u8**)(worldBig + 0x60) = area;
+        const u8* const* savedWm = g_pfWorldMgr;
+        g_pfWorldMgr = &wmP;
+        const LONG rb0 = g_pfRebuilt, fb0 = g_pfFallback, sk0 = k.pfSkip[0];
+        const DWORD chunk = 200 * 256 + 77;  // 51,277: needs 16 bits
+        const DWORD idBig = 0x1A000000u | (chunk & 0x3FFF);
+        *(DWORD*)(portal + 0x4C) = idBig, *(float*)(portal + 0x50) = 77 * 32.0f + 3.0f, *(float*)(portal + 0x54) = 200 * 32.0f + 30.0f;
+        assert(*(const WORD*)area >= 1);
+        PfRunStub(PfStub1, 0xAAAA, idBig, 0xDDDD, worldBig);
+        assert(g_waOut[0] == 1 && g_waOut[1] == chunk && g_waOut[2] == idBig && g_waOut[3] == (DWORD)(uintptr_t)offsBig && g_waOut[6] == g_pfEdi);
+        assert(g_pfRebuilt == rb0 + 1 && g_pfFallback == fb0);
+        *(DWORD*)(worldBig + 0x54) = *(DWORD*)(worldBig + 0x58) = 128;  // 4096 m: the vanilla 14 bits, no rebuild counted
+        PfRunStub(PfStub1, 0xAAAA, idBig, 0xDDDD, worldBig);
+        assert(g_waOut[0] == 1 && g_waOut[1] == (chunk & 0x3FFF) && g_waOut[2] == idBig && g_pfRebuilt == rb0 + 1);
+        *(DWORD*)(worldBig + 0x54) = *(DWORD*)(worldBig + 0x58) = 256;
+        g_pfWorldMgr = &noWm;  // no world manager: the stored bits, one fallback
+        PfRunStub(PfStub1, 0xAAAA, idBig, 0xDDDD, worldBig);
+        assert(g_waOut[0] == 1 && g_waOut[1] == (chunk & 0x3FFF) && g_pfFallback == fb0 + 1 && k.pfSkip[0] == sk0);
+        g_pfWorldMgr = savedWm, g_pfRebuilt = rb0, g_pfFallback = fb0;
+    }
+    g_pfEdi = 0x33333333;
     // writer 2: in range -> ecx = the chunk's record base, eax and edx kept; else the next reference
     PfRunStub(PfStub2, 0, 1, (DWORD)(uintptr_t)offs, world);
     assert(g_waOut[0] == 1 && g_waOut[2] == (DWORD)(uintptr_t)(area + 16) && g_waOut[3] == 0 && g_waOut[1] == (DWORD)(uintptr_t)offs);
@@ -293,7 +357,7 @@ static void TestWorldAStarRefs() {
     assert(g_hiHits == hh0 + 1 && g_hiX[0] == inf && g_hiX[1] == 0.5f);
     g_hiBack = HI_BACK, g_hiSkip = HI_SKIP, g_hiHits = hh0;
     // BridgeHeightNaN: each site after a call to 0xB745A0 becomes jmp kBhStub[i] + 2 int3; foreign bytes or another call refused
-    static_assert(offsetof(Ts3nCounters, bhnHits) == 0x62C8 && sizeof(Ts3nCounters) == 6883 * 4,
+    static_assert(offsetof(Ts3nCounters, bhnHits) == 0x62C8 && sizeof(Ts3nCounters) == 6894 * 4,
                   "counters v918 layout after the v195 placeholder (docs/registry.md)");
     for (int i = 0; i < 3; i++) {
         alignas(4) static u8 bh[12];
@@ -368,7 +432,7 @@ static void TestWorldAStarRefs() {
            g_waOut[6] == (DWORD)(uintptr_t)foId && g_foHits == fh0 + 1);
     g_foBack = FO_BACK, g_foNull = FO_NULL, g_foHits = fh0;
     printf("WorldAStarRefs:patch bytes, in-range pairs kept (moved instructions run), chunk outside the map / waypoint past "
-           "the chunk count / unreadable record skipped to the closed path; PortalFlagRefs: patch bytes, portal ids and lot "
+           "the chunk count / unreadable record skipped to the closed path; PortalFlagRefs: patch bytes, portal ids, the chunk rebuild above 16,384 chunks (docs/362) and lot "
            "neighbours outside R skip the blocked-flag write; HeightsInfLoop: patch bytes, only an infinite segment skips "
            "the halving loop, registers kept; BridgeHeightNaN: patch bytes, sane bridge heights kept, NaN / +-inf / 2.26e34 / "
            "above 1e6 take the no-bridge path, x87 balanced, registers kept; FglStaleObject: patch bytes, live objects and an "

@@ -1,0 +1,661 @@
+{
+  "note": "atlas-rebase-strip-build-1127: Boundless Atlas docs/022 §8.8.15 rebase R-9 (entered-strip builder with EA's per-cell teardown and load-time build; the gate refuses in this build: no database answers the entered keys, no strip pack (StripPack empty), so one-way slides stay refused), boundless-atlas branch feature/rebase-terrain-slide-1127 at 647ded8 (Atlas 0.3.15 + R-8 + R-9, rebase=8). Two jobs: Sunset Valley slidechecks east / north / west (dry run), and our generated AtlasStrip_8192.world with two slidechecks and one real one-way 'rebase slide -256 0', refused before any write. Needs the queue key extraAsi (queue.ts from 60310925f or later; dry run validated with bugfix/atlas-main13-repin-1127's queue.ts), game-copy/atlas-r9b-1127/atlas.asi (sha256 pinned), game-copy/mod-sets/atlas-r9-1127 (managed half with rebase striphash) and, for job 2, AtlasStrip_8192.world installed. Dry run validated only; not run (written 2026-11-27). Repinned 2026-11-27 to boundless-atlas 7174381 (game-copy/atlas-r9b-1127, mod set atlas-r9-1127): R-9 start line names the strip pack, plan lines carry the paged-shell count.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^\\[Rewind\\] Park on: ": {
+      "match": [
+        "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+      ],
+      "noMatch": [
+        "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)",
+        "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
+      ]
+    },
+    "^atlas 0\\.3\\.15 .*\\brebase=8\\b": {
+      "match": [
+        "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=8 oop=0 seed=0"
+      ],
+      "noMatch": [
+        "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=6 oop=0 seed=0"
+      ]
+    },
+    "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
+      "match": [
+        "atlas:icalls ready 3: groups 0x03FE"
+      ],
+      "noMatch": [
+        "atlas:icalls ready 1: groups 0x03FE",
+        "atlas:icalls ready 3: groups 0x3FE"
+      ]
+    },
+    "^atlas:icalls rebase SKIP ": {
+      "match": [
+        "atlas:icalls rebase SKIP no script domain in 600 s (host 0x00000000): 9 internal calls not registered"
+      ],
+      "noMatch": [
+        "atlas:icalls rebase: 9 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ]
+    },
+    "^atlas:icalls rebase: 9 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": {
+      "match": [
+        "atlas:icalls rebase: 9 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ],
+      "noMatch": [
+        "atlas:icalls rebase: 5 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set",
+        "atlas:icalls rebase SKIP no script domain in 600 s (host 0x00000000): 9 internal calls not registered"
+      ]
+    },
+    "^atlas:rebase (FAULT|ERROR|DAMAGED) ": {
+      "match": [
+        "atlas:rebase FAULT in pass O"
+      ],
+      "noMatch": [
+        "atlas:rebase gate out: 1.00 ms, frames 2, slices 1"
+      ]
+    },
+    "^atlas:rebase (SKIP|off) ": {
+      "match": [
+        "atlas:rebase SKIP shape 0x66CE10",
+        "atlas:rebase off (Enable=0)"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 4, shape 77/77, 9 internal calls registered"
+      ]
+    },
+    "^atlas:rebase (hub: )?RESULT FAIL ": {
+      "match": [
+        "atlas:rebase RESULT FAIL roundtrip step (-32, 0)",
+        "atlas:rebase hub: RESULT FAIL fault (damaged)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 9"
+      ]
+    },
+    "^atlas:rebase G-519: SKIP ": {
+      "match": [
+        "atlas:rebase G-519: SKIP Rt: W 0x00000000 holds R 0x00000000, not 0x12345678: closed list and footprint hash left"
+      ],
+      "noMatch": [
+        "atlas:rebase G-519: closed list rebuilt from R and footprint hash emptied (Rt)"
+      ]
+    },
+    "^atlas:rebase MISMATCH ": {
+      "match": [
+        "atlas:rebase MISMATCH holder object id 0x1"
+      ],
+      "noMatch": [
+        "atlas:rebase verify: slots 10, mismatches 0, physics drops 0"
+      ]
+    },
+    "^atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 \\(GridKeys=1\\); R-7 key sites 7/7 match \\(CellKeys=1\\); InferredSlots=0$": {
+      "match": [
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 7/7 match (CellKeys=1); InferredSlots=0"
+      ],
+      "noMatch": [
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 6/7 match (CellKeys=1); InferredSlots=0",
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 7/7 match (CellKeys=0); InferredSlots=0"
+      ]
+    },
+    "^atlas:rebase R-7 (REFUSED |site 0x[0-9A-F]{6} rolled back)": {
+      "match": [
+        "atlas:rebase R-7 REFUSED r7-bytes-differ at site D 0xB2D882 key in 0xC7F750 (0xC7F8CA); nothing left written, terrain cells not shifted",
+        "atlas:rebase R-7 site 0xC8035E rolled back"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 site 0xC8035E on (A 0xAE39399F key in 0xC80300, 6 bytes, resume 0xC80364)"
+      ]
+    },
+    "^atlas:rebase R-7 counters at .*, stale [1-9]": {
+      "match": [
+        "atlas:rebase R-7 counters at world quit: key builds A 1 B 1 C 0 D 0 E 0 F 0 G 0, source keys used 0, stale 3, owners seen 1, cells shifted 0, side table 0, refused 0"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 counters at run end: key builds A 1 B 1 C 0 D 0 E 0 F 0 G 0, source keys used 0, stale 0, owners seen 1, cells shifted 10, side table 0, refused 0"
+      ]
+    },
+    "^atlas:rebase R-7 on: 8/8 key sites, side table 12288 cells$": {
+      "match": [
+        "atlas:rebase R-7 on: 8/8 key sites, side table 12288 cells"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 on: 7/7 key sites, side table 12288 cells"
+      ]
+    },
+    "^atlas:rebase R-7 site 0x[0-9A-F]{6} on \\(": {
+      "match": [
+        "atlas:rebase R-7 site 0xC8035E on (A 0xAE39399F key in 0xC80300, 6 bytes, resume 0xC80364)",
+        "atlas:rebase R-7 site 0xC82762 on (G 0xB2D882 key in 0xC825F0, 8 bytes, resume 0xC8276A)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 site 0xC8035E rolled back",
+        "atlas:rebase R-7 on: 7/7 key sites, side table 12288 cells"
+      ]
+    },
+    "^atlas:rebase R-8 off": {
+      "match": [
+        "atlas:rebase R-8 off: TerrainSlide=1 needs CellKeys=1 and GridKeys=1 (G shape ok); terrain tables not moved"
+      ],
+      "noMatch": [
+        "atlas:rebase R-8: TerrainSlide=0 (terrain tables move on whole-cell steps; one-way slides stay refused: entered strip)"
+      ]
+    },
+    "^atlas:rebase R-8: TerrainSlide=1 ": {
+      "match": [
+        "atlas:rebase R-8: TerrainSlide=1 (terrain tables move on whole-cell steps; one-way slides stay refused: entered strip)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-8: TerrainSlide=0 (terrain tables move on whole-cell steps; one-way slides stay refused: entered strip)"
+      ]
+    },
+    "^atlas:rebase R-8: step ": {
+      "match": [
+        "atlas:rebase R-8: step (32, 0) is not whole terrain cells (256 m): terrain tables not moved this run (R-7 only)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-8: TerrainSlide=1 (x)"
+      ]
+    },
+    "^atlas:rebase RESULT (PASS slide|CHECKED slide)": {
+      "match": [
+        "atlas:rebase RESULT PASS slide step (-32, 0) slots 100"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 7 holders"
+      ]
+    },
+    "^atlas:rebase RESULT CHECKED slide step": {
+      "match": [
+        "atlas:rebase RESULT CHECKED slide step (256, 0): the precheck passes; nothing written (dry run)"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck 256 0: native code -10 (refused), hub ok; nothing written"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-|routing-rebuild-pending)": {
+      "match": [
+        "atlas:rebase RESULT REFUSED routing-rebuild-pending: WM+0x46 is set",
+        "atlas:rebase RESULT REFUSED route-worker-busy"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED binade: x",
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 7 holders"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED (one-way-unmapped|dropped-column-occupied): ": {
+      "match": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 6 holders would stay in the old frame; nothing written",
+        "atlas:rebase RESULT REFUSED dropped-column-occupied: 3 items, first object id 0x0000000000000001; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT CHECKED slide step (256, 0): the precheck passes; nothing written (dry run)"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED r7-": {
+      "match": [
+        "atlas:rebase RESULT REFUSED r7-table-full: 12288 entries, cell 5 of 1024; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 REFUSED r7-bytes-differ at site A (0xC8035E); nothing left written, terrain cells not shifted"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED r8-": {
+      "match": [
+        "atlas:rebase RESULT REFUSED r8-heights-live (R-8 terrain tables); nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED r7-table-full: 1 entries"
+      ]
+    },
+    "^atlas:rebase bytes: .*: DIFFER$": {
+      "match": [
+        "atlas:rebase bytes: routing records 1A2B3C4D -> 1A2B3C4E, G off 00000000 -> 00000000 (shoreline 0 -> 0, blocked 0 -> 0): DIFFER"
+      ],
+      "noMatch": [
+        "atlas:rebase bytes: routing records 1A2B3C4D -> 1A2B3C4D, G off 00000000 -> 00000000 (shoreline 0 -> 0, blocked 0 -> 0): equal"
+      ]
+    },
+    "^atlas:rebase hub: RESULT CHECKED rebase slidecheck -?\\d+ -?\\d+: native code -(9|10) \\(refused\\)": {
+      "match": [
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck -256 0: native code -10 (refused), hub ok; nothing written",
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 256: native code -9 (refused), hub refuses: x; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck 256 0: native code -11 (would run), hub ok; nothing written",
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck 256 0: native code -1 (refused), hub ok; nothing written"
+      ]
+    },
+    "^atlas:rebase lists R-8: terrain [1-9]\\d* x [1-9]\\d* cells, models [1-9]\\d*, ": {
+      "match": [
+        "atlas:rebase lists R-8: terrain 8 x 8 cells, models 64, road records 64, road keys 3, type map 512 x 512 blocks, blend layers 2 (128 x 128 tiles), G 513 x 512 (layer grids 2), shift (0, 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase lists R-8: terrain 0 x 0 cells, models 0, road records 0",
+        "atlas:rebase lists R-7: terrain cells 64 (owner 0x12345678), side table 64 entries"
+      ]
+    },
+    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 8, shape 92/92, 9 internal calls registered$": {
+      "match": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 8, shape 92/92, 9 internal calls registered"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 6, shape 92/92, 9 internal calls registered"
+      ]
+    },
+    "^atlas:rebase pass Rd .* ms in \\d+ slices \\(max [1-9]\\d{2,} ms\\)": {
+      "match": [
+        "atlas:rebase pass Rd round trip (script half): objects 9 (roots 1), errors 0, 2400 ms in 300 slices (max 140 ms)"
+      ],
+      "noMatch": [
+        "atlas:rebase pass Rd round trip (script half): objects 9 (roots 1), errors 0, 2400 ms in 300 slices (max 12 ms)",
+        "atlas:rebase pass Rd dry run (script half): objects 9, 99 ms in 12 slices (max 99 ms)"
+      ]
+    },
+    "^atlas:rebase precheck slide: .*terrain entered strip": {
+      "match": [
+        "atlas:rebase precheck slide: dropped column items 0, unmapped holders 6: routing world-lot tree; terrain entered strip: the cells that leave wrap in"
+      ],
+      "noMatch": [
+        "atlas:rebase precheck slide: dropped column items 0, unmapped holders 6: terrain tables (heights, footprint and water grids"
+      ]
+    },
+    "^atlas:rebase precheck slide: .*terrain tables \\(heights": {
+      "match": [
+        "atlas:rebase precheck slide: dropped column items 0, unmapped holders 7: terrain tables (heights, footprint and water grids"
+      ],
+      "noMatch": [
+        "atlas:rebase precheck slide: dropped column items 0, unmapped holders 6: terrain entered strip: the cells"
+      ]
+    },
+    "^atlas:rebase script half ready \\(rebase-4\\), native version 8$": {
+      "match": [
+        "atlas:rebase script half ready (rebase-4), native version 8"
+      ],
+      "noMatch": [
+        "atlas:rebase script half ready (rebase-4), native version 6"
+      ]
+    },
+    "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:rebase self-check: PASS (307 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:rebase self-check: FAIL (307 checks, 4 failed)"
+      ]
+    },
+    "^atlas:rebase terrain bytes: .*DIFFER$": {
+      "match": [
+        "atlas:rebase terrain bytes: 1A2B3C4D -> 1A2B3C4E, shift (0, 0): DIFFER"
+      ],
+      "noMatch": [
+        "atlas:rebase terrain bytes: 1A2B3C4D -> 1A2B3C4D, shift (0, 0): equal"
+      ]
+    },
+    "^atlas:rebase window: check refused|^atlas:rebase window save: ": {
+      "match": [
+        "atlas:rebase window: check refused (key or folder)",
+        "atlas:rebase window save: code 3"
+      ],
+      "noMatch": [
+        "atlas:rebase window: saved key 0123456789abcdef shift (0, 0) epoch 0 stash 0"
+      ]
+    },
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^atlas:rebase hub: RESULT REFUSED native precheck \\(code -(9|10)\\)$": {
+      "match": [
+        "atlas:rebase hub: RESULT REFUSED native precheck (code -10)"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT REFUSED native precheck (code -11)",
+        "atlas:rebase hub: RESULT REFUSED native precheck (code -10) extra"
+      ]
+    },
+    "^atlas:rebase hub: RESULT (REFUSED|FAIL) (command|damaged|route-worker-busy|drain|code|paging-off|household-in-dropped-column|one-way-unmapped-script)": {
+      "match": [
+        "atlas:rebase hub: RESULT REFUSED paging-off"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT REFUSED native precheck (code -10)"
+      ]
+    },
+    "^OK   ea fix: PortalFlagRefs ": {
+      "match": [
+        "OK   ea fix: PortalFlagRefs (docs/67 §30.5): lot portal blocked-flag writes through pairs outside R are skipped (0x0082A1CF, 0x0082B6B1)"
+      ],
+      "noMatch": [
+        "SKIP ea fix: PortalFlagRefs: bytes at 0x0082A1CF / 0x0082B6B1 differ (another mod or a probe build owns them): not installed",
+        "OK   ea fix: WorldAStarRefs (docs/67 §30): world A* neighbours outside the routing graph are skipped (0x00676F2A)"
+      ]
+    },
+    "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack \\(none: r9-no-source\\); StripProve=0 \\(entered strip stays unmapped": {
+      "match": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=0 (entered strip stays unmapped until the live comparison passes)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9: StripBuild=0, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=0 (entered strip stays unmapped until the live comparison passes)",
+        "atlas:rebase R-9: StripBuild=1, EA builders 11/12 match, first mismatch: cell dtor; strip pack (none: r9-no-source); StripProve=0 (entered strip stays unmapped until the live comparison passes)"
+      ]
+    },
+    "^atlas:rebase R-9 plan: step \\(-?\\d+, -?\\d+\\), entered [1-9]\\d* cells \\(first source \\(-?\\d+, -?\\d+\\)\\), sources \\d+/\\d+, lots in the leaving strip \\d+ \\(paged shells \\d+\\)$": {
+      "match": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells (first source (2048, 0)), sources 0/24, lots in the leaving strip 0 (paged shells 0)",
+        "atlas:rebase R-9 plan: step (0, 256), entered 8 cells (first source (0, -256)), sources 0/0, lots in the leaving strip 0 (paged shells 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells, sources 24/24, lots in the leaving strip 0 (paged shells 0): ready",
+        "atlas:rebase R-9 REFUSED r9-no-source: entered strip not built, it stays unmapped; nothing written"
+      ]
+    },
+    "^atlas:rebase R-9 REFUSED r9-(lot-in-leaving-strip|source-range|no-source|grid-source): entered strip not built, it stays unmapped; nothing written$": {
+      "match": [
+        "atlas:rebase R-9 REFUSED r9-no-source: entered strip not built, it stays unmapped; nothing written",
+        "atlas:rebase R-9 REFUSED r9-lot-in-leaving-strip: entered strip not built, it stays unmapped; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 REFUSED r9-shape: entered strip not built, it stays unmapped; nothing written",
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells (first source (2048, 0)), sources 0/24, lots in the leaving strip 0 (paged shells 0)"
+      ]
+    },
+    "^atlas:rebase R-9 counters at run end: gates [1-3], ready 0, refused [1-3], built 0, undone 0$": {
+      "match": [
+        "atlas:rebase R-9 counters at run end: gates 1, ready 0, refused 1, built 0, undone 0",
+        "atlas:rebase R-9 counters at run end: gates 3, ready 0, refused 3, built 0, undone 0"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 counters at run end: gates 3, ready 1, refused 2, built 1, undone 0",
+        "atlas:rebase R-9 counters at world quit: gates 3, ready 0, refused 3, built 0, undone 0"
+      ]
+    },
+    "^atlas:rebase R-9 plan: .*: ready$": {
+      "match": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells, sources 24/24, lots in the leaving strip 0 (paged shells 0): ready"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells (first source (2048, 0)), sources 0/24, lots in the leaving strip 0 (paged shells 0)"
+      ]
+    },
+    "^atlas:rebase R-9: entered strip (built|undone)": {
+      "match": [
+        "atlas:rebase R-9: entered strip built, 8 cells (EA's teardown 0xC85F10 and load-time build 0xC86170 / 0xC83D00 / 0xC2A040 / 0xC2A840)",
+        "atlas:rebase R-9: entered strip undone, 8 cells rebuilt as the cells that wrapped in"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=0 (entered strip stays unmapped until the live comparison passes)"
+      ]
+    },
+    "^atlas:rebase R-9 off": {
+      "match": [
+        "atlas:rebase R-9 off: StripBuild=1 needs TerrainSlide=1"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=0 (entered strip stays unmapped until the live comparison passes)"
+      ]
+    },
+    "^atlas:rebase R-9 REFUSED r9-(shape|owner-shape|strip-too-large|resource-load)": {
+      "match": [
+        "atlas:rebase R-9 REFUSED r9-shape: entered strip not built, it stays unmapped; nothing written",
+        "atlas:rebase R-9 REFUSED r9-resource-load: entered strip not built, it stays unmapped; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 REFUSED r9-source-range: entered strip not built, it stays unmapped; nothing written"
+      ]
+    },
+    "^atlas:rebase R-9: StripBuild=1, EA builders (\\d|1[01])/12 ": {
+      "match": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 11/12 match, first mismatch: FindDatabase; strip pack (none: r9-no-source); StripProve=0 (entered strip stays unmapped until the live comparison passes)",
+        "atlas:rebase R-9: StripBuild=1, EA builders 0/12 match, first mismatch: cell dtor; strip pack (none: r9-no-source)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=0 (entered strip stays unmapped until the live comparison passes)"
+      ]
+    },
+    "^atlas:rebase lists R-8: terrain 32 x 32 cells, models [1-9]\\d*, ": {
+      "match": [
+        "atlas:rebase lists R-8: terrain 32 x 32 cells, models 1024, road records 0, road keys 0, type map 2048 x 2048 blocks, blend layers 2 (512 x 512 tiles), G 2049 x 2048 (layer grids 2), shift (0, 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase lists R-8: terrain 8 x 8 cells, models 64, road records 64, road keys 3, type map 512 x 512 blocks, blend layers 9 (128 x 128 tiles), G 513 x 512 (layer grids 2), shift (0, 0)"
+      ]
+    },
+    "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 32 cells \\(first source \\(8192, 0\\)\\), sources 0/96, lots in the leaving strip 0 \\(paged shells 0\\)$": {
+      "match": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 32 cells (first source (8192, 0)), sources 0/96, lots in the leaving strip 0 (paged shells 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 32 cells (first source (8192, 0)), sources 3/96, lots in the leaving strip 0 (paged shells 0)",
+        "atlas:rebase R-9 plan: step (256, 0), entered 32 cells (first source (-256, 0)), sources 0/0, lots in the leaving strip 0 (paged shells 0)"
+      ]
+    },
+    "^atlas:rebase R-9 plan: step \\(256, 0\\), entered 32 cells \\(first source \\(-256, 0\\)\\), sources 0/0, lots in the leaving strip 0 \\(paged shells 0\\)$": {
+      "match": [
+        "atlas:rebase R-9 plan: step (256, 0), entered 32 cells (first source (-256, 0)), sources 0/0, lots in the leaving strip 0 (paged shells 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 32 cells (first source (8192, 0)), sources 0/96, lots in the leaving strip 0 (paged shells 0)"
+      ]
+    },
+    "^atlas:rebase R-9 REFUSED r9-no-source: ": {
+      "match": [
+        "atlas:rebase R-9 REFUSED r9-no-source: entered strip not built, it stays unmapped; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 REFUSED r9-source-range: entered strip not built, it stays unmapped; nothing written"
+      ]
+    },
+    "^atlas:rebase R-9 REFUSED r9-source-range: ": {
+      "match": [
+        "atlas:rebase R-9 REFUSED r9-source-range: entered strip not built, it stays unmapped; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 REFUSED r9-no-source: entered strip not built, it stays unmapped; nothing written"
+      ]
+    },
+    "^atlas:rebase hub: slide check: window x .*, Sims in the dropped column \\d+ \\(household scope 0\\), paging on$": {
+      "match": [
+        "atlas:rebase hub: slide check: window x [0, 8192) z [0, 8192), Sims in the dropped column 0 (household scope 0), paging on"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: slide check: paging off ([PagedLots] Probe=0 or the probe absent)",
+        "atlas:rebase hub: slide check: window x [0, 8192) z [0, 8192), Sims in the dropped column 1 (household scope 1), paging on"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-rebase-r9-check-sv",
+      "note": "[est 12 min] Atlas docs/022 §8.8.15 rebase R-9 on Sunset Valley, [Rebase] CellKeys=1 GridKeys=1 TerrainSlide=1 StripBuild=1, dry run only: 'rebase slidecheck' east / north / west one 256 m cell. Pass: the R-9 start line (12/12 EA builders, no strip pack), per check a 'lists R-8' line, an 'R-9 plan' line and an 'R-9 REFUSED r9-...' line (lot in the leaving strip, source range, no source or grid source), the native refusal (one-way-unmapped or dropped-column-occupied) and three R-9 counter lines with ready 0 and built 0; never 'ready', 'entered strip built', 'RESULT CHECKED slide step', an r8- refusal, R-9 off, ERROR, FAULT or a script error. Nothing is written.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-r9-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from feature/rebase-terrain-slide-1127 7174381 (Atlas main 05a0e61 0.3.15 + R-8, rebase=7; game-copy/atlas-r9b-1127/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-r9-1127 (atlas.package sha256 0e020f4ccf83e3a2dad063aa738c4cd87900f74b1283dec3422777824d4eb0f5, 'rebase slidecheck' command, build rebase-4 read back by the \"script half ready\" line).",
+      "save": "Baseline-SV",
+      "timeoutMin": 30,
+      "extraAsi": {
+        "asi": "game-copy/atlas-r9b-1127/atlas.asi",
+        "sha256": "d84e9736de41fce80f10a0e7296ba78938fac3ae1905aac0d6c997d68140772d",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 0,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 1,
+          "Rebase.StripBuild": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 .*\\brebase=8\\b": 1,
+          "^atlas:icalls rebase: 9 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 8, shape 92/92, 9 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 8$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 \\(GridKeys=1\\); R-7 key sites 7/7 match \\(CellKeys=1\\); InferredSlots=0$": 1,
+          "^atlas:rebase R-8: TerrainSlide=1 ": 1,
+          "^atlas:rebase R-7 site 0x[0-9A-F]{6} on \\(": 8,
+          "^atlas:rebase R-7 on: 8/8 key sites, side table 12288 cells$": 1,
+          "^atlas:rebase lists R-8: terrain [1-9]\\d* x [1-9]\\d* cells, models [1-9]\\d*, ": 3,
+          "^atlas:rebase precheck slide: .*terrain entered strip": 3,
+          "^atlas:rebase RESULT REFUSED (one-way-unmapped|dropped-column-occupied): ": 3,
+          "^atlas:rebase hub: RESULT CHECKED rebase slidecheck -?\\d+ -?\\d+: native code -(9|10) \\(refused\\)": 3,
+          "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack \\(none: r9-no-source\\); StripProve=0 \\(entered strip stays unmapped": 1,
+          "^atlas:rebase R-9 plan: step \\(-?\\d+, -?\\d+\\), entered [1-9]\\d* cells \\(first source \\(-?\\d+, -?\\d+\\)\\), sources \\d+/\\d+, lots in the leaving strip \\d+ \\(paged shells \\d+\\)$": 3,
+          "^atlas:rebase R-9 REFUSED r9-(lot-in-leaving-strip|source-range|no-source|grid-source): entered strip not built, it stays unmapped; nothing written$": 3,
+          "^atlas:rebase R-9 counters at run end: gates [1-3], ready 0, refused [1-3], built 0, undone 0$": 3
+        },
+        "logForbid": {
+          "^atlas:rebase MISMATCH ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase RESULT (PASS slide|CHECKED slide)": 0,
+          "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-|routing-rebuild-pending)": 0,
+          "^atlas:rebase bytes: .*: DIFFER$": 0,
+          "^atlas:rebase window: check refused|^atlas:rebase window save: ": 0,
+          "^atlas:rebase pass Rd .* ms in \\d+ slices \\(max [1-9]\\d{2,} ms\\)": 0,
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase RESULT REFUSED r7-": 0,
+          "^atlas:rebase R-7 (REFUSED |site 0x[0-9A-F]{6} rolled back)": 0,
+          "^atlas:rebase R-7 counters at .*, stale [1-9]": 0,
+          "^atlas:rebase G-519: SKIP ": 0,
+          "^atlas:rebase RESULT REFUSED r8-": 0,
+          "^atlas:rebase R-8 off": 0,
+          "^atlas:rebase R-8: step ": 0,
+          "^atlas:rebase RESULT CHECKED slide step": 0,
+          "^atlas:rebase precheck slide: .*terrain tables \\(heights": 0,
+          "^atlas:rebase terrain bytes: .*DIFFER$": 0,
+          "^atlas:rebase R-9 plan: .*: ready$": 0,
+          "^atlas:rebase R-9: entered strip (built|undone)": 0,
+          "^atlas:rebase R-9 off": 0,
+          "^atlas:rebase R-9 REFUSED r9-(shape|owner-shape|strip-too-large|resource-load)": 0,
+          "^atlas:rebase R-9: StripBuild=1, EA builders (\\d|1[01])/12 ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-rebase-r9-check-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    },
+    {
+      "id": "atlas-rebase-r9-strip-8192",
+      "note": "[est 20 min] Atlas docs/022 §8.8.15 rebase R-9 on our generated AtlasStrip_8192.world (new game, no household; [World8192] Routing=1 PaintIndex=1 PhysicsRoot=1, Default.ini SceneQuadTree=8192,512,8, s3 [EaCrashFixes] PortalFlagRefs=0 as in atlas-8192-load-strip-8192; [PagedLots] Probe=1 so the slide gets past paging-off; [Rebase] CellKeys=1 GridKeys=1 TerrainSlide=1 StripBuild=1). rebase slidecheck -256 0, rebase slidecheck 256 0, then the real one-way rebase slide -256 0. Pass: R-9 start line 12/12; 'lists R-8: terrain 32 x 32 cells' three times; R-9 plans 'step (-256, 0), entered 32 cells (first source (8192, 0)), sources 0/96' twice with r9-no-source and 'step (256, 0) ... first source (-256, 0)' once with r9-source-range; the precheck slide line names 'terrain entered strip'; native refusals one-way-unmapped or dropped-column-occupied three times; the two slidechecks report native code -9 / -10 and the slide 'hub: RESULT REFUSED native precheck (code -9 / -10)'; never 'ready', 'entered strip built', 'RESULT PASS slide', 'RESULT CHECKED slide step', an r8- refusal or a script error. An r8- refusal here is a finding (R-8 has not run on this world). Depends on: AtlasStrip_8192.world installed (Atlas tools world-empty.ts build --strip, then world-gen.ts install; queue atlas-8192-patches-1126). Household rule: the world has no household; every command is refused before any write.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-r9-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1,
+        "EaCrashFixes.PortalFlagRefs": 0
+      },
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from feature/rebase-terrain-slide-1127 7174381 (Atlas main 05a0e61 0.3.15 + R-8, rebase=7; game-copy/atlas-r9b-1127/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-r9-1127 (atlas.package sha256 0e020f4ccf83e3a2dad063aa738c4cd87900f74b1283dec3422777824d4eb0f5, 'rebase slidecheck' command, build rebase-4 read back by the \"script half ready\" line).",
+      "save": "menu",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-r9b-1127/atlas.asi",
+        "sha256": "d84e9736de41fce80f10a0e7296ba78938fac3ae1905aac0d6c997d68140772d",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 0,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 1,
+          "Rebase.StripBuild": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 .*\\brebase=8\\b": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase R-8: TerrainSlide=1 ": 1,
+          "^atlas:rebase R-7 on: 8/8 key sites, side table 12288 cells$": 1,
+          "^atlas:rebase precheck slide: .*terrain entered strip": 3,
+          "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack \\(none: r9-no-source\\); StripProve=0 \\(entered strip stays unmapped": 1,
+          "^atlas:rebase lists R-8: terrain 32 x 32 cells, models [1-9]\\d*, ": 3,
+          "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 32 cells \\(first source \\(8192, 0\\)\\), sources 0/96, lots in the leaving strip 0 \\(paged shells 0\\)$": 2,
+          "^atlas:rebase R-9 plan: step \\(256, 0\\), entered 32 cells \\(first source \\(-256, 0\\)\\), sources 0/0, lots in the leaving strip 0 \\(paged shells 0\\)$": 1,
+          "^atlas:rebase R-9 REFUSED r9-no-source: ": 2,
+          "^atlas:rebase R-9 REFUSED r9-source-range: ": 1,
+          "^atlas:rebase RESULT REFUSED (one-way-unmapped|dropped-column-occupied): ": 3,
+          "^atlas:rebase hub: RESULT CHECKED rebase slidecheck -?\\d+ -?\\d+: native code -(9|10) \\(refused\\)": 2,
+          "^atlas:rebase hub: RESULT REFUSED native precheck \\(code -(9|10)\\)$": 1,
+          "^atlas:rebase hub: slide check: window x .*, Sims in the dropped column \\d+ \\(household scope 0\\), paging on$": 3,
+          "^atlas:rebase R-9 counters at run end: gates [1-3], ready 0, refused [1-3], built 0, undone 0$": 3
+        },
+        "logForbid": {
+          "^atlas:rebase MISMATCH ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase RESULT (PASS slide|CHECKED slide)": 0,
+          "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-|routing-rebuild-pending)": 0,
+          "^atlas:rebase bytes: .*: DIFFER$": 0,
+          "^atlas:rebase window: check refused|^atlas:rebase window save: ": 0,
+          "^atlas:rebase pass Rd .* ms in \\d+ slices \\(max [1-9]\\d{2,} ms\\)": 0,
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase RESULT REFUSED r7-": 0,
+          "^atlas:rebase R-7 (REFUSED |site 0x[0-9A-F]{6} rolled back)": 0,
+          "^atlas:rebase R-7 counters at .*, stale [1-9]": 0,
+          "^atlas:rebase G-519: SKIP ": 0,
+          "^atlas:rebase RESULT REFUSED r8-": 0,
+          "^atlas:rebase R-8 off": 0,
+          "^atlas:rebase R-8: step ": 0,
+          "^atlas:rebase RESULT CHECKED slide step": 0,
+          "^atlas:rebase precheck slide: .*terrain tables \\(heights": 0,
+          "^atlas:rebase terrain bytes: .*DIFFER$": 0,
+          "^atlas:rebase R-9 plan: .*: ready$": 0,
+          "^atlas:rebase R-9: entered strip (built|undone)": 0,
+          "^atlas:rebase R-9 off": 0,
+          "^atlas:rebase R-9 REFUSED r9-(shape|owner-shape|strip-too-large|resource-load)": 0,
+          "^atlas:rebase R-9: StripBuild=1, EA builders (\\d|1[01])/12 ": 0,
+          "^atlas:rebase hub: RESULT (REFUSED|FAIL) (command|damaged|route-worker-busy|drain|code|paging-off|household-in-dropped-column|one-way-unmapped-script)": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-rebase-r9-strip-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: PortalFlagRefs ": 0
+      }
+    }
+  ]
+}

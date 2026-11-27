@@ -9848,16 +9848,6 @@
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-unbounded-sim-research-1122"
     },
     {
-      "id": "ledger-577",
-      "kind": "ledger",
-      "from": 577,
-      "to": 577,
-      "by": "inst-probe-1122",
-      "what": "instprobe: Sim instantiate cost inferences",
-      "at": "2026-11-22T10:52:46.582Z",
-      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\inst-probe-1122"
-    },
-    {
       "id": "fixes-1536",
       "kind": "fixes",
       "from": 1536,
@@ -10166,6 +10156,991 @@
       "what": "DeadRefs.cs deadrefexactverify (docs/334): partition lists compared, mismatches",
       "at": "2026-11-23T04:33:00.983Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lc1-exact-cuts-1123"
+    },
+    {
+      "id": "fixes-1671",
+      "kind": "fixes",
+      "from": 1671,
+      "to": 1682,
+      "by": "lc5-reverse-index-1123",
+      "what": "deadrefdelta reverse holder index (LC-5, docs/333)",
+      "at": "2026-11-23T07:06:53.844Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a272003d9c9fb1961"
+    },
+    {
+      "id": "doc-336",
+      "kind": "doc",
+      "from": 336,
+      "to": 336,
+      "by": "lc5-reverse-index-1123",
+      "what": "LC-5 deadrefdelta holder index",
+      "at": "2026-11-23T07:06:54.110Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a272003d9c9fb1961"
+    },
+    {
+      "id": "ledger-590",
+      "kind": "ledger",
+      "from": 590,
+      "to": 590,
+      "by": "lc5-reverse-index-1123",
+      "what": "LC-5 deadrefdelta",
+      "at": "2026-11-23T07:06:54.378Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a272003d9c9fb1961"
+    },
+    {
+      "id": "native-v223",
+      "kind": "native",
+      "version": 223,
+      "from": 27464,
+      "to": 27487,
+      "by": "cp1-lotgen-1123",
+      "what": "CP-1 lot hub: lot generation counter + world-change event (lotstream.cpp, docs/321 §8)",
+      "at": "2026-11-23T07:16:38.374Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a9d02a2028f521749"
+    },
+    {
+      "id": "ledger-591",
+      "kind": "ledger",
+      "from": 591,
+      "to": 591,
+      "by": "cp1-lotgen-1123",
+      "what": "CP-1 lot hub coverage (docs/321 §8)",
+      "at": "2026-11-23T07:25:34.089Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a9d02a2028f521749"
+    },
+    {
+      "id": "fixes-1683",
+      "kind": "fixes",
+      "from": 1683,
+      "to": 1698,
+      "by": "lc5-reverse-index-1123",
+      "what": "deadrefdelta hybrid index + deadrefslimuse (LC-5 rest, docs/336)",
+      "at": "2026-11-23T07:41:57.090Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a272003d9c9fb1961"
+    },
+    {
+      "id": "ledger-592",
+      "kind": "ledger",
+      "from": 592,
+      "to": 592,
+      "by": "lc5-reverse-index-1123",
+      "what": "LC-5 hybrid index + slim use",
+      "at": "2026-11-23T07:41:57.415Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a272003d9c9fb1961"
+    },
+    {
+      "id": "ledger-593",
+      "kind": "ledger",
+      "from": 593,
+      "to": 593,
+      "by": "cp2-lothook-1123",
+      "what": "CP-2 lot+0x48 low dword == managed Lot.LotId low dword",
+      "at": "2026-11-23T07:42:00.135Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a1e6ab66524f864cf"
+    },
+    {
+      "id": "fixes-1699",
+      "kind": "fixes",
+      "from": 1699,
+      "to": 1706,
+      "by": "cp34-lanea-consumers-1123",
+      "what": "LaneA.cs (docs/321 §10): managed lane A tables size + high water (envlist lots, teleport placements, gohome loop, doorgen per-lot sends)",
+      "at": "2026-11-23T08:10:40.611Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a02160c420ba96e51"
+    },
+    {
+      "id": "fixes-1707",
+      "kind": "fixes",
+      "from": 1707,
+      "to": 1726,
+      "by": "lc6a-perlot-lists-1123",
+      "what": "deadrefperlot per-lot gather + exact slim use (LC-6a, docs/336 §9)",
+      "at": "2026-11-23T08:11:39.578Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a51a7b629662f7bf3"
+    },
+    {
+      "id": "ledger-594",
+      "kind": "ledger",
+      "from": 594,
+      "to": 594,
+      "by": "lc6a-perlot-lists-1123",
+      "what": "LC-6a per-lot gather",
+      "at": "2026-11-23T08:11:39.872Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a51a7b629662f7bf3"
+    },
+    {
+      "id": "ledger-595",
+      "kind": "ledger",
+      "from": 595,
+      "to": 595,
+      "by": "cp34-lanea-consumers-1123",
+      "what": "lane A consumers CP-3/CP-4 (docs/321 §10)",
+      "at": "2026-11-23T08:15:02.635Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a02160c420ba96e51"
+    },
+    {
+      "id": "fixes-1727",
+      "kind": "fixes",
+      "from": 1727,
+      "to": 1727,
+      "by": "deadref-pause-gate-1123",
+      "what": "DeadRefs.cs deadref_paused_waits: sweep frames waited while paused or the clock is frozen",
+      "at": "2026-11-23T09:02:53.807Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2f2df3b875f5eb69"
+    },
+    {
+      "id": "ledger-596",
+      "kind": "ledger",
+      "from": 596,
+      "to": 596,
+      "by": "deadref-pause-gate-1123",
+      "what": "205",
+      "at": "2026-11-23T09:07:48.107Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2f2df3b875f5eb69"
+    },
+    {
+      "id": "fixes-1728",
+      "kind": "fixes",
+      "from": 1728,
+      "to": 1733,
+      "by": "pausegate-spread-1123",
+      "what": "pause gate paused waits: easpreadlots, easpreadpets, easpreaddecay, overwatch (task starts, chain, stuck, inventory), errortrapspread, savecleanup spread",
+      "at": "2026-11-23T09:22:01.372Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ae2864ceb696084ec"
+    },
+    {
+      "id": "fixes-1734",
+      "kind": "fixes",
+      "from": 1734,
+      "to": 1742,
+      "by": "pausegate-drains-1123",
+      "what": "pause-gate waits: stuckcheck drain, watchdog, replanspread, autlive drops, wildflower, disposespread, aptleave, boattrip; replanspread household run at once",
+      "at": "2026-11-23T09:22:04.915Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a9a9e502e937803b1"
+    },
+    {
+      "id": "ledger-597",
+      "kind": "ledger",
+      "from": 597,
+      "to": 597,
+      "by": "cp4b-ghost-m8-1123",
+      "what": "cp4b GhostSweepLot + ReplanDedupeLot + game-state gate (docs/321 §11)",
+      "at": "2026-11-23T09:26:17.665Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-af7acd0eb8278d169"
+    },
+    {
+      "id": "ledger-598",
+      "kind": "ledger",
+      "from": 598,
+      "to": 598,
+      "by": "pausegate-drains-1123",
+      "what": "pause gate group 2 drains (docs/205 §2.3c)",
+      "at": "2026-11-23T09:27:25.111Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a9a9e502e937803b1"
+    },
+    {
+      "id": "ledger-599",
+      "kind": "ledger",
+      "from": 599,
+      "to": 599,
+      "by": "pausegate-spread-1123",
+      "what": "pausegate-spread-1123",
+      "at": "2026-11-23T09:27:52.402Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ae2864ceb696084ec"
+    },
+    {
+      "id": "native-v224",
+      "kind": "native",
+      "version": 224,
+      "from": 27488,
+      "to": 27507,
+      "by": "pausegate-native-1123",
+      "what": "pause-gate native: ufc frozen spans/holds carried, route epoch stale replans, discourage drains at build/buy exit (+skips)",
+      "at": "2026-11-23T09:32:06.553Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a81892c815d88dbef"
+    },
+    {
+      "id": "fixes-1743",
+      "kind": "fixes",
+      "from": 1743,
+      "to": 1743,
+      "by": "pausegate-drains-1123",
+      "what": "autlive: go-live slices sent to the game's path because paused / clock stopped / not live at a later slice",
+      "at": "2026-11-23T09:36:18.667Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a9a9e502e937803b1"
+    },
+    {
+      "id": "ledger-600",
+      "kind": "ledger",
+      "from": 600,
+      "to": 600,
+      "by": "pausegate-native-1123",
+      "what": "pause gate native: frozen unseen holds, route epoch, Build/Buy exit drain, IsLiveState in CAS/Edit Town",
+      "at": "2026-11-23T09:47:45.441Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a81892c815d88dbef"
+    },
+    {
+      "id": "fixes-1744",
+      "kind": "fixes",
+      "from": 1744,
+      "to": 1757,
+      "by": "lc7-desc-reverse-1123",
+      "what": "DeadRefsDescRev.cs deadrefdescrev (docs/333 LC-7): p4 delta runs, holders stepped, index entries, holder map, hook notes, full p4 runs, verify checked, verify miss, verify extra, unseeds, pruned, load resets, overflows, high-water",
+      "at": "2026-11-23T10:22:35.992Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a353577c6af9dc0c8"
+    },
+    {
+      "id": "ledger-601",
+      "kind": "ledger",
+      "from": 601,
+      "to": 601,
+      "by": "lc7-desc-reverse-1123",
+      "what": "LC-7 deadrefdescrev",
+      "at": "2026-11-23T10:22:36.288Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a353577c6af9dc0c8"
+    },
+    {
+      "id": "fixes-1758",
+      "kind": "fixes",
+      "from": 1758,
+      "to": 1769,
+      "by": "lc7-desc-reverse-1123",
+      "what": "DeadRefsDescRev.cs writer scan (LC-7b): foreign writers per kind x4, untrusted mask, assemblies, methods, unreadable, scan us, pregnancy-event notes, import held notes, untrusted-kind steps",
+      "at": "2026-11-23T11:18:07.063Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a353577c6af9dc0c8"
+    },
+    {
+      "id": "ledger-602",
+      "kind": "ledger",
+      "from": 602,
+      "to": 602,
+      "by": "lc7-desc-reverse-1123",
+      "what": "LC-7b writer gaps: load-time IL writer scan, import hold, pregnancy event",
+      "at": "2026-11-23T11:18:07.308Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a353577c6af9dc0c8"
+    },
+    {
+      "id": "fixes-1770",
+      "kind": "fixes",
+      "from": 1770,
+      "to": 1775,
+      "by": "lc7-desc-reverse-1123",
+      "what": "deadrefdescrev LC-7c: unresolvable-token methods, reflection hits, pinned hooks installed/mismatch/refused, pinned event-covered",
+      "at": "2026-11-23T11:58:30.924Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a353577c6af9dc0c8"
+    },
+    {
+      "id": "doc-337",
+      "kind": "doc",
+      "from": 337,
+      "to": 337,
+      "by": "monitor-change-1123",
+      "what": "monitor change: bridge display-change fix, detector, repro",
+      "at": "2026-11-23T12:21:13.944Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a012ea620b3231b35"
+    },
+    {
+      "id": "ledger-603",
+      "kind": "ledger",
+      "from": 603,
+      "to": 603,
+      "by": "monitor-change-1123",
+      "what": "monitor change crash path (bridge adapter count)",
+      "at": "2026-11-23T12:21:14.161Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a012ea620b3231b35"
+    },
+    {
+      "id": "fixes-1776",
+      "kind": "fixes",
+      "from": 1776,
+      "to": 1777,
+      "by": "lc7-desc-reverse-1123",
+      "what": "deadrefdescrev LC-7d: seed walks forced by a dirty-hook writer (job swaps), dirty marks (docs/336 §13)",
+      "at": "2026-11-23T12:24:06.342Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a353577c6af9dc0c8"
+    },
+    {
+      "id": "ledger-604",
+      "kind": "ledger",
+      "from": 604,
+      "to": 604,
+      "by": "vb-owner-uaf-1123",
+      "what": "draw owner UAF, VbFreeDelay gap (loinyx 11-22 crash)",
+      "at": "2026-11-23T12:33:32.608Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1778",
+      "kind": "fixes",
+      "from": 1778,
+      "to": 1779,
+      "by": "lc7-desc-reverse-1123",
+      "what": "deadrefdescrev LC-7e: sim hours since the first phase-4 run this load, most dirty-forced seed walks in one sim hour (docs/336 §14)",
+      "at": "2026-11-23T12:42:21.704Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a353577c6af9dc0c8"
+    },
+    {
+      "id": "doc-338",
+      "kind": "doc",
+      "from": 338,
+      "to": 338,
+      "by": "cullrace-1123",
+      "what": "scene-cull-race",
+      "at": "2026-11-23T13:40:20.796Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a7a83f2f6b5dfac3c"
+    },
+    {
+      "id": "ledger-605",
+      "kind": "ledger",
+      "from": 605,
+      "to": 605,
+      "by": "cullrace-1123",
+      "what": "scene-cull-race",
+      "at": "2026-11-23T13:40:21.322Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a7a83f2f6b5dfac3c"
+    },
+    {
+      "id": "native-v225",
+      "kind": "native",
+      "version": 225,
+      "from": 27508,
+      "to": 27531,
+      "by": "cullrace-1123",
+      "what": "[CrashForensics] CullRaceWatch + [EaCrashFixes] CullDrainWait (docs/338): crOn, crDrains, crRace, crBadIdx, cdwWaits, cdwWaitUs",
+      "at": "2026-11-23T13:42:15.393Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a7a83f2f6b5dfac3c"
+    },
+    {
+      "id": "doc-339",
+      "kind": "doc",
+      "from": 339,
+      "to": 339,
+      "by": "tuneiso-1123",
+      "what": "tune-isolate: EA tuning/persist loops skip a broken mod assembly",
+      "at": "2026-11-23T15:02:52.873Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ab925c47969e535a0"
+    },
+    {
+      "id": "ledger-606",
+      "kind": "ledger",
+      "from": 606,
+      "to": 606,
+      "by": "tuneiso-1123",
+      "what": "tune-isolate inferences",
+      "at": "2026-11-23T15:02:53.100Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ab925c47969e535a0"
+    },
+    {
+      "id": "ledger-607",
+      "kind": "ledger",
+      "from": 607,
+      "to": 607,
+      "by": "merge-rc-1124",
+      "what": "C0000029 off-stack esp crash log line (xcpt-offstack-1124, docs/67 §46)",
+      "at": "2026-11-24T02:38:04.248Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a495269e08cd6f4de"
+    },
+    {
+      "id": "ledger-608",
+      "kind": "ledger",
+      "from": 608,
+      "to": 608,
+      "by": "merge-m1124b",
+      "what": "DoorMemoX gaps after the EA vbowner-5 mismatch (docs/585 §8, Lenovo 0f9a72596)",
+      "at": "2026-11-24T06:36:20.018Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a8c8b106123e7ebf0"
+    },
+    {
+      "id": "ledger-609",
+      "kind": "ledger",
+      "from": 609,
+      "to": 609,
+      "by": "hookflat-1124",
+      "what": "hookflat-1124: one hook per DoRoute / rabbit-hole entry, saved frames (issue #92)",
+      "at": "2026-11-24T10:11:55.763Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2d3d0e9a2d9d4d66"
+    },
+    {
+      "id": "ledger-610",
+      "kind": "ledger",
+      "from": 610,
+      "to": 610,
+      "by": "heapcall-detector-1124",
+      "what": "heapcall detector: swallowed heap-exec AVs before the C0000096 vbowner crash (m1124c)",
+      "at": "2026-11-24T14:56:26.090Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a8efd119d97c4c2a3"
+    },
+    {
+      "id": "native-v226",
+      "kind": "native",
+      "version": 226,
+      "from": 27532,
+      "to": 27535,
+      "by": "apex-staleobj-1125",
+      "what": "hcdAv656277: [Crash] HeapCall count of AVs at TS3W 0x656277 (Apex stale bake light, docs/260 §9)",
+      "at": "2026-11-25T01:22:26.057Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a01d7b6743bc600ac"
+    },
+    {
+      "id": "doc-340",
+      "kind": "doc",
+      "from": 340,
+      "to": 340,
+      "by": "rc-plan-1126",
+      "what": "far sim state machine RC plan",
+      "at": "2026-11-26T06:46:07.603Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-341",
+      "kind": "doc",
+      "from": 341,
+      "to": 341,
+      "by": "rea-lane-2",
+      "what": "far sim tick RE",
+      "at": "2026-11-26T06:58:51.730Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-611",
+      "kind": "ledger",
+      "from": 611,
+      "to": 611,
+      "by": "rea-lane-2",
+      "what": "far sim tick RE",
+      "at": "2026-11-26T06:58:52.070Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-342",
+      "kind": "doc",
+      "from": 342,
+      "to": 342,
+      "by": "st1-st5-1126",
+      "what": "far sim read sites and UI look hooks (ST-1, ST-5)",
+      "at": "2026-11-26T07:02:32.517Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-612",
+      "kind": "ledger",
+      "from": 612,
+      "to": 612,
+      "by": "st1-st5-1126",
+      "what": "far sim read sites and UI look hooks (ST-1, ST-5)",
+      "at": "2026-11-26T07:02:32.822Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-343",
+      "kind": "doc",
+      "from": 343,
+      "to": 343,
+      "by": "st14-sidecar-1126",
+      "what": "ST-14 far sidecar format",
+      "at": "2026-11-26T07:02:51.851Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-344",
+      "kind": "doc",
+      "from": 344,
+      "to": 344,
+      "by": "rea-lane-3",
+      "what": "lazy instantiation RE",
+      "at": "2026-11-26T07:06:17.687Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-613",
+      "kind": "ledger",
+      "from": 613,
+      "to": 613,
+      "by": "rea-lane-3",
+      "what": "lazy instantiation RE",
+      "at": "2026-11-26T07:06:18.018Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-345",
+      "kind": "doc",
+      "from": 345,
+      "to": 345,
+      "by": "sd1-far-sim-fsm",
+      "what": "SD-1 far-Sim state machine spec",
+      "at": "2026-11-26T07:08:43.110Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-346",
+      "kind": "doc",
+      "from": 346,
+      "to": 346,
+      "by": "st4-st7a-1126",
+      "what": "alarm hold hook and alarm callback census (ST-4, ST-7a)",
+      "at": "2026-11-26T07:08:43.732Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-614",
+      "kind": "ledger",
+      "from": 614,
+      "to": 614,
+      "by": "st4-st7a-1126",
+      "what": "alarm owner, dispatch, hold hook, callback census (ST-4, ST-7a)",
+      "at": "2026-11-26T07:08:44.026Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-615",
+      "kind": "ledger",
+      "from": 615,
+      "to": 615,
+      "by": "merge-cp0-1126",
+      "what": "inst-probe docs/325 (renumbered from 577 at the CP-0 merge)",
+      "at": "2026-11-26T07:10:15.583Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\merge-cp0-1126"
+    },
+    {
+      "id": "doc-347",
+      "kind": "doc",
+      "from": 347,
+      "to": 347,
+      "by": "st2-st3-st13-1126",
+      "what": "st2-st3-st13 far-model setters, visits, NRaas sites",
+      "at": "2026-11-26T07:10:25.718Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-616",
+      "kind": "ledger",
+      "from": 616,
+      "to": 616,
+      "by": "st2-st3-st13-1126",
+      "what": "docs ST-2 ST-3 ST-13 far-model static answers",
+      "at": "2026-11-26T07:10:26.386Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-348",
+      "kind": "doc",
+      "from": 348,
+      "to": 348,
+      "by": "st8-st12-1126",
+      "what": "ST-8 own-thread object classes + ST-12 lot add/remove hub coverage",
+      "at": "2026-11-26T07:14:04.768Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-617",
+      "kind": "ledger",
+      "from": 617,
+      "to": 617,
+      "by": "st8-st12-1126",
+      "what": "ST-8 own-thread classes, ST-12 lot hub coverage",
+      "at": "2026-11-26T07:14:05.388Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-349",
+      "kind": "doc",
+      "from": 349,
+      "to": 349,
+      "by": "st6-rx6-1126",
+      "what": "ST-6 adult placeholder check + RX-6 Sim-object readers",
+      "at": "2026-11-26T07:18:31.386Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-618",
+      "kind": "ledger",
+      "from": 618,
+      "to": 618,
+      "by": "st6-rx6-1126",
+      "what": "ST-6 adult placeholder check + RX-6 Sim-object readers (docs)",
+      "at": "2026-11-26T07:18:31.608Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-619",
+      "kind": "ledger",
+      "from": 619,
+      "to": 619,
+      "by": "sims-3-modernization",
+      "what": "far sim tick RE round 2",
+      "at": "2026-11-26T07:19:12.650Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-350",
+      "kind": "doc",
+      "from": 350,
+      "to": 350,
+      "by": "sd2-far-object-fsm-1126",
+      "what": "SD-2 far-object state machine spec",
+      "at": "2026-11-26T07:36:17.136Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-351",
+      "kind": "doc",
+      "from": 351,
+      "to": 351,
+      "by": "st15-far-api-1126",
+      "what": "ST-15 far shared API, names, module layout",
+      "at": "2026-11-26T07:37:08.039Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-352",
+      "kind": "doc",
+      "from": 352,
+      "to": 352,
+      "by": "simreset-alarms-1126",
+      "what": "EA bug: Sim reset keeps DeleteOnReset alarms (I-614-1)",
+      "at": "2026-11-26T07:37:08.229Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-620",
+      "kind": "ledger",
+      "from": 620,
+      "to": 620,
+      "by": "st15-far-api-1126",
+      "what": "ST-15 far shared API (docs)",
+      "at": "2026-11-26T07:37:08.428Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-621",
+      "kind": "ledger",
+      "from": 621,
+      "to": 621,
+      "by": "simreset-alarms-1126",
+      "what": "Sim reset alarms EA bug (docs)",
+      "at": "2026-11-26T07:37:08.630Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-353",
+      "kind": "doc",
+      "from": 353,
+      "to": 353,
+      "by": "sd4-1126",
+      "what": "sd4-save-flush",
+      "at": "2026-11-26T07:40:31.431Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-622",
+      "kind": "ledger",
+      "from": 622,
+      "to": 622,
+      "by": "sd4-1126",
+      "what": "sd4-save-flush",
+      "at": "2026-11-26T07:40:31.676Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1780",
+      "kind": "fixes",
+      "from": 1780,
+      "to": 1827,
+      "by": "farsim-shadow-1126",
+      "what": "FarSimShadow.cs farsim shadow machine counters (docs/345 FS-1..FS-4)",
+      "at": "2026-11-26T07:40:39.271Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\farsim-shadow-1126"
+    },
+    {
+      "id": "doc-354",
+      "kind": "doc",
+      "from": 354,
+      "to": 354,
+      "by": "farsim-shadow-1126",
+      "what": "far-Sim shadow build FS-1..FS-4",
+      "at": "2026-11-26T07:40:39.520Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\farsim-shadow-1126"
+    },
+    {
+      "id": "ledger-623",
+      "kind": "ledger",
+      "from": 623,
+      "to": 623,
+      "by": "farsim-shadow-1126",
+      "what": "far-Sim shadow build FS-1..FS-4",
+      "at": "2026-11-26T07:40:39.754Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\farsim-shadow-1126"
+    },
+    {
+      "id": "ledger-948",
+      "kind": "ledger",
+      "from": 948,
+      "to": 948,
+      "by": "merge-cp0-1126",
+      "what": "[Crash] HeapCall detector (heapcall-detector-1124; renumbered from 610 at the CP-0 merge)",
+      "at": "2026-11-26T07:44:44.224Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\merge-cp0-1126"
+    },
+    {
+      "id": "doc-355",
+      "kind": "doc",
+      "from": 355,
+      "to": 355,
+      "by": "sd3-agent",
+      "what": "SD-3 boundary, hysteresis, go-far/go-live contract repros",
+      "at": "2026-11-26T08:04:25.789Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-624",
+      "kind": "ledger",
+      "from": 624,
+      "to": 624,
+      "by": "sd3-agent",
+      "what": "SD-3 boundary and go-live contract (docs/340)",
+      "at": "2026-11-26T08:04:26.076Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-356",
+      "kind": "doc",
+      "from": 356,
+      "to": 356,
+      "by": "rx2a-agent",
+      "what": "RX-2a world-wide query census, site classification",
+      "at": "2026-11-26T08:04:26.402Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-625",
+      "kind": "ledger",
+      "from": 625,
+      "to": 625,
+      "by": "rx2a-agent",
+      "what": "RX-2a world-wide query census (docs/340)",
+      "at": "2026-11-26T08:04:26.788Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1828",
+      "kind": "fixes",
+      "from": 1828,
+      "to": 1833,
+      "by": "sim-reset-alarms-1126",
+      "what": "simresetalarms + simresetalarmprobe (docs/352): resets world/other, timers kept, dropped by list, serviceleave live re-arm skipped, errors",
+      "at": "2026-11-26T08:07:19.429Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\sim-reset-alarms-1126"
+    },
+    {
+      "id": "doc-357",
+      "kind": "doc",
+      "from": 357,
+      "to": 357,
+      "by": "sim-reset-alarms-1126",
+      "what": "sim reset alarms build (docs/352 fix, probe, repro)",
+      "at": "2026-11-26T08:07:19.764Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\sim-reset-alarms-1126"
+    },
+    {
+      "id": "ledger-626",
+      "kind": "ledger",
+      "from": 626,
+      "to": 626,
+      "by": "sim-reset-alarms-1126",
+      "what": "sim reset alarms build",
+      "at": "2026-11-26T08:07:20.107Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\sim-reset-alarms-1126"
+    },
+    {
+      "id": "fixes-1834",
+      "kind": "fixes",
+      "from": 1834,
+      "to": 1897,
+      "by": "farlight-farhold-1126",
+      "what": "FarHoldCore/FarHubCore/FarObj: farhold, farhub, farobj FarLight counters (docs/350, 346, 351)",
+      "at": "2026-11-26T08:07:50.951Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\farlight-farhold-1126"
+    },
+    {
+      "id": "doc-358",
+      "kind": "doc",
+      "from": 358,
+      "to": 358,
+      "by": "farlight-farhold-1126",
+      "what": "farlight-farhold build",
+      "at": "2026-11-26T08:07:51.213Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\farlight-farhold-1126"
+    },
+    {
+      "id": "ledger-627",
+      "kind": "ledger",
+      "from": 627,
+      "to": 627,
+      "by": "farlight-farhold-1126",
+      "what": "farlight-farhold build",
+      "at": "2026-11-26T08:07:51.495Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\farlight-farhold-1126"
+    },
+    {
+      "id": "fixes-1898",
+      "kind": "fixes",
+      "from": 1898,
+      "to": 1898,
+      "by": "farsim-shadow-1126",
+      "what": "FarSimShadow.cs sFsOnHhLot size (docs/354)",
+      "at": "2026-11-26T08:17:07.804Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\farsim-shadow-1126"
+    },
+    {
+      "id": "fixes-1899",
+      "kind": "fixes",
+      "from": 1899,
+      "to": 1922,
+      "by": "simdesc-index-1126",
+      "what": "simdescindex: SimDescription.Find description index (SimDescIndex.cs)",
+      "at": "2026-11-26T08:41:08.878Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\simdesc-index-1126"
+    },
+    {
+      "id": "doc-359",
+      "kind": "doc",
+      "from": 359,
+      "to": 359,
+      "by": "simdesc-index-1126",
+      "what": "simdescindex: SimDescription.Find description index",
+      "at": "2026-11-26T08:41:09.282Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\simdesc-index-1126"
+    },
+    {
+      "id": "ledger-628",
+      "kind": "ledger",
+      "from": 628,
+      "to": 628,
+      "by": "simdesc-index-1126",
+      "what": "simdescindex writers and urn set",
+      "at": "2026-11-26T08:41:09.728Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\simdesc-index-1126"
+    },
+    {
+      "id": "ledger-629",
+      "kind": "ledger",
+      "from": 629,
+      "to": 629,
+      "by": "lz0-agent",
+      "what": "lz0 0x5C32E2 static read",
+      "at": "2026-11-26T08:43:51.173Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-360",
+      "kind": "doc",
+      "from": 360,
+      "to": 360,
+      "by": "static-re",
+      "what": "terrain optimizer copy lifetime",
+      "at": "2026-11-26T09:47:17.868Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-630",
+      "kind": "ledger",
+      "from": 630,
+      "to": 630,
+      "by": "static-re",
+      "what": "terrain optimizer copy lifetime",
+      "at": "2026-11-26T09:47:19.038Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-361",
+      "kind": "doc",
+      "from": 361,
+      "to": 361,
+      "by": "seed-sims",
+      "what": "seed-only far Sims",
+      "at": "2026-11-26T10:10:09.578Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-631",
+      "kind": "ledger",
+      "from": 631,
+      "to": 631,
+      "by": "seed-sims",
+      "what": "seed-only far Sims",
+      "at": "2026-11-26T10:10:09.801Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v227",
+      "kind": "native",
+      "version": 227,
+      "from": 27536,
+      "to": 27575,
+      "by": "native-simthread-heapcores-1126",
+      "what": "[MemDiag] main-heap core reader hc* (memdiag.cpp): reads, fails, cores, committed/reserved/free/tail/largest KB, free chunks, walk us",
+      "at": "2026-11-26T10:37:21.568Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\native-simthread-heapcores-1126"
+    },
+    {
+      "id": "doc-362",
+      "kind": "doc",
+      "from": 362,
+      "to": 362,
+      "by": "native-simthread-heapcores-1126",
+      "what": "IsSimThread internal call + main-heap core reader",
+      "at": "2026-11-26T10:37:21.847Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\native-simthread-heapcores-1126"
+    },
+    {
+      "id": "ledger-632",
+      "kind": "ledger",
+      "from": 632,
+      "to": 632,
+      "by": "native-simthread-heapcores-1126",
+      "what": "main-heap core reader offsets + IsSimThread",
+      "at": "2026-11-26T10:37:22.112Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\native-simthread-heapcores-1126"
+    },
+    {
+      "id": "ledger-633",
+      "kind": "ledger",
+      "from": 633,
+      "to": 633,
+      "by": "sims-3-modernization",
+      "what": "Boundless Atlas claims, cross-ref",
+      "at": "2026-11-26T12:01:40.667Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-363",
+      "kind": "doc",
+      "from": 363,
+      "to": 363,
+      "by": "loadprof-switch-1126",
+      "what": "loadprof-switch-1126",
+      "at": "2026-11-26T13:23:00.003Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\loadprof-switch-1126"
+    },
+    {
+      "id": "ledger-634",
+      "kind": "ledger",
+      "from": 634,
+      "to": 634,
+      "by": "loadprof-switch-1126",
+      "what": "loadprof-switch-1126",
+      "at": "2026-11-26T13:23:00.291Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\loadprof-switch-1126"
+    },
+    {
+      "id": "ledger-635",
+      "kind": "ledger",
+      "from": 635,
+      "to": 635,
+      "by": "atlas-hs1-measure-1126",
+      "what": "ts3probe test-only squeeze exception (Atlas HS-1 T1b)",
+      "at": "2026-11-26T14:35:46.221Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-atlas-hs1-measure-1126"
     }
   ]
 }

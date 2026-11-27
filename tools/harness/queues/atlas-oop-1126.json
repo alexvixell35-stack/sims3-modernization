@@ -1,0 +1,574 @@
+{
+  "note": "atlas-oop-1126: boundless-atlas docs/025 A4, the region store in Apex's restart host, first game job. Never run. Needs Bin state apex-oop-atlas (tools/turbo-compat.ts, this branch), set by the chain, never by queue.ts: (1) copy game-copy/ApexRadiance.asi.pr158 and game-copy/ts3wrap.exe.pr158 (Apex PR #158, plugin host; pinned: ApexRadiance.asi.pr158 sha256 8a290e52b2d708cbe75dfeaba75571fe5870d7e98bd3a728059dbbda3fc15b4d (builds.json apex.pr158), ts3wrap.exe.pr158 sha256 c795820542a9840b39b32872d7dd1709024394f30bde2357e3f88c1d6a1f8a67 (ts3wrap.pr158)) and game-copy/atlas-main13/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b; the atlas-main5 dll is protocol 2 and the 0.3.15 gate stands down on it) into game-copy/apex-oop-test; (2) check the copies: `node tools/builds.ts check game-copy/apex-oop-test/ApexRadiance.asi --expect apex.pr158`, the same with ts3wrap.exe --expect ts3wrap.pr158, and sha256sum of atlas-oop.dll; stop on any difference; (3) `node tools/turbo-compat.ts state <dir> apex-oop-atlas`, this queue, then `collect <dir> apex-oop-atlas` (restore with the whole-Bin sha256 compare), as chain-resread-1120.sh does for apex-oop. The restart host and the plugin list come from apexToml (put back after the job). The queue key extraAsi comes with feature/atlas-p0-load-1126, which this branch is based on. Dry-run verified 2026-11-26. 2026-11-26: jobs 2-3 are Atlas docs/039 T4 (physics tree rebuild at the gate, was Atlas main 8c298b3 in game-copy/atlas-main4); 2026-11-26 every job repinned to game-copy/atlas-main5 (Atlas main d0be788, 0.3.10: physics rebuild plus the internal-call fix, boundless-atlas docs/031 §12). 2026-11-27: every job repinned to Atlas main 0.3.15 (boundless-atlas main 212e136, game-copy/atlas-main13/atlas.asi sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919, mod set game-copy/mod-sets/atlas-main13); new logRequire 'atlas:icalls ready 3'; the repros wait for the settled script half (AtlasNative.Groups log, ready 3, waiting 0) before their first Atlas step. 0.3.15 read-backs (version line, rebase 6 / rebase-4, freeze native 3 and script 0.2.1-fz2, oop client 3 protocol 4, plugin 3) are inferred from the 212e136 source, not seen in a log yet.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": {
+      "match": [
+        "p1 self-check: PASS (28 checks, 0 failed), page format version 1, header 64 bytes"
+      ],
+      "noMatch": [
+        "p1 self-check: FAIL (28 checks, 1 failed), page format version 1, header 64 bytes",
+        "p1 self-check: FAIL crc-32 vector"
+      ]
+    },
+    "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": {
+      "match": [
+        "p1: RESULT PASS inspect lots 92 pageable 31 auto 0x00000000004F3A21"
+      ],
+      "noMatch": [
+        "p1: RESULT PASS inspect lots 92 pageable 0 auto 0x0000000000000000",
+        "p1: RESULT FAIL native inspect 2, inspect lots 92 pageable 31 auto 0x00000000004F3A21",
+        "p1: RESULT REFUSED native probe off"
+      ]
+    },
+    "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS out lot 0x00000000004F3A21 objects 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL page-out write -21 (lot untouched)",
+        "p1: RESULT REFUSED lot 0x00000000004F3A21: a Sim is on the lot",
+        "p1: RESULT PASS out lot 0x00000000004F3A21 objects 0"
+      ]
+    },
+    "^p1: RESULT PASS drop [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS drop 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL drop left 3 objects (page-in will report the id clashes)",
+        "p1: RESULT REFUSED no written page (stage 0)"
+      ]
+    },
+    "^p1: RESULT PASS in$": {
+      "match": [
+        "p1: RESULT PASS in"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL page-in -21",
+        "p1: RESULT FAIL in unresolved tokens 4",
+        "p1: RESULT PASS inspect lots 92 pageable 31 auto 0x00000000004F3A21"
+      ]
+    },
+    "^p1: RESULT PASS verify objects [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS verify objects 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL verify census differs (3 lines)",
+        "p1: RESULT FAIL verify dangling 2",
+        "p1: RESULT REFUSED no paged-in lot in this session (stage 0)"
+      ]
+    },
+    "^p1: RESULT PASS clean \\d+ files$": {
+      "match": [
+        "p1: RESULT PASS clean 3 files"
+      ],
+      "noMatch": [
+        "p1: RESULT REFUSED a page is out (stage 2): its file may be the only copy of the lot's objects",
+        "p1 clean: 3 files removed under the page root"
+      ]
+    },
+    "^paged lots: probe on \\(Probe=1, FarM=250\\), \\d+ internal calls registered, ": {
+      "match": [
+        "paged lots: probe on (Probe=1, FarM=250), 17 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ],
+      "noMatch": [
+        "paged lots: off (Probe=0)",
+        "paged lots: SKIP not TS3W.exe Steam 1.67 (link stamp 0xB91766EA, image size 0x00012000); EA 1.69 is not mapped"
+      ]
+    },
+    "^physics world \\[0x011CF490\\] = 0x[0-9A-F]{8} at DllMain$": {
+      "match": [
+        "physics world [0x011CF490] = 0x00000000 at DllMain"
+      ],
+      "noMatch": [
+        "patches: release of 2 installs; physics world [0x011CF490] = 0x00000000 at apply"
+      ]
+    },
+    "^patches: held until the region store gate passes \\(\\[PagedLots\\] Oop=1\\)$": {
+      "match": [
+        "patches: held until the region store gate passes ([PagedLots] Oop=1)"
+      ],
+      "noMatch": [
+        "patches: release of 2 installs; physics world [0x011CF490] = 0x00000000 at apply"
+      ]
+    },
+    "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 4, page format 1, page core 0x[0-9A-F]{8}, link stamp 0x52DEC247$": {
+      "match": [
+        "atlas:oop start: client 3, Oop=1 OopVerbose=0 (read back), protocol 4, page format 1, page core 0x1A2B3C4D, link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas:oop start: client 1, Oop=1 OopVerbose=0 (read back), protocol 2, page format 1, page core 0x84FF2779, link stamp 0x52DEC247",
+        "atlas:oop start: client 3, Oop=1 OopVerbose=0 (read back), protocol 3, page format 1, page core 0x1A2B3C4D, link stamp 0x52DEC247",
+        "atlas:oop start: client 1, Oop=1 OopVerbose=0 (read back), protocol 1, page format 1, page core 0xDCAFB29C, link stamp 0x52DEC247",
+        "atlas:oop start: client 1, Oop=0 OopVerbose=0 (read back), protocol 2, page format 1, page core 0x84FF2779, link stamp 0x52DEC247"
+      ]
+    },
+    "^atlas:oop script calls registered: OopGate, OopState, OopSaveOk, OopStatus, OopWorldQuit$": {
+      "match": [
+        "atlas:oop script calls registered: OopGate, OopState, OopSaveOk, OopStatus, OopWorldQuit"
+      ],
+      "noMatch": [
+        "atlas:oop script calls registered: OopGate, OopState, OopSaveOk, OopStatus",
+        "atlas:oop script calls not registered: no script host in 600 s"
+      ]
+    },
+    "^atlas:oop-host atlas-oop plugin 3 loaded": {
+      "match": [
+        "atlas:oop-host atlas-oop plugin 3 loaded: protocol 4, page format 1, page core 0x1A2B3C4D, game pid 1234, payload 65536"
+      ],
+      "noMatch": [
+        "atlas:oop-host atlas-oop plugin 1 loaded, host abi 0x00010000, game pid 1234",
+        "atlas:oop-host atlas-oop plugin 2 loaded: protocol 3, page format 1, page core 0x1A2B3C4D, game pid 1234, payload 65536",
+        "atlas:oop D3 pass: plugin ATLS service 16, version 1, ABI 0x00010000"
+      ]
+    },
+    "^atlas:oop D[1-7] pass": {
+      "match": [
+        "atlas:oop D1 pass: ApexRadiance.asi, plugin ABI 0x00010000",
+        "atlas:oop D4 pass: Hello match, protocol 2, page format 1, page core 0x84FF2779, plugin 1",
+        "atlas:oop D6 pass: script half reports the save bracket live (gate oop, order 30)"
+      ],
+      "noMatch": [
+        "atlas:oop [Atlas] stood down: D6: the script half did not report ts3fixes in 600 s",
+        "atlas:oop armed: service 16, D1-D8 pass on the sim thread (world load start 1, world quits 0; routing world 0x0A3F2C10, world manager 0x00000000); patches now"
+      ]
+    },
+    "^atlas:oop verdict: D1-D7 pass, service \\d+; patches and paging wait for the world load start \\(sim thread\\)$": {
+      "match": [
+        "atlas:oop verdict: D1-D7 pass, service 16; patches and paging wait for the world load start (sim thread)"
+      ],
+      "noMatch": [
+        "atlas:oop armed: service 16, D1-D8 pass on the sim thread (world load start 1, world quits 0; routing world 0x0A3F2C10, world manager 0x00000000); patches now"
+      ]
+    },
+    "^atlas:oop script D6 ok at (script|world) load$": {
+      "match": [
+        "atlas:oop script D6 ok at world load",
+        "atlas:oop script D6 ok at script load"
+      ],
+      "noMatch": [
+        "atlas:oop script D6 code 2 at world load"
+      ]
+    },
+    "^atlas:oop save gate oop order 30 live$": {
+      "match": [
+        "atlas:oop save gate oop order 30 live"
+      ],
+      "noMatch": [
+        "atlas:oop save gate oop order 30 NOT live: SaveGame not found, SaveTravel ok",
+        "atlas:oop save gate added to ts3fixes"
+      ]
+    },
+    "^atlas:save bracket SaveGame ok, SaveTravel ok$": {
+      "match": [
+        "atlas:save bracket SaveGame ok, SaveTravel ok"
+      ],
+      "noMatch": [
+        "atlas:save bracket SaveGame refused: x, SaveTravel ok"
+      ]
+    },
+    "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=3 seed=\\d+ born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built ": {
+      "match": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=4 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.10 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 built Nov 26 2026 21:15:34, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.14 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 13:10:00, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": {
+      "match": [
+        "atlas:oop armed: service 16, D1-D8 pass on the sim thread (world load start 1, world quits 0; routing world 0x0A3F2C10, world manager 0x00000000); patches now"
+      ],
+      "noMatch": [
+        "atlas:oop armed: service 16, D1-D8 pass on the sim thread (routing world 0, world manager 0); patches now",
+        "atlas:oop armed: service 16, D1-D7 pass; world-size patches now",
+        "atlas:oop [Atlas] stood down: D8: a world was loaded before this one (world load start 2, world quits 1; routing world 0x0A3F2C10, world manager 0x12345678)"
+      ]
+    },
+    "^patches: release of \\d+ installs; physics world \\[0x011CF490\\] = 0x[0-9A-F]{8} at apply$": {
+      "match": [
+        "patches: release of 6 installs; physics world [0x011CF490] = 0x00000000 at apply",
+        "patches: release of 5 installs; physics world [0x011CF490] = 0x1A2B3C40 at apply"
+      ],
+      "noMatch": [
+        "physics world [0x011CF490] = 0x00000000 at DllMain",
+        "patches: none of 6 installs will run: the region store gate stood down"
+      ]
+    },
+    "^physics root: off \\(PhysicsRootM=0\\)": {
+      "match": [
+        "physics root: off (PhysicsRootM=0), 0x00FEFBCC holds 4096"
+      ],
+      "noMatch": [
+        "physics root: SKIP tree already built (physics world 0x1A2B3C40); PhysicsRootM=8192 not written"
+      ]
+    },
+    "^patches: (physics-root|w8192) not installed \\(released\\)$": {
+      "match": [
+        "patches: physics-root not installed (released)",
+        "patches: w8192 not installed (released)"
+      ],
+      "noMatch": [
+        "patches: w8192 installed (released)",
+        "patches: physics-root not installed (the region store gate stood down)"
+      ]
+    },
+    "^atlas:oop summary \\(status\\): state armed, ": {
+      "match": [
+        "atlas:oop summary (status): state armed, calls 8, errors 0, busy 0, bytes out 1 in 2, worst call 304 us; verifies 1 good 1 bad 0"
+      ],
+      "noMatch": [
+        "atlas:oop summary (host lost): state host lost, calls 9",
+        "atlas:oop summary (status): state stood down, calls 0"
+      ]
+    },
+    "stood down|host lost|fault|call \\w+ \\(service \\d+ op \\d+\\) failed|NOT live|verify bad|DROPPED|gate-refused|bracket-error": {
+      "match": [
+        "atlas:oop [Atlas] stood down: D2: restart host not ready",
+        "atlas:oop host lost: ended during op drain",
+        "atlas:oop call verify (service 16 op 5) failed: result 2",
+        "atlas:oop verify bad: lot 0x1 gen 1: length or crc",
+        "atlas:oop-host fault in op 3 (out of memory?)",
+        "patches: w8192 DROPPED, registry full (16)",
+        "atlas:save gate-refused gate=oop kind=save code=4281420 (no handler, no EA save; EA's save-failed dialog)",
+        "atlas:oop save gate oop order 30 NOT live: SaveGame x"
+      ],
+      "noMatch": [
+        "atlas:oop save gate oop order 30 live",
+        "atlas:oop armed: service 16, D1-D8 pass on the sim thread (world load start 1, world quits 0; routing world 0x0A3F2C10, world manager 0x00000000); patches now",
+        "atlas:oop summary (status): state armed, calls 8, errors 0",
+        "atlas:oop drop refused: lot 0x00000000000B0001 gen 1: verify pending"
+      ]
+    },
+    "^physics rebuild: root 4096 -> 8192 on (main|sim \\(main frame frozen, taken as waiting on the sim thread\\)) in \\d+ ms: shapes [1-9]\\d*, in the tree (\\d+) before, \\2 after; inserted \\d+, rejected 0, past 4096 m re-inserted 0; drops (\\d+) -> \\3, levels 11$": {
+      "match": [
+        "physics rebuild: root 4096 -> 8192 on main in 3 ms: shapes 812, in the tree 812 before, 812 after; inserted 812, rejected 0, past 4096 m re-inserted 0; drops 0 -> 0, levels 11",
+        "physics rebuild: root 4096 -> 8192 on sim (main frame frozen, taken as waiting on the sim thread) in 3 ms: shapes 812, in the tree 812 before, 812 after; inserted 812, rejected 0, past 4096 m re-inserted 0; drops 0 -> 0, levels 11"
+      ],
+      "noMatch": [
+        "physics rebuild: root 4096 -> 8192 on main in 3 ms: shapes 812, in the tree 812 before, 811 after; inserted 812, rejected 0, past 4096 m re-inserted 0; drops 0 -> 0, levels 11",
+        "physics rebuild: root 4096 -> 8192 on main in 3 ms: shapes 812, in the tree 812 before, 812 after; inserted 812, rejected 0, past 4096 m re-inserted 0; drops 0 -> 1, levels 11",
+        "physics rebuild: root 4096 -> 8192 on main in 3 ms: shapes 812, in the tree 812 before, 812 after; inserted 812, rejected 2, past 4096 m re-inserted 0; drops 0 -> 0, levels 11",
+        "physics rebuild: root 4096 -> 8192 on main in 3 ms: shapes 812, in the tree 812 before, 812 after; inserted 812, rejected 0, past 4096 m re-inserted 3; drops 0 -> 0, levels 11",
+        "physics rebuild: REFUSED the route worker is not idle"
+      ]
+    },
+    "^physics rebuild: root 4096 -> 8192 on (main|sim \\(main frame frozen, taken as waiting on the sim thread\\)) in \\d+ ms: shapes [1-9]\\d*, in the tree \\d+ before, \\d+ after; inserted \\d+, rejected 0, past 4096 m re-inserted \\d+; drops (\\d+) -> \\2, levels 11$": {
+      "match": [
+        "physics rebuild: root 4096 -> 8192 on main in 2 ms: shapes 140, in the tree 120 before, 140 after; inserted 140, rejected 0, past 4096 m re-inserted 20; drops 20 -> 20, levels 11"
+      ],
+      "noMatch": [
+        "physics rebuild: root 4096 -> 8192 on main in 2 ms: shapes 140, in the tree 120 before, 140 after; inserted 140, rejected 0, past 4096 m re-inserted 20; drops 20 -> 21, levels 11",
+        "physics rebuild: root 4096 -> 8192 on main in 2 ms: shapes 140, in the tree 120 before, 140 after; inserted 140, rejected 1, past 4096 m re-inserted 20; drops 20 -> 20, levels 11",
+        "physics rebuild: root 4096 -> 8192 on main in 2 ms: shapes 140, in the tree 120 before, 140 after; inserted 140, rejected 0, past 4096 m re-inserted 20; drops 20 -> 20, levels 22",
+        "physics rebuild: ROLLBACK 1 shapes left the tree or levels 11 != 11: old root 4096 back, 120 of 120 shapes in again: rollback verified"
+      ]
+    },
+    "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": {
+      "match": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, [World8192] PhysicsRoot=1"
+      ],
+      "noMatch": [
+        "physics root: SKIP tree already built (physics world 0x1A2B3C40); PhysicsRootM=8192 not written (rebuild refused)",
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x45800000 (READ-BACK DIFFERS), [World8192] PhysicsRoot=1"
+      ]
+    },
+    "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=1 rings=\\d+ fz=\\d+ rebase=\\d+ oop=3 seed=\\d+ born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built ": {
+      "match": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=2 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.10 p1=0 loadA=0 w8192=1 rings=0 fz=0 rebase=0 oop=1 seed=0 built Nov 26 2026 20:10:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.14 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 13:10:00, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^w8192 Routing: 7 of 7 sites installed$": {
+      "match": [
+        "w8192 Routing: 7 of 7 sites installed"
+      ],
+      "noMatch": [
+        "w8192 Routing: 6 of 7 sites installed",
+        "w8192 Routing: 0 of 7 sites installed (not installed)",
+        "w8192 Routing: off (Routing=0)"
+      ]
+    },
+    "^w8192 PaintIndex: 7 of 7 sites installed$": {
+      "match": [
+        "w8192 PaintIndex: 7 of 7 sites installed"
+      ],
+      "noMatch": [
+        "w8192 PaintIndex: 0 of 7 sites installed (not installed)",
+        "w8192 PaintIndex: 3 of 7 sites installed (PARTIAL)",
+        "w8192 PaintIndex: off (PaintIndex=0)"
+      ]
+    },
+    "^OK   ea fix: PortalFlagRefs ": {
+      "match": [
+        "OK   ea fix: PortalFlagRefs (docs/67 §30.5): lot portal blocked-flag writes through pairs outside R are skipped (0x0082A1CF, 0x0082B6B1)"
+      ],
+      "noMatch": [
+        "SKIP ea fix: PortalFlagRefs: bytes at 0x0082A1CF / 0x0082B6B1 differ (another mod or a probe build owns them): not installed",
+        "OK   ea fix: WorldAStarRefs (docs/67 §30): world A* neighbours outside the routing graph are skipped (0x00676F2A)"
+      ]
+    },
+    "stood down|host lost|fault|FAULT|call \\w+ \\(service \\d+ op \\d+\\) failed|NOT live|gate-refused|bracket-error|ROLLBACK|REFUSED|SKIP tree already built|READ-BACK DIFFERS|self-check: FAIL": {
+      "match": [
+        "physics rebuild: REFUSED the route worker is not idle",
+        "physics rebuild: ROLLBACK 1 shapes left the tree or levels 11 != 11: old root 4096 back, 8 of 8 shapes in again: rollback verified",
+        "physics root: SKIP tree already built (physics world 0x1A2B3C40); PhysicsRootM=8192 not written (rebuild refused)",
+        "physics rebuild: FAULT 0xC0000005 during the rebuild on main: the physics tree may be damaged; do not save",
+        "atlas:oop [Atlas] stood down: D8: a world was loaded before this one (world load start 2, world quits 1; routing world 0x0A3F2C10, world manager 0x12345678)"
+      ],
+      "noMatch": [
+        "physics rebuild: root 4096 -> 8192 on main in 3 ms: shapes 812, in the tree 812 before, 812 after; inserted 812, rejected 0, past 4096 m re-inserted 0; drops 0 -> 0, levels 11",
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, [World8192] PhysicsRoot=1"
+      ]
+    },
+    "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "w8192 self-check: PASS (210 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "w8192 self-check: FAIL (163 checks, 2 failed)",
+        "w8192: SKIP self-check failed; Routing=1 and PaintIndex=1 not installed",
+        "p1 self-check: PASS (28 checks, 0 failed), page format version 1, header 64 bytes"
+      ]
+    },
+    "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": {
+      "match": [
+        "scene quadtree: root 8192 x 1024 x 8192 m, depth 8"
+      ],
+      "noMatch": [
+        "scene quadtree: root 2048 x 1024 x 2048 m, depth 6",
+        "scene quadtree: SKIP not the expected game image",
+        "scene quadtree: root 8192 x 1024 x 4096 m, depth 8"
+      ]
+    },
+    "^atlas:icalls \\S+ SKIP ": {
+      "match": [
+        "atlas:icalls p1 SKIP no script domain in 600 s (host 0x1234ABCD): 24 internal calls not registered"
+      ],
+      "noMatch": [
+        "atlas:icalls p1 waiting 10 s: host [0x011EE514] = 0x1234ABCD, domain [host+0xACC] = 0",
+        "atlas:icalls p1: 24 registered 3 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set"
+      ]
+    },
+    "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
+      "match": [
+        "atlas:icalls ready 3: groups 0x000A"
+      ],
+      "noMatch": [
+        "atlas:icalls ready 1: groups 0x000A",
+        "atlas:icalls ready 3: groups 0x0A",
+        "atlas:icalls oop: 5 registered 12 ms after start of wait (domain 0x1A2B3C4D), group 3 flag set"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-oop-probe-sv",
+      "note": "[est 20 min] boundless-atlas docs/025 A4 first game run: Apex restart host with the Atlas store plugin, [PagedLots] Oop=1. Pass: the worker reaches the D1-D7 verdict, the sim thread arms at the first world load start of the process (D8, 0.3.9: no world start or quit before; the routing world is set from app init, Atlas docs/039 §1.2) and releases the held patches there (all off in this job: the order is tested, and the physics world line at DllMain and at apply settles when the physics tree is built), the script half registers its SaveBracket gate (D6, both swaps live), one P1 cycle on a small far lot passes with the drop waiting for the x64 verify, the status summary says armed, the Save As runs, no stand-down, host loss, fault, failed call or bad verify. A FAIL with a stood-down line: its D number names the missing piece (atlas.log).",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b asi + ini; ts3fixes of master set m1126b, unchanged (the Atlas save gate is its own SaveBracket gate oop, order 30); extra module boundless-atlas atlas.asi of Atlas main d0be788 (0.3.9: oop and seed merged, per-lot store cache, D8 fix) (game-copy/atlas-main5/atlas.asi, the 0.3.10 pin) with its script half as mod set game-copy/mod-sets/atlas-main5. Bin state apex-oop-atlas: ApexRadiance.asi.pr158 sha256 8a290e52b2d708cbe75dfeaba75571fe5870d7e98bd3a728059dbbda3fc15b4d (builds.json apex.pr158), ts3wrap.exe.pr158 sha256 c795820542a9840b39b32872d7dd1709024394f30bde2357e3f88c1d6a1f8a67 (ts3wrap.pr158) (chain, see the queue note). Region store plugin: game-copy/atlas-main13/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main5 one (protocol 2: the gate stands down on the version mismatch).",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "apexToml": {
+        "ui.restart_host": true,
+        "oop.plugins": "[\"atlas-oop.dll\"]"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "PagedLots.FarM": 250,
+          "PagedLots.Oop": 1,
+          "PagedLots.OopVerbose": 0
+        },
+        "logRequire": {
+          "^physics world \\[0x011CF490\\] = 0x[0-9A-F]{8} at DllMain$": 1,
+          "^patches: held until the region store gate passes \\(\\[PagedLots\\] Oop=1\\)$": 1,
+          "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 4, page format 1, page core 0x[0-9A-F]{8}, link stamp 0x52DEC247$": 1,
+          "^atlas:oop script calls registered: OopGate, OopState, OopSaveOk, OopStatus, OopWorldQuit$": 1,
+          "^atlas:oop-host atlas-oop plugin 3 loaded": 1,
+          "^atlas:oop D[1-7] pass": 7,
+          "^atlas:oop verdict: D1-D7 pass, service \\d+; patches and paging wait for the world load start \\(sim thread\\)$": 1,
+          "^atlas:oop script D6 ok at (script|world) load$": 1,
+          "^atlas:oop save gate oop order 30 live$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=3 seed=\\d+ born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built ": 1,
+          "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
+          "^patches: release of \\d+ installs; physics world \\[0x011CF490\\] = 0x[0-9A-F]{8} at apply$": 1,
+          "^physics root: off \\(PhysicsRootM=0\\)": 1,
+          "^patches: (physics-root|w8192) not installed \\(released\\)$": 2,
+          "^atlas:oop summary \\(status\\): state armed, ": 1,
+          "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+          "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": 1,
+          "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 1,
+          "^p1: RESULT PASS drop [1-9]\\d*$": 1,
+          "^p1: RESULT PASS in$": 1,
+          "^p1: RESULT PASS verify objects [1-9]\\d*$": 1,
+          "^p1: RESULT PASS clean \\d+ files$": 1,
+          "^paged lots: probe on \\(Probe=1, FarM=250\\), \\d+ internal calls registered, ": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "stood down|host lost|fault|call \\w+ \\(service \\d+ op \\d+\\) failed|NOT live|verify bad|DROPPED|gate-refused|bracket-error": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-oop-probe-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      }
+    },
+    {
+      "id": "atlas-oop-t4-rebuild-2048",
+      "note": "[est 10 min] Atlas docs/039 T4 part 1 (G-442, G-447): [PagedLots] Oop=1 holds the patches until the region store gate at the world load start; the physics tree is built by then, so [WorldSize] PhysicsRebuild=1 rebuilds it with the 8192 m root (EA reset 0x681A70 + insert 0x6818F0 per realm shape, body as a main-thread remote call). Thin 2048 m world (known to load, atlas-8192-install-2048), new game to live mode, nothing played or saved. Pass: armed, the rebuild line with every shape in the tree before also in it after, rejected 0, nothing past 4096 m, drop count unchanged, 11 levels, then the 0xFEFBCC write read back 8192, in_world, 2 min alive, no rollback, refusal, fault or script error. The w8192 switches are on so the version line and the release cover them; R7 stands down to ts3native PortalFlagRefs=1 as in atlas-8192-install-2048. A REFUSED line names the check that failed. Household rule: no household is active; nothing here changes a Sim.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b asi + ini; ts3fixes of master set m1126b, unchanged; extra module boundless-atlas atlas.asi of Atlas main d0be788 (0.3.10 with the physics tree rebuild 05abc64 and the internal-call fix, [WorldSize] PhysicsRebuild; start line unchanged, so the build is told by sha256) (game-copy/atlas-main5/atlas.asi, sha256 fae05359661efbead58b2cf9930cba7222d9e6390889db9ba09fc4beba196e0d) with its script half as mod set game-copy/mod-sets/atlas-main5 (atlas.package sha256 ba9227944ae486883304f8e709fcb8cd826d665621fc9f494d3580e4886b55ee, d0be788); Bin state apex-oop-atlas: ApexRadiance.asi.pr158 sha256 8a290e52b2d708cbe75dfeaba75571fe5870d7e98bd3a728059dbbda3fc15b4d (builds.json apex.pr158), ts3wrap.exe.pr158 sha256 c795820542a9840b39b32872d7dd1709024394f30bde2357e3f88c1d6a1f8a67 (ts3wrap.pr158) (chain, see the queue note). Region store plugin: game-copy/atlas-main13/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main5 one (protocol 2: the gate stands down on the version mismatch).",
+      "save": "menu",
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "apexToml": {
+        "ui.restart_host": true,
+        "oop.plugins": "[\"atlas-oop.dll\"]"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0,
+          "WorldSize.PhysicsRebuild": 1,
+          "PagedLots.Oop": 1,
+          "PagedLots.OopVerbose": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=1 rings=\\d+ fz=\\d+ rebase=\\d+ oop=3 seed=\\d+ born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built ": 1,
+          "^patches: held until the region store gate passes \\(\\[PagedLots\\] Oop=1\\)$": 1,
+          "^atlas:oop D[1-7] pass": 7,
+          "^atlas:oop verdict: D1-D7 pass, service \\d+; patches and paging wait for the world load start \\(sim thread\\)$": 1,
+          "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
+          "^patches: release of \\d+ installs; physics world \\[0x011CF490\\] = 0x[0-9A-F]{8} at apply$": 1,
+          "^physics rebuild: root 4096 -> 8192 on (main|sim \\(main frame frozen, taken as waiting on the sim thread\\)) in \\d+ ms: shapes [1-9]\\d*, in the tree (\\d+) before, \\2 after; inserted \\d+, rejected 0, past 4096 m re-inserted 0; drops (\\d+) -> \\3, levels 11$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": 1,
+          "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "stood down|host lost|fault|FAULT|call \\w+ \\(service \\d+ op \\d+\\) failed|NOT live|gate-refused|bracket-error|ROLLBACK|REFUSED|SKIP tree already built|READ-BACK DIFFERS|self-check: FAIL": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-p0-load-2048"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      }
+    },
+    {
+      "id": "atlas-oop-t4-rebuild-strip-8192",
+      "note": "[est 15 min] Atlas docs/039 T4 part 2: the same switches on the strip world AtlasStrip_8192.world (needs it installed, see repro atlas-8192-load-strip-8192), sims3-modernization PortalFlagRefs=0 so Atlas owns R7, SceneQuadTree 8192. Pass: armed, the rebuild line (rejected 0, drops unchanged, 11 levels; shapes past 4096 m re-inserted is logged and may be 0 on this empty world), the 0xFEFBCC write, the w8192 install lines, in_world, camera poses over the four lots and two far poses past 4096 m, and a floor pick at window point (640, 360) under a camera at (5920, 5920) that hits floor past 4096 m (agent pick = World.PickFloorAtWindowPoint). NOT covered: a physics range query past 4096 m (no agent command), and a reader-entry counter on 0x681820 / 0x681E00 during the rebuild (not built; G-447 stays inferred unless a fault shows). New: the w8192 patches are released at the gate here, not at DllMain: a missing paint or routing install line is a finding (gate too late for them), not a harness bug.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b asi + ini; ts3fixes of master set m1126b, unchanged; extra module boundless-atlas atlas.asi of Atlas main d0be788 (0.3.10 with the physics tree rebuild 05abc64 and the internal-call fix, [WorldSize] PhysicsRebuild; start line unchanged, so the build is told by sha256) (game-copy/atlas-main5/atlas.asi, sha256 fae05359661efbead58b2cf9930cba7222d9e6390889db9ba09fc4beba196e0d) with its script half as mod set game-copy/mod-sets/atlas-main5 (atlas.package sha256 ba9227944ae486883304f8e709fcb8cd826d665621fc9f494d3580e4886b55ee, d0be788); Bin state apex-oop-atlas: ApexRadiance.asi.pr158 sha256 8a290e52b2d708cbe75dfeaba75571fe5870d7e98bd3a728059dbbda3fc15b4d (builds.json apex.pr158), ts3wrap.exe.pr158 sha256 c795820542a9840b39b32872d7dd1709024394f30bde2357e3f88c1d6a1f8a67 (ts3wrap.pr158) (chain, see the queue note). Region store plugin: game-copy/atlas-main13/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main5 one (protocol 2: the gate stands down on the version mismatch).",
+      "save": "menu",
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "apexToml": {
+        "ui.restart_host": true,
+        "oop.plugins": "[\"atlas-oop.dll\"]"
+      },
+      "ini": {
+        "EaCrashFixes.PortalFlagRefs": 0
+      },
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0,
+          "WorldSize.PhysicsRebuild": 1,
+          "PagedLots.Oop": 1,
+          "PagedLots.OopVerbose": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=1 rings=\\d+ fz=\\d+ rebase=\\d+ oop=3 seed=\\d+ born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built ": 1,
+          "^patches: held until the region store gate passes \\(\\[PagedLots\\] Oop=1\\)$": 1,
+          "^atlas:oop D[1-7] pass": 7,
+          "^atlas:oop verdict: D1-D7 pass, service \\d+; patches and paging wait for the world load start \\(sim thread\\)$": 1,
+          "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
+          "^patches: release of \\d+ installs; physics world \\[0x011CF490\\] = 0x[0-9A-F]{8} at apply$": 1,
+          "^physics rebuild: root 4096 -> 8192 on (main|sim \\(main frame frozen, taken as waiting on the sim thread\\)) in \\d+ ms: shapes [1-9]\\d*, in the tree \\d+ before, \\d+ after; inserted \\d+, rejected 0, past 4096 m re-inserted \\d+; drops (\\d+) -> \\2, levels 11$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": 1,
+          "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^w8192 Routing: 7 of 7 sites installed$": 1,
+          "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
+          "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "stood down|host lost|fault|FAULT|call \\w+ \\(service \\d+ op \\d+\\) failed|NOT live|gate-refused|bracket-error|ROLLBACK|REFUSED|SKIP tree already built|READ-BACK DIFFERS|self-check: FAIL": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-oop-t4-strip-pick-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: PortalFlagRefs ": 0
+      }
+    }
+  ]
+}

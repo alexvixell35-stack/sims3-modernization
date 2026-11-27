@@ -7,7 +7,12 @@
 //   node tools/harness/night-plan.ts --start <plan.json>        preflight + write + nohup bash ... & disown (detached)
 //   node tools/harness/night-plan.ts --watch <night> [--timeout 3600]   exits 0 on a new FAIL/STOP/DONE wake line (exit 2 = timeout: re-arm)
 //   node tools/harness/night-plan.ts --triage --night <n> --name <q> --out <file> --est <min> --minutes <m> --rc <rc>   (chain only)
+//   node tools/harness/night-plan.ts --lock <night> --pid <pid> | --unlock <night>   (chain only: one chain at a time)
 //   node tools/harness/night-plan.ts --self-check
+//
+// Chain lock (2026-11-27): two chains started with --start could both pass nogame / wait-job-end in the gap between one
+// chain's queues and run together. Each chain takes probe-out/queue/night-chain.lock (O_EXCL create) before its checks and
+// holds it to its EXIT trap; a second chain waits for it. A lock whose owner pid is dead is taken over.
 //
 // Plan file (JSON): { "night": "night-1125", "cutoff": "07:45", "rgbOffUntil": "09:00",
 //   "runs": [ { "worktree": "agent-x" | ".", "queue": "lc7-desc-correct-1124", "est": 30 }, { "branch": "bugfix/y", "queue": "..." } ] }
@@ -22,7 +27,8 @@
 // logRequire regex has regexCases that pass; notes that say a job FAILs by design need expectFail; the disk gate; the total est
 // fits before the cutoff; the generated script has no rm/del/elevation and feeds every child /dev/null.
 import { execFileSync, spawn } from 'node:child_process';
-import { appendFileSync, existsSync, lstatSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
@@ -35,6 +41,7 @@ const QOUT = join(M, 'probe-out', 'queue');
 const { values } = parseArgs({ allowPositionals: true, options: {
   check: { type: 'string' }, write: { type: 'string' }, start: { type: 'string' }, watch: { type: 'string' }, timeout: { type: 'string', default: '3600' },
   triage: { type: 'boolean' }, night: { type: 'string' }, name: { type: 'string' }, out: { type: 'string' }, est: { type: 'string' }, minutes: { type: 'string' }, rc: { type: 'string' }, 'rerun-ids': { type: 'string' },
+  lock: { type: 'string' }, unlock: { type: 'string' }, pid: { type: 'string' },
   'self-check': { type: 'boolean' } } });
 
 type Run = { worktree?: string; branch?: string; queue: string; est?: number };
@@ -90,6 +97,25 @@ export function scriptProblems(text: string): string[] {
     if (/node[^|;]*tools\/harness\/queue\.ts/.test(l) && !/<\s*\/dev\/null/.test(l)) out.push(`line ${i + 1}: queue.ts without < /dev/null`);
   }
   return out;
+}
+// chain lock: one O_EXCL file per machine; owner = { night, pid } (Windows pid of the chain's bash on Windows)
+export const LOCK = join(QOUT, 'night-chain.lock');
+export const pidAlive = (pid: number) => { try { process.kill(pid, 0); return true; } catch (e: any) { return e.code === 'EPERM'; } };
+export function tryLock(file: string, night: string, pid: number, alive = pidAlive): { ok: boolean; owner?: { night: string; pid: number } } {
+  const me = JSON.stringify({ night, pid, at: new Date().toISOString() });
+  for (let i = 0; i < 2; i++) {
+    try { writeFileSync(file, me, { flag: 'wx' }); return { ok: true }; } catch (e: any) { if (e.code !== 'EEXIST') throw e; }
+    let owner: { night: string; pid: number } | undefined;
+    try { owner = JSON.parse(readFileSync(file, 'utf8')); } catch { /* half-written or unreadable: treat as stale */ }
+    if (owner && owner.pid === pid) return { ok: true };
+    if (owner && Number.isInteger(owner.pid) && alive(owner.pid)) return { ok: false, owner };
+    try { unlinkSync(file); } catch { /* another chain took it over first: retry the create */ }
+  }
+  return { ok: false };
+}
+export function unlock(file: string, night: string): boolean {
+  try { if (JSON.parse(readFileSync(file, 'utf8')).night !== night) return false; } catch { return false; }
+  unlinkSync(file); return true;
 }
 // job ids of FAIL / VOID / CRASH rows in queue.ts output ("HH:MM:SS queue: <id>: FAIL in 3 min ...")
 export const failedJobs = (out: string): string[] => [...new Set([...out.matchAll(/^\d\d:\d\d:\d\d queue: ([\w.-]+): (?:FAIL|VOID|CRASH) in /gm)].map(m => m[1]))];
@@ -228,14 +254,18 @@ nogame() { while tasklist 2>/dev/null </dev/null | grep -qi TS3W.exe; do sleep 2
 ${rgbUntil ? `RGB="${posix(alienfx)}"
 ( while [ $(date +%s) -lt ${rgbUntil} ]; do "$RGB" lowlevel setall=0,0,0 setdim=0 </dev/null >/dev/null 2>&1; sleep 120; done ) &
 RGBPID=$!` : 'RGBPID='}
-mk "$N start; waiting for TS3W.exe to exit and the running job to end"
+NP="node --no-warnings tools/harness/night-plan.ts"
+WP=$(cat /proc/$$/winpid 2>/dev/null || echo $$)
+mk "$N start; waiting for the chain lock, TS3W.exe to exit and the running job to end"
+$NP --lock $N --pid $WP </dev/null >> $L 2>&1 || { mk "CHAIN STOP: chain lock failed"; wake "STOP chain lock"; exit 1; }
+trap '$NP --unlock $N </dev/null >/dev/null 2>&1' EXIT
 nogame; node --no-warnings tools/harness/hold.ts wait-job-end </dev/null >/dev/null 2>&1
 node --no-warnings tools/harness/cleanup.ts gate </dev/null >> $L 2>&1 || { mk "CHAIN STOP: disk gate"; wake "STOP disk gate"; exit 1; }
 [ "$(git rev-parse --abbrev-ref HEAD)" = master ] || { mk "CHAIN STOP: main checkout is not on master"; wake "STOP not on master"; exit 1; }
 [ -e "$D" ] && { mk "CHAIN STOP: $D already exists"; wake "STOP snapshot dir exists"; exit 1; }
 $TC snapshot $D > $O/$C-snapshot.out 2>&1 < /dev/null || { mk "CHAIN STOP: snapshot failed, Bin unchanged"; wake "STOP snapshot"; exit 1; }
 restore() { [ -n "$RGBPID" ] && kill $RGBPID 2>/dev/null; nogame; sleep 5; $TC restore $D > $O/$C-restore.out 2>&1 < /dev/null && mk "Bin restored" || mk "WARN: Bin restore failed";
-  mk "CHAIN END"; wake "DONE $N"; }
+  $NP --unlock $N </dev/null >/dev/null 2>&1; mk "CHAIN END"; wake "DONE $N"; }
 trap restore EXIT
 agentin() { # worktree agent tag: back up the worktree's build/ts3agent.package once, install the queue's agent
   local b=$1/build/ts3agent.package bak=$D/agent-$3.bak
@@ -339,6 +369,26 @@ function selfCheck() {
   const sh = chainScript({ night: 'night-test', cutoff: '07:45', rgbOffUntil: '09:00', runs: [] }, runs, now, 'C:\\x\\alienfx-cli.exe');
   assert.deepEqual(scriptProblems(sh), []);
   assert.match(sh, /RUNS=".*\|20\|40\|off"/); assert.match(sh, /setall=0,0,0 setdim=0/); assert.match(sh, /trap restore EXIT/); assert.match(sh, /--rerun-ids "\$xf"/);
+  // chain lock: taken before nogame / wait-job-end, released by the EXIT traps
+  assert.ok(sh.indexOf('$NP --lock $N') > 0 && sh.indexOf('$NP --lock $N') < sh.indexOf('\nnogame;'), 'lock before the nogame wait');
+  assert.match(sh, /restore\(\) \{[^}]*\$NP --unlock \$N/);
+  const td = mkdtempSync(join(tmpdir(), 'night-lock-')), lf = join(td, 'night-chain.lock'), live = new Set([101, 102]);
+  try {
+    const al = (p: number) => live.has(p);
+    assert.deepEqual(tryLock(lf, 'night-a', 101, al), { ok: true });
+    assert.deepEqual(tryLock(lf, 'night-a', 101, al), { ok: true }, 'own lock again');
+    const busy = tryLock(lf, 'night-b', 102, al);
+    assert.equal(busy.ok, false); assert.equal(busy.owner?.night, 'night-a', 'second live chain waits');
+    assert.equal(unlock(lf, 'night-b'), false, 'only the owner unlocks'); assert.ok(existsSync(lf));
+    assert.equal(unlock(lf, 'night-a'), true); assert.ok(!existsSync(lf));
+    assert.deepEqual(tryLock(lf, 'night-b', 102, al), { ok: true });
+    live.delete(102);
+    assert.deepEqual(tryLock(lf, 'night-c', 101, al), { ok: true }, 'dead owner: taken over');
+    assert.equal(JSON.parse(readFileSync(lf, 'utf8')).night, 'night-c');
+    writeFileSync(lf, '{half');
+    assert.deepEqual(tryLock(lf, 'night-d', 101, al), { ok: true }, 'unreadable lock: taken over');
+    assert.ok(pidAlive(process.pid));
+  } finally { rmSync(td, { recursive: true, force: true }); }
   try { execFileSync('bash', ['-n'], { input: sh, stdio: ['pipe', 'ignore', 'pipe'], timeout: 30000 }); } catch (e: any) { if (e.code !== 'ENOENT') assert.fail(`bash -n: ${e.stderr}`); }
   // triage: the night-all-1124 lines
   assert.deepEqual(failedJobs('18:42:44 queue: bp-cullrace-smoke: FAIL in 0 min | x\n18:44:48 queue: ip-c: PASS in 3 min\n21:12:13 queue: bp-l: CRASH in 11 min | y\n'), ['bp-cullrace-smoke', 'bp-l']);
@@ -362,6 +412,19 @@ function selfCheck() {
 // ---------------------------------------------------------------- main
 if (values['self-check']) { selfCheck(); process.exit(0); }
 if (values.triage) { triageCmd(); process.exit(0); }
+if (values.unlock) { console.log(unlock(LOCK, values.unlock) ? `chain lock of ${values.unlock} released` : `chain lock not held by ${values.unlock}`); process.exit(0); }
+if (values.lock) { // chain side: wait (no time limit, like nogame) until this chain holds the lock
+  const pid = Number(values.pid);
+  if (!Number.isInteger(pid) || pid <= 0) { console.error('--lock needs --pid <pid>'); process.exit(2); }
+  let said = '';
+  for (;;) {
+    const r = tryLock(LOCK, values.lock, pid);
+    if (r.ok) { console.log(`${new Date().toTimeString().slice(0, 5)} chain lock taken by ${values.lock} (pid ${pid})`); process.exit(0); }
+    const who = r.owner ? `${r.owner.night} (pid ${r.owner.pid})` : 'another chain';
+    if (who !== said) { console.log(`${new Date().toTimeString().slice(0, 5)} chain lock held by ${who}: waiting`); said = who; }
+    await new Promise(res => setTimeout(res, 20000));
+  }
+}
 if (values.watch) await watchCmd(values.watch);
 const pf = values.check ?? values.write ?? values.start;
 if (!pf) { console.error('usage: night-plan.ts --check|--write|--start <plan.json> | --watch <night> | --self-check'); process.exit(2); }
@@ -383,6 +446,7 @@ try { execFileSync('bash', ['-n', file], { stdio: ['ignore', 'ignore', 'pipe'], 
 console.log(`wrote ${file}`);
 if (values.start) {
   const log = join(QOUT, `${plan.night}.log`);
+  try { const o = JSON.parse(readFileSync(LOCK, 'utf8')); if (pidAlive(o.pid)) console.log(`note: chain ${o.night} (pid ${o.pid}) holds the chain lock: ${plan.night} waits for it to end`); } catch { /* no lock */ }
   // nohup + disown inside a detached bash, stdin /dev/null: the chain outlives this process and the session's shell
   spawn('bash', ['-c', `nohup bash '${posix(file)}' < /dev/null >> '${posix(log)}' 2>&1 & disown`], { detached: true, stdio: 'ignore' }).unref();
   console.log(`started detached; log ${log}\nwatch: node tools/harness/night-plan.ts --watch ${plan.night}   (run_in_background; restart after each wake)`);

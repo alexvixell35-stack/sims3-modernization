@@ -13,7 +13,9 @@ the Node binding is a native npm module. Standard library otherwise.
 serve attaches to a running TS3W.exe (or starts it with --launch), loads tools/probe/agent.js
 (and tools/frida/stutter-profile.js with --profile), serves JSON on 127.0.0.1 only, and appends
 every event (native exceptions, script errors, detach/crash) to probe-out/<timestamp>/events.jsonl.
-Env: TS3_EXE process name (default TS3W.exe); TS3_LAUNCH=ea starts EALauncher.exe (TS3_EA_LAUNCHER, TS3_EA_URI), no game args, and sets LoadOption.ini selectedflags from the launcher's LastRunIProducts & LastRunEProducts (TS3_SELECTED_FLAGS overrides; docs/234); the startup-popup answerer runs only then or with TS3_ANSWER_STARTUP_DIALOG=1.
+Env: TS3_EXE process name (default TS3W.exe); TS3_LAUNCH=ea starts EALauncher.exe (TS3_EA_LAUNCHER, TS3_EA_URI), no game args, and sets LoadOption.ini selectedflags from the launcher's LastRunIProducts & LastRunEProducts (TS3_SELECTED_FLAGS overrides; docs/234); the startup-popup answerer runs only then or with TS3_ANSWER_STARTUP_DIALOG=1. TS3_LAUNCH=steam starts steam://run/<TS3_STEAM_APPID, 47890>//<args>
+(the game arguments and -worldFile percent-encoded, as Apex Radiance's restart host retries) and waits for TS3_EXE by name.
+--world X starts the game with -worldFile:"X.sims3" last (Apex Radiance's launcher form) and, for TS3W.exe without SteamAppId, sets SteamAppId=47890.
 """
 import argparse, bisect, csv, glob, json, os, re, subprocess, sys, threading, time, urllib.error, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,6 +27,22 @@ frida = None  # imported in serve only, so `get` runs without it
 ROOT = Path(__file__).resolve().parents[2]
 GAME_BIN = Path(os.environ.get('TS3_BIN', r'C:\Program Files (x86)\Steam\steamapps\common\The Sims 3\Game\Bin'))
 GAME_EXE = os.environ.get('TS3_EXE', 'TS3W.exe')
+STEAM_APP_ID = os.environ.get('TS3_STEAM_APPID', '47890')
+
+
+def world_switch(world):
+    """' -worldFile:"<save>.sims3"' (EA's switch: MainMenuState.Startup loads that save without the menu), '' without a save."""
+    if not world:
+        return ''
+    if '"' in world:
+        raise SystemExit(f'[ts3probe] a save name with a quote cannot be passed to the game: {world}')
+    return f' -worldFile:"{world if world.lower().endswith(".sims3") else world + ".sims3"}"'
+
+
+def steam_run_url(extra, world):
+    """TS3_LAUNCH=steam: steam://run/<appid>//<args>, the arguments percent-encoded as UTF-8 (Apex relaunch_rules.h RhSteamUrl)."""
+    from urllib.parse import quote
+    return f'steam://run/{STEAM_APP_ID}//' + quote((subprocess.list2cmdline(extra) + world_switch(world)).strip(), safe='')
 # ts3agent commands that may leave live mode or change the household on purpose. /status reports the last one sent
 # (state_cmd, state_cmd_ago_s), so the harness tells a requested mode exit from one a dialog click caused (docs/236).
 # auto_dialog is not one: it answers a dialog nobody asked for.
@@ -186,16 +204,24 @@ class Probe:
             if self.args.world or self.args.extra:
                 print('[ts3probe] WARN: TS3_LAUNCH=ea cannot pass game arguments; --world and extra arguments are ignored', flush=True)
         else:
-            cmd = [str(GAME_BIN / GAME_EXE)]
-            if self.args.world:
-                cmd.append(f'-worldFile:{self.args.world}')
-            cmd += self.args.extra or []
-        print(f'[ts3probe] launching {cmd}', flush=True)
+            # the switch as Apex Radiance's launcher writes it (Launch.Args: -worldFile:"<save>.sims3", last); a list would
+            # escape the quotes, so the command line is a string
+            cmd = subprocess.list2cmdline([str(GAME_BIN / GAME_EXE), *(self.args.extra or [])]) + world_switch(self.args.world)
         env = dict(os.environ, **dict(e.split('=', 1) for e in self.args.env))
+        if not ea and self.args.world and GAME_EXE.lower() == 'ts3w.exe' and 'SteamAppId' not in env:
+            env['SteamAppId'] = STEAM_APP_ID  # as Apex's launcher: a Steam copy started by its exe runs in place, keeping the switch
+            print(f'[ts3probe] SteamAppId={STEAM_APP_ID} for the -worldFile start', flush=True)
+        if os.environ.get('TS3_LAUNCH') == 'steam':  # through Steam (Apex restart host's retry): the arguments ride in the URL
+            cmd = steam_run_url(self.args.extra or [], self.args.world)
+        print(f'[ts3probe] launching {cmd}', flush=True)
         if self.args.env:
             print(f'[ts3probe] game environment: {self.args.env}', flush=True)
         threading.Thread(target=self.watch_window_back, args=(time.time(),), daemon=True).start()  # before the launch, not after the attach
-        self.proc = subprocess.Popen(cmd, cwd=None if ea else GAME_BIN, env=env)
+        if os.environ.get('TS3_LAUNCH') == 'steam':
+            os.startfile(cmd)  # ShellExecute: no shell parses the % escapes; Steam starts the game, found by name below
+            self.proc = None
+        else:
+            self.proc = subprocess.Popen(cmd, cwd=None if ea else GAME_BIN, env=env)
         for _ in range(120):  # the exe may hand over to another instance; wait for the process by name
             try:
                 session = frida.attach(GAME_EXE)
@@ -872,6 +898,17 @@ def main():
         assert [session_verdict(*a) for a in ((2, 1, 'Disconnected'), (1, 1, 'Active'), (1, 1, 'Active'), (2, 1, 'Active'), (2, 1, 'Idle'))] == [NO_DISPLAY, None, None, None, NO_DISPLAY]
         assert [window_back_wanted(*a) for a in ((0.1, False, True), (30, False, True), (30, False, False), (30, True, False), (181, False, False), (20, False, True))] == [True, False, True, False, False, True]
         assert check_session()[0].startswith('console session state:')
+        # -worldFile as Apex's launcher writes it (installer Launch.Args) and the Steam URL as its restart host does (restart_host_test.cpp)
+        assert world_switch('Baseline-SV') == world_switch('Baseline-SV.sims3') == ' -worldFile:"Baseline-SV.sims3"' and world_switch(None) == ''
+        assert subprocess.list2cmdline([r'C:\G\TS3W.exe', '-noupnp']) + world_switch('My Town') == r'C:\G\TS3W.exe -noupnp -worldFile:"My Town.sims3"'
+        assert steam_run_url([], 'My Town.sims3') == f'steam://run/{STEAM_APP_ID}//-worldFile%3A%22My%20Town.sims3%22'
+        assert steam_run_url(['-noupnp'], 'Caf\u00e9') == f'steam://run/{STEAM_APP_ID}//-noupnp%20-worldFile%3A%22Caf%C3%A9.sims3%22'
+        assert steam_run_url(['-noupnp'], None) == f'steam://run/{STEAM_APP_ID}//-noupnp'
+        try:
+            world_switch('a"b')
+            raise AssertionError('a quote in a save name must be refused')
+        except SystemExit:
+            pass
         print('self-check ok')
         return
     if args.cmd == 'session-check':

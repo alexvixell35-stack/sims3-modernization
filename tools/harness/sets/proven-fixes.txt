@@ -22,12 +22,14 @@
 #   iafailmemo deadrefexact deadrefdelta deadrefslimuse deadrefperlot deadrefdescrev
 # measurement / diagnostics / test aids:
 #   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc swapinvokediag wildflowerprobe deadrefexactverify deadrefdeltaverify
+#   simresetalarmprobe
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
 #   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
 # leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
 #   casuihandlers deadrefguards firepitchair preferredservice
 #   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
+#   simresetalarms
 #   firegreet
 #   fglinbound fglinboundhh
 #   standwaitfix standwaitfixhh standwaitlog reactoverlayhh reactoverlaylog
@@ -95,3 +97,7 @@
 # docs/183 §9 (ladder foot 2026-11-21): ladderfootshoo is ON by default since the 2026-11-22 import (forced case in game, retry ok, errors 0). Household and selected Sims as planner / asked Sim stay opt-in, no household run:
 #   ladderfootshoohh
 # EA bug fixes firenre (docs/867) and firecount (docs/868) are ON by default since the 2026-11-23 Dalexlol 645-653 import, so no longer listed
+# perf: viewer push ride set from hooks (docs/335 LC-4, 2026-11-23) and its diagnostic shadow, default off, NOT RUN:
+#   viewerridehooks viewerridehookshadow
+# far features (docs/358, 2026-11-26), default off, NOT RUN: FarHold parked-lot hook, FarLight pulse skip, their shadows and the pulse probe:
+#   farhold farholdshadow farobj farobjlight farobjshadow farobjpulseprobe

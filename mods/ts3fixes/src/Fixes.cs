@@ -173,6 +173,7 @@ namespace Ts3Fixes
             ApplyMoveInPartner();    // docs/563 §3 (MoveInPartner.cs)
             ApplyReaperFlow();    // docs/563 §4 (ReaperFlow.cs)
             ApplyServiceLeave();    // docs/564 §1 (ServiceLeave.cs)
+            ApplySimResetAlarms();  // docs/352, docs/357 (SimResetAlarms.cs)
             ApplyVisitGreetAlarm();    // docs/565 §1 (VisitGreetAlarm.cs)
             ApplyFieldTripAdult();    // docs/565 §2 (FieldTripAdult.cs)
             ApplyAutonomyFailBlock();    // docs/565 §3 (AutonomyFailBlock.cs)
@@ -506,6 +507,7 @@ namespace Ts3Fixes
             ApplyScriptHotSpots();
             ApplyVenueMemo();
             ApplyExactMemos();  // lane L4 1115: permamemo, buffremovenoop, catnamecache (ExactMemos.cs), off by default
+            ApplySimDescIndex();  // docs/359: simdescindex (SimDescIndex.cs), off by default
             ApplyWriterMemos();  // docs/275 Z1 zdemptyout + M1 decaymemo (WriterMemos.cs), off by default
             ApplyDoorMirror();
             ApplyLaneSnap();  // docs/807: unseenlanesnap (ON 2026-11-20, unseen townies): portal other-lane replans
@@ -535,6 +537,8 @@ namespace Ts3Fixes
             ApplyUnseenOutfitDefer();  // issue #451, ON by default (UnseenOutfitDefer.cs)
             ApplyTagUnseen();          // docs/60 §3 (TagUnseen.cs), off by default
             ApplyUnseenOutfitNoSpin();  // docs/809, ON 2026-11-20, needs unseenoutfitdefer (UnseenOutfitNoSpin.cs)
+            ApplyInstProbe();  // docs/325, measurement only, off (InstProbe.cs); last: its Instantiate hooks wrap the others
+            ApplyFarSim();  // docs/345 far-Sim shadow (FarSimShadow.cs), off; no hooks, a world-load handler only
         }
 
         // issue #92 (docs/130 §11): each extra hook on one method is one more interpreter frame on every call through it.
@@ -865,6 +869,7 @@ namespace Ts3Fixes
         // [2508-2509] ghostspawnargs (GhostSpawnArgs.cs, docs/563 §2): angry ghost spawns forwarded / spawns forwarded with another lot.
         // [2510-2512] moveinpartner (MoveInPartner.cs, docs/563 §3): story move-ins swapped to the partner / skipped (no room either way) / errors; [2516] teen move skipped (docs/563 §5).
         // [2513-2515] reaperflow (ReaperFlow.cs, docs/563 §4): reaper soda pushes given a failure path / Challenge Death to Chess hidden with no grave / errors.
+        // [1828-1833] simresetalarms / simresetalarmprobe (SimResetAlarms.cs, docs/352, docs/357): Sim resets that asked the global manager (world lot) / a lot's manager / timers kept (mode 1) / alarms removed by the drop list (mode 2) / serviceleave re-arms skipped for a live timer (under serviceleave) / errors.
         // [2517-2521] serviceleave (ServiceLeave.cs, docs/564 §1): service timeouts re-armed after a worker reset (wait/leave, work limit) / repo man left with no mailbox / no delay found / errors.
         // [2522-2523] serviceleave (docs/564 §2): babysitter/butler periodic checks re-armed / repo-man no-op states left.
         // [2524-2526] visitgreetalarm (VisitGreetAlarm.cs, docs/565 §1): re-armed greeting wait alarms dropped / stale wait timeouts ignored / errors.
@@ -1636,9 +1641,12 @@ namespace Ts3Fixes
         // [1671-1698] deadrefdelta / deadrefslimuse / deadrefdeltaverify (DeadRefsDelta.cs, docs/336): see the list there
         // [1707-1714] deadrefslimuse pins (DeadRefsPin.cs), [1715-1726] deadrefperlot (DeadRefsPerLot.cs), docs/336 §9
         // [1744-1757] deadrefdescrev (DeadRefsDescRev.cs, docs/333 LC-7): see the list there
+        // [1899-1922] simdescindex (SimDescIndex.cs, docs/359): see the list there
         // [1518-1529] docs/321 lane 0 / H1 / H3 table fill (Caps.cs, always on): AutShadow requests capped / by objects / by pairs /
         // most objects / most pairs; NearVenue groups over 32 / most open lots; spawnerskip hw / clears; backoff hw / clears; cookclick hw.
         // [1658-1661] deadrefexact (DeadRefs.cs, docs/334): partitions, objects in the last one, shared event lists, re-reads; [1669-1670] deadrefexactverify lists compared / differed
+        // [1662-1668] viewerridehooks (docs/335, UnseenViewers.cs): see the list there
+        // [1834-1897] far features (docs/358): [1834-1847] farhold (FarHold.cs), [1848-1855] farhub (FarHub.cs), [1856-1897] farobj FarLight (FarObj.cs); lists in those files
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, then
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // [4352-4363] ladderfootshoo (LadderFoot.cs, docs/183 §9): scans of a lot's level links for a cross-level no-path plan / plans whose needed link is closed by
@@ -1729,7 +1737,7 @@ namespace Ts3Fixes
         // wildflowertask / disposespread / aptleave RemoveGuest / boattrip sweep; [1743] go-live searches whose later slice started frozen or
         // not live and ran the game's B14 for the rest (autlivelate refusal / direct snap).
         // [4615-4619] lineswitch (LineSwitch.cs, docs/686 §25): switched to a free twin object / would, off / kept (waited past the switch time, not
-        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
+        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
         // would drop, off / queued that ran / their summed ms / max ms / errors.
         const int kCounterSlots = 4680;
@@ -2181,6 +2189,8 @@ namespace Ts3Fixes
                 case "moveinpartner": return Instantiator.kMoveInPartner;
                 case "reaperflow": return Instantiator.kReaperFlow;
                 case "serviceleave": return Instantiator.kServiceLeave;
+                case "simresetalarms": return Instantiator.kSimResetAlarms;  // EA bug fix, off (SimResetAlarms.cs, docs/357)
+                case "simresetalarmprobe": return Instantiator.kSimResetAlarmProbe;  // diagnostics only, off (SimResetAlarms.cs, docs/357)
                 case "visitgreetalarm": return Instantiator.kVisitGreetAlarm;
                 case "fieldtripadult": return Instantiator.kFieldTripAdult;
                 case "autonomyfailblock": return Instantiator.kAutonomyFailBlock;
@@ -2772,10 +2782,19 @@ namespace Ts3Fixes
                 case "deadrefexactverify": return false;  // docs/334, OFF, test only: partition lists compared with the filter passes
                 case "deadrefdelta": return Instantiator.kDeadRefDelta;  // docs/336, OFF (LC-5: owner / handler / cooking holders stepped from a holder index on event passes)
                 case "deadrefslimuse": return Instantiator.kDeadRefSlimUse;  // docs/336, OFF (needs deadrefdelta: phase 10 walks only objects with a use list)
+                case "simdescindex": case "simdescindexverify": return false;  // docs/359, OFF: SimDescription.Find from the description index (SimDescIndex.cs); verify = every answered lookup compared
                 case "deadrefperlot": return Instantiator.kDeadRefPerLot;  // docs/336 §9, OFF (LC-6a: typed phases gather from per-lot lists)
                 case "deadrefdescrev": return Instantiator.kDeadRefDescRev;  // docs/333 LC-7, OFF (phase 4 from a reverse index of description references)
                 case "deadrefdeltaverify": return false;  // docs/336, OFF, test only: objects outside the index checked for gone holders
                 case "viewerpushdelta": return Instantiator.kViewerPushDelta;  // docs/330, ON (old every-wake push when off)
+                case "viewerridehooks": return Instantiator.kViewerRideHooks;  // docs/335, off (needs viewerpushdelta)
+                case "viewerridehookshadow": return Instantiator.kViewerRideHookShadow;  // docs/335 diagnostic, off
+                case "farhold": return Instantiator.kFarHold;  // docs/358, off
+                case "farholdshadow": return Instantiator.kFarHoldShadow;  // docs/358 diagnostic, off
+                case "farobj": return Instantiator.kFarObj;  // docs/358, off
+                case "farobjlight": return Instantiator.kFarObjLight;  // docs/358, off
+                case "farobjshadow": return Instantiator.kFarObjShadow;  // docs/358 diagnostic, off
+                case "farobjpulseprobe": return Instantiator.kFarObjPulseProbe;  // docs/358 diagnostic, off
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;
                 case "vacstoreguard": return Instantiator.kVacStoreGuard;

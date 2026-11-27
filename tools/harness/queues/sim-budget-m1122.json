@@ -1,0 +1,313 @@
+{
+ "note": "sim-budget-m1122 (WRITTEN, docs/160 §Results m1122): TOTAL sim-thread load on master set m1122 (0.36.299-m1122) per world, to put the far-Sim model estimate (docs/322: ~200-260 ms/s NPC cost beyond 150 m) against the whole thread. Arm = release defaults + [HitchAttr] + [UnseenProbe] Bands (+ AnimPhase Split + TaskSeam for the band sites) in the same run, samplers on (Mono / IC split). Job 1 smoke (BP 3 min, stops the queue on fail), then BP / IP / SV 10 min, then bp-sim-budget-light (tool cost: probes and samplers off). Correctness + attribution, not timing; the light pair is rough (needs quiet machine for a timing number). Bin state apex (Apex latest + RTX Remix bridge via tools/turbo-compat.ts snapshot -> state apex -> restore), chain probe-out/queue/chain-sim-budget-m1122.sh. Rewind off: three worlds, fresh loads. Read: TS3_REPO=<main checkout> node tools/harness/sim-budget-report.ts.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-sim-budget-smoke",
+   "note": "[est 9 min] SMOKE (measurement proof, stops the queue on fail): BP 3 min, same arm as the 10-min jobs: release defaults + [HitchAttr] Enabled=1 (observe only) + [UnseenProbe] Enabled=1 Bands=50,150,400,1000 + [AnimPhase] Enabled=1 Split=1 + [Diag] TaskSeam=1 (band sites pose / Sim task / autonomy), stutter profiler + both stack samplers (managed minutes 1-4, native 5-8). Measurement only: every hook calls EA with the same arguments, household + selected Sims and unknown scope land in their own row, no Sim, lot or save change. Pass: every switch read back (version, HitchAttr, bands edges, task seam, anim split OK lines), ub* counters moved, Apex + bridge lines, 0 script errors; then check by hand that sim-budget-report.ts prints buckets summing to 1000 and the \"who\" section (managed samples > 0).",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "master set m1122 (0.36.299-m1122, builds.json ts3native.asi.m1122 sha256 876d7de8d625): asi + ini + ts3fixes + agent from merge/unseen-worldscale-1122; agent installed to build/ by chain-sim-budget-m1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": false,
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "UnseenProbe.Enabled": 1,
+    "UnseenProbe.Bands": "50,150,400,1000",
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "Diag.TaskSeam": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3
+    }
+   },
+   "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1,
+    "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": 1,
+    "^unseen bands: ready 0x7[37BF], ": 1,
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   HitchAttr: sim waits for the route job per frame": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": 0
+   }
+  },
+  {
+   "id": "bp-sim-budget",
+   "note": "[est 15 min] BP 10 min natural play (profile seed 12345, no forced actions), release defaults + [HitchAttr] Enabled=1 (observe only) + [UnseenProbe] Enabled=1 Bands=50,150,400,1000 + [AnimPhase] Enabled=1 Split=1 + [Diag] TaskSeam=1 (band sites pose / Sim task / autonomy), stutter profiler + both stack samplers (managed minutes 1-4, native 5-8). Measurement only: every hook calls EA with the same arguments, household + selected Sims and unknown scope land in their own row, no Sim, lot or save change. Pass: version + HitchAttr + bands (edges read back) + task seam + anim split OK lines, minute line with ready bits, Apex + bridge lines, 0 script errors, ub* counters moved. Attribution shares with heavy tools on (cost from bp-sim-budget-light), not a timing verdict. Read: TS3_REPO=<main checkout> node tools/harness/sim-budget-report.ts (buckets + \"who\" section: household / NPC <150 m / NPC >=150 m / non-Sim, docs/160 §Results m1122); node tools/harness/unseen-band-report.ts <native.json> for the band x site table.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "master set m1122 (0.36.299-m1122, builds.json ts3native.asi.m1122 sha256 876d7de8d625): asi + ini + ts3fixes + agent from merge/unseen-worldscale-1122; agent installed to build/ by chain-sim-budget-m1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": true,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "UnseenProbe.Enabled": 1,
+    "UnseenProbe.Bands": "50,150,400,1000",
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "Diag.TaskSeam": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10
+    }
+   },
+   "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1,
+    "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": 1,
+    "^unseen bands: ready 0x7[37BF], ": 1,
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   HitchAttr: sim waits for the route job per frame": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": 0
+   }
+  },
+  {
+   "id": "ip-sim-budget",
+   "note": "[est 15 min] IP 10 min natural play (profile seed 12345, no forced actions), release defaults + [HitchAttr] Enabled=1 (observe only) + [UnseenProbe] Enabled=1 Bands=50,150,400,1000 + [AnimPhase] Enabled=1 Split=1 + [Diag] TaskSeam=1 (band sites pose / Sim task / autonomy), stutter profiler + both stack samplers (managed minutes 1-4, native 5-8). Measurement only: every hook calls EA with the same arguments, household + selected Sims and unknown scope land in their own row, no Sim, lot or save change. Pass: version + HitchAttr + bands (edges read back) + task seam + anim split OK lines, minute line with ready bits, Apex + bridge lines, 0 script errors, ub* counters moved. Attribution shares with heavy tools on (cost from bp-sim-budget-light), not a timing verdict. Read: TS3_REPO=<main checkout> node tools/harness/sim-budget-report.ts (buckets + \"who\" section: household / NPC <150 m / NPC >=150 m / non-Sim, docs/160 §Results m1122); node tools/harness/unseen-band-report.ts <native.json> for the band x site table.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "master set m1122 (0.36.299-m1122, builds.json ts3native.asi.m1122 sha256 876d7de8d625): asi + ini + ts3fixes + agent from merge/unseen-worldscale-1122; agent installed to build/ by chain-sim-budget-m1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-IP-Spring",
+   "noiseCheck": true,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "UnseenProbe.Enabled": 1,
+    "UnseenProbe.Bands": "50,150,400,1000",
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "Diag.TaskSeam": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10
+    }
+   },
+   "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1,
+    "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": 1,
+    "^unseen bands: ready 0x7[37BF], ": 1,
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   HitchAttr: sim waits for the route job per frame": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": 0
+   }
+  },
+  {
+   "id": "sv-sim-budget",
+   "note": "[est 15 min] SV 10 min natural play (profile seed 12345, no forced actions), release defaults + [HitchAttr] Enabled=1 (observe only) + [UnseenProbe] Enabled=1 Bands=50,150,400,1000 + [AnimPhase] Enabled=1 Split=1 + [Diag] TaskSeam=1 (band sites pose / Sim task / autonomy), stutter profiler + both stack samplers (managed minutes 1-4, native 5-8). Measurement only: every hook calls EA with the same arguments, household + selected Sims and unknown scope land in their own row, no Sim, lot or save change. Pass: version + HitchAttr + bands (edges read back) + task seam + anim split OK lines, minute line with ready bits, Apex + bridge lines, 0 script errors, ub* counters moved. Attribution shares with heavy tools on (cost from bp-sim-budget-light), not a timing verdict. Read: TS3_REPO=<main checkout> node tools/harness/sim-budget-report.ts (buckets + \"who\" section: household / NPC <150 m / NPC >=150 m / non-Sim, docs/160 §Results m1122); node tools/harness/unseen-band-report.ts <native.json> for the band x site table.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "master set m1122 (0.36.299-m1122, builds.json ts3native.asi.m1122 sha256 876d7de8d625): asi + ini + ts3fixes + agent from merge/unseen-worldscale-1122; agent installed to build/ by chain-sim-budget-m1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-SV-Spring",
+   "noiseCheck": true,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "UnseenProbe.Enabled": 1,
+    "UnseenProbe.Bands": "50,150,400,1000",
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "Diag.TaskSeam": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10
+    }
+   },
+   "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1,
+    "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": 1,
+    "^unseen bands: ready 0x7[37BF], ": 1,
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   HitchAttr: sim waits for the route job per frame": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": 0
+   }
+  },
+  {
+   "id": "bp-sim-budget-light",
+   "note": "[est 15 min] TOOL COST (measurement-tool-cost rule): BP 10 min, same save / seed / build as bp-sim-budget but release defaults + [HitchAttr] Enabled=1 only, stutter profiler on, no stack samplers, no bands / anim split / task seam. it/s and per-iteration bucket ms against bp-sim-budget give the samplers' + probes' cost (one pair, not ABBA: rough, needs a quiet machine to be a timing number). Pass: version + HitchAttr read back, Apex + bridge lines, 0 script errors. Read: TS3_REPO=<main checkout> node tools/harness/sim-budget-report.ts (buckets + \"who\" section: household / NPC <150 m / NPC >=150 m / non-Sim, docs/160 §Results m1122); node tools/harness/unseen-band-report.ts <native.json> for the band x site table.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "master set m1122 (0.36.299-m1122, builds.json ts3native.asi.m1122 sha256 876d7de8d625): asi + ini + ts3fixes + agent from merge/unseen-worldscale-1122; agent installed to build/ by chain-sim-budget-m1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": true,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+    "^OK   HitchAttr: sim waits for the route job per frame": 1
+   }
+  }
+ ],
+ "regexCases": {
+  "^ts3native 0.36.299-m1122 ": {
+   "match": [
+    "ts3native 0.36.299-m1122 2026-11-22 15:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+    "ts3native 0.36.299-uband2 2026-11-22 13:57:42"
+   ]
+  },
+  "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": {
+   "match": [
+    "OK   unseen bands (docs/322): edges 50,150,400,1000 m (5 bands + household + no position), nearest of camera target / position and household Sims; sites locomotion, waits, footprint, plans, pose ([AnimPhase] Split), Sim tasks + autonomy ([Diag] TaskSeam); a minute line each"
+   ],
+   "noMatch": [
+    "OK   unseen bands (docs/322): edges 80,200 m (3 bands + household + no position), nearest",
+    "FAIL unseen bands: [UnseenProbe] Bands=150,50 is not 1-6 ascending whole metres, off"
+   ]
+  },
+  "^unseen bands: ready 0x7[37BF], ": {
+   "match": [
+    "unseen bands: ready 0x7F, passes 9000, Sim agent updates b0 1 b1 2 b2 3 b3 4 b4 5 hh 6 none 0; autonomy actors named 40, runs with none 1, camera-only asks 0",
+    "unseen bands: ready 0x73, passes 1"
+   ],
+   "noMatch": [
+    "unseen bands: ready 0x1F, passes 9000",
+    "unseen bands: ready 0x6B, passes 9000",
+    "unseen bands: ready 0x3, passes 1",
+    "unseen bands loco (n/ms per band, docs/322): b0 1/0"
+   ]
+  },
+  "^OK   task seam \\(\\[Diag\\] TaskSeam=1": {
+   "match": [
+    "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites + 2 invoke sites, per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+   ],
+   "noMatch": [
+    "task seam off ([Diag] TaskSeam=0)"
+   ]
+  },
+  "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": {
+   "match": [
+    "OK   anim split (docs/22 §6.1): anxReady 1007 (pose sites on, clip sites on, 0x571C3C behind [UnseenAnim], locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)"
+   ],
+   "noMatch": [
+    "FAIL anim split (docs/22 §6.1): anxReady 1006 (pose sites off, clip sites on)"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  },
+  "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": {
+   "match": [
+    "FAIL unseen bands: [UnseenProbe] Bands=150,50 is not 1-6 ascending whole metres, off",
+    "SKIP task seam ([Diag] TaskSeam): no verified addresses for this exe",
+    "SKIP anim phase ([AnimPhase]): no EA 1.69 address, docs/232 §8"
+   ],
+   "noMatch": [
+    "OK   unseen bands (docs/322): edges 50,150,400,1000 m"
+   ]
+  },
+  "^OK   HitchAttr: sim waits for the route job per frame": {
+   "match": [
+    "OK   HitchAttr: sim waits for the route job per frame (ts3native_hitchattr, read by stutter-profile.js)"
+   ],
+   "noMatch": [
+    "OK   HitchAttr JobNameMs=300: \"rtjob wait:\" lines for sim waits on the running route job",
+    "HitchAttr off"
+   ]
+  }
+ }
+}

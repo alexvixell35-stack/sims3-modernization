@@ -5,6 +5,7 @@
 //   node tools/registry.ts reserve fixes <n-slots> --by <who> --what <text>
 //   node tools/registry.ts reserve ledger --for <topic> [--by <who>]      next free docs/51 `## N.` section (max of the
 //        headings in this worktree's and the main checkout's docs/51 and of every ledger reservation, + 1); docs/51 not touched
+//        --n <N>: that exact section (one already written, e.g. renumbered at a merge); refused if a reservation holds it
 //   node tools/registry.ts reserve doc --for <topic> [--by <who>]      next free docs/NNN number (docs/ files + reservations)
 //   Add --contributor to any reserve: numbers come from the contributor ranges (CONTRIB below, docs/registry.md "Contributor
 //        ranges"); without it, the contributor ranges are skipped.
@@ -155,7 +156,10 @@ function reserveLedger(args: string[], c: boolean) {
   return withLock(join(main, 'docs', 'registry.md.lock'), () => {
     const res = loadRes(main), docs = [...new Set([join(wt, LEDGER), join(main, LEDGER)])].filter(existsSync);
     const max = Math.max(c ? CONTRIB.ledger[0][0] - 1 : 0, ...docs.map(d => ledgerMax(readFileSync(d, 'utf8'), c)), ...res.filter(r => r.kind === 'ledger' && inRanges(r.to, CONTRIB.ledger) === c).map(r => r.to));
-    const n = c ? contribFrom(CONTRIB.ledger, max) : max + 1;
+    const fixed = opt(args, '--n'), n = fixed ? Number(fixed) : c ? contribFrom(CONTRIB.ledger, max) : max + 1;
+    if (fixed && !(Number.isInteger(n) && n > 0)) throw new Error(`--n ${fixed}: not a section number`);
+    const held = fixed ? res.find(r => r.kind === 'ledger' && r.from <= n && n <= r.to) : undefined;
+    if (held) throw new Error(`docs/51 §${n} already reserved: ${held.id} by ${held.by}`);
     if (n < 0) throw new Error(`contributor ledger ranges ${rangesText(CONTRIB.ledger)} are full`);
     const r: Res = { id: `ledger-${n}`, kind: 'ledger', from: n, to: n, by, what, at: new Date().toISOString(), worktree: shownPath(wt) };
     saveRes(main, [...res, r]);
@@ -269,6 +273,8 @@ async function selfCheck() {
     const lg = loadRes(d).filter(r => r.kind === 'ledger').map(r => r.from).sort((a, b) => a - b);
     ok(lg.join() === '316,317,318,319,320,321,322', `ledger sections 317-322 handed out once each after the reserved 316 (${lg.join()})`);
     ok(readFileSync(join(d, LEDGER), 'utf8') === ledgerText, 'docs/51 itself untouched');
+    const fx1 = await run(['reserve', 'ledger', '--n', '314', '--for', 'fixed']), fx2 = await run(['reserve', 'ledger', '--n', '316', '--for', 'held']);
+    ok(fx1 === 0 && fx2 !== 0 && loadRes(d).some(r => r.id === 'ledger-314' && r.what === 'fixed') && !loadRes(d).some(r => r.what === 'held'), '--n: exact §314 reserved, held §316 refused');
     const res = loadRes(d), fx = res.filter(r => r.kind === 'fixes').sort((a, b) => a.from - b.from), nt = res.filter(r => r.kind === 'native').sort((a, b) => a.from - b.from);
     ok(fx.length === 7 && nt.length === 7, '7 + 7 reservations in the machine file');
     ok(fx.every((r, i) => !i || r.from > fx[i - 1].to) && fx[1].from === 260, `fixes ranges disjoint, first new one 260 (${fx.map(r => r.from + '-' + r.to).join(' ')})`);

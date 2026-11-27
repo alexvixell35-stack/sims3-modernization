@@ -1,0 +1,734 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farhold-farobj-correct-1126 (docs/358, WRITTEN, NOT RUN): correctness of FarLight (farobj + farobjlight: a lot past 200 m for 30 sim minutes with no Sim on or near it and no household row skips Lot.UpdateReactions / UpdateNumZombiesOnLot / UpdateDoorPrivacy; on leaving, pulse timers are reset and the skipped zombie time is paid once) and of the FarHold parked-lot hook (farhold: Hook A on AlarmManager.Simulate), each first in shadow (count only), then live. Job 1 smoke (BP 3 min, every shadow on, stops the queue on fail). Pass everywhere: 0 script errors, household skip counter farobjHhPulseSkip 0, no error counter, shadow jobs skip nothing (farobjSkip* 0, farHoldSkipped 0, no timer reset), live jobs skip (>= 1), and every job has a farobj read-back line with the switch values it ran with. Household untouched: the visit repro sends the selected Sim across town through FarLight lots (go-near before 150 m). Save: bp-farobj-save-reload saves and reloads with farobjlight and farhold on (one save, not the save matrix, which stays the gate for any ON decision). Rewind: counters and switches come back to the snapshot (docs/270), so every job counts from 0; the save-reload job opts out. Bin state apex. Est ~150 min.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+        "ts3native 0.36.299-m1122 2026-11-22 06:55:20",
+        "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+        "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, .*, skipped [1-9]\\d*/\\d+/[1-9]\\d*, would 0/0/0, hh skip 0, ": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 1, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 3/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, .*, skipped 0/0/0, would [1-9]\\d*/\\d+/[1-9]\\d*, hh skip 0, ": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 4/0/1, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 2, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, ": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light False, shadow True, probe True, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe False, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: counts; on True, light False, shadow True, probe True, hooks True, .*, skipped 0/0/0, ": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light False, shadow True, probe True, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light False, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light False, shadow True, probe True, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 1/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, ": {
+      "match": [
+        "ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 3 (high 61), states 9/12/3/0/0/7, passes 14, light 3, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light False, shadow True, probe True, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light False, shadow False, probe False, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 0 ": {
+      "match": [
+        "ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 0 (high 61), states 9/12/0/0/0/7, passes 14, light 0, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 3 (high 61), states 9/12/3/0/0/7, passes 14, light 3, go-near 6, gone 0, skipped 0/0/0, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: counts; on True, light True, shadow False, .*, catch-up [1-9]\\d*, ": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 0, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: .*, hh skip [1-9]": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 1, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 12, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 0/0/0, would 9120/9120/9133, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": {
+      "match": [
+        "ts3fixes: farobj: HOUSEHOLD CHECK MISSED on lot 0x3A91F2C0D4E81B07, record dropped"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0"
+      ]
+    },
+    "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": {
+      "match": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 1",
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 2",
+        "ts3fixes: farhub: end, world True, task True, wanted True, paused False, owners 1, loads 1, quits 0, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 10"
+      ],
+      "noMatch": [
+        "ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, records 48 (high 61), states 9/12/48/0/0/7, passes 14, light 48, go-near 6, gone 0, skipped 9120/9120/9133, would 0/0/0, hh skip 0, hh caught 0, sim arrive 2, near 5, catch-up 1, owed lots 3, excl hh 38, excl other 14, dwell 2 min, edges 200/150 m, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhub: end, world True, task True, wanted True, paused False, owners 1, loads 1, quits 0, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhub: start, world True, task True, wanted True, paused (True|False), owners 1, ": {
+      "match": [
+        "ts3fixes: farhub: start, world True, task True, wanted True, paused False, owners 1, loads 1, quits 0, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhub: start, world True, task False, wanted False, paused False, owners 1, loads 1, quits 0, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 0",
+        "ts3fixes: farhub: end, world True, task True, wanted True, paused False, owners 1, loads 1, quits 0, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhub: end, world True, task True, .*, loads [2-9]\\d*, quits [1-9]\\d*, .*, errors 0$": {
+      "match": [
+        "ts3fixes: farhub: end, world True, task True, wanted True, paused False, owners 1, loads 2, quits 1, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhub: end, world True, task True, wanted True, paused False, owners 1, loads 1, quits 0, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 0",
+        "ts3fixes: farhub: end, world True, task True, wanted True, paused False, owners 1, loads 2, quits 1, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 1",
+        "ts3fixes: farhub: start, world True, task True, wanted True, paused False, owners 1, loads 2, quits 1, steps 5120, paused frames 3, over frames 41, forced steps 2, budget out 0, drops 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: counts; on False, shadow True, hook True, ": {
+      "match": [
+        "ts3fixes: farhold: counts; on False, shadow True, hook True, lots 0 (high 0), sims 0, parks 0, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow True, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 37, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: counts; on False, shadow False, hook True, lots 0 ": {
+      "match": [
+        "ts3fixes: farhold: counts; on False, shadow False, hook True, lots 0 (high 0), sims 0, parks 0, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: counts; on False, shadow True, hook True, lots 0 (high 0), sims 0, parks 0, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: parkhome: home lot 0x[0-9A-F]+, parked False; on True, ": {
+      "match": [
+        "ts3fixes: farhold: parkhome: home lot 0x5B20C4D1E7A90F13, parked False; on True, shadow False, hook True, lots 0 (high 0), sims 0, parks 0, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: parkhome: home lot 0x5B20C4D1E7A90F13, parked True; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: parkhome: no home lot; on True, shadow False, hook True, lots 0 (high 0), sims 0, parks 0, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: parkfar: lot 0x[0-9A-F]+ at \\d+ m, parked True; on True, shadow False, hook True, lots 1 ": {
+      "match": [
+        "ts3fixes: farhold: parkfar: lot 0x3A91F2C0D4E81B07 at 1184 m, parked True; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: parkfar: lot 0x3A91F2C0D4E81B07 at 1184 m, parked False; on True, shadow True, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: parkfar: no lot; on True, shadow False, hook True, lots 0 (high 0), sims 0, parks 0, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: parkfar: lot 0x[0-9A-F]+ at \\d+ m, parked False; on True, shadow True, hook True, lots 1 ": {
+      "match": [
+        "ts3fixes: farhold: parkfar: lot 0x3A91F2C0D4E81B07 at 1184 m, parked False; on True, shadow True, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: parkfar: lot 0x3A91F2C0D4E81B07 at 1184 m, parked True; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: parkfar: lot 0x3A91F2C0D4E81B07 at 1184 m, parked False; on True, shadow True, hook True, lots 0 (high 0), sims 0, parks 0, releases 0, skipped 0, would 37, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 \\(high 1\\), .*, skipped [1-9]\\d*, would 0, evicted 0, ": {
+      "match": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: counts; on True, shadow True, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 37, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 0 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: counts; on True, shadow True, hook True, lots 1 \\(high 1\\), .*, skipped 0, would [1-9]\\d*, evicted 0, ": {
+      "match": [
+        "ts3fixes: farhold: counts; on True, shadow True, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 37, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow True, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow True, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 2, would 37, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: releaseall: released all; on True, shadow (True|False), hook True, lots 0 \\(high 1\\), ": {
+      "match": [
+        "ts3fixes: farhold: releaseall: released all; on True, shadow False, hook True, lots 0 (high 1), sims 0, parks 1, releases 1, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: releaseall: released all; on True, shadow True, hook True, lots 0 (high 1), sims 0, parks 1, releases 1, skipped 0, would 37, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: releaseall: released all; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 1, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 0 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: counts; on True, shadow False, hook True, lots 0 \\(high 1\\), .*, skipped [1-9]\\d*, ": {
+      "match": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 0 (high 1), sims 0, parks 1, releases 1, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0",
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 0 (high 1), sims 0, parks 1, releases 0, skipped 0, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    },
+    "^ts3fixes: farhold: .*, ownerConflict [1-9]": {
+      "match": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 1, errors 0"
+      ],
+      "noMatch": [
+        "ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 (high 1), sims 0, parks 1, releases 0, skipped 37, would 0, evicted 0, refused 1, ownerConflict 0, errors 0"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-far-smoke",
+      "note": "[est 9 min] SMOKE (stops the queue on fail): BP 3 min natural play, every shadow on (farobj + farobjshadow + farobjpulseprobe, farholdshadow). Pass: the hub task steps, at least one boundary pass ran, nothing is skipped, no household skip, no error counter, 0 script errors. Switch read-back: repro far-readback prints the farobj / farhold / farhub lines at the start and 150 s in.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 20,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjshadow,farobjpulseprobe,farholdshadow",
+          "repro": "far-readback",
+          "fixesRequire": "farHubSteps>=100,farobjPasses>=1,farobjSkipReact<=0,farobjSkipZombie<=0,farobjSkipDoor<=0,farHoldSkipped<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on True, light False, shadow True, probe True, hooks True, .*, skipped 0/0/0, ": 2,
+        "^ts3fixes: farhold: counts; on False, shadow True, hook True, ": 1,
+        "^ts3fixes: farhub: start, world True, task True, wanted True, paused (True|False), owners 1, ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      },
+      "stopQueueOnFail": true
+    },
+    {
+      "id": "bp-farobj-shadow",
+      "note": "[est 16 min] BP 10 min natural play, FarLight in shadow (farobj + farobjshadow + farobjpulseprobe). Read: farobjByState0..5 (lots per state), farobjWould* (what the skip would save), farobjExclHousehold / Other, farobjBlockSim, farobjProbeUsB0..B4 (x16 = us by band). Pass: lots take FarLight (farobjLight >= 1), pulses counted as would-skip, nothing skipped, no timer reset, household skip 0. Switch read-back: repro far-readback prints the farobj / farhold / farhub lines at the start and 150 s in.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 27,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjshadow,farobjpulseprobe",
+          "repro": "far-readback",
+          "fixesRequire": "farHubSteps>=100,farobjPasses>=2,farobjLight>=1,farobjWouldReact>=1,farobjSkipReact<=0,farobjSkipZombie<=0,farobjSkipDoor<=0,farobjTimerResets<=0,farobjCatchUp<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on True, light False, shadow True, probe True, hooks True, .*, skipped 0/0/0, ": 2,
+        "^ts3fixes: farhold: counts; on False, shadow False, hook True, lots 0 ": 1,
+        "^ts3fixes: farhub: start, world True, task True, wanted True, paused (True|False), owners 1, ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "bp-farobj-live",
+      "note": "[est 16 min] BP 10 min natural play, FarLight live (farobj + farobjlight + farobjpulseprobe). Pass: farobjSkipReact >= 1, household skip 0, no error counter, 0 script errors. Switch read-back: repro far-readback prints the farobj / farhold / farhub lines at the start and 150 s in.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 27,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjlight,farobjpulseprobe",
+          "repro": "far-readback",
+          "fixesRequire": "farHubSteps>=100,farobjPasses>=2,farobjLight>=1,farobjSkipReact>=1,farobjWouldReact<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, ": 2,
+        "^ts3fixes: farhold: counts; on False, shadow False, hook True, lots 0 ": 1,
+        "^ts3fixes: farhub: start, world True, task True, wanted True, paused (True|False), owners 1, ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "bp-farobj-visit-shadow",
+      "note": "[est 13 min] repro farobj-light-visit in shadow (dwell 2 sim minutes, pass every sim minute; the selected Sim visits the farthest community lot and returns). Pass: read-back lines with shadow True, would > 0, skipped 0/0/0, hh skip 0; farobjGoNear >= 1; no timer reset, no catch-up; records 0 after the switch-off drop.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 24,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 7,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjlight,farobjpulseprobe,farobjshadow",
+          "repro": "farobj-light-visit",
+          "fixesRequire": "farobjLight>=1,farobjWouldReact>=1,farobjGoNear>=1,farobjSkipReact<=0,farobjSkipDoor<=0,farobjTimerResets<=0,farobjCatchUp<=0,farobjRecords<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farhub: start, world True, task True, wanted True, paused (True|False), owners 1, ": 1,
+        "^ts3fixes: farobj: counts; on True, light True, shadow True, probe True, hooks True, .*, skipped 0/0/0, would [1-9]\\d*/\\d+/[1-9]\\d*, hh skip 0, ": 3,
+        "^ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 0 ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "bp-farobj-visit-live",
+      "note": "[est 13 min] repro farobj-light-visit live. Pass: read-back lines with shadow False, skipped > 0, hh skip 0 on every line; farobjGoNear >= 1 (lots near the travelling household Sim went live); records 0 after the switch-off drop; 0 script errors. Read: farobjCatchUp, farobjTimerResets (L6 work done).",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 24,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 7,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjlight,farobjpulseprobe",
+          "repro": "farobj-light-visit",
+          "fixesRequire": "farobjLight>=1,farobjSkipReact>=1,farobjGoNear>=1,farobjRecords<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farhub: start, world True, task True, wanted True, paused (True|False), owners 1, ": 1,
+        "^ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, .*, skipped [1-9]\\d*/\\d+/[1-9]\\d*, would 0/0/0, hh skip 0, ": 3,
+        "^ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, records 0 ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "bp-farobj-zombie-return",
+      "note": "[est 15 min] repro farobj-zombie-return (ledger I-627-2; UNVERIFIED sequence): zombies dance on the far community lot, everyone leaves, the lot goes FarLight past the dwell, the selected Sim returns. Pass: the skipped zombie time is paid on the return (farobjCatchUp >= 1, read-back line with catch-up >= 1), pulse timers were reset (farobjTimerResets >= 1), 0 script errors. A hollow run (no zombie dance) is N/A, not FAIL: fix the repro.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 26,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 9,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjlight,farobjpulseprobe",
+          "repro": "farobj-zombie-return",
+          "fixesRequire": "farobjLight>=1,farobjSkipZombie>=1,farobjCatchUp>=1,farobjTimerResets>=1,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, ": 2,
+        "^ts3fixes: farobj: counts; on True, light True, shadow False, .*, catch-up [1-9]\\d*, ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "bp-farhold-shadow",
+      "note": "[est 9 min] repro farhold-park-testlot in shadow (farhold + farholdshadow): the home lot is refused, the farthest empty lot is only counted. Pass: farHoldWould >= 1, farHoldSkipped 0, farHoldLots 0 at the end; the farobj read-back shows the far-object switches off.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 20,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "noSamplers": true,
+          "fixesOn": "farhold,farholdshadow",
+          "repro": "farhold-park-testlot",
+          "fixesRequire": "farHoldWould>=1,farHoldSkipped<=0,farHoldRefused>=1,farHoldEvicted<=0,farHoldLots<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, ": 1,
+        "^ts3fixes: farhold: parkhome: home lot 0x[0-9A-F]+, parked False; on True, ": 1,
+        "^ts3fixes: farhold: parkfar: lot 0x[0-9A-F]+ at \\d+ m, parked False; on True, shadow True, hook True, lots 1 ": 1,
+        "^ts3fixes: farhold: counts; on True, shadow True, hook True, lots 1 \\(high 1\\), .*, skipped 0, would [1-9]\\d*, evicted 0, ": 1,
+        "^ts3fixes: farhold: releaseall: released all; on True, shadow (True|False), hook True, lots 0 \\(high 1\\), ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "bp-farhold-live",
+      "note": "[est 9 min] repro farhold-park-testlot live (stress-labelled: one far empty lot is parked for about 40 s without a model; its overdue alarms fire once each at release). Pass: the home lot is refused ('parked False'), the test lot's manager is not simulated (farHoldSkipped >= 1), release gives it back (farHoldLots 0), 0 script errors; the farobj read-back shows the far-object switches off.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 20,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "noSamplers": true,
+          "fixesOn": "farhold",
+          "repro": "farhold-park-testlot",
+          "fixesRequire": "farHoldSkipped>=1,farHoldWould<=0,farHoldRefused>=1,farHoldEvicted<=0,farHoldLots<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on False, light False, shadow False, probe False, hooks True, ": 1,
+        "^ts3fixes: farhold: parkhome: home lot 0x[0-9A-F]+, parked False; on True, ": 1,
+        "^ts3fixes: farhold: parkfar: lot 0x[0-9A-F]+ at \\d+ m, parked True; on True, shadow False, hook True, lots 1 ": 1,
+        "^ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 \\(high 1\\), .*, skipped [1-9]\\d*, would 0, evicted 0, ": 1,
+        "^ts3fixes: farhold: releaseall: released all; on True, shadow (True|False), hook True, lots 0 \\(high 1\\), ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "ip-farobj-live",
+      "note": "[est 16 min] IP 10 min natural play, FarLight live. Pass as bp-farobj-live. Switch read-back: repro far-readback prints the farobj / farhold / farhub lines at the start and 150 s in.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 27,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjlight,farobjpulseprobe",
+          "repro": "far-readback",
+          "fixesRequire": "farHubSteps>=100,farobjPasses>=2,farobjLight>=1,farobjSkipReact>=1,farobjWouldReact<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, ": 2,
+        "^ts3fixes: farhold: counts; on False, shadow False, hook True, lots 0 ": 1,
+        "^ts3fixes: farhub: start, world True, task True, wanted True, paused (True|False), owners 1, ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "sv-farobj-live",
+      "note": "[est 16 min] SV 10 min natural play, FarLight live. Pass as bp-farobj-live. Switch read-back: repro far-readback prints the farobj / farhold / farhub lines at the start and 150 s in.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-SV-Spring",
+      "timeoutMin": 27,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjlight,farobjpulseprobe",
+          "repro": "far-readback",
+          "fixesRequire": "farHubSteps>=100,farobjPasses>=2,farobjLight>=1,farobjSkipReact>=1,farobjWouldReact<=0,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, ": 2,
+        "^ts3fixes: farhold: counts; on False, shadow False, hook True, lots 0 ": 1,
+        "^ts3fixes: farhub: start, world True, task True, wanted True, paused (True|False), owners 1, ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      }
+    },
+    {
+      "id": "bp-farobj-save-reload",
+      "note": "[est 16 min] repro farobj-save-reload (ledger I-627-5): save to the scratch name FarLight-SR while lots are FarLight and one test lot is parked in FarHold, reload it in the same session, play on. Pass: 0 script errors (no lot task reset at load), FarHold empty after the reload, lots take FarLight again, farhub line with loads >= 2 and quits >= 1, hh skip 0. Fresh start (rewind off for this job): it loads another save. One save and reload, not the save matrix.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] farlight-farhold-1126 (docs/358): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.farlight-farhold-1126 (game-copy/ts3fixes.package.farlight-farhold-1126: master source + FarHold / FarHub / FarObj, six switches, all default off, turned on here by fixesOn or the repro) and agent ts3agent.package.farlight-farhold-1126 (game-copy/ts3agent.package.farlight-farhold-1126: switch names, counter names for slots 1834-1897; queue.ts checks its sha256 against builds.json by this file name)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 8,
+          "noSamplers": true,
+          "fixesOn": "farobj,farobjlight,farobjpulseprobe,farhold",
+          "repro": "farobj-save-reload",
+          "fixesRequire": "farobjLight>=2,farobjSkipReact>=1,farHoldSkipped>=1,farHoldLots<=0,farHubLoads>=1,farHubQuits>=1,farobjHhPulseSkip<=0,farobjErrors<=0,farHubErrors<=0,farHoldErrors<=0,ownerConflict<=0",
+          "fixesReport": "farobj,farHold,farHub,ownerConflict"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: farobj: counts; on True, light True, shadow False, probe True, hooks True, .*, skipped [1-9]\\d*/\\d+/[1-9]\\d*, would 0/0/0, hh skip 0, ": 3,
+        "^ts3fixes: farhold: parkfar: lot 0x[0-9A-F]+ at \\d+ m, parked True; on True, shadow False, hook True, lots 1 ": 1,
+        "^ts3fixes: farhold: counts; on True, shadow False, hook True, lots 1 \\(high 1\\), .*, skipped [1-9]\\d*, would 0, evicted 0, ": 1,
+        "^ts3fixes: farhold: counts; on True, shadow False, hook True, lots 0 \\(high 1\\), .*, skipped [1-9]\\d*, ": 1,
+        "^ts3fixes: farhub: end, world True, task True, .*, loads [2-9]\\d*, quits [1-9]\\d*, .*, errors 0$": 1
+      },
+      "logForbid": {
+        "^ts3fixes: farobj: .*, hh skip [1-9]": 0,
+        "^ts3fixes: farobj: HOUSEHOLD CHECK MISSED": 0,
+        "^ts3fixes: far(obj|hold|hub): .*, errors [1-9]": 0,
+        "^ts3fixes: farhold: .*, ownerConflict [1-9]": 0
+      },
+      "rewind": false
+    }
+  ]
+}

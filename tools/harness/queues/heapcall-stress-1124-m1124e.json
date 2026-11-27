@@ -1,0 +1,706 @@
+{
+  "note": "heapcall-stress-1124-m1124e (2026-11-24, feature/heapcall-detector-1124; CRASH HUNT, correctness only, not timing): loop vb-owner-delete-stress up to 12 jobs on diag set m1124e until the first crash whose ts3native.log has a heapcall: line (the culprit: eip region, vtable word at ecx/esi/edi, 16 named return addresses, repro step). Cause: m1124c bp-vbowner-correct-5 0xC0000096 with no line of ours, 10 s after a swallowed main-thread heap call (eip 0x68746182, eax 0x68746170 = \"path\"). Fresh start after a crash (chain resumes --from). Bin state apex + RTX Remix bridge, Apex latest. Est 12 x ~6 min + launches = ~80 min at most.",
+  "agentPackage": "game-copy/ts3agent.package.m1124d",
+  "rewind": "auto",
+  "stopQueueOnFail": true,
+  "crashHunt": true,
+  "regexCases": {
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1",
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start",
+        "compat: Apex Radiance not found at start; ApexStandDown=1"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+      "match": [
+        "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+      ],
+      "noMatch": [
+        "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+        "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+      ]
+    },
+    "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+      "match": [
+        "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+      ],
+      "noMatch": [
+        "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+      ]
+    },
+    "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+      "match": [
+        "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+      ],
+      "noMatch": [
+        "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+        "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+      ]
+    },
+    "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+      "match": [
+        "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+      ],
+      "noMatch": [
+        "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+      ]
+    },
+    "^ts3native 0\\.36\\.305-m1124e ": {
+      "match": [
+        "ts3native 0.36.305-m1124e 2026-11-24 23:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.305-m1124e2 2026-11-24 23:30:00",
+        "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+      ]
+    },
+    "^OK   crash log: heapcall detector \\(docs/51 §610\\)": {
+      "match": [
+        "OK   crash log: heapcall detector (docs/51 §610): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 2 minidumps at most"
+      ],
+      "noMatch": [
+        "crash log: heapcall detector off ([Crash] HeapCall=0)",
+        "crash log: first 16 first-chance exceptions, an AV in another module once per address"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-heapcall-stress-1",
+      "note": "[est 5 min] heapcall stress 1/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-2",
+      "note": "[est 5 min] heapcall stress 2/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-3",
+      "note": "[est 5 min] heapcall stress 3/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-4",
+      "note": "[est 5 min] heapcall stress 4/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-5",
+      "note": "[est 5 min] heapcall stress 5/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-6",
+      "note": "[est 5 min] heapcall stress 6/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-7",
+      "note": "[est 5 min] heapcall stress 7/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-8",
+      "note": "[est 5 min] heapcall stress 8/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-9",
+      "note": "[est 5 min] heapcall stress 9/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-10",
+      "note": "[est 5 min] heapcall stress 10/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-11",
+      "note": "[est 5 min] heapcall stress 11/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    },
+    {
+      "id": "bp-heapcall-stress-12",
+      "note": "[est 5 min] heapcall stress 12/12: bp-vbowner-correct-5 (vb-owner-delete-stress, same ini, save, args, minutes 5) on the diag set m1124e = RC m1124d + [Crash] HeapCall (docs/51 §610), reuseSession maxJobs 12 (the m1124c crash came in the 5th window of one session). Pass: no crash, start-up lines (version 0.36.305-m1124e, heapcall detector OK, VB guard on, VbFreeDelay, VbOwnerDelay, alias copy), 0 script errors. No DoorMemoX / VB BAD rules here (FAIL = crash, so stopQueueOnFail stops at a crash and chain-heapcall-m1124e.sh checks its ts3native.log for a heapcall: line, then resumes with --from the next job on a fresh start). Household untouched: log-only detector.",
+      "asi": "game-copy/ts3native.asi.m1124e",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "pinReason": "diag set m1124e (feature/heapcall-detector-1124 on merge/m1124d 5989b7107): asi ts3native.asi.m1124e (0.36.305-m1124e, see builds.json), ini / ts3fixes / agent of RC set m1124d (0a7cccaceef8, 4f55ae3d01d8, agent 18852232f1d7 (agentPackage))",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "reuseSession": {
+        "maxJobs": 12,
+        "onFail": "restart"
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1,
+        "RouteSnap.DoorMemoX": 3,
+        "RouteSnap.DoorMemoXMs": 250,
+        "Crash.HeapCall": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "fixesOn": "doorgen,deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+          "repro": "vb-owner-delete-stress",
+          "noProf": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124e ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §610\\)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      }
+    }
+  ]
+}

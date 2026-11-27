@@ -41,6 +41,7 @@ namespace Ts3Fixes
             sNsOff = false; sNsPushes = 0;  // docs/329: ask ts3native's non-Sim split for the lot table again this load
             int gen = ++sViewerGen;  // a loop left from an earlier load ends at its next wake-up
             sViewerSent = null; sHeldSent.Clear(); sHeldSawAny = true; sHeldWake = 0;  // the first wake sends both tables
+            sRides.Clear(); sRideSeeded = false; sRideFallback = false;  // docs/335: seed the ride set with one walk this load
             Simulator.AddObject(new LoopTask(delegate { ViewerPushLoop(gen); }));
         }
 
@@ -140,6 +141,8 @@ namespace Ts3Fixes
                 else sViewerSent = null;
             }
             PushHeldDelta(actors, now);
+            // docs/329 lot table on the same wake count as PushViewers (it was left out here, so lots stayed 0 with this path ON)
+            if (!sNsOff && sNsPushes++ % kLotPushEvery == 0) PushLots();
             return true;
         }
 
@@ -199,6 +202,7 @@ namespace Ts3Fixes
         static void HoldSim(Sim s) { if (s != null && sHeld.Count < kHeldMax && !sHeld.Contains(s.ObjectId.Value)) sHeld.Add(s.ObjectId.Value); }
         static void PushHeld()
         {
+            sRideSeeded = false;  // docs/335: the hooks' set is not kept up on this path; walk again if it comes back
             sHeld.Clear();
             Household h = Household.ActiveHousehold;  // docs/249: first, the table holds 32
             if (h != null) foreach (Sim s in h.AllActors) HoldSim(s);
@@ -248,9 +252,19 @@ namespace Ts3Fixes
             bool hhRide = false;
             if (actors != null) foreach (Sim s in actors) HoldSim(s);
             // the household's own rides every wake (their other side may be an NPC horse); the ids join the walk's below
-            if (actors != null) foreach (Sim s in actors) if (s != null && !s.HasBeenDestroyed && RideCandidate(s)) hhRide = true;
+            // docs/335 viewerridehooks: the household's own rides are held from this list (not only from the hook set)
+            bool hooks = sRideHooksIn && ShortcutOn("viewerridehooks");
+            if (!hooks) { sRides.Clear(); sRideSeeded = false; }  // the hook set is not kept up while off (no stale Sims held): walk again when it comes on
+            if (actors != null) foreach (Sim s in actors) if (s != null && !s.HasBeenDestroyed && RideCandidate(s)) { hhRide = true; if (hooks) HoldRide(s); }
+            // and the horse under a household rider (the walk holds it as a ridden horse), without needing the hooks
+            if (hooks && actors != null) foreach (Sim s in actors) if (s != null) HoldHorseUnder(s);
             sHeldWake++;
-            if (LoopCostCore.HeldWalkDue(sHeldSawAny || hhRide, sHeldWake, kHeldSparseWakes))
+            if (hooks)
+            {
+                HeldRides(c, now);
+                sHeldSawAny = true;  // switched off later: walk at once, as after a wake that saw a ride
+            }
+            else if (LoopCostCore.HeldWalkDue(sHeldSawAny || hhRide, sHeldWake, kHeldSparseWakes))
             {
                 c[1581]++;
                 bool any = false;
@@ -276,6 +290,137 @@ namespace Ts3Fixes
                 if (SendHeld()) { sHeldSent.Clear(); sHeldSent.AddRange(sHeld); sHeldSentMs = now; }
                 else sHeldSent.Clear();  // refused: send again next wake
             }
+        }
+
+        // docs/335 viewerridehooks (default off, needs viewerpushdelta): the held table's rides without a LotManager.Actors walk
+        // per wake. A Sim passes RideCandidate only in BeingRiddenPosture (set only in RidingPosture.StartRiding) or while its
+        // current interaction is a Mount / Dismount / BeingDismounted (current from just before Run is entered until the queue
+        // dequeues it, no yield in between) [verified decompiled scripts]; hooks on those four bodies note the Sims into
+        // sRides, and each wake keeps the ones still passing (HoldRide, as the walk). The full walk stays for the seed (load,
+        // switch turned on, a full set) and every kRideFloorMs (rides a mod starts past the hooks: one found = walk every wake
+        // for the rest of the load). Shadow (viewerridehookshadow, diagnostic, off) compares with the walk every wake.
+        // [1662] Sims noted by the hooks, [1663] wakes from the set, [1664] set Sims tested, [1665] seed / floor walks,
+        // [1666] floor walks that found a ride missing from the set (walk every wake from then), [1667] shadow wakes,
+        // [1668] shadow wakes whose sets differ (must stay 0).
+        const long kRideFloorMs = 10000;
+        const int kRideSetMax = 256;   // past this the set is dropped and walked again (bounds the references it keeps)
+        static bool sRideHooksIn;      // all four hooks went in at startup
+        static readonly List<Sim> sRides = new List<Sim>();
+        static bool sRideSeeded, sRideFallback;
+        static uint sRideWalkMs;
+        static readonly List<ulong> sRideShadow = new List<ulong>();
+
+        internal static void ApplyViewerRideHooks()
+        {
+            bool ok = Patch(typeof(Sims3.Gameplay.ActorSystems.RidingPosture), "StartRiding", new Type[] { typeof(Sim), typeof(Sim), typeof(StateMachineClient) }, typeof(RideStartHook), "StartHook", "StartOrig");
+            ok &= Patch(typeof(Sim.Mount), "Run", Type.EmptyTypes, typeof(RideRunHook), "MountHook", "MountOrig");
+            ok &= Patch(typeof(Sim.Dismount), "Run", Type.EmptyTypes, typeof(RideRunHook), "DismountHook", "DismountOrig");
+            ok &= Patch(typeof(Sim.BeingDismounted), "Run", Type.EmptyTypes, typeof(RideRunHook), "BeingDismountedHook", "BeingDismountedOrig");
+            sRideHooksIn = ok;  // one refused (another mod compiled or swapped it first): the old walk stays
+            Sims3.SimIFace.World.OnWorldQuitEventHandler += delegate { sRides.Clear(); sRideSeeded = false; };  // no Sim of the old world kept past quit
+        }
+
+        public class RideStartHook
+        {
+            public static bool StartHook(Sim rider, Sim horse, StateMachineClient smc)
+            {
+                bool r = StartOrig(rider, horse, smc);
+                if (r) { RideNote(rider); RideNote(horse); }
+                return r;
+            }
+            public static bool StartOrig(Sim rider, Sim horse, StateMachineClient smc) { return false; }  // receives RidingPosture.StartRiding
+        }
+
+        public class RideRunHook
+        {
+            public bool MountHook() { RideNoteRun(this); return MountOrig(); }
+            public bool MountOrig() { return false; }  // receives Sim.Mount.Run
+            public bool DismountHook() { RideNoteRun(this); return DismountOrig(); }
+            public bool DismountOrig() { return false; }  // receives Sim.Dismount.Run
+            public bool BeingDismountedHook() { RideNoteRun(this); return BeingDismountedOrig(); }
+            public bool BeingDismountedOrig() { return false; }  // receives Sim.BeingDismounted.Run
+        }
+
+        static void RideNoteRun(object o)
+        {
+            try
+            {
+                Sims3.Gameplay.Interactions.InteractionInstance i = o as Sims3.Gameplay.Interactions.InteractionInstance;
+                if (i == null) return;
+                RideNote(i.InstanceActor as Sim);
+                RideNote(i.Target as Sim);
+            }
+            catch (Exception) { sRideSeeded = false; }  // never in EA's way; the next wake walks
+        }
+
+        static void RideNote(Sim s)
+        {
+            try
+            {
+                if (s == null || !ShortcutOn("viewerridehooks") || sRides.Contains(s)) return;
+                if (sRides.Count >= kRideSetMax) { sRides.Clear(); sRideSeeded = false; return; }
+                sRides.Add(s);
+                PatchCounters()[1662]++;
+            }
+            catch (Exception) { sRideSeeded = false; }
+        }
+
+        // Adds the rides to sHeld (after the household): from a LotManager.Actors walk when due, else from sRides.
+        static void HeldRides(int[] c, uint now)
+        {
+            if (sRideFallback || LoopCostCore.RideWalkDue(sRideSeeded, (long)unchecked(now - sRideWalkMs), kRideFloorMs))
+            {
+                c[1581]++; c[1665]++;
+                bool miss = false;
+                List<Sim> found = new List<Sim>();
+                foreach (Sim s in Sims3.Gameplay.Core.LotManager.Actors)
+                {
+                    c[1583]++;
+                    if (s == null) continue;
+                    if (!RideCandidate(s) || s.HasBeenDestroyed) continue;  // the same test and order as the delta walk
+                    HoldRide(s);
+                    found.Add(s);
+                    if (sRideSeeded && !sRides.Contains(s)) miss = true;
+                }
+                if (miss && !sRideFallback) { c[1666]++; sRideFallback = true; }
+                sRides.Clear(); sRides.AddRange(found);
+                sRideSeeded = true; sRideWalkMs = now;
+            }
+            else
+            {
+                c[1663]++;
+                for (int k = sRides.Count - 1; k >= 0; k--)
+                {
+                    Sim s = sRides[k];
+                    c[1664]++;
+                    if (s == null || !RideCandidate(s) || s.HasBeenDestroyed) sRides.RemoveAt(k);
+                }
+                foreach (Sim s in sRides) HoldRide(s);
+            }
+            if (!ShortcutOn("viewerridehookshadow")) return;
+            // diagnostic: the walk-every-wake held table (household, then every ride in Actors) against the one just built
+            c[1667]++;
+            sRideShadow.Clear(); sRideShadow.AddRange(sHeld);
+            try
+            {
+                sHeld.Clear();
+                Household h = Household.ActiveHousehold;
+                if (h != null) foreach (Sim s in h.AllActors) HoldSim(s);
+                foreach (Sim s in Sims3.Gameplay.Core.LotManager.Actors)
+                    if (s != null && RideCandidate(s) && !s.HasBeenDestroyed) HoldRide(s);
+                // a set compare below the table cap; at the cap the order picks who is cut, so it must match too
+                bool same = sHeld.Count < kHeldMax && sRideShadow.Count < kHeldMax ? LoopCostCore.SameIdSet(sRideShadow, sHeld) : LoopCostCore.SameIds(sRideShadow, sHeld);
+                if (!same) c[1668]++;
+            }
+            catch (Exception) { c[1668]++; }
+            finally { sHeld.Clear(); sHeld.AddRange(sRideShadow); }  // the hook set's table is the one sent
+        }
+
+        static void HoldHorseUnder(Sim s)
+        {
+            Sims3.Gameplay.ActorSystems.RidingPosture rp = s.Posture as Sims3.Gameplay.ActorSystems.RidingPosture;
+            Sim horse = rp != null ? rp.Mount : null;
+            if (horse != null && !horse.HasBeenDestroyed && RideCandidate(horse)) HoldRide(horse);
         }
 
         static bool RideCandidate(Sim s)

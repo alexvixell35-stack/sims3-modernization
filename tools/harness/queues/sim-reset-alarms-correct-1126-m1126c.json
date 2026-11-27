@@ -1,0 +1,287 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] sim-reset-alarms-correct-1126 (2026-11-26, docs/357, WRITTEN, NOT RUN): correctness of simresetalarms (EA bug fix, docs/352: a Sim reset on the world lot keeps the Sim's repeating NeverPersisted alarms, as vanilla keeps them on every other lot) and its probe simresetalarmprobe. Job 1 probe arm: BP 10 min natural play, probe on, fix off: answers docs/352 Q1 (how often a Sim reset asks the global manager, which callbacks are lost); nothing may be kept or removed (simresetalarms_kept 0, _listdrops 0). Job 2 fix arm: same play, fix (mode 1) + probe on: 0 script errors, no error counted, no alarm removed by the (empty) drop list. Job 3: repro sim-reset-alarms (off arm then fix arm in one load, two townies): the off arm's world-lot reset loses both vampire alarms (the bug; a hollow repro fails the job), the fix arm keeps them; a normal-lot reset keeps them in both arms. Switch read-back: fixesOn (profile-world prints fixes on: ... (verified)), the mode in the probe head line (mode=0 / mode=1), counters that move only with a switch on. Job 4: repro service-leave-reset with its live arms (docs/357 §4): the serviceleave live-timeout rule on a real repairman, street arm and lot arm. ON condition for simresetalarms: this queue passes AND the 30 repeating NeverPersisted sites are read (docs/352 Q2, docs/357 §3). Household: mode 1 applies to every Sim by design (EA bug fix whose result equals vanilla on a normal lot; CLAUDE.md \"EA bug fixes stay\", docs/357 §3). Household untouched here means: no Sim, household included, loses an alarm vanilla keeps (logForbid on \"dropped (list)\", simresetalarms_listdrops 0), and the probe arm changes nothing (no \"kept (fix)\" line with the fix off); the repro touches townies only (agent DtScope). Bin state apex (Apex latest + RTX Remix bridge). Est 60 min. No timing queue: an EA bug fix on a rare path (a reset), no gain claimed. The chain copies the two packages named here from game-copy into build/ as the m1126 chains do.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-simresetalarms-probe",
+      "note": "[est 15 min] PROBE ARM: BP 10 min natural play (seed 12345), simresetalarmprobe on, simresetalarms off. Pass: 0 script errors, no error counted, nothing kept or removed (the probe only reads). Read: fixesReport simresetalarms (resets on the world lot vs other lots) and the simresetalarm: lines (docs/352 Q1). No reset in 10 min is a valid result (resets are rare): the counters then stay 0.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] sim-reset-alarms-1126 (docs/357): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simresetalarms-1126 (m1126b source + SimResetAlarms.cs: simresetalarms / simresetalarmprobe, both default off, turned on here by fixesOn or by the repro) and agent ts3agent.package.simresetalarms-1126 (sim_reset_alarms command, simresetalarms_* counter names)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10,
+          "fixesOn": "simresetalarmprobe",
+          "fixesOff": "simresetalarms",
+          "fixesRequire": "simresetalarms_kept<=0,simresetalarms_listdrops<=0,simresetalarms_errors<=0",
+          "fixesReport": "simresetalarms"
+        }
+      },
+      "logForbid": {
+        "^ts3fixes: simresetalarm:   .* -> dropped \\(list\\)$": 1,
+        "^ts3fixes: simresetalarm:   .* -> kept \\(fix\\)$": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      }
+    },
+    {
+      "id": "bp-simresetalarms-fix",
+      "note": "[est 15 min] FIX ARM: BP 10 min natural play (seed 12345), simresetalarms (mode 1) + simresetalarmprobe on. Pass: 0 script errors, no error counted, no alarm removed by the drop list (it ships empty), so no Sim loses an alarm vanilla keeps. Read: fixesReport simresetalarms, simresetalarm: lines.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] sim-reset-alarms-1126 (docs/357): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simresetalarms-1126 (m1126b source + SimResetAlarms.cs: simresetalarms / simresetalarmprobe, both default off, turned on here by fixesOn or by the repro) and agent ts3agent.package.simresetalarms-1126 (sim_reset_alarms command, simresetalarms_* counter names)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10,
+          "fixesOn": "simresetalarms,simresetalarmprobe",
+          "fixesRequire": "simresetalarms_listdrops<=0,simresetalarms_errors<=0",
+          "fixesReport": "simresetalarms"
+        }
+      },
+      "logForbid": {
+        "^ts3fixes: simresetalarm:   .* -> dropped \\(list\\)$": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      }
+    },
+    {
+      "id": "bp-sim-reset-alarms-repro",
+      "note": "[est 12 min] Repro sim-reset-alarms (off arm then fix arm, two townie vampires, each reset on a normal lot and on the world lot). Pass: the repro's steps (off arm world lot vampire_alarms 0, fix arm 2; normal lot 2 in both), its fixesRequire, the four probe head lines and the kept (fix) lines for both vampire callbacks, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] sim-reset-alarms-1126 (docs/357): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simresetalarms-1126 (m1126b source + SimResetAlarms.cs: simresetalarms / simresetalarmprobe, both default off, turned on here by fixesOn or by the repro) and agent ts3agent.package.simresetalarms-1126 (sim_reset_alarms command, simresetalarms_* counter names)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 20,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 3,
+          "repro": "sim-reset-alarms"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simresetalarm: reset sim=\"[^\"]*\" lot=other hh=0 mode=0 scoped=\\d+>\\d+ npr=\\d+>\\d+ vampire=2>2$": 1,
+        "^ts3fixes: simresetalarm: reset sim=\"[^\"]*\" lot=world hh=0 mode=0 scoped=\\d+>\\d+ npr=\\d+>\\d+ vampire=2>0$": 1,
+        "^ts3fixes: simresetalarm: reset sim=\"[^\"]*\" lot=other hh=0 mode=1 scoped=\\d+>\\d+ npr=\\d+>\\d+ vampire=2>2$": 1,
+        "^ts3fixes: simresetalarm: reset sim=\"[^\"]*\" lot=world hh=0 mode=1 scoped=\\d+>\\d+ npr=\\d+>\\d+ vampire=2>2$": 1,
+        "^ts3fixes: simresetalarm:   Sims3\\.Gameplay\\.ActorSystems\\.OccultVampire\\.Sun(set|rise)Callback type=NeverPersisted rep=1 -> kept \\(fix\\)$": 2
+      },
+      "logForbid": {
+        "^ts3fixes: simresetalarm:   .* -> dropped \\(list\\)$": 1
+      }
+    },
+    {
+      "id": "bp-service-leave-reset-live",
+      "note": "[est 15 min] Repro service-leave-reset with its live arms (serviceleave is ON by default): decision check off BROKEN / on FIXED with the live-timer lookup proven on a throwaway alarm; then a repairman called to the home lot is reset on the world lot (street arm: EA drops the arrive timeout, serviceleave arms it again: handle changes, [2517] +1) and on the lot in Fixing / HangAroundBeforeLeaving (lot arm: same handle, time left not above the value before, [1832] +1, [2517] / [2518] +0). Pass: both serviceleave-live PASS lines, no FAIL line, 0 script errors. Only the service worker is reset.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] sim-reset-alarms-1126 (docs/357): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simresetalarms-1126 (m1126b source + SimResetAlarms.cs: simresetalarms / simresetalarmprobe, both default off, turned on here by fixesOn or by the repro) and agent ts3agent.package.simresetalarms-1126 (sim_reset_alarms command, simresetalarms_* counter names)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 3,
+          "repro": "service-leave-reset"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: serviceleave-live: arm=street state=WaitToRoute\\.mAlarmHandle now=WaitToRoute\\.mAlarmHandle same_handle=0 time=\\d+\\.\\d\\d>\\d+\\.\\d\\d skips=\\+0 rearm_wait=\\+[1-9]\\d* rearm_work=\\+0 verdict=PASS$": 1,
+        "^ts3fixes: serviceleave-live: arm=lot state=(Fixing\\.mTimeUpHandle|HangAroundBeforeLeaving\\.mAlarmHandle) now=\\1 same_handle=1 time=\\d+\\.\\d\\d>\\d+\\.\\d\\d skips=\\+[1-9]\\d* rearm_wait=\\+0 rearm_work=\\+0 verdict=PASS$": 1
+      },
+      "logForbid": {
+        "^ts3fixes: serviceleave-live: .* verdict=FAIL$": 1
+      }
+    }
+  ],
+  "regexCases": {
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+        "ts3native 0.36.299-m1122 2026-11-22 06:55:20",
+        "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+        "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^ts3fixes: simresetalarm: reset sim=\"[^\"]*\" lot=other hh=0 mode=0 scoped=\\d+>\\d+ npr=\\d+>\\d+ vampire=2>2$": {
+      "match": [
+        "ts3fixes: simresetalarm: reset sim=\"A B\" lot=other hh=0 mode=0 scoped=7>7 npr=2>2 vampire=2>2"
+      ],
+      "noMatch": [
+        "ts3fixes: simresetalarm: reset sim=\"A B\" lot=world hh=0 mode=0 scoped=7>0 npr=2>0 vampire=2>0",
+        "ts3fixes: simresetalarm: reset sim=\"C D\" lot=other hh=0 mode=1 scoped=7>7 npr=2>2 vampire=2>2",
+        "ts3fixes: simresetalarm: reset sim=\"E F\" lot=world hh=1 mode=0 scoped=3>0 npr=1>0 vampire=0>0"
+      ]
+    },
+    "^ts3fixes: simresetalarm: reset sim=\"[^\"]*\" lot=world hh=0 mode=0 scoped=\\d+>\\d+ npr=\\d+>\\d+ vampire=2>0$": {
+      "match": [
+        "ts3fixes: simresetalarm: reset sim=\"A B\" lot=world hh=0 mode=0 scoped=7>0 npr=2>0 vampire=2>0"
+      ],
+      "noMatch": [
+        "ts3fixes: simresetalarm: reset sim=\"A B\" lot=other hh=0 mode=0 scoped=7>7 npr=2>2 vampire=2>2",
+        "ts3fixes: simresetalarm: reset sim=\"C D\" lot=world hh=0 mode=1 scoped=7>2 npr=2>2 vampire=2>2",
+        "ts3fixes: simresetalarm: reset sim=\"E F\" lot=world hh=1 mode=0 scoped=3>0 npr=1>0 vampire=0>0"
+      ]
+    },
+    "^ts3fixes: simresetalarm: reset sim=\"[^\"]*\" lot=other hh=0 mode=1 scoped=\\d+>\\d+ npr=\\d+>\\d+ vampire=2>2$": {
+      "match": [
+        "ts3fixes: simresetalarm: reset sim=\"C D\" lot=other hh=0 mode=1 scoped=7>7 npr=2>2 vampire=2>2"
+      ],
+      "noMatch": [
+        "ts3fixes: simresetalarm: reset sim=\"A B\" lot=other hh=0 mode=0 scoped=7>7 npr=2>2 vampire=2>2",
+        "ts3fixes: simresetalarm: reset sim=\"C D\" lot=world hh=0 mode=1 scoped=7>2 npr=2>2 vampire=2>2"
+      ]
+    },
+    "^ts3fixes: simresetalarm: reset sim=\"[^\"]*\" lot=world hh=0 mode=1 scoped=\\d+>\\d+ npr=\\d+>\\d+ vampire=2>2$": {
+      "match": [
+        "ts3fixes: simresetalarm: reset sim=\"C D\" lot=world hh=0 mode=1 scoped=7>2 npr=2>2 vampire=2>2"
+      ],
+      "noMatch": [
+        "ts3fixes: simresetalarm: reset sim=\"A B\" lot=world hh=0 mode=0 scoped=7>0 npr=2>0 vampire=2>0",
+        "ts3fixes: simresetalarm: reset sim=\"C D\" lot=other hh=0 mode=1 scoped=7>7 npr=2>2 vampire=2>2",
+        "ts3fixes: simresetalarm: reset sim=\"C D\" lot=world hh=0 mode=1 scoped=7>0 npr=2>0 vampire=2>0"
+      ]
+    },
+    "^ts3fixes: simresetalarm:   Sims3\\.Gameplay\\.ActorSystems\\.OccultVampire\\.Sun(set|rise)Callback type=NeverPersisted rep=1 -> kept \\(fix\\)$": {
+      "match": [
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.ActorSystems.OccultVampire.SunsetCallback type=NeverPersisted rep=1 -> kept (fix)",
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.ActorSystems.OccultVampire.SunriseCallback type=NeverPersisted rep=1 -> kept (fix)"
+      ],
+      "noMatch": [
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.ActorSystems.OccultVampire.SunriseCallback type=NeverPersisted rep=1 -> dropped",
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.Services.ServiceSituation+WaitToRoute.TimeToRoute type=DeleteOnReset rep=0 -> kept"
+      ]
+    },
+    "^ts3fixes: simresetalarm:   .* -> dropped \\(list\\)$": {
+      "match": [
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.Core.InteractionQueue.DestroyProp type=DeleteOnReset rep=0 -> dropped (list)"
+      ],
+      "noMatch": [
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.ActorSystems.OccultVampire.SunriseCallback type=NeverPersisted rep=1 -> dropped",
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.ActorSystems.OccultVampire.SunsetCallback type=NeverPersisted rep=1 -> kept (fix)",
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.Services.ServiceSituation+WaitToRoute.TimeToRoute type=DeleteOnReset rep=0 -> kept"
+      ]
+    },
+    "^ts3fixes: simresetalarm:   .* -> kept \\(fix\\)$": {
+      "match": [
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.ActorSystems.OccultVampire.SunsetCallback type=NeverPersisted rep=1 -> kept (fix)"
+      ],
+      "noMatch": [
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.Services.ServiceSituation+WaitToRoute.TimeToRoute type=DeleteOnReset rep=0 -> kept",
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.ActorSystems.OccultVampire.SunriseCallback type=NeverPersisted rep=1 -> dropped",
+        "ts3fixes: simresetalarm:   Sims3.Gameplay.Core.InteractionQueue.DestroyProp type=DeleteOnReset rep=0 -> dropped (list)"
+      ]
+    },
+    "^ts3fixes: serviceleave-live: arm=street state=WaitToRoute\\.mAlarmHandle now=WaitToRoute\\.mAlarmHandle same_handle=0 time=\\d+\\.\\d\\d>\\d+\\.\\d\\d skips=\\+0 rearm_wait=\\+[1-9]\\d* rearm_work=\\+0 verdict=PASS$": {
+      "match": [
+        "ts3fixes: serviceleave-live: arm=street state=WaitToRoute.mAlarmHandle now=WaitToRoute.mAlarmHandle same_handle=0 time=58.20>60.00 skips=+0 rearm_wait=+1 rearm_work=+0 verdict=PASS"
+      ],
+      "noMatch": [
+        "ts3fixes: serviceleave-live: arm=street state=WaitToRoute.mAlarmHandle now=WaitToRoute.mAlarmHandle same_handle=1 time=58.20>0.00 skips=+0 rearm_wait=+0 rearm_work=+0 verdict=FAIL",
+        "ts3fixes: serviceleave-live: arm=lot state=HangAroundBeforeLeaving.mAlarmHandle now=HangAroundBeforeLeaving.mAlarmHandle same_handle=1 time=17.50>17.10 skips=+1 rearm_wait=+0 rearm_work=+0 verdict=PASS"
+      ]
+    },
+    "^ts3fixes: serviceleave-live: arm=lot state=(Fixing\\.mTimeUpHandle|HangAroundBeforeLeaving\\.mAlarmHandle) now=\\1 same_handle=1 time=\\d+\\.\\d\\d>\\d+\\.\\d\\d skips=\\+[1-9]\\d* rearm_wait=\\+0 rearm_work=\\+0 verdict=PASS$": {
+      "match": [
+        "ts3fixes: serviceleave-live: arm=lot state=HangAroundBeforeLeaving.mAlarmHandle now=HangAroundBeforeLeaving.mAlarmHandle same_handle=1 time=17.50>17.10 skips=+1 rearm_wait=+0 rearm_work=+0 verdict=PASS",
+        "ts3fixes: serviceleave-live: arm=lot state=Fixing.mTimeUpHandle now=Fixing.mTimeUpHandle same_handle=1 time=230.00>229.60 skips=+1 rearm_wait=+0 rearm_work=+0 verdict=PASS"
+      ],
+      "noMatch": [
+        "ts3fixes: serviceleave-live: arm=lot state=Fixing.mTimeUpHandle now=HangAroundBeforeLeaving.mAlarmHandle same_handle=0 time=230.00>18.00 skips=+1 rearm_wait=+0 rearm_work=+0 verdict=FAIL",
+        "ts3fixes: serviceleave-live: arm=lot state=Fixing.mTimeUpHandle now=Fixing.mTimeUpHandle same_handle=0 time=230.00>240.00 skips=+0 rearm_wait=+0 rearm_work=+1 verdict=FAIL",
+        "ts3fixes: serviceleave-live: arm=street state=WaitToRoute.mAlarmHandle now=WaitToRoute.mAlarmHandle same_handle=0 time=58.20>60.00 skips=+0 rearm_wait=+1 rearm_work=+0 verdict=PASS"
+      ]
+    },
+    "^ts3fixes: serviceleave-live: .* verdict=FAIL$": {
+      "match": [
+        "ts3fixes: serviceleave-live: arm=street state=WaitToRoute.mAlarmHandle now=WaitToRoute.mAlarmHandle same_handle=1 time=58.20>0.00 skips=+0 rearm_wait=+0 rearm_work=+0 verdict=FAIL",
+        "ts3fixes: serviceleave-live: arm=lot state=Fixing.mTimeUpHandle now=HangAroundBeforeLeaving.mAlarmHandle same_handle=0 time=230.00>18.00 skips=+1 rearm_wait=+0 rearm_work=+0 verdict=FAIL",
+        "ts3fixes: serviceleave-live: arm=lot state=Fixing.mTimeUpHandle now=Fixing.mTimeUpHandle same_handle=0 time=230.00>240.00 skips=+0 rearm_wait=+0 rearm_work=+1 verdict=FAIL"
+      ],
+      "noMatch": [
+        "ts3fixes: serviceleave-live: arm=street state=WaitToRoute.mAlarmHandle now=WaitToRoute.mAlarmHandle same_handle=0 time=58.20>60.00 skips=+0 rearm_wait=+1 rearm_work=+0 verdict=PASS",
+        "ts3fixes: serviceleave-live: arm=lot state=HangAroundBeforeLeaving.mAlarmHandle now=HangAroundBeforeLeaving.mAlarmHandle same_handle=1 time=17.50>17.10 skips=+1 rearm_wait=+0 rearm_work=+0 verdict=PASS"
+      ]
+    }
+  }
+}

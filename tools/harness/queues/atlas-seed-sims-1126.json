@@ -1,0 +1,601 @@
+{
+  "note": "atlas-seed-sims-1126: seed-only far Sims P1 (sims-3-modernization docs/361 §6.6; Boundless Atlas branch feature/seed-sims-1126), seven jobs on Sunset Valley (Baseline-SV) in this order: gen (new seed, save Repro-SeedSims-1126, sidecar written after the save by the SaveBracket Post handler) -> reload (status ok, regen match: the population comes back bit for bit from seed + time) -> nomod (the same save without Atlas: plain EA save, no script error; saves Repro-SeedSimsNoMod-1126) -> after-nomod (status ok, regen match) -> travel (France and back: same seed for the home town) -> stale (the no-mod save: stale, seed kept, nothing to repair) -> OFF arm. The jobs depend on each other: run them in order, never --from the middle. P1 creates nothing in the game, so the no-mod job checks only that the save is plain EA. DRY-RUN ONLY: never run. NOT RUNNABLE ON MASTER YET: extraAsi comes with branch feature/atlas-p0-load-1126 (this branch is cut from it). The Atlas pins are built from boundless-atlas feature/seed-sims-1126 0171723 (rebased on main ce7c648, hooked in); a later Atlas commit needs a rebuild and repin (asi sha256, mod-set sha). Scratch saves Repro-SeedSims-1126 and Repro-SeedSimsNoMod-1126 are removed by hand after the run; seed sidecars are deleted by the first step of the gen job (Atlas.SeedSims.CleanAndReload, files <16 hex>.seed.jsonl in ts3native\\atlas\\ only). 2026-11-27: every job repinned to Atlas main 0.3.15 (boundless-atlas main 212e136, game-copy/atlas-main13/atlas.asi sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919, mod set game-copy/mod-sets/atlas-main13); new logRequire 'atlas:icalls ready 3'; the repros wait for the settled script half (AtlasNative.Groups log, ready 3, waiting 0) before their first Atlas step. 0.3.15 read-backs (version line, rebase 6 / rebase-4, freeze native 3 and script 0.2.1-fz2, oop client 3 protocol 4, plugin 3) are inferred from the 212e136 source, not seen in a log yet.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+      ]
+    },
+    "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": {
+      "match": [
+        "atlas:seed native 1 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder ok"
+      ],
+      "noMatch": [
+        "atlas:seed native 1 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder MISSING",
+        "atlas:seed off (SeedSims=0)"
+      ]
+    },
+    "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": {
+      "match": [
+        "atlas:seed on 0.1.0-seed1 (SeedSims=1, Verbose=0), native 1, pg newest 1, self-check PASS, save bracket ok"
+      ],
+      "noMatch": [
+        "atlas:seed self-check FAIL golden lot 3 (0000000000000000): feature off",
+        "atlas:seed on 0.1.0-seed0 (SeedSims=1, Verbose=0), native 1, pg newest 1, self-check PASS, save bracket ok"
+      ]
+    },
+    "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=(missing|stale) pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": {
+      "match": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=missing pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=212",
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=stale pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=212"
+      ],
+      "noMatch": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=ok pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=212",
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=bad pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=212"
+      ]
+    },
+    "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=ok pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": {
+      "match": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=ok pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=212"
+      ],
+      "noMatch": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=stale pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=212",
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=ok pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=0"
+      ]
+    },
+    "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=stale pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": {
+      "match": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=stale pg=1 seed=1111111111111111 ticks=1900000 sims=212"
+      ],
+      "noMatch": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=ok pg=1 seed=1111111111111111 ticks=1900000 sims=212",
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=missing pg=1 seed=1111111111111111 ticks=1900000 sims=212"
+      ]
+    },
+    "^atlas:seed gen world=\\S+ pg=1 t=\\d+ lots=[1-9]\\d* members=[1-9]\\d* skip household=[1-9]\\d* ea=\\d+ collide=0 notResidential=\\d+ hash=[0-9a-f]{16}$": {
+      "match": [
+        "atlas:seed gen world=SunsetValley pg=1 t=1834200 lots=14 members=31 skip household=1 ea=40 collide=0 notResidential=30 hash=0123456789abcdef"
+      ],
+      "noMatch": [
+        "atlas:seed gen world=SunsetValley pg=1 t=1834200 lots=0 members=0 skip household=1 ea=40 collide=0 notResidential=30 hash=0123456789abcdef",
+        "atlas:seed gen world=SunsetValley pg=1 t=1834200 lots=14 members=31 skip household=0 ea=40 collide=0 notResidential=30 hash=0123456789abcdef",
+        "atlas:seed gen world=SunsetValley pg=1 t=1834200 lots=0 members=0 skip household=0 ea=0 collide=0 notResidential=0 hash=cbf29ce484222325 refused=active household unknown"
+      ]
+    },
+    "^atlas:seed write save world=\\S+ ticks=\\d+ sims=[1-9]\\d* lots=[1-9]\\d* hash=[0-9a-f]{16} rc=0$": {
+      "match": [
+        "atlas:seed write save world=SunsetValley ticks=1834200 sims=212 lots=14 hash=0123456789abcdef rc=0"
+      ],
+      "noMatch": [
+        "atlas:seed write save world=SunsetValley ticks=1834200 sims=212 lots=14 hash=0123456789abcdef rc=4",
+        "atlas:seed write save world=SunsetValley ticks=1834200 sims=212 lots=0 hash=0000000000000000 rc=0",
+        "atlas:seed write skipped save: save result 7"
+      ]
+    },
+    "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=2 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.10 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=1 oop=1 seed=1 built Nov 26 2026 23:10:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.10 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=1 oop=1 seed=1 built Nov 27 2026 09:00:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.14 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 13:10:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, rundll32.exe link stamp 0xB91766EA"
+      ]
+    },
+    "^atlas:save bracket SaveGame ok, SaveTravel ok$": {
+      "match": [
+        "atlas:save bracket SaveGame ok, SaveTravel ok"
+      ],
+      "noMatch": [
+        "atlas:save bracket SaveGame ok, SaveTravel refused: x",
+        "atlas:save bracket handler seed order 40"
+      ]
+    },
+    "^atlas:save bracket-error ": {
+      "match": [
+        "atlas:save bracket-error handler seed post save: NullReferenceException"
+      ],
+      "noMatch": [
+        "atlas:save bracket SaveGame ok, SaveTravel ok"
+      ]
+    },
+    "^atlas:seed write skipped ": {
+      "match": [
+        "atlas:seed write skipped save: save result 7"
+      ],
+      "noMatch": [
+        "atlas:seed write save world=W ticks=1 sims=1 lots=1 hash=0123456789abcdef rc=0"
+      ]
+    },
+    "^atlas:seed regen match world=\\S+ lots=[1-9]\\d* hash=[0-9a-f]{16}$": {
+      "match": [
+        "atlas:seed regen match world=SunsetValley lots=14 hash=0123456789abcdef"
+      ],
+      "noMatch": [
+        "atlas:seed regen MISMATCH world=SunsetValley file lots=14 hash=0123456789abcdef, now lots=13 hash=0000000000000001"
+      ]
+    },
+    "^atlas:seed off \\(SeedSims=0\\)$": {
+      "match": [
+        "atlas:seed off (SeedSims=0)"
+      ],
+      "noMatch": [
+        "atlas:seed off (SeedSims=1)",
+        "atlas:seed native 1 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder ok"
+      ]
+    },
+    "^atlas:seed ERROR ": {
+      "match": [
+        "atlas:seed ERROR S1 load: NullReferenceException x"
+      ],
+      "noMatch": [
+        "atlas:seed write world=W ticks=1 sims=1 lots=1 hash=0123456789abcdef rc=0"
+      ]
+    },
+    "^atlas:seed regen MISMATCH ": {
+      "match": [
+        "atlas:seed regen MISMATCH world=W file lots=1 hash=0123456789abcdef, now lots=1 hash=0123456789abcde0"
+      ],
+      "noMatch": [
+        "atlas:seed regen match world=W lots=1 hash=0123456789abcdef"
+      ]
+    },
+    "^atlas:seed self-check FAIL ": {
+      "match": [
+        "atlas:seed self-check FAIL M(0): feature off"
+      ],
+      "noMatch": [
+        "atlas:seed on 0.1.0-seed1 (SeedSims=1, Verbose=0), native 1, pg newest 1, self-check PASS, save bracket ok"
+      ]
+    },
+    "^atlas:seed SKIP ": {
+      "match": [
+        "atlas:seed SKIP pgnew world=W: generator 2 is newer than this build (1); nothing generated, sidecar left as it is",
+        "atlas:seed SKIP not-steam-1.67 (link stamp 0x00000000, image size 0x00000000)"
+      ],
+      "noMatch": [
+        "atlas:seed skip household=1"
+      ]
+    },
+    "^atlas:seed collide ": {
+      "match": [
+        "atlas:seed collide lot=123: an EA Sim carries a planned id; lot left to EA"
+      ],
+      "noMatch": [
+        "atlas:seed gen world=W pg=1 t=1 lots=1 members=1 skip household=1 ea=0 collide=0 notResidential=0 hash=0123456789abcdef"
+      ]
+    },
+    "^atlas:seed .*refused=": {
+      "match": [
+        "atlas:seed gen world=W pg=1 t=1 lots=0 members=0 skip household=0 ea=0 collide=0 notResidential=0 hash=cbf29ce484222325 refused=active household unknown"
+      ],
+      "noMatch": [
+        "atlas:seed gen world=W pg=1 t=1 lots=3 members=5 skip household=1 ea=0 collide=0 notResidential=0 hash=0123456789abcdef"
+      ]
+    },
+    "^atlas:seed clean: \\d+ seed sidecar\\(s\\) deleted$": {
+      "match": [
+        "atlas:seed clean: 1 seed sidecar(s) deleted",
+        "atlas:seed clean: 0 seed sidecar(s) deleted"
+      ],
+      "noMatch": [
+        "atlas:seed clean-reload: 1 sidecar(s) deleted, resolving the loaded world again"
+      ]
+    },
+    "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=missing pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": {
+      "match": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=missing pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=212"
+      ],
+      "noMatch": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=stale pg=1 seed=9c41d2e07b53a611 ticks=1834200 sims=212"
+      ]
+    },
+    "^atlas:seed write travel-save world=SunsetValley ticks=\\d+ sims=[1-9]\\d* lots=[1-9]\\d* hash=[0-9a-f]{16} rc=0$": {
+      "match": [
+        "atlas:seed write travel-save world=SunsetValley ticks=1834200 sims=212 lots=14 hash=0123456789abcdef rc=0"
+      ],
+      "noMatch": [
+        "atlas:seed write save world=SunsetValley ticks=1834200 sims=212 lots=14 hash=0123456789abcdef rc=0",
+        "atlas:seed write travel-save world=France ticks=1 sims=5 lots=2 hash=0123456789abcdef rc=0"
+      ]
+    },
+    "^atlas:seed load world=SunsetValley key=[0-9a-f]{16} status=(ok|stale) pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": {
+      "match": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=stale pg=1 seed=9c41d2e07b53a611 ticks=1900000 sims=214",
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=ok pg=1 seed=9c41d2e07b53a611 ticks=1900000 sims=214"
+      ],
+      "noMatch": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=missing pg=1 seed=1111111111111111 ticks=1900000 sims=214",
+        "atlas:seed load world=France key=0123456789abcdef status=missing pg=1 seed=1111111111111111 ticks=1 sims=5"
+      ]
+    },
+    "^atlas:seed RESEED ": {
+      "match": [
+        "atlas:seed RESEED world=SunsetValley key=0123456789abcdef status=missing: seed 9c41d2e07b53a611 -> 1111111111111111"
+      ],
+      "noMatch": [
+        "atlas:seed load world=SunsetValley key=0123456789abcdef status=stale pg=1 seed=9c41d2e07b53a611 ticks=1 sims=1"
+      ]
+    },
+    "^atlas:seed key changed ": {
+      "match": [
+        "atlas:seed key changed save: load key=0123456789abcdef save key=fedcba9876543210; writing under the save key, the load key's file is left as it is"
+      ],
+      "noMatch": [
+        "atlas:seed write save world=W ticks=1 sims=1 lots=1 hash=0123456789abcdef rc=0"
+      ]
+    },
+    "^atlas:seed regen ": {
+      "match": [
+        "atlas:seed regen match world=W lots=1 hash=0123456789abcdef"
+      ],
+      "noMatch": [
+        "atlas:seed gen world=W pg=1 t=1 lots=1 members=1 skip household=1 ea=0 collide=0 notResidential=0 hash=0123456789abcdef"
+      ]
+    },
+    "^atlas:seed (native|on) ": {
+      "match": [
+        "atlas:seed native 1 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder ok",
+        "atlas:seed on 0.1.0-seed1 (SeedSims=1, Verbose=0), native 1, pg newest 1, self-check PASS, save bracket ok"
+      ],
+      "noMatch": [
+        "atlas:seed off (SeedSims=0)"
+      ]
+    },
+    "^atlas:icalls \\S+ SKIP ": {
+      "match": [
+        "atlas:icalls p1 SKIP no script domain in 600 s (host 0x1234ABCD): 24 internal calls not registered"
+      ],
+      "noMatch": [
+        "atlas:icalls p1 waiting 10 s: host [0x011EE514] = 0x1234ABCD, domain [host+0xACC] = 0",
+        "atlas:icalls p1: 24 registered 3 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set"
+      ]
+    },
+    "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
+      "match": [
+        "atlas:icalls ready 3: groups 0x000A"
+      ],
+      "noMatch": [
+        "atlas:icalls ready 1: groups 0x000A",
+        "atlas:icalls ready 3: groups 0x0A",
+        "atlas:icalls oop: 5 registered 12 ms after start of wait (domain 0x1A2B3C4D), group 3 flag set"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-seed-gen-sv",
+      "note": "[est 12 min] generate the far population from a new seed, save to Repro-SeedSims-1126, sidecar written",
+      "save": "Baseline-SV",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 25,
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "Regions.SeedSims": 1,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:seed clean: \\d+ seed sidecar\\(s\\) deleted$": 1,
+          "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=missing pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
+          "^atlas:seed gen world=\\S+ pg=1 t=\\d+ lots=[1-9]\\d* members=[1-9]\\d* skip household=[1-9]\\d* ea=\\d+ collide=0 notResidential=\\d+ hash=[0-9a-f]{16}$": 1,
+          "^atlas:seed write save world=\\S+ ticks=\\d+ sims=[1-9]\\d* lots=[1-9]\\d* hash=[0-9a-f]{16} rc=0$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "^atlas:seed ERROR ": 0,
+          "^atlas:seed regen MISMATCH ": 0,
+          "^atlas:seed self-check FAIL ": 0,
+          "^atlas:seed SKIP ": 0,
+          "^atlas:seed collide ": 0,
+          "^atlas:seed .*refused=": 0,
+          "^atlas:save bracket-error ": 0,
+          "^atlas:seed write skipped ": 0,
+          "^atlas:seed RESEED ": 0,
+          "^atlas:seed key changed ": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-seed-gen-sv"
+      }
+    },
+    {
+      "id": "atlas-seed-reload-sv",
+      "note": "[est 10 min] reload Repro-SeedSims-1126: status ok, same population hash (regen match)",
+      "save": "Repro-SeedSims-1126",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 20,
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "Regions.SeedSims": 1,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=ok pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
+          "^atlas:seed gen world=\\S+ pg=1 t=\\d+ lots=[1-9]\\d* members=[1-9]\\d* skip household=[1-9]\\d* ea=\\d+ collide=0 notResidential=\\d+ hash=[0-9a-f]{16}$": 1,
+          "^atlas:seed regen match world=\\S+ lots=[1-9]\\d* hash=[0-9a-f]{16}$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "^atlas:seed ERROR ": 0,
+          "^atlas:seed regen MISMATCH ": 0,
+          "^atlas:seed self-check FAIL ": 0,
+          "^atlas:seed SKIP ": 0,
+          "^atlas:seed collide ": 0,
+          "^atlas:seed .*refused=": 0,
+          "^atlas:save bracket-error ": 0,
+          "^atlas:seed write skipped ": 0,
+          "^atlas:seed RESEED ": 0,
+          "^atlas:seed key changed ": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-seed-reload-sv"
+      }
+    },
+    {
+      "id": "atlas-seed-nomod-sv",
+      "note": "[est 12 min] load Repro-SeedSims-1126 WITHOUT Atlas (no extraAsi, no mod set): plain EA save, no script error; 1 sim-hour; save to Repro-SeedSimsNoMod-1126",
+      "save": "Repro-SeedSims-1126",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 25,
+      "run": {
+        "repro": "atlas-seed-nomod-sv"
+      }
+    },
+    {
+      "id": "atlas-seed-after-nomod-sv",
+      "note": "[est 10 min] reload Repro-SeedSims-1126 with Atlas after the no-mod round: status ok, regen match",
+      "save": "Repro-SeedSims-1126",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 20,
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "Regions.SeedSims": 1,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=ok pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
+          "^atlas:seed gen world=\\S+ pg=1 t=\\d+ lots=[1-9]\\d* members=[1-9]\\d* skip household=[1-9]\\d* ea=\\d+ collide=0 notResidential=\\d+ hash=[0-9a-f]{16}$": 1,
+          "^atlas:seed regen match world=\\S+ lots=[1-9]\\d* hash=[0-9a-f]{16}$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "^atlas:seed ERROR ": 0,
+          "^atlas:seed regen MISMATCH ": 0,
+          "^atlas:seed self-check FAIL ": 0,
+          "^atlas:seed SKIP ": 0,
+          "^atlas:seed collide ": 0,
+          "^atlas:seed .*refused=": 0,
+          "^atlas:save bracket-error ": 0,
+          "^atlas:seed write skipped ": 0,
+          "^atlas:seed RESEED ": 0,
+          "^atlas:seed key changed ": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-seed-after-nomod-sv"
+      }
+    },
+    {
+      "id": "atlas-seed-travel-sv",
+      "note": "[est 20 min] travel and return from Repro-SeedSims-1126 (France, 2 days): the home town keeps its seed after its stamp moved",
+      "save": "Repro-SeedSims-1126",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 40,
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "Regions.SeedSims": 1,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=ok pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
+          "^atlas:seed gen world=\\S+ pg=1 t=\\d+ lots=[1-9]\\d* members=[1-9]\\d* skip household=[1-9]\\d* ea=\\d+ collide=0 notResidential=\\d+ hash=[0-9a-f]{16}$": 1,
+          "^atlas:seed regen match world=\\S+ lots=[1-9]\\d* hash=[0-9a-f]{16}$": 1,
+          "^atlas:seed write travel-save world=SunsetValley ticks=\\d+ sims=[1-9]\\d* lots=[1-9]\\d* hash=[0-9a-f]{16} rc=0$": 1,
+          "^atlas:seed load world=SunsetValley key=[0-9a-f]{16} status=(ok|stale) pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "^atlas:seed ERROR ": 0,
+          "^atlas:seed regen MISMATCH ": 0,
+          "^atlas:seed self-check FAIL ": 0,
+          "^atlas:seed SKIP ": 0,
+          "^atlas:seed collide ": 0,
+          "^atlas:seed .*refused=": 0,
+          "^atlas:save bracket-error ": 0,
+          "^atlas:seed write skipped ": 0,
+          "^atlas:seed RESEED ": 0,
+          "^atlas:seed key changed ": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-seed-travel-sv"
+      }
+    },
+    {
+      "id": "atlas-seed-stale-sv",
+      "note": "[est 10 min] load Repro-SeedSimsNoMod-1126 (saved without the mod) with Atlas: status stale, seed kept, generated, nothing repaired in the .sims3",
+      "save": "Repro-SeedSimsNoMod-1126",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 20,
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "Regions.SeedSims": 1,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=stale pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
+          "^atlas:seed gen world=\\S+ pg=1 t=\\d+ lots=[1-9]\\d* members=[1-9]\\d* skip household=[1-9]\\d* ea=\\d+ collide=0 notResidential=\\d+ hash=[0-9a-f]{16}$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "^atlas:seed ERROR ": 0,
+          "^atlas:seed regen MISMATCH ": 0,
+          "^atlas:seed self-check FAIL ": 0,
+          "^atlas:seed SKIP ": 0,
+          "^atlas:seed collide ": 0,
+          "^atlas:seed .*refused=": 0,
+          "^atlas:save bracket-error ": 0,
+          "^atlas:seed write skipped ": 0,
+          "^atlas:seed RESEED ": 0,
+          "^atlas:seed key changed ": 0,
+          "^atlas:seed regen ": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-seed-stale-sv"
+      }
+    },
+    {
+      "id": "atlas-seed-off-sv",
+      "note": "[est 8 min] OFF arm: SeedSims=0, nothing registered",
+      "save": "Baseline-SV",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 15,
+      "modSet": "game-copy/mod-sets/atlas-main13",
+      "extraAsi": {
+        "asi": "game-copy/atlas-main13/atlas.asi",
+        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "ini": {
+          "Regions.SeedSims": 0,
+          "Regions.Verbose": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed off \\(SeedSims=0\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+        },
+        "logForbid": {
+          "^atlas:seed (native|on) ": 0,
+          "^atlas:seed ERROR ": 0,
+          "^atlas:icalls \\S+ SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-seed-off-sv"
+      }
+    }
+  ]
+}

@@ -13,8 +13,9 @@
 //   node tools/turbo-compat.ts restore <dir>       state base, Apex Documents folder back, Bin files not in the snapshot removed
 //                                                  (known Apex/bridge/Turbo outputs only), whole-Bin sha256 compare; exit 1 on a diff
 //   node tools/turbo-compat.ts install-copy [--build]  rewind arm (docs/270 §12): game-copy/rewind-bridge-1119/install = Apex release
-//                                                  files + our fork's FORK branch (pair, conf, CI asi), rewindMode = True; state
+//                                                  files + our fork's FORK branch (pair, conf, asi), rewindMode = True; state
 //                                                  apex-rewind uses it; --build first checks out FORK.sha, rebuilds + tests the pair on one CPU
+//                                                  and, when no green CI build of FORK.sha has the public asi, builds that asi locally
 //   node tools/turbo-compat.ts --self-check
 // TURBO_COMPAT_DRY=1 with TS3_BIN/TS3_USER on copies: dry run of snapshot/state/restore while a game runs.
 // Windows-only by nature (game Bin, 32-bit Windows PowerShell for the WOW64 thread walk). Turbo files never come from the web
@@ -22,11 +23,12 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { BIN, ensureVramSidecar, s3mmFiles } from './harness/game-exe.ts';
+import { extraMarker, extraOwned, extraSweep, iniBackupRestore, LEGACY_MARKER } from './harness/extra-asi.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
@@ -50,9 +52,13 @@ export const ALL_ON = ['# TS3 Turbo Engine Configuration (all on, turbo-apex-111
 // docs/270 §12 + probe-out/apex-latest-switch-1119.md: the test install (Bin state apex-rewind) = the Apex release files of
 // REWIND_BUILT_ON, with the bridge pair, bridge/dxvk conf and public asi of our fork's integration branch (Apex main + our
 // open bug-fix PRs; Rodney 11-19 "use our Apex fork so we don't crash"). Pair built locally in REWIND/apex-repo, asi = the CI
-// artifact of that commit. Upstream main moved: rebase the branch in the fork, update FORK.sha, run install-copy --build.
-const REWIND = join(GC, 'rewind-bridge-1119'), REWIND_BUILT_ON = 'v4.0.6';
-export const FORK = { remote: 'https://github.com/rodneypantonial/Sims3-ApexRadiance.git', branch: 'ours/test-integration-1119', sha: 'a69a1bbc3d206bc15d56254c9fbe997ef5b4a64e' };
+// artifact of that commit when one exists, else the Public asi built locally from that exact commit (the fork's CI only runs
+// on PRs and main, so an integration merge has none). install-copy takes the latest release's files and refuses only when
+// that release tag is not an ancestor of FORK.sha (git in REWIND/apex-repo); REWIND_BUILT_ON names the release the pin was
+// last merged with (a newer merged release only logs). A new release not merged yet: merge it into the branch in the fork,
+// update FORK.sha and REWIND_BUILT_ON, run install-copy --build.
+const REWIND = join(GC, 'rewind-bridge-1119'), REWIND_BUILT_ON = 'v4.1.7';
+export const FORK = { remote: 'https://github.com/rodneypantonial/Sims3-ApexRadiance.git', branch: 'ours/test-integration-1119', sha: 'da4b80eb0bf244cf04962b94ed97286827c3a4c0' };
 type Src = string | null; // file to copy into Bin, null = absent
 export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   base: () => ({}),
@@ -68,11 +74,17 @@ export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   // d3d9.dll, .trex/NvRemixBridge.exe, bridge.conf with client.asyncReadback); a chain copies them into game-copy/apex-asyncrt-test
   'apex-asyncrt': unz => ({ ...STATES.apex(unz), ...Object.fromEntries(['ApexRadiance.asi', 'd3d9.dll', '.trex/NvRemixBridge.exe', 'bridge.conf'].map(k => [k, join(GC, 'apex-asyncrt-test', k)])) }),
   'apex-oop': unz => ({ ...STATES.apex(unz), 'ApexRadiance.asi': join(GC, 'apex-oop-test', 'ApexRadiance.asi'), 'ts3wrap.exe': join(GC, 'apex-oop-test', 'ts3wrap.exe') }),
+  // boundless-atlas docs/025: apex-oop (an Apex build with the plugin host, Apex PR #158) plus the Atlas region store plugin,
+  // which the host loads from its own folder only; a chain copies all three into game-copy/apex-oop-test first
+  'apex-oop-atlas': unz => ({ ...STATES['apex-oop'](unz), 'atlas-oop.dll': join(GC, 'apex-oop-test', 'atlas-oop.dll') }),
+  // docs/260 §9: the latest Apex release with one fork build's ApexRadiance.asi (an Apex bug fix under test); a chain copies the
+  // build under test into game-copy/apex-fork-asi-test first
+  'apex-fork-asi': unz => ({ ...STATES.apex(unz), 'ApexRadiance.asi': join(GC, 'apex-fork-asi-test', 'ApexRadiance.asi') }),
 };
 // every path a state or a run can change; backed up at snapshot when present, reset to the snapshot before each state
-export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77']('')), 'ts3wrap.exe', 'Turbo.txt', 'imgui.ini', 'ts3native.asi', 'ts3native.ini'])];
+export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77']('')), 'ts3wrap.exe', 'atlas-oop.dll', 'Turbo.txt', 'imgui.ini', 'ts3native.asi', 'ts3native.ini'])];
 // Bin files absent from the snapshot that restore may delete (run outputs of Apex, the bridge, Turbo, the game)
-export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|ts3wrap\.exe$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|pccheck(-summary)?\.(txt|csv)$|[^/]*\.(log|jsonl|dmp)$)/i;
+export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|ts3wrap\.exe$|atlas-oop\.dll$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|pccheck(-summary)?\.(txt|csv)$|[^/]*\.(log|jsonl|dmp)$)/i;
 // runtime outputs, changed by every run: game and mod logs, the bridge logs, the pccheck report (the sha check stays strict for every other file)
 const IGNORE_DIFF = /^([^/]*\.(log|jsonl|dmp)|rtx-remix\/logs\/[^/]+\.log|pccheck(-summary)?\.(txt|csv))$/i;
 // docs/284: the DxDiagCache sidecar is a per-machine cache, kept across states and restores (never compared, never removed)
@@ -164,25 +176,91 @@ function buildFork() {
   if (existsSync(dxvk)) { mkdirSync(join(rb, 'out', 'package', '.trex'), { recursive: true }); copyFileSync(dxvk, join(rb, 'out', 'package', '.trex', 'd3d9vk_x64.dll')); }
   const log = join(REWIND, `build-${FORK.sha.slice(0, 8)}.log`);
   say(`build: ${FORK.branch} ${FORK.sha.slice(0, 8)} -> ${rb}\\out (one CPU, log ${log})`);
-  // start /affinity 1: ninja's jobs share one core, so a running timing job keeps its CPUs
-  execFileSync('cmd', ['/d', '/c', `start "" /wait /low /affinity 1 cmd /d /c "cd /d "${rb}" && set "PATH=${venv};%PATH%" && call build.cmd && call test-rewind.cmd > "${log}" 2>&1"`],
+  // start /affinity 1: ninja's jobs share one core, so a running timing job keeps its CPUs. .\ because cmd does not look in
+  // the current folder when NoDefaultCurrentDirectoryInExePath is set (agent shells set it): 'build.cmd' is not recognized
+  execFileSync('cmd', ['/d', '/c', `start "" /wait /low /affinity 1 cmd /d /c "cd /d "${rb}" && set "PATH=${venv};%PATH%" && call .\\build.cmd && call .\\test-rewind.cmd > "${log}" 2>&1"`],
     { stdio: 'inherit', timeout: 3600000, windowsVerbatimArguments: true });
   if (!/rewind tests passed/.test(readFileSync(log, 'utf8'))) throw new Error(`build: offline rewind tests did not pass, see ${log}`);
   say('build: pair built, rewind tests passed');
 }
 
-// The CI's public asi of FORK.sha (Apex's "Windows build and CPU checks" artifact; upstream runs it on main, the fork on pushes)
-function forkAsi(): string {
+// The CI's public asi of FORK.sha (Apex's "Windows build and CPU checks" artifact; upstream runs it on main, the fork on PRs
+// and main), or null when neither repo has a green build of it. Never starts or waits on CI.
+function ciAsi(): string | null {
   const d = join(REWIND, `asi-${FORK.sha.slice(0, 8)}`), f = join(d, `ApexRadiance-public-${FORK.sha}`, 'Public', 'ApexRadiance.asi');
   if (existsSync(f)) return f;
   const env = { ...process.env, ...(process.env.PERSONAL_GITHUB_TOKEN ? { GH_TOKEN: process.env.PERSONAL_GITHUB_TOKEN } : {}) };
   for (const r of [APEX_REPO, 'rodneypantonial/Sims3-ApexRadiance']) {
-    const id = execFileSync('gh', ['run', 'list', '-R', r, '--commit', FORK.sha, '--workflow', 'build.yml', '--status', 'success', '-L', '1', '--json', 'databaseId', '--jq', '.[0].databaseId // ""'], { encoding: 'utf8', env, timeout: 60000 }).trim();
+    let id = '';
+    // a repo without the workflow on its default branch (the fork: HTTP 404) has no CI build: next repo, then the local build
+    try { id = execFileSync('gh', ['run', 'list', '-R', r, '--commit', FORK.sha, '--workflow', 'build.yml', '--status', 'success', '-L', '1', '--json', 'databaseId', '--jq', '.[0].databaseId // ""'], { encoding: 'utf8', env, timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
+    catch (e: any) { say(`asi: no CI build list for ${r} (${String(e.stderr ?? e).split('\n')[0].slice(0, 120)})`); }
     if (!id) continue;
     execFileSync('gh', ['run', 'download', id, '-R', r, '-n', `ApexRadiance-public-${FORK.sha}`, '-D', join(d, `ApexRadiance-public-${FORK.sha}`)], { env, timeout: 300000 });
     if (existsSync(f)) return f;
   }
-  throw new Error(`install-copy: no green CI build of ${FORK.sha.slice(0, 8)} with a public asi in ${APEX_REPO} or the fork`);
+  return null;
+}
+
+// The locally built Public asi of FORK.sha: REWIND/asi-<sha8>/local/ApexRadiance.asi + build.json { sha, asiSha }, made by
+// buildLocalAsi from REWIND/apex-repo checked out at FORK.sha (by buildFork).
+const localAsiDir = () => join(REWIND, `asi-${FORK.sha.slice(0, 8)}`, 'local');
+function buildLocalAsi() {
+  const repo = join(REWIND, 'apex-repo'), d = localAsiDir(), log = join(REWIND, `build-asi-${FORK.sha.slice(0, 8)}.log`);
+  const head = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  if (head !== FORK.sha) throw new Error(`build: ${repo} is at ${head.slice(0, 8)}, not FORK.sha ${FORK.sha.slice(0, 8)}`);
+  // the repo's own recipe (CONTRIBUTING.md): setup.ps1 once (pinned vcpkg deps), then build.ps1 -Flavor Public. Deps of
+  // another Apex clone in game-copy with the same vcpkg baseline are linked (junction) instead of rebuilt on one CPU.
+  const deps = (d: string) => existsSync(join(d, 'vcpkg_installed', 'x86-windows-static', 'lib', 'detours.lib'));
+  if (!deps(repo) && !existsSync(join(repo, 'vcpkg_installed'))) {
+    const cands = readdirSync(GC, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => join(GC, e.name))
+      .map(dir => ({ dir, baseline: vcpkgBaseline(dir), hasDeps: deps(dir) }));
+    const donor = pickVcpkgDonor(vcpkgBaseline(repo), cands);
+    if (donor) {
+      const target = realpathSync(join(donor, 'vcpkg_installed')); // a donor's own junction: link its target, not a chain
+      execFileSync('cmd', ['/d', '/c', 'mklink', '/J', join(repo, 'vcpkg_installed'), target], { stdio: 'ignore' });
+      say(`build: vcpkg deps linked from ${target} (same baseline)`);
+    }
+  }
+  const setup = deps(repo) ? '' : `pwsh -NoProfile -File tools\\development\\setup.ps1 && `;
+  say(`build: no CI asi for ${FORK.sha.slice(0, 8)}: Public asi from ${repo} (one CPU, log ${log})`);
+  execFileSync('cmd', ['/d', '/c', `start "" /wait /low /affinity 1 cmd /d /c "cd /d "${repo}" && ${setup}pwsh -NoProfile -File tools\\development\\build.ps1 -Flavor Public > "${log}" 2>&1"`],
+    { stdio: 'inherit', timeout: 3600000, windowsVerbatimArguments: true });
+  const asi = join(repo, 'Public', 'ApexRadiance.asi');
+  if (!existsSync(asi) || !/SHA256/.test(readFileSync(log, 'utf8'))) throw new Error(`build: Public asi build failed, see ${log}`);
+  rmSync(d, { recursive: true, force: true }); mkdirSync(d, { recursive: true });
+  copyFileSync(asi, join(d, 'ApexRadiance.asi'));
+  writeFileSync(join(d, 'build.json'), JSON.stringify({ sha: FORK.sha, asiSha: sha(join(d, 'ApexRadiance.asi')), log }, null, 1));
+  say(`build: local Public asi ${sha(join(d, 'ApexRadiance.asi')).slice(0, 12)}`);
+}
+
+const vcpkgBaseline = (dir: string): string | null => {
+  try { return JSON.parse(readFileSync(join(dir, 'vcpkg.json'), 'utf8'))['builtin-baseline'] ?? null; } catch { return null; }
+};
+// an Apex clone whose installed vcpkg deps were built from the same pinned baseline (none when the baseline is unknown)
+export const pickVcpkgDonor = (baseline: string | null, cands: { dir: string; baseline: string | null; hasDeps: boolean }[]) =>
+  baseline ? cands.find(c => c.hasDeps && c.baseline === baseline)?.dir ?? null : null;
+
+// CI asi first; else the local build of exactly forkSha (build.json names the commit, the file must still hash to it)
+export function chooseAsi(ci: string | null, local: { sha: string; asiSha: string } | null, forkSha: string, localFile: string, fileSha: (p: string) => string | null): { path: string; source: 'ci' | 'local' } {
+  if (ci) return { path: ci, source: 'ci' };
+  if (!local) throw new Error(`install-copy: no green CI build of ${forkSha.slice(0, 8)} with a public asi and no local build: run install-copy --build`);
+  if (local.sha !== forkSha) throw new Error(`install-copy: the local asi was built from ${local.sha.slice(0, 8)}, FORK.sha is ${forkSha.slice(0, 8)}: run install-copy --build`);
+  if (fileSha(localFile) !== local.asiSha) throw new Error(`install-copy: ${localFile} does not hash to its build.json: run install-copy --build`);
+  return { path: localFile, source: 'local' };
+}
+function forkAsi(build: boolean) {
+  const ci = ciAsi(), d = localAsiDir(), bj = join(d, 'build.json'), f = join(d, 'ApexRadiance.asi');
+  const readLocal = () => existsSync(bj) ? JSON.parse(readFileSync(bj, 'utf8')) as { sha: string; asiSha: string } : null;
+  const pick = () => chooseAsi(ci, readLocal(), FORK.sha, f, p => existsSync(p) ? sha(p) : null);
+  if (!ci && build) { try { return pick(); } catch { buildLocalAsi(); } }
+  return pick();
+}
+
+// is release tag <tag> an ancestor of (or equal to) commit sha in git repo <repo>? false when the tag is unknown there
+export function releaseInFork(repo: string, tag: string, sha: string): boolean {
+  try { execFileSync('git', ['-C', repo, 'merge-base', '--is-ancestor', `refs/tags/${tag}^{commit}`, sha], { stdio: 'ignore', timeout: 60000 }); return true; }
+  catch { return false; }
 }
 
 // game-copy/rewind-bridge-1119/install/apex-unz: the Apex release files, our fork's pair, conf and asi, rewindMode = True in both
@@ -194,17 +272,21 @@ async function installCopy(build: boolean) {
   const head = execFileSync('git', ['-C', join(REWIND, 'apex-repo'), 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   if (head !== FORK.sha) throw new Error(`install-copy: ${REWIND}/apex-repo is at ${head.slice(0, 8)}, FORK.sha is ${FORK.sha.slice(0, 8)}: run install-copy --build`);
   for (const p of pair) if (!existsSync(join(out, p))) throw new Error(`install-copy: ${join(out, p)} missing: run install-copy --build`);
-  const asi = forkAsi();
+  const { path: asi, source: asiSource } = forkAsi(build);
   mkdirSync(dir, { recursive: true });
   await fetchApex(dir);
   const tag = JSON.parse(readFileSync(join(dir, 'apex.json'), 'utf8')).tag;
-  if (tag !== REWIND_BUILT_ON) throw new Error(`install-copy: the latest Apex release is ${tag}, the install copy was made on ${REWIND_BUILT_ON}: check the fork branch has it (rebase), then update REWIND_BUILT_ON`);
+  const repo = join(REWIND, 'apex-repo');
+  try { execFileSync('git', ['-C', repo, 'fetch', '-q', '--no-tags', `https://github.com/${APEX_REPO}.git`, `+refs/tags/${tag}:refs/tags/${tag}`], { stdio: 'ignore', timeout: 120000 }); }
+  catch { say(`install-copy: WARN could not fetch tag ${tag} from ${APEX_REPO}; using the local tag if present`); }
+  if (!releaseInFork(repo, tag, FORK.sha)) throw new Error(`install-copy: the latest Apex release ${tag} is not merged into FORK.sha ${FORK.sha.slice(0, 8)}: merge it into ${FORK.branch} in the fork, then update FORK.sha (and REWIND_BUILT_ON)`);
+  if (tag !== REWIND_BUILT_ON) say(`install-copy: release ${tag} is merged into ${FORK.sha.slice(0, 8)} (REWIND_BUILT_ON ${REWIND_BUILT_ON} is older: update it with the next pin)`);
   for (const p of pair) copyFileSync(join(out, p), join(unz, p));
   copyFileSync(asi, join(unz, 'ApexRadiance.asi'));
   copyFileSync(join(rb, 'conf', 'dxvk.conf'), join(unz, 'dxvk.conf'));
   for (const c of ['bridge.conf', '.trex/bridge.conf']) { copyFileSync(join(rb, 'conf', 'bridge.conf'), join(unz, c)); appendFileSync(join(unz, c), '\r\nrewindMode = True\r\n'); }
-  writeFileSync(join(dir, 'fork.json'), JSON.stringify({ ...FORK, release: tag, asi: sha(join(unz, 'ApexRadiance.asi')), d3d9: sha(join(unz, pair[0])), server: sha(join(unz, pair[1])) }, null, 1));
-  say(`install-copy: ${unz} = Apex ${tag} files + fork ${FORK.branch} ${FORK.sha.slice(0, 8)}: asi ${sha(join(unz, 'ApexRadiance.asi')).slice(0, 12)}, d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, rewindMode = True`);
+  writeFileSync(join(dir, 'fork.json'), JSON.stringify({ ...FORK, release: tag, asiSource, asi: sha(join(unz, 'ApexRadiance.asi')), d3d9: sha(join(unz, pair[0])), server: sha(join(unz, pair[1])) }, null, 1));
+  say(`install-copy: ${unz} = Apex ${tag} files + fork ${FORK.branch} ${FORK.sha.slice(0, 8)}: asi (${asiSource}) ${sha(join(unz, 'ApexRadiance.asi')).slice(0, 12)}, d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, rewindMode = True`);
 }
 
 async function snapshot(dir: string) {
@@ -254,7 +336,15 @@ function setState(dir: string, name: string) {
 
 function restore(dir: string): boolean {
   setState(dir, 'base');
-  const snap = loadSnap(dir), cur = hashTree(BIN), problems: string[] = [];
+  const problems: string[] = [];
+  // a killed queue.ts job (keys extraAsi / defaultIni): exactly the Bin files its marker names are removed (no blanket *.asi rule), and the
+  // Default.ini it found goes back from Default.ini.queue-bak; a file the snapshot holds is never deleted here
+  // the marker is Bin/extra-asi.queue.json (any checkout's queue); the old probe-out marker of this checkout too, except DRY (a fake Bin, the real one is not its record)
+  const legacy = DRY ? '' : LEGACY_MARKER, snap = loadSnap(dir), kept = [extraMarker(BIN), legacy].filter(Boolean).flatMap(m => extraOwned(m)).filter(f => f in snap.files);
+  if (kept.length) problems.push(`extra-asi marker names snapshot files, left alone: ${kept.join(', ')}`);
+  else { const why = extraSweep(BIN, true, legacy); if (why) problems.push(`extraAsi files of a killed queue: ${why}`); }
+  { const why = iniBackupRestore(join(BIN, 'Default.ini')); if (why) problems.push(`Default.ini.queue-bak: ${why}`); }
+  const cur = hashTree(BIN);
   for (const f of Object.keys(cur)) if (!(f in snap.files) && !KEEP_CACHE.test(f)) {
     if (EXTRA_OK.test(f)) rmSync(join(BIN, f), { force: true }); else problems.push(`new file left in place: ${f}`);
   }
@@ -398,7 +488,9 @@ function selfCheck() {
   assert.ok(STATES['apex-rewind']('u')['ApexRadiance.asi']!.includes('rewind-bridge-1119'), 'the rewind arm takes its files from the install copy');
   assert.equal(STATES['apex-turbo-ual77']('u')['wininet.dll'], SRC.ual77.path);
   assert.ok(Object.keys(STATES['apex-asyncrt']('u')).every(k => MANAGED.includes(k)) && STATES['apex-asyncrt']('u')['.trex/NvRemixBridge.exe']!.includes('apex-asyncrt-test'), 'restore knows the bridge pair of the async read-back arm');
+  assert.ok(STATES['apex-fork-asi']('u')['ApexRadiance.asi']!.includes('apex-fork-asi-test') && STATES['apex-fork-asi']('u')['d3d9.dll'] === STATES.apex('u')['d3d9.dll'], 'fork asi state: our asi, the release bridge');
   assert.ok(Object.keys(STATES['apex-oop']('u')).every(k => MANAGED.includes(k)) && STATES['apex-oop']('u')['ts3wrap.exe']!.includes('apex-oop-test'), 'restore knows the restart host of the oop arm');
+  assert.ok(Object.keys(STATES['apex-oop-atlas']('u')).every(k => MANAGED.includes(k)) && STATES['apex-oop-atlas']('u')['atlas-oop.dll']!.includes('apex-oop-test') && EXTRA_OK.test('atlas-oop.dll'), 'restore knows the Atlas store plugin');
   assert.ok(!('wininet.dll' in STATES['apex-turbo']('u')), 'arm 2 keeps our loader');
   const dg = `sha256:${'a'.repeat(64)}`, url = 'https://x/y';
   assert.equal(pickZip([{ name: 'ApexRadianceSetup.exe', digest: dg, browser_download_url: url }, { name: 'Apex-Radiance-3.2.1-Manual-install.zip', digest: dg, browser_download_url: url }])?.name, 'Apex-Radiance-3.2.1-Manual-install.zip');
@@ -419,6 +511,32 @@ function selfCheck() {
   assert.equal(u16.subarray(2).toString('utf16le'), 'A=1\r\n');
   assert.equal(encodeLike(Buffer.from('x'), ['A=1']).toString('utf8'), 'A=1\r\n');
   assert.ok(ALL_ON.slice(1).every(l => /^\w+ = -?\d+$/.test(l)), 'integers only (docs/263 §1.1: stoi)');
+  // asi pick: CI wins; else only the local build of exactly FORK.sha whose file still hashes to its build.json
+  const fs1 = 'f'.repeat(40), loc = { sha: fs1, asiSha: 'h1' }, hashOk = () => 'h1';
+  assert.deepEqual(chooseAsi('ci.asi', loc, fs1, 'l.asi', hashOk), { path: 'ci.asi', source: 'ci' });
+  assert.deepEqual(chooseAsi('ci.asi', null, fs1, 'l.asi', () => null), { path: 'ci.asi', source: 'ci' }, 'CI needs no local build');
+  assert.deepEqual(chooseAsi(null, loc, fs1, 'l.asi', hashOk), { path: 'l.asi', source: 'local' });
+  assert.throws(() => chooseAsi(null, null, fs1, 'l.asi', hashOk), /no local build/);
+  assert.throws(() => chooseAsi(null, { ...loc, sha: 'e'.repeat(40) }, fs1, 'l.asi', hashOk), /built from eeeeeeee/);
+  assert.throws(() => chooseAsi(null, loc, fs1, 'l.asi', () => 'h2'), /does not hash/);
+  assert.throws(() => chooseAsi(null, loc, fs1, 'l.asi', () => null), /does not hash/, 'a missing file is no local build');
+  // vcpkg deps donor: same baseline and deps present only
+  const bl = 'd'.repeat(40);
+  assert.equal(pickVcpkgDonor(bl, [{ dir: 'a', baseline: 'e'.repeat(40), hasDeps: true }, { dir: 'b', baseline: bl, hasDeps: false }, { dir: 'c', baseline: bl, hasDeps: true }]), 'c');
+  assert.equal(pickVcpkgDonor(bl, [{ dir: 'a', baseline: 'e'.repeat(40), hasDeps: true }, { dir: 'b', baseline: null, hasDeps: true }]), null, 'other or unknown baseline: no donor');
+  assert.equal(pickVcpkgDonor(null, [{ dir: 'a', baseline: null, hasDeps: true }]), null, 'unknown repo baseline: setup.ps1');
+  assert.match(REWIND_BUILT_ON,/^v\d+\.\d+\.\d+$/);
+  // release check on a throwaway repo: main = A (tag v1) - B (merge target); side branch C (tag v2) not merged
+  const gr = mkdtempSync(join(tmpdir(), 'tc-rel-')), g = (...a: string[]) => execFileSync('git', ['-C', gr, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' }).trim();
+  try {
+    g('init', '-q'); g('commit', '-q', '--allow-empty', '-m', 'A'); g('tag', '-a', 'v1', '-m', 'v1');
+    g('commit', '-q', '--allow-empty', '-m', 'B'); const b = g('rev-parse', 'HEAD');
+    g('checkout', '-q', '-b', 'side', 'v1'); g('commit', '-q', '--allow-empty', '-m', 'C'); g('tag', 'v2');
+    assert.ok(releaseInFork(gr, 'v1', b), 'an older release merged in passes (annotated tag)');
+    assert.ok(releaseInFork(gr, 'v2', g('rev-parse', 'HEAD')), 'the pin at the release itself passes');
+    assert.ok(!releaseInFork(gr, 'v2', b), 'a release not merged into the pin is refused');
+    assert.ok(!releaseInFork(gr, 'v9', b), 'an unknown tag is refused');
+  } finally { rmSync(gr, { recursive: true, force: true }); }
   console.log('turbo-compat self-check OK');
 }
 

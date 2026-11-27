@@ -1,0 +1,133 @@
+{
+ "note": "lc4-viewer-push-time-1123 (docs/335, WRITTEN, NOT RUN; TIMING, needs quiet machine: Spotify, IDE and java closed, other CPU < 10%): viewerridehooks off vs on in one load, --ab viewerridehooks. Run only after lc4-viewer-push-correct-1123 passed. queue.ts runs its smoke first. Each job: 25 min, 5-min slices: warm-up, then off,on,on,off = 10 min per arm (ABBA). Per-arm viewer push ms/s: node tools/harness/loopcost-report.ts probe-out/profile/<tag>-ab-fixes.jsonl --arm viewerridehooks; sim thread: node tools/harness/wait-ab.ts <tag> and node tools/profile-compare.mjs <tag>:on <tag>:off. Pass (ON rule 2026-11-23): viewer push ms/s on <= off within noise on every world and hitch p99.9 / max not worse; the gain today is small (~1.5-2.5 ms/s [inferred, docs/335 §4]); the ON case is the 4x / 10x scaling in docs/335 §4. Bin state apex. Est ~100 min.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-lc4-ab",
+   "note": "[est 32 min] BP 25 min in-load ABBA (5-min slices, 10 min per arm), --ab viewerridehooks (viewerpushdelta ON as released, shadow off). needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc4vp1",
+   "pinReason": "lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "viewerridehooks",
+     "fixesRequire": "viewerpush_wakes>=100,viewerridehooks_set_wakes>=100,viewerridehooks_walks>=1,viewerridehooks_floor_miss<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-lc4-ab",
+   "note": "[est 32 min] IP 25 min in-load ABBA (5-min slices, 10 min per arm), --ab viewerridehooks (viewerpushdelta ON as released, shadow off). needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc4vp1",
+   "pinReason": "lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "viewerridehooks",
+     "fixesRequire": "viewerpush_wakes>=100,viewerridehooks_set_wakes>=100,viewerridehooks_walks>=1,viewerridehooks_floor_miss<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-lc4-ab",
+   "note": "[est 32 min] SV 25 min in-load ABBA (5-min slices, 10 min per arm), --ab viewerridehooks (viewerpushdelta ON as released, shadow off). needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc4vp1",
+   "pinReason": "lc4-viewer-push-1123 (docs/335): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.lc4-viewer-push-1123 (game-copy/ts3fixes.package.lc4vp1: -1122d loop code + viewerridehooks / viewerridehookshadow, both default off, turned on here by fixesOn); agent ts3agent.package.lc4-viewer-push-1123 (game-copy/ts3agent.package.lc4vp1: switch names, slots 1662-1668) installed into the worktree build/ by the chain",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "viewerridehooks",
+     "fixesRequire": "viewerpush_wakes>=100,viewerridehooks_set_wakes>=100,viewerridehooks_walks>=1,viewerridehooks_floor_miss<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ],
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1122 ": {
+   "match": [
+    "ts3native 0.36.299-m1122 2026-11-22 06:55:20"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+    "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ }
+}

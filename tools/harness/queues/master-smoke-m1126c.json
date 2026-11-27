@@ -1,0 +1,96 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes moved to master set m1126b (0.36.306-m1126b), agent stays m1126 (agentPackage), version read-back escaped. [previous] m1126 repin (2026-11-26, merge/cp0-1126, CP-0 of docs/340): pinned to master set m1126 (0.36.306-m1126); copy of master-smoke-m1124f.json. m1124f smoke (2026-11-25, merge/m1124d 3004eb964): RC set m1124d asi/ini/agent + ts3fixes m1124f (f7c58a9c1d54, kSeasonImposter ON). m1124d repin (2026-11-24, merge/m1124d): pinned to RC set m1124d (0.36.305-m1124d: m1124c + lineswitch rerun5 + DoorMemoX fix 2); version read-back and its regexCases moved to 0.36.305-m1124d. [previous] m1124c repin (2026-11-24, merge/m1124c, final RC): master-smoke-m1124b.json pinned to set m1124c (asi/ini/agent bytes of m1124b, ts3fixes of hookflat-1124); version read-back stays 0.36.303-m1124b (Steam asi bytes unchanged). [previous] m1124b repin (2026-11-24, merge/m1124b): copy of master-smoke-m1124.json pinned to master set m1124b (0.36.303-m1124b); version read-back and its regexCases moved to 0.36.303-m1124b. [previous] m1124 repin (2026-11-24, merge/rc-1124): copy of master-smoke-m1123.json pinned to master set m1124 (0.36.301-m1124); version read-backs and their regexCases moved to 0.36.301-m1124. [previous] master-smoke-m1123 (2026-11-23): master-smoke-m1122 repinned to master set m1123 (0.36.299-m1123; asi + ini + ts3fixes from game-copy/*.m1123, agent installed by probe-out/queue/chain-m1123.sh). [previous] master-smoke-m1122: smoke of master set m1122 (0.36.299-m1122, merge/unseen-worldscale-1122) on Apex + RTX Remix bridge (Bin state apex, set by probe-out/queue/chain-watergrid-m1122.sh). Pass = no crash, no hang, version and the VbFreeDelay fix (2000 ms, ON in the release ini) read back, 0 script errors.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "jobs": [
+    {
+      "id": "bp-m1126c-smoke",
+      "note": "[est 10 min] [natural play, no cheats] master set m1126c smoke, Baseline-BP-Spring, release defaults: version, \"OK   ea fix: VbFreeDelay\" and the [Crash] HeapCall detector line read back, 0 script errors. Also reads back the release switches VbOwnerDelay=1 and DoorMemoX=3 on the release ini.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: ts3fixes m1124f f7c58a9c1d54 (seasonimposter ON); RC set m1124d (merge/m1124d e711f266f): asi 6c0a0087d744 (0.36.305-m1124d), ini 0a7cccaceef8, ts3fixes 4f55ae3d01d8, agent 18852232f1d7 (agentPackage) [previous] final RC set m1124c (merge/m1124c 94ca4729a): asi d03869b4f9bf (0.36.303-m1124b), ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 (hookflat), agent 891a73c45f1a [previous] master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   ea fix: VbFreeDelay \\(docs/67 §44\\): VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay \\(docs/67 §44\\.1\\): draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^OK   door memo x: DoorMemoX=3 \\(": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §948\\)": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 15,
+      "regexCases": {
+        "^OK   ea fix: VbFreeDelay \\(docs/67 §44\\): VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)",
+            "SKIP ea fix: VbFreeDelay (docs/67 §44): Steam 1.67 only, no EA 1.69 rows: not installed"
+          ]
+        },
+        "^ts3native 0\\.36\\.307-m1126c ": {
+          "match": [
+            "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+            "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00",
+            "ts3native 0.36.305-dmx2b-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.305-m1124d2 2026-11-24 13:40:00",
+            "ts3native 0.36.304-dmx2-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        },
+        "^OK   ea fix: VbOwnerDelay \\(docs/67 §44\\.1\\): draw owners of 0xA85DF0 freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)",
+            "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): owner dtor not mapped on this exe build",
+            "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+          ]
+        },
+        "^OK   door memo x: DoorMemoX=3 \\(": {
+          "match": [
+            "OK   door memo x: DoorMemoX=3 (answers from other jobs, ts3fixes doorgen inputs in the generation (acts once armed)), max age 250 ms, unlocked answers only (switch dmxMode +0x5014, --ab doormemox)"
+          ],
+          "noMatch": [
+            "OK   door memo x: DoorMemoX=2 (shadow: ask and compare), max age 250 ms, unlocked answers only (switch dmxMode +0x5014, --ab doormemox)",
+            "SKIP door memo x: DoorMemoX=3 needs the route snapshot's World_FireEvent hook and IC slots (snReady 0x2)"
+          ]
+        },
+        "^OK   crash log: heapcall detector \\(docs/51 §948\\)": {
+          "match": [
+            "OK   crash log: heapcall detector (docs/51 §948): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 0 minidumps at most ([Crash] HeapCallDump=0); tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277"
+          ],
+          "noMatch": [
+            "crash log: heapcall detector off ([Crash] HeapCall=0)",
+            "OK   crash log: heapcall detector (docs/51 §610): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 2 minidumps at most; tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0
+    }
+  ],
+  "rewind": "auto",
+  "regexCases": {}
+}

@@ -24,7 +24,7 @@ New names (rows tagged `<docs/38>` in `tools/ghidra/symbols/ts3w-1.67.symbols.cs
 | `0xC6C290` | `WorldManager_ScoreAndStreamLots` | main | Lot scoring and `SetActive` (docs/28 §5.2 step 2) |
 | `0xC62D80` | `WorldManager_LotScore` | main | Squared distance camera-to-lot (lot centre, or lot box when `[0x11843F8]` is set), minus `Active Lot Bias` `WM+0xE0` when the lot is active [verified] |
 | `0xC69FF0` | `WorldManager_AnyActiveLotPending` | main | True when an active lot still waits on the renderer (`0xD432E0`, `0x700DC0`) [verified calls; meaning inferred] |
-| `0xC6A080` | `WorldManager_ActivateAllLots` | main | Taken instead of scoring when `WM+0xD8` is set; calls `Lot_SetActive` per lot [verified call; trigger inferred] |
+| `0xC6A080` | `WorldManager_ActivateAllLots` | main | Taken instead of scoring when `WM+0xD8` is set; calls `Lot_SetActive` per lot [verified call; trigger inferred] *[Corrected 2026-11-26, Boundless Atlas docs/021 §11: `0xC6A080` deactivates all lots; "ActivateAllLots" is the wrong name]* |
 | `0xC6CF80` | `WorldManager_LoadWorld` | sim (from `IC_LoadSaveManager_LoadGame_Impl 0x742AC0` -> `0xAB14B0` -> `0xAACF60` -> `0xAABCF0`), or main at startup (`0xEC7140`) | §5 step 1 |
 | `0xC65E00` | `WorldManager_CreateLotsFromLayer` | caller | Reads the layer file, allocates each `World/Lot` (0x4C0 bytes) and `Lot/ObjMgr - Layer` groups, pushes them into `WM+0x9C` [verified] |
 | `0xC678D0` | `WorldManager_LoadLots` | caller | Per lot: `Lot::Load` through vtable `+0x18`, stream adaptors, missing object managers [verified] |
@@ -99,6 +99,8 @@ Allocated in `WorldManager_CreateLotsFromLayer` `0xC65E00`; vtable `0x1065268` (
 | `+0x4BC` | Skip flag in the world terrain save |
 
 **World manager fields** (besides docs/28 §5.4): `+0x41` world loaded, `+0x46` save dirty, `+0x58` world terrain, `+0x60` sea, `+0x64` sky, `+0x68` clouds, `+0x74` weather, `+0x80`/`+0x84` world and global DBs, `+0x98` pending command (exchanged atomically each update), `+0x9C`..`+0xA0` all lot roots, `+0xAC`/`+0xB0` current lot, `+0x1B4` mode (0 live, 1/2 edit modes), `+0x1CC` lot grid dirty, `+0x204`..`+0x208` streamable lot list, `+0x310` 10-entry camera speed ring, `+0x3A0` last camera position [verified offsets; mode values inferred].
+
+*Correction 2026-11-26 (Boundless Atlas `docs/020-p1-paged-lot-probe.md`): `WM+0xB0` is the world's global object layer, not a lot; the "`+0xAC`/`+0xB0` current lot" reading above is stale. Lot id sits at `lot+0x48`, object pointers at `lot+0x14..+0x18`.*
 
 ## 4. Terrain: data structures and queries
 
@@ -193,6 +195,8 @@ Offload view (docs/23 #17): the world/lot code has no work of its own to move of
 
 - Runtime check for C1: count `0xC2A840` calls per thread id and overlap with sim-thread `0xC2A570` calls (a `[HeightCache]` counter extension), then try to reproduce with a camera pan over a busy lot.
 - The other `Lot_SetActive` caller `0xAE6110` (vtable `0x1088F48`), the trigger of `WM+0xD8` (`WorldManager_ActivateAllLots`), and the users of the lot critical sections `+0xF0`/`+0x110`.
+
+*Correction 2026-11-26 (Boundless Atlas `docs/021-s1-imposter-fog-camera.md` §1, §11 item 1): `0xC6A080` deactivates all lots (`Lot_SetActive(0)`; only the lot at `WM+0x170` gets 1, and only when `WM+0xDA` is set). The name "ActivateAllLots" is wrong.*
 - What the QPC timer in `WorldTerrain_Update` limits, and the exact LOD ring rule (`+0xF8`/`+0x100`).
 - Main-thread cost of `WorldManager_Update` and `WorldTerrain_Update` (needs the main-thread sampler, PLAN item 7 priority 0).
 

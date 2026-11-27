@@ -241,3 +241,95 @@ Suggestions for Apex:
 
 Open: the exact caller of step 2 (needs the Apex Developer build with the per-frame vtable compare, or a repro with the
 page left read-only); whether any S3SS or S3PP code path (literal scan only) changes the page protection.
+
+## 8. Same class in the vbowner stress, 2026-11-24 (docs/51 §948)
+
+m1124c bp-vbowner-correct-5 (vb-owner-delete-stress, no Apex lamp edits) logged a swallowed main-thread AV at heap eip
+`0x68746182` with eax `0x68746170` = ASCII "path", the same shape as §3 ("Ligh"), and died 10 s later with 0xC0000096 and
+no line of ours. Our crash log now has a detector for this class, `[Crash] HeapCall` (default 1, log + minidump only): any
+exception with eip outside every image, and every C0000096 / C000001D, logs the eip region and bytes, the first dword at
+ecx / esi / edi / eax (the vtable) with the region it points into, 16 named return addresses, thread, time and repro step.
+That is the "log once with EIP, the registers and the first stack words" suggestion of §7 for our side. Stress queue:
+`heapcall-stress-1124-m1124e` (chain-heapcall-m1124e.sh). Inferences in docs/51 §948.
+
+Since master set m1126b (0.36.306-m1126b) the minidumps have their own key, `[Crash] HeapCallDump` (default 0); `[Crash]
+HeapCall` stays default 1, log only (Rodney OK 2026-11-26 (keep-crash-logging)). The m1124e / m1124g diag builds still
+write dumps. Known gap: `HcdOutside` skips only our `[MonoJit]` region, not Mono's own code manager chunks (no cheap
+lookup is mapped), so an AV in Mono-jitted code (a NullReferenceException) can log as a heapcall line; queue
+`heapcall-monojit-off-1126-m1126b` (MonoJit off) measures how often (not run).
+
+## 9. Root cause of the delete-stress heap calls: Apex 4.1.0 physical lamp edits (2026-11-25)
+
+Run: chain-heapcall-m1124e, `heapcall-stress-1124-m1124e` jobs 1-5 (vb-owner-delete-stress, diag set m1124e, Apex 4.1.0
+release + RTX Remix bridge). Sources: the 5 job ts3native.logs, the minidump `ts3native-heapcall-34904-1.dmp` (job 5), the
+Apex logs, the 4.1.0 release `ApexRadiance.asi` (disassembly) and Apex source at tag v4.1.0 (`00b4cfeb`).
+
+- **31 heapcall lines in 5 jobs (4 / 1 / 19 / 6 / 1), all the same call** [verified, log]: 29 C0000005 + 2 C0000096, eip
+  `0x6867694C` ("Ligh") or just after it, ecx = esi = edi = a light whose first word is `0x00FF39F8` (the light base vtable
+  of §0: 4 slots, then "Lighting/LightProbe"), eax = `0x00FF39F8`, edx = `0x6867694C`. So the call was `call [vtable+0x24]`
+  on a destroyed light: slot +0x24 of that table is the string's first 4 bytes. Every line's return addresses hold
+  ApexRadiance+0x168875, +0x190C54, +0x2195BA, +0x218BA5; none holds a ts3native frame.
+- **The call site** [verified, disassembly of the release asi + source]: ApexRadiance+0x168830 is `BasisStepTry` (SEH frame,
+  `call [0x10DA4984]`, the global `kBasisLight`, initial value `0x0069F280`); +0x190C54 is the return into `BasisStep` /
+  `BasisStepImpl` inlined (pos / acc / light null tests, `fs:[0x24]` against the gather thread, the 0x40-byte zeroing, the
+  call); +0x218BA5 is in the function that also pushes "the game's step could not be called" (`0x218BE3`), the physical
+  edit job of `features/outdoor_delta.cpp` (the `stepAll` loop, line 5620 at v4.1.0). The ebp chain ends in TS3W+0x2C4BA9
+  through ApexRadiance+0x15AE0A (outer Apex frames +0x1A444C .. +0x15AE0A not mapped to source).
+- **Why the light is dead** [verified source, inferred timing]: `RefreshLotLamps` keeps a lamp missing from the registry in
+  the lamp snapshot for `kLotGoneMs` (1 s, `PhysLampPick::CarryMissing`, made for drags and build-mode edits that drop
+  lamps for a few frames). A lamp deleted in Buy mode stays in the snapshot, the physical edit job calls the game's
+  directional step for it, and the step calls slot +0x24 (the position function `0x009691E0` in all 9 live classes).
+  Apex logs `lamp X left the lot's registry (deleted ...)` 0.5-0.8 s after each hit, which is the carry window ending.
+- **Fatal path** [inferred]: `BasisStepTry`'s `__except` swallows the fault, but the CPU ran heap bytes first; as in §0,
+  `add [eax], al` with eax = `0x00FF39F8` writes into the light base vtable page when it is writable, and other heap writes
+  are unbounded. Job 5 logged the C0000096 at 07:48:28 and died at 07:50:31 (Apex crash report: AV in d3d9.dll+0x3A91D).
+  1 crash in 5 jobs.
+- **Whose bug: Apex** (4.1.0, `OutdoorDelta` physical lamp edits; Apex owns that path). Not ours: no ts3native frame, and
+  ts3native does not touch the lamp registry or the basis step.
+- **Fix (Apex fork, branch `fix/lamp-registry-dead-light`, commit `599155a4` on v4.1.0 main)**: `BasisStep` and
+  `BasisPartNow` (the two entries the physical job uses) first test that the light's vtable slot +0x24 is `kLightPos`
+  (`0x009691E0`) under SEH, and skip the light otherwise (log `Lamp X is destroyed: left out of the directional map step`,
+  first 8). The test is exact for this fault: a call through slot +0x24 that is not the position function is the bug; all
+  9 classes have `kLightPos` there (Apex checks it per class at install). A freed light whose memory was reused by another
+  live light passes, and the step then reads a real light (no fault). Build `apex.lampdead-1125` (standard flavor, as the
+  release asset), sha256 `33e3c2130a3a...`, in builds.json. Not a setting: a plain bug fix.
+- **Proof queue** (NOT RUN): `apex-lampdead-stress-1125-m1124e` (5 x vb-owner-delete-stress on m1124e, Bin state
+  `apex-fork-asi`, each job FAILs on any `heapcall:` line, Bin add-ons KB read-back of our asi), chain
+  `probe-out/queue/chain-apex-lampdead-1125.sh` in worktree agent-a064a6e9157fb06b7. Pass: 5 PASS and 0 heapcall lines.
+- **Our own guard: not built.** Design only, for the case Apex cannot ship the fix soon: a detour of `0x0069F280` (stdcall
+  pos, light, acc) that returns without touching acc when `[light]+0x24 != 0x009691E0` and the caller is in
+  ApexRadiance.asi, behind `[Crash] ApexDeadLampGuard` (default 0), standing down when the Apex binary carries the fix
+  (its log line string present in the image). Risk: a second detour on a function Apex already redirects at
+  `0x006A0C56` (only the call, not the function, so they do not collide). Not needed while the Apex PR is open.
+
+### 9.1 Second path: the stale bake lamp, and the "benign" AV at 0x656277 (2026-11-25)
+
+Run: chain-apex-lampdead-1125 (09:04 PHT), `apex-lampdead-stress-1125-m1124e`: 3 PASS, 2 FAIL (stress-3 N/A, its retry
+FAIL), **2 `heapcall:` lines in 5 jobs** (base 4.1.0: 31), 29 Apex "is destroyed: left out of the directional map step"
+lines. The basis path of §9 is gone; the 2 lines left have no `BasisStep` frame.
+
+- **The remaining path** [verified, log stacks]: both lines (jobs 3-retry and 4, main thread, esp `0x001AF43C`) return
+  through ApexRadiance+0x559BF6, +0x559DFA, +0x55A031 (twice), +0x32124E, +0x1005B3 / +0x100596, +0x4C59BA, then d3d9 and
+  S3SS frames. Per the fork build's map (lane brief): `TerrainStamps::Update` (+0x4C59BA) -> `StampOf` -> `ReadBakeFields`
+  -> `BakeTest` (+0x559BF6), which makes a vtable +0x20 call on the lamp. One line ran heap bytes at `0x4D880000` (section
+  `0x3F400000`, prot 40, the Boehm heap's protection [inferred: docs/51 I-948-8]), the other called address 0.
+- **The 0x656277 AV is the same call** [verified, log]: every m1124e job log of that queue has 10-12
+  `exception C0000005 at 0x00656277 ... esp 001AF43C` lines (0 in the N/A job), the same esp as the heapcall lines. It is
+  the in-module AV the VB guard exempts as benign: the freed lamp's vtable slot still points into TS3W code, so the call
+  lands at `0x656277` and faults there, swallowed. Reused memory turns the same call into a heap call.
+- **Cause** [inferred until the proof run, docs/51 I-948-6]: `rt_outdoor_lamps.cpp` takes the lot's lamps from
+  `LotLightBridge::CurrentBakeLamps()`, which is only re-read every 20 frames, so a lamp deleted in Buy mode is stamped
+  for up to 20 frames after its destructor ran.
+- **Fix (Apex fork, branch `fix/stale-bake-light`, `d20cb385` on `599155a4` / #153)**: the stamp list takes a bake lamp
+  only while `LevelLightShare::LightLive(id)` holds (vtable slot +0x24 == `0x009691E0`, the §9 test under SEH). Build
+  `apex.stale-obj-1125` (Release, 14662 KB, v4.1.0, sha256 `420f86af9f25...`), builds.json; it carries the §9 fix too.
+  No log line of its own.
+- **Detector tags, diag set m1124g** (`ts3native.asi.m1124g`, 0.36.305-m1124g = m1124e + tags, log only, docs/51 §948):
+  ` in GC heap sect N` when a heapcall eip lies in a `GC_heap_sects` entry; `  heapcall #N: handled, continued (...)` 3 s
+  after a line when the process runs and no unhandled-exception report started; counter `hcdAv656277` (v226, +0x6B8C) for
+  AVs at `0x00656277`, so a queue forbids it (`nativeRequire "@hcdAv656277<=0"`). Steam 1.67 only (0 rows on EA / retail).
+- **Proof queue** (NOT RUN): `apex-staleobj-stress-1125-m1124g`: 5 x vb-owner-delete-stress on m1124g + `apex.stale-obj-1125`
+  (Bin state `apex-fork-asi`, KB read-back 14662), each FAILs on a `heapcall:` line or `hcdAv656277` > 0; job 6 is the
+  Apex-alone control (asi none, ourMods false, same repro once) to rule out our P5c object parking; it judges game alive /
+  no crash only (our detector is not loaded). Chain `probe-out/queue/chain-apex-staleobj-1125.sh` in worktree
+  agent-a01d7b6743bc600ac, follower of chain-wdstuck3-m1124d. Pass: 5 PASS, 0 `heapcall:` lines, counter 0, control alive.

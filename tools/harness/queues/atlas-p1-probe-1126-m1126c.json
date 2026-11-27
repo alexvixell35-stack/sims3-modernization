@@ -1,0 +1,187 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] atlas-p1-probe-1126: Boundless Atlas docs/007 P1 probe (its docs/020 §6), one job on Sunset Valley. NOT RUNNABLE ON MASTER YET: the job key extraAsi comes with branch feature/atlas-p0-load-1126; run this queue after that branch is merged (dry-run verified against that branch's queue.ts on 2026-11-26). Never run so far. The asi and the script package are Atlas builds copied into game-copy (docs/020 §6); the asi bytes are pinned by extraAsi.sha256. Reading the result: a RESULT FAIL of in or verify is evidence for docs/007 kill criterion 2, which is decided on three lots (rerun with \"out 0x<lot id>\" from the inspect list). A RESULT REFUSED is NOT kill evidence: it says no lot was pageable at that moment (a Sim near or routing to it, an object in use); rerun. The \"p1 mem reuse\" line is recorded, not gated.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^atlas 0\\.3\\.\\d+ p1=2 loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.2.2-p1 built Nov 26 2026 15:30:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=1 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=3 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": {
+      "match": [
+        "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ],
+      "noMatch": [
+        "paged lots: off (Probe=0)",
+        "paged lots: SKIP not TS3W.exe Steam 1.67 (link stamp 0xB91766EA, image size 0x00012000); EA 1.69 is not mapped",
+        "paged lots: probe on (Probe=1, FarM=250), 12 internal calls registered, command file x"
+      ]
+    },
+    "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": {
+      "match": [
+        "p1 self-check: PASS (28 checks, 0 failed), page format version 1, header 64 bytes"
+      ],
+      "noMatch": [
+        "p1 self-check: FAIL (28 checks, 1 failed), page format version 1, header 64 bytes",
+        "p1 self-check: FAIL crc-32 vector"
+      ]
+    },
+    "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": {
+      "match": [
+        "p1: RESULT PASS inspect lots 92 pageable 31 auto 0x00000000004F3A21"
+      ],
+      "noMatch": [
+        "p1: RESULT PASS inspect lots 92 pageable 0 auto 0x0000000000000000",
+        "p1: RESULT FAIL native inspect 2, inspect lots 92 pageable 31 auto 0x00000000004F3A21",
+        "p1: RESULT REFUSED native probe off"
+      ]
+    },
+    "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS out lot 0x00000000004F3A21 objects 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL page-out write -21 (lot untouched)",
+        "p1: RESULT REFUSED lot 0x00000000004F3A21: a Sim is on the lot",
+        "p1: RESULT PASS out lot 0x00000000004F3A21 objects 0"
+      ]
+    },
+    "^p1: RESULT PASS drop [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS drop 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL drop left 3 objects (page-in will report the id clashes)",
+        "p1: RESULT REFUSED no written page (stage 0)"
+      ]
+    },
+    "^p1: RESULT PASS in$": {
+      "match": [
+        "p1: RESULT PASS in"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL page-in -21",
+        "p1: RESULT FAIL in unresolved tokens 4",
+        "p1: RESULT PASS inspect lots 92 pageable 31 auto 0x00000000004F3A21"
+      ]
+    },
+    "^p1: RESULT PASS verify objects [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS verify objects 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL verify census differs (3 lines)",
+        "p1: RESULT FAIL verify dangling 2",
+        "p1: RESULT REFUSED no paged-in lot in this session (stage 0)"
+      ]
+    },
+    "^p1: RESULT PASS clean \\d+ files$": {
+      "match": [
+        "p1: RESULT PASS clean 3 files"
+      ],
+      "noMatch": [
+        "p1: RESULT REFUSED a page is out (stage 2): its file may be the only copy of the lot's objects",
+        "p1 clean: 3 files removed under the page root"
+      ]
+    },
+    "^p1 imposter: lot\\+0xBA \\d+ after page-in, ": {
+      "match": [
+        "p1 imposter: lot+0xBA 1 after page-in, put back to 0",
+        "p1 imposter: lot+0xBA 0 after page-in, unchanged from 0"
+      ],
+      "noMatch": [
+        "p1 imposter: lot+0xBA 1 after drop, put back to 0",
+        "p1 imposter: lot+0xBA (imposter dirty) is 0 before page-out"
+      ]
+    },
+    "^p1 time in: file \\d+\\.\\d\\d open \\d+\\.\\d\\d table \\d+\\.\\d\\d load \\d+\\.\\d\\d \\(begin ": {
+      "match": [
+        "p1 time in: file 1.20 open 0.85 table 0.10 load 41.30 (begin 6.10 create 22.00 end 13.20, ea 18.90) names 0.40 scene 2.10 ms; 130 objects, list 61200 B, script 54800 B"
+      ],
+      "noMatch": [
+        "p1 time in: EA's script stopwatch is in rdtsc mode, raw sum 123456 ticks",
+        "p1 time init: tick after page-in 12.40 ms, base 3.10 ms (20 ticks), gc 4 / 5 / 5"
+      ]
+    },
+    "^p1 time init: tick after page-in \\d+\\.\\d\\d ms, base \\d+\\.\\d\\d ms \\(20 ticks\\), gc \\d+ / \\d+ / \\d+": {
+      "match": [
+        "p1 time init: tick after page-in 12.40 ms, base 3.10 ms (20 ticks), gc 4 / 5 / 5",
+        "p1 time init: tick after page-in 2.40 ms, base 3.10 ms (20 ticks), gc 4 / 5 / 5; not above base, next two ticks 9.00 and 3.00 ms"
+      ],
+      "noMatch": [
+        "p1 time in: file 1.20 open 0.85 table 0.10 load 41.30 (begin 6.10 create 22.00 end 13.20, ea 18.90) names 0.40 scene 2.10 ms; 130 objects, list 61200 B, script 54800 B"
+      ]
+    },
+    "^p1 mem reuse: private committed after page-in ": {
+      "match": [
+        "p1 mem reuse: private committed after page-in 1510.2 MB (cycle 1) -> 1512.0 MB (cycle 2), +0.12%: within 5% (recorded, not a gate; main-heap core count not read)"
+      ],
+      "noMatch": [
+        "p1 mem after in: private committed 1510.2 MB in 4012 regions, free 1900.0 MB, largest free run 610.0 MB"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-p1-probe-sv",
+      "note": "[est 35 min] docs/007 P1 on Sunset Valley (Baseline-SV, Keaton household): inspect, then two cycles of page-out, drop, page-in and verify on each of three pageable lots picked by object count (10th percentile, median, largest; Atlas docs/023 §6 timers, \"p1 time in\" and \"p1 time init\" per page-in, recorded not gated), EA save, in-session reload, verify, clean. Pass: every step logs RESULT PASS in atlas.log, no script error. First run of every native call in this probe: a fault names its step in atlas.log (\"native fault ... step\") and the session then refuses every later command.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas atlas.asi with the paged-lot probe (game-copy/atlas-main/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-main.",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-main",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 75,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "PagedLots.FarM": 250
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=2 loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+          "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+          "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": 1,
+          "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 6,
+          "^p1: RESULT PASS drop [1-9]\\d*$": 6,
+          "^p1: RESULT PASS in$": 6,
+          "^p1: RESULT PASS verify objects [1-9]\\d*$": 7,
+          "^p1: RESULT PASS clean \\d+ files$": 1,
+          "^p1 imposter: lot\\+0xBA \\d+ after page-in, ": 6,
+          "^p1 mem reuse: private committed after page-in ": 3,
+          "^p1 time in: file \\d+\\.\\d\\d open \\d+\\.\\d\\d table \\d+\\.\\d\\d load \\d+\\.\\d\\d \\(begin ": 6,
+          "^p1 time init: tick after page-in \\d+\\.\\d\\d ms, base \\d+\\.\\d\\d ms \\(20 ticks\\), gc \\d+ / \\d+ / \\d+": 6
+        }
+      },
+      "run": {
+        "repro": "atlas-p1-probe-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1
+      }
+    }
+  ]
+}

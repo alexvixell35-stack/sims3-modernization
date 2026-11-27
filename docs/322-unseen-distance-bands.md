@@ -105,3 +105,12 @@ would grow from ~290 to ~1,100 ms/s: more than the sim thread has. So a large or
 cheaper per Sim (park, dormant, longer search and task intervals by band), not only the existing per-decision cuts. Next
 step per docs/320 §5.4: tighten the existing caps / skips / park thresholds for >=150 m first (household and selected Sims
 exempt, unknown scope = household), then measure the same table again.
+
+## 4. T3 edge per world (ME-4, 2026-11-26)
+
+The band rerun at the far-model edges (ME-1, queue `farmodel-bands-1123`, `Bands=150,200,300,450,1000`, 4/4 PASS on
+2026-11-23) cannot be digested: its profile dumps were written to the `nonsim-split-1122` lane worktree and removed with
+it [verified]. Until it is rerun, the working T3 edge comes from the §3 table [inferred]: **Bridgeport 450 m** (65% of NPC
+time is past 400 m), **Isla Paradiso 450 m** (77%), **Sunset Valley 300 m** (only 12% past 400 m; 73% sits in 150-400 m,
+split at 300 m unknown). Bounds, the lost-data proof and the rerun recipe:
+`docs/data/results/2026-11-26-farmodel-bands-1123-digest.md`.

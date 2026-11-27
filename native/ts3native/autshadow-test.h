@@ -1072,7 +1072,18 @@ static void TestAutShadowRun() {
     assert(g_mtOnEnter == AsSimEnter && g_mtOnLeave == AsSimLeaveLoop && g_mtJobHook == AsJobHook && g_asMode == 0 && g_sppN == 0);
     // ICs register at the first Simulate entry; Begin refuses until the methods are set
     AsSimEnter();
-    assert(g_t5Ics == 36 && k.icRegistered == 36 && AsIcConfig(35) == 1 && AsIcConfig(37) == 1 && AsIcVersion() == 11 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
+    assert(g_t5Ics == 38 && k.icRegistered == 38 && AsIcConfig(35) == 1 && AsIcConfig(37) == 1 && AsIcVersion() == 11 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
+    {   // docs/362 IsSimThread: 1 only on the thread in the game's sim thread id slot, 0 while the slot is empty
+        static DWORD st;
+        const DWORD* savedSt = g_rtSimTidSlot;
+        g_rtSimTidSlot = &st;
+        assert(!AsIcIsSimThread());
+        st = GetCurrentThreadId();
+        assert(AsIcIsSimThread() == 1);
+        st++;
+        assert(!AsIcIsSimThread());
+        g_rtSimTidSlot = savedSt;
+    }
     {   // ImageSha (docs/218 §5): a fake MonoImage {.., raw_data +8, raw_data_len +0xC} over "MZ" + 510 zero bytes
         static u8 img[0x200] = { 'M', 'Z' };
         DWORD mi[16] = {}, arr[4 + 8] = {}, small[4 + 8] = {};
@@ -1100,7 +1111,7 @@ static void TestAutShadowRun() {
     g_mtInvoke = AfT5Invoke;
     AfT5Request(40);
     AsSimLeave();
-    assert(g_t5Ics == 36 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
+    assert(g_t5Ics == 38 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
     assert(k.cutReq == 1 && k.refRuns == 0 && k.noWorker == 1 && g_t5Finish == 1 && g_t5Last == AS_LAST_NOWORKER && g_asRun == AS_RUN_IDLE);
     assert(k.batchReqs == 1 && k.batchCuts == 0 && k.simTicks == 1);
     {  // shared cut (docs/122 §14.18): requests posted before the cut join it, one cut and one finish; a full batch is busy

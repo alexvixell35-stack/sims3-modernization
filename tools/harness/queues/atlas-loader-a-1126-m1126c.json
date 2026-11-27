@@ -1,0 +1,463 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] atlas-loader-a-1126: Boundless Atlas docs/023 §9 build A (own page-in path for region lots), one job on Sunset Valley. NOT RUNNABLE ON MASTER YET: the job key extraAsi comes with branch feature/atlas-p0-load-1126 (dry-run verified against that branch's queue.ts on 2026-11-26). Never run. Atlas build from branch feature/loader-a-1126 (docs/023 §9.9), asi bytes pinned by extraAsi.sha256, script half as mod set game-copy/mod-sets/atlas-main (package sha256 in its set.json, build read back from atlas.log). Three lots by object count; per lot cycle 1 EA's path (in), cycle 2 loader A (loadA), cycle 3 EA's path again: cycle 3 is the warm-cache timing pair for cycle 2. Dense lot cycle 2 is paced and saved while loader A releases; that save is reloaded and verified. Verdict: every RESULT PASS (loader A gives the same census and no dangling reference as EA's path, docs/023 kill criterion 4 not hit, a save mid-release is safe); the timer lines are recorded, not gated. A RESULT REFUSED is not kill evidence (no lot was pageable at that moment); rerun.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=4 w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.2.2-loadA built Nov 26 2026 15:30:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=2 loadA=3 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": {
+      "match": [
+        "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ],
+      "noMatch": [
+        "paged lots: off (Probe=0)",
+        "paged lots: probe on (Probe=1, FarM=250), 23 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ]
+    },
+    "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": {
+      "match": [
+        "p1 self-check: PASS (30 checks, 0 failed), page format version 1, header 64 bytes"
+      ],
+      "noMatch": [
+        "p1 self-check: FAIL (30 checks, 1 failed), page format version 1, header 64 bytes"
+      ]
+    },
+    "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:loadA self-check PASS (18 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:loadA self-check FAIL (18 checks, 2 failed)",
+        "loadA self-check: PASS (18 checks, 0 failed)"
+      ]
+    },
+    "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": {
+      "match": [
+        "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on"
+      ],
+      "noMatch": [
+        "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 10/11 self-check PASS: SKIP, loadA takes EA's path",
+        "atlas:loadA start version 4 LoaderA=0 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: off, loadA takes EA's path",
+        "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=1 shape 11/11 self-check PASS: on",
+        "atlas:loadA start version 3 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on"
+      ]
+    },
+    "^p1: script half ready \\(loadA-4\\), native probe version 2$": {
+      "match": [
+        "p1: script half ready (loadA-4), native probe version 2"
+      ],
+      "noMatch": [
+        "p1: script half ready, native probe version 1",
+        "p1: script half ready (loadA-3), native probe version 2"
+      ]
+    },
+    "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": {
+      "match": [
+        "p1: RESULT PASS inspect lots 92 pageable 31 auto 0x00000000004F3A21"
+      ],
+      "noMatch": [
+        "p1: RESULT PASS inspect lots 92 pageable 0 auto 0x0000000000000000",
+        "p1: RESULT REFUSED native probe off"
+      ]
+    },
+    "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS out lot 0x00000000004F3A21 objects 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL page-out write -21 (lot untouched)",
+        "p1: RESULT PASS out lot 0x00000000004F3A21 objects 0"
+      ]
+    },
+    "^p1: RESULT PASS drop [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS drop 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL drop left 3 objects (page-in will report the id clashes)"
+      ]
+    },
+    "^p1: RESULT PASS in$": {
+      "match": [
+        "p1: RESULT PASS in"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL page-in -21",
+        "p1: RESULT PASS loadA path A"
+      ]
+    },
+    "^p1: RESULT PASS loadA path A$": {
+      "match": [
+        "p1: RESULT PASS loadA path A"
+      ],
+      "noMatch": [
+        "p1: RESULT PASS loadA path EA",
+        "p1: RESULT FAIL loadA -31",
+        "p1: RESULT PASS in"
+      ]
+    },
+    "^atlas:loadA dispatch-a lot=0x[0-9A-F]{16} loader A, W1 on a worker, budget 3 ms, ": {
+      "match": [
+        "atlas:loadA dispatch-a lot=0x00000000004F3A21 loader A, W1 on a worker, budget 3 ms, base tick 8.40 ms, at most 256 per tick"
+      ],
+      "noMatch": [
+        "atlas:loadA dispatch-ea lot=0x00000000004F3A21 EA's path (LoaderA=0)"
+      ]
+    },
+    "^atlas:loadA w1-ok lot=0x[0-9A-F]{16} page [1-9]\\d* bytes crc 0x[0-9A-F]{8}, [1-9]\\d* objects, ": {
+      "match": [
+        "atlas:loadA w1-ok lot=0x00000000004F3A21 page 812345 bytes crc 0x1A2B3C4D, 214 objects, gen 1, w1 1.20 ms on the worker, waited 16.70 ms"
+      ],
+      "noMatch": [
+        "atlas:loadA w1-refused lot=0x00000000004F3A21 page check: CRC differs"
+      ]
+    },
+    "^atlas:loadA call lot=0x[0-9A-F]{16} call \\d+\\.\\d\\d ms, [1-9]\\d* bound proxies parked in ": {
+      "match": [
+        "atlas:loadA call lot=0x00000000004F3A21 call 41.30 ms, 212 bound proxies parked in 0.08 ms, 0 other new nodes left to EA"
+      ],
+      "noMatch": [
+        "atlas:loadA call lot=0x00000000004F3A21 call 41.30 ms, 0 bound proxies parked in 0.01 ms, 0 other new nodes left to EA",
+        "atlas:loadA no-park lot=0x00000000004F3A21 the list tail moved or the list is not sane (lot ids 214); EA inits the lot on the next tick"
+      ]
+    },
+    "^atlas:loadA released lot=0x[0-9A-F]{16} all [1-9]\\d* parked nodes back to EA in \\d+ ticks": {
+      "match": [
+        "atlas:loadA released lot=0x00000000004F3A21 all 212 parked nodes back to EA in 9 ticks, waiting for their inits"
+      ],
+      "noMatch": [
+        "atlas:loadA release-all lot=0x00000000004F3A21 abort: 3 parked nodes released at once (0 lost)"
+      ]
+    },
+    "^atlas:loadA summary lot=0x[0-9A-F]{16} w1 \\d+\\.\\d\\d \\(worker\\) wait \\d+\\.\\d\\d call \\d+\\.\\d\\d park \\d+\\.\\d\\d ms \\([1-9]\\d* nodes\\), release \\d+ ticks, .*, lost 0, ": {
+      "match": [
+        "atlas:loadA summary lot=0x00000000004F3A21 w1 1.20 (worker) wait 16.70 call 41.30 park 0.08 ms (212 nodes), release 9 ticks, last batch 32, init excess 24.10 ms (largest tick 4.20, budget 3), scene 2.10 ms, lost 0, other 0, imposter byte put back 0 times, total 260.00 ms, lines suppressed 0"
+      ],
+      "noMatch": [
+        "atlas:loadA summary lot=0x00000000004F3A21 w1 1.20 (worker) wait 16.70 call 41.30 park 0.08 ms (212 nodes, not parked), release 9 ticks, last batch 32, init excess 24.10 ms (largest tick 4.20, budget 3), scene 2.10 ms, lost 0, other 0, imposter byte put back 0 times, total 260.00 ms, lines suppressed 0",
+        "atlas:loadA summary lot=0x00000000004F3A21 w1 1.20 (worker) wait 16.70 call 41.30 park 0.08 ms (212 nodes), release 9 ticks, last batch 32, init excess 24.10 ms (largest tick 4.20, budget 3), scene 2.10 ms, lost 3, other 0, imposter byte put back 0 times, total 260.00 ms, lines suppressed 0",
+        "p1 time loadA: w1 1.20 (worker) wait 16.70 call 41.30 park 0.08 ms (212 nodes), release 9 ticks, last batch 32, init excess 24.10 ms (largest tick 4.20, budget 3), scene 2.10 ms, lost 0, imposter byte put back 0 times, total 260.00 ms"
+      ]
+    },
+    "^p1: RESULT PASS status stage 3 lot 0x[0-9A-F]{16} loadA state 0 path 2$": {
+      "match": [
+        "p1: RESULT PASS status stage 3 lot 0x00000000004F3A21 loadA state 0 path 2"
+      ],
+      "noMatch": [
+        "p1: RESULT PASS status stage 3 lot 0x00000000004F3A21 loadA state 3 path 2",
+        "p1: RESULT PASS status stage 3 lot 0x00000000004F3A21 loadA state 0 path 1"
+      ]
+    },
+    "^atlas:loadA status lot=0x[0-9A-F]{16} LoaderA=1 shape ok, state 0, last path A, .*; session: runs \\d+, path A [1-9]\\d*, path EA 0, refused 0, hurry \\d+, faults 0, stuck 0, ": {
+      "match": [
+        "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape ok, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 1, path EA 0, refused 0, hurry 0, faults 0, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0"
+      ],
+      "noMatch": [
+        "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape FAIL, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 1, path EA 0, refused 0, hurry 0, faults 0, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0",
+        "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape ok, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 1, path EA 1, refused 0, hurry 0, faults 0, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0",
+        "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape ok, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 1, path EA 0, refused 0, hurry 0, faults 1, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0",
+        "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape ok, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 0, path EA 0, refused 0, hurry 0, faults 0, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0"
+      ]
+    },
+    "^p1: RESULT PASS verify objects [1-9]\\d*$": {
+      "match": [
+        "p1: RESULT PASS verify objects 214"
+      ],
+      "noMatch": [
+        "p1: RESULT FAIL verify census differs (3 lines)",
+        "p1: RESULT FAIL verify dangling 2"
+      ]
+    },
+    "^p1: RESULT PASS clean \\d+ files$": {
+      "match": [
+        "p1: RESULT PASS clean 3 files"
+      ],
+      "noMatch": [
+        "p1 clean: 3 files removed under the page root"
+      ]
+    },
+    "^p1 imposter: lot\\+0xBA \\d+ after page-in, ": {
+      "match": [
+        "p1 imposter: lot+0xBA 0 after page-in, unchanged from 0",
+        "p1 imposter: lot+0xBA 1 after page-in, kept as loader A published it (0 before page-out)"
+      ],
+      "noMatch": [
+        "p1 imposter: lot+0xBA 1 after drop, put back to 0"
+      ]
+    },
+    "^atlas:loadA imposter lot=0x[0-9A-F]{16} lot\\+0xBA held \\d+, EA left \\d+, published \\d+$": {
+      "match": [
+        "atlas:loadA imposter lot=0x00000000004F3A21 lot+0xBA held 0, EA left 1, published 1"
+      ],
+      "noMatch": [
+        "p1 imposter: lot+0xBA 1 after page-in, kept as loader A published it (0 before page-out)"
+      ]
+    },
+    "^p1 time in: file \\d+\\.\\d\\d open \\d+\\.\\d\\d table \\d+\\.\\d\\d load \\d+\\.\\d\\d \\(begin ": {
+      "match": [
+        "p1 time in: file 1.20 open 0.85 table 0.10 load 41.30 (begin 6.10 create 22.00 end 13.20, ea 18.90) names 0.40 scene 2.10 ms; 130 objects, list 61200 B, script 54800 B"
+      ],
+      "noMatch": [
+        "p1 time init: tick after page-in 12.40 ms, base 3.10 ms (20 ticks), gc 4 / 5 / 5"
+      ]
+    },
+    "^p1 time init: tick after page-in \\d+\\.\\d\\d ms, base \\d+\\.\\d\\d ms \\(20 ticks\\), gc \\d+ / \\d+ / \\d+": {
+      "match": [
+        "p1 time init: tick after page-in 12.40 ms, base 3.10 ms (20 ticks), gc 4 / 5 / 5"
+      ],
+      "noMatch": [
+        "p1 time in: file 1.20 open 0.85 table 0.10 load 41.30 (begin 6.10 create 22.00 end 13.20, ea 18.90) names 0.40 scene 2.10 ms; 130 objects, list 61200 B, script 54800 B"
+      ]
+    },
+    "^p1 mem reuse: private committed after page-in ": {
+      "match": [
+        "p1 mem reuse: private committed after page-in 1510.2 MB (cycle 1) -> 1512.0 MB (cycle 2), +0.12%: within 5% (recorded, not a gate; main-heap core count not read)"
+      ],
+      "noMatch": [
+        "p1 mem after in: private committed 1510.2 MB in 4012 regions, free 1900.0 MB, largest free run 610.0 MB"
+      ]
+    },
+    "^atlas:loadA release-all lot=0x[0-9A-F]{16} hurry \\(a save is (starting|writing)\\): [1-9]\\d* parked nodes released at once": {
+      "match": [
+        "atlas:loadA release-all lot=0x00000000004F3A21 hurry (a save is starting): 140 parked nodes released at once (0 lost)",
+        "atlas:loadA release-all lot=0x00000000004F3A21 hurry (a save is writing): 3 parked nodes released at once (0 lost)"
+      ],
+      "noMatch": [
+        "atlas:loadA release-all lot=0x00000000004F3A21 hurry (household or unknown Sim 0x00000000000A1B2C within 250 m): 40 parked nodes released at once (0 lost)",
+        "atlas:loadA release-all lot=0x00000000004F3A21 abort: 3 parked nodes released at once (0 lost)"
+      ]
+    },
+    "^atlas:loadA script-summary lot=0x[0-9A-F]{16} [1-9]\\d* saves started during the page-in": {
+      "match": [
+        "atlas:loadA script-summary lot=0x00000000004F3A21 1 saves started during the page-in, hurry 1 (first: a save is starting)"
+      ],
+      "noMatch": [
+        "atlas:loadA script-summary lot=0x00000000004F3A21 0 saves started during the page-in, hurry 0"
+      ]
+    },
+    "^atlas:loadA script-result lot=0x[0-9A-F]{16} native 0, path A, ": {
+      "match": [
+        "atlas:loadA script-result lot=0x00000000004F3A21 native 0, path A, 14 ticks, 260.40 ms wall, base tick 8.40 ms"
+      ],
+      "noMatch": [
+        "atlas:loadA script-result lot=0x00000000004F3A21 native 0, path EA, 1 ticks, 60.40 ms wall, base tick 8.40 ms",
+        "atlas:loadA script-result lot=0x00000000004F3A21 native -31, path A, 600 ticks, 9000.00 ms wall, base tick 8.40 ms"
+      ]
+    },
+    "^atlas:loadA dispatch-ea ": {
+      "match": [
+        "atlas:loadA dispatch-ea lot=0x00000000004F3A21 EA's path (W1 refused the page)"
+      ],
+      "noMatch": [
+        "atlas:loadA dispatch-a lot=0x00000000004F3A21 loader A, W1 on a worker, budget 3 ms, base tick 8.40 ms, at most 256 per tick"
+      ]
+    },
+    "^atlas:loadA save-hook lot=0x0{16} drain registered in SaveBracket \\(order 10\\) ": {
+      "match": [
+        "atlas:loadA save-hook lot=0x0000000000000000 drain registered in SaveBracket (order 10) on LoadSaveManager.SaveGame and SaveTravel"
+      ],
+      "noMatch": [
+        "atlas:loadA save-hook-failed lot=0x0000000000000000 save bracket: SaveGame already compiled, SaveTravel ok"
+      ]
+    },
+    "^atlas:save bracket SaveGame ok, SaveTravel ok$": {
+      "match": [
+        "atlas:save bracket SaveGame ok, SaveTravel ok"
+      ],
+      "noMatch": [
+        "atlas:save bracket SaveGame already compiled, SaveTravel ok",
+        "atlas:save bracket handler loadA order 10"
+      ]
+    },
+    "^atlas:save bracket-error ": {
+      "match": [
+        "atlas:save bracket-error handler loadA pre save: NullReferenceException"
+      ],
+      "noMatch": [
+        "atlas:save bracket handler loadA order 10"
+      ]
+    },
+    "^atlas:loadA save-drain lot=0x[0-9A-F]{16} passes=\\d+ left=0 \\(": {
+      "match": [
+        "atlas:loadA save-drain lot=0x00000000004F3A21 passes=2 left=0 (save)",
+        "atlas:loadA save-drain lot=0x00000000004F3A21 passes=3 left=0 (travel-save)"
+      ],
+      "noMatch": [
+        "atlas:loadA save-drain lot=0x00000000004F3A21 passes=10 left=4 (save)",
+        "atlas:loadA save-drain-timeout lot=0x00000000004F3A21 4 released nodes not initialised after 10 passes; the save guard refuses a normal save"
+      ]
+    },
+    "^atlas:loadA save-drain lot=0x[0-9A-F]{16} passes=\\d+ left=0 \\(travel-save\\)$": {
+      "match": [
+        "atlas:loadA save-drain lot=0x00000000004F3A21 passes=3 left=0 (travel-save)"
+      ],
+      "noMatch": [
+        "atlas:loadA save-drain lot=0x00000000004F3A21 passes=2 left=0 (save)",
+        "atlas:loadA save-drain lot=0x00000000004F3A21 passes=10 left=1 (travel-save)"
+      ]
+    },
+    "^atlas:loadA (refused|w1-refused|save-hook-failed|save-drain-timeout|save-drain-failed|shape-mismatch) ": {
+      "match": [
+        "atlas:loadA refused lot=0x00000000004F3A21 a save is in progress",
+        "atlas:loadA w1-refused lot=0x00000000004F3A21 page check: CRC differs",
+        "atlas:loadA shape-mismatch at 0x00D80C26 (first of 1)",
+        "atlas:loadA save-drain-timeout lot=0x00000000004F3A21 4 released nodes not initialised after 10 passes; a travel save cannot be refused, it goes on",
+        "atlas:loadA save-hook-failed lot=0x0000000000000000 save bracket: SaveGame already compiled, SaveTravel ok"
+      ],
+      "noMatch": [
+        "atlas:loadA release-all lot=0x00000000004F3A21 abort: 3 parked nodes released at once (0 lost)",
+        "atlas:loadA w1-ok lot=0x00000000004F3A21 page 812345 bytes crc 0x1A2B3C4D, 214 objects, gen 1, w1 1.20 ms on the worker, waited 16.70 ms"
+      ]
+    },
+    "^atlas:loadA no-park ": {
+      "match": [
+        "atlas:loadA no-park lot=0x00000000004F3A21 the list tail moved or the list is not sane (lot ids 214); EA inits the lot on the next tick"
+      ],
+      "noMatch": [
+        "atlas:loadA call lot=0x00000000004F3A21 call 41.30 ms, 212 bound proxies parked in 0.08 ms, 0 other new nodes left to EA"
+      ]
+    },
+    "^atlas:loadA stuck ": {
+      "match": [
+        "atlas:loadA stuck lot=0x00000000004F3A21 3 released nodes still at state 0 after 600 ticks; finishing anyway"
+      ],
+      "noMatch": [
+        "atlas:loadA release-all lot=0x00000000004F3A21 abort: 3 parked nodes released at once (0 lost)",
+        "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape ok, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 1, path EA 0, refused 0, hurry 0, faults 0, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0"
+      ]
+    },
+    "^atlas:loadA fault ": {
+      "match": [
+        "atlas:loadA fault lot=0x00000000004F3A21 in step 'release all (abort)' at node 3 of 212"
+      ],
+      "noMatch": [
+        "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape ok, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 1, path EA 0, refused 0, hurry 0, faults 0, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0"
+      ]
+    },
+    "^atlas:loadA release-all lot=0x[0-9A-F]{16} (abort|the lot load did not give the page): ": {
+      "match": [
+        "atlas:loadA release-all lot=0x00000000004F3A21 abort: 3 parked nodes released at once (0 lost)",
+        "atlas:loadA release-all lot=0x00000000004F3A21 the lot load did not give the page: 5 parked nodes released at once (0 lost)"
+      ],
+      "noMatch": [
+        "atlas:loadA release-all lot=0x00000000004F3A21 hurry (a save is starting): 40 parked nodes released at once (0 lost)",
+        "atlas:loadA release-all lot=0x00000000004F3A21 a save or world change began: 40 parked nodes released at once (0 lost)",
+        "atlas:loadA world-quit lot=0x00000000004F3A21 loader A was in flight; parked proxies released",
+        "atlas:loadA release-all lot=0x00000000004F3A21 the lot was made active: 40 parked nodes released at once (0 lost)"
+      ]
+    },
+    "native fault ": {
+      "match": [
+        "p1: native fault 0xC0000005 at 0x00D80C26 in LoadA, step 'lot object load (vtable +0x24)'. The world may be damaged: do not save."
+      ],
+      "noMatch": [
+        "p1: RESULT PASS in"
+      ]
+    },
+    "DAMAGED": {
+      "match": [
+        "p1: DAMAGED (loadA -31: the lot may be partly created or not initialised): every later command is refused. Do not save this session; restart the game."
+      ],
+      "noMatch": [
+        "p1: RESULT PASS verify objects 214"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-loader-a-sv",
+      "note": "[est 80 min] Atlas docs/023 §9 build A on Sunset Valley (Baseline-SV): inspect, then three cycles (EA in, loader A loadA + status, EA in) of page-out, drop, page-in and verify on each of three pageable lots picked by object count (10th percentile, median, largest; dense lot cycle 2 paced and saved mid-release), EA save, in-session reload, verify, reload of the mid-release save, verify, a fourth dense page-in by loader A paced over a vacation trip (travel save mid-release) and the trip home, clean. Pass: every step logs RESULT PASS in atlas.log, loadA takes path A three times with page proxies parked and none lost, the mid-release save releases through the save nets and reloads clean, no script error. First run of loader A: a fault names its step in atlas.log and the session then refuses every later command.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas f1faf8e, atlas 0.3.6): game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354) and game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas atlas.asi with the paged-lot probe and loader A (game-copy/atlas-main/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-main (atlas.package sha256 23616760c01cb2260a22c6f7260870222ffbc455138ad24ba8675031205fb2d7, build loadA-4 read back by the \"script half ready\" line).",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/atlas-main",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 150,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main/atlas.asi",
+        "sha256": "6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "PagedLots.FarM": 250,
+          "PagedLots.LoaderA": 1,
+          "PagedLots.BudgetMs": 3,
+          "PagedLots.Verbose": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.\\d+ p1=\\d+ loadA=4 w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+          "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+          "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": 1,
+          "^p1: script half ready \\(loadA-4\\), native probe version 2$": 1,
+          "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": 1,
+          "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 10,
+          "^p1: RESULT PASS drop [1-9]\\d*$": 10,
+          "^p1: RESULT PASS in$": 6,
+          "^p1: RESULT PASS loadA path A$": 3,
+          "^atlas:loadA dispatch-a lot=0x[0-9A-F]{16} loader A, W1 on a worker, budget 3 ms, ": 4,
+          "^atlas:loadA call lot=0x[0-9A-F]{16} call \\d+\\.\\d\\d ms, [1-9]\\d* bound proxies parked in ": 3,
+          "^atlas:loadA summary lot=0x[0-9A-F]{16} w1 \\d+\\.\\d\\d \\(worker\\) wait \\d+\\.\\d\\d call \\d+\\.\\d\\d park \\d+\\.\\d\\d ms \\([1-9]\\d* nodes\\), release \\d+ ticks, .*, lost 0, ": 3,
+          "^p1: RESULT PASS status stage 3 lot 0x[0-9A-F]{16} loadA state 0 path 2$": 3,
+          "^atlas:loadA status lot=0x[0-9A-F]{16} LoaderA=1 shape ok, state 0, last path A, .*; session: runs \\d+, path A [1-9]\\d*, path EA 0, refused 0, hurry \\d+, faults 0, stuck 0, ": 3,
+          "^p1: RESULT PASS verify objects [1-9]\\d*$": 11,
+          "^p1: RESULT PASS clean \\d+ files$": 1,
+          "^p1 imposter: lot\\+0xBA \\d+ after page-in, ": 9,
+          "^atlas:loadA imposter lot=0x[0-9A-F]{16} lot\\+0xBA held \\d+, EA left \\d+, published \\d+$": 3,
+          "^p1 time in: file \\d+\\.\\d\\d open \\d+\\.\\d\\d table \\d+\\.\\d\\d load \\d+\\.\\d\\d \\(begin ": 9,
+          "^p1 time init: tick after page-in \\d+\\.\\d\\d ms, base \\d+\\.\\d\\d ms \\(20 ticks\\), gc \\d+ / \\d+ / \\d+": 6,
+          "^p1 mem reuse: private committed after page-in ": 3,
+          "^atlas:loadA release-all lot=0x[0-9A-F]{16} hurry \\(a save is (starting|writing)\\): [1-9]\\d* parked nodes released at once": 1,
+          "^atlas:loadA script-summary lot=0x[0-9A-F]{16} [1-9]\\d* saves started during the page-in": 1,
+          "^atlas:loadA save-hook lot=0x0{16} drain registered in SaveBracket \\(order 10\\) ": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:loadA save-drain lot=0x[0-9A-F]{16} passes=\\d+ left=0 \\(": 2,
+          "^atlas:loadA save-drain lot=0x[0-9A-F]{16} passes=\\d+ left=0 \\(travel-save\\)$": 1,
+          "^atlas:loadA w1-ok lot=0x[0-9A-F]{16} page [1-9]\\d* bytes crc 0x[0-9A-F]{8}, [1-9]\\d* objects, ": 3,
+          "^atlas:loadA released lot=0x[0-9A-F]{16} all [1-9]\\d* parked nodes back to EA in \\d+ ticks": 3,
+          "^atlas:loadA script-result lot=0x[0-9A-F]{16} native 0, path A, ": 3
+        },
+        "logForbid": {
+          "^atlas:loadA dispatch-ea ": 0,
+          "^atlas:loadA (refused|w1-refused|save-hook-failed|save-drain-timeout|save-drain-failed|shape-mismatch) ": 0,
+          "^atlas:loadA no-park ": 0,
+          "^atlas:loadA stuck ": 0,
+          "^atlas:loadA fault ": 0,
+          "^atlas:save bracket-error ": 0,
+          "^atlas:loadA release-all lot=0x[0-9A-F]{16} (abort|the lot load did not give the page): ": 0,
+          "native fault ": 0,
+          "DAMAGED": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-loader-a-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1
+      }
+    }
+  ]
+}

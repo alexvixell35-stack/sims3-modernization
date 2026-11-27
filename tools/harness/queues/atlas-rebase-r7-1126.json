@@ -1,0 +1,470 @@
+{
+  "note": "Repinned 2026-11-27 to Atlas main 05a0e61 (0.3.15, rebase=6: P3 + R-7 merged with the FindClosest reset and the G-519 closed-list / W+0xC0 redo after every routing table move; boot race fix: repro waits for Groups ready 3 and waiting 0), staged as game-copy/atlas-main12 and mod set atlas-main12. atlas-rebase-r7-1126: Boundless Atlas docs/022 §8.8.13 rebase R-7 (terrain cells in pass T, I-patches at the seven cell key builds, side table), boundless-atlas branch feature/rebase-r7-1126 at dc071c0 (P3 2051e8e + Atlas main 0.3.11; R-7 sites written only at a held safe point). Two Sunset Valley jobs: CellKeys=1 round trips (one chunk east / west / north, one 256 m cell east) and the CellKeys=0 control. The repro waits for the rebase internal-call flag (Atlas.AtlasNative.Groups) before its first native call. Needs the queue key extraAsi (queue.ts from feature/atlas-p0-load-1126 60310925f or later), game-copy/atlas-main12/atlas.asi (sha256 pinned) and game-copy/mod-sets/atlas-main12. Dry run validated only; not run (written 2026-11-27).",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^\\[Rewind\\] Park on: ": {
+      "match": [
+        "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+      ],
+      "noMatch": [
+        "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)",
+        "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
+      ]
+    },
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:rebase self-check: PASS (307 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:rebase self-check: FAIL (307 checks, 4 failed)"
+      ]
+    },
+    "^atlas:rebase (bytes: routing records [0-9A-F]{8} -> [0-9A-F]{8}, G keys .*: equal$|RESULT REFUSED (binade|physics-root))": {
+      "match": [
+        "atlas:rebase bytes: routing records 1A2B3C4D -> 1A2B3C4D, G keys 00FF00FF -> 00FF00FF (shoreline 40 -> 40, blocked 12 -> 12): equal",
+        "atlas:rebase RESULT REFUSED physics-root: x"
+      ],
+      "noMatch": [
+        "atlas:rebase bytes: routing records 1A2B3C4D -> 1A2B3C4E, G keys 00FF00FF -> 00FF00FF (shoreline 40 -> 40, blocked 12 -> 12): DIFFER",
+        "atlas:rebase bytes: routing records 1A2B3C4D -> 1A2B3C4D, G off 00000000 -> 00000000 (shoreline 0 -> 0, blocked 0 -> 0): equal"
+      ]
+    },
+    "^atlas:rebase bytes: .*: DIFFER$": {
+      "match": [
+        "atlas:rebase bytes: routing records 1A2B3C4D -> 1A2B3C4E, G off 00000000 -> 00000000 (shoreline 0 -> 0, blocked 0 -> 0): DIFFER"
+      ],
+      "noMatch": [
+        "atlas:rebase bytes: routing records 1A2B3C4D -> 1A2B3C4D, G off 00000000 -> 00000000 (shoreline 0 -> 0, blocked 0 -> 0): equal"
+      ]
+    },
+    "^atlas:rebase MISMATCH ": {
+      "match": [
+        "atlas:rebase MISMATCH holder object id 0x1"
+      ],
+      "noMatch": [
+        "atlas:rebase verify: slots 10, mismatches 0, physics drops 0"
+      ]
+    },
+    "^atlas:rebase (FAULT|ERROR|DAMAGED) ": {
+      "match": [
+        "atlas:rebase FAULT in pass O"
+      ],
+      "noMatch": [
+        "atlas:rebase gate out: 1.00 ms, frames 2, slices 1"
+      ]
+    },
+    "^atlas:rebase (hub: )?RESULT FAIL ": {
+      "match": [
+        "atlas:rebase RESULT FAIL roundtrip step (-32, 0)",
+        "atlas:rebase hub: RESULT FAIL fault (damaged)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 9"
+      ]
+    },
+    "^atlas:rebase (SKIP|off) ": {
+      "match": [
+        "atlas:rebase SKIP shape 0x66CE10",
+        "atlas:rebase off (Enable=0)"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 4, shape 77/77, 9 internal calls registered"
+      ]
+    },
+    "^atlas:rebase RESULT (PASS slide|CHECKED slide)": {
+      "match": [
+        "atlas:rebase RESULT PASS slide step (-32, 0) slots 100"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 7 holders"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-|routing-rebuild-pending)": {
+      "match": [
+        "atlas:rebase RESULT REFUSED routing-rebuild-pending: WM+0x46 is set",
+        "atlas:rebase RESULT REFUSED route-worker-busy"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED binade: x",
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 7 holders"
+      ]
+    },
+    "^atlas:rebase window: check refused|^atlas:rebase window save: ": {
+      "match": [
+        "atlas:rebase window: check refused (key or folder)",
+        "atlas:rebase window save: code 3"
+      ],
+      "noMatch": [
+        "atlas:rebase window: saved key 0123456789abcdef shift (0, 0) epoch 0 stash 0"
+      ]
+    },
+    "^atlas:rebase pass Rd .* ms in \\d+ slices \\(max [1-9]\\d{2,} ms\\)": {
+      "match": [
+        "atlas:rebase pass Rd round trip (script half): objects 9 (roots 1), errors 0, 2400 ms in 300 slices (max 140 ms)"
+      ],
+      "noMatch": [
+        "atlas:rebase pass Rd round trip (script half): objects 9 (roots 1), errors 0, 2400 ms in 300 slices (max 12 ms)",
+        "atlas:rebase pass Rd dry run (script half): objects 9, 99 ms in 12 slices (max 99 ms)"
+      ]
+    },
+    "^atlas:icalls rebase: 9 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": {
+      "match": [
+        "atlas:icalls rebase: 9 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ],
+      "noMatch": [
+        "atlas:icalls rebase: 5 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set",
+        "atlas:icalls rebase SKIP no script domain in 600 s (host 0x00000000): 9 internal calls not registered"
+      ]
+    },
+    "^atlas:rebase RESULT (PASS roundtrip step \\((-?32, 0|0, -?32|256, 0)\\)|REFUSED (binade|physics-root))": {
+      "match": [
+        "atlas:rebase RESULT PASS roundtrip step (256, 0) slots 41234",
+        "atlas:rebase RESULT PASS roundtrip step (-32, 0) slots 41234",
+        "atlas:rebase RESULT REFUSED binade: first object id 0x0 field +0x20 value 1 (inexact 1, caught 0, root 0); nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS roundtrip step (64, 0) slots 41234",
+        "atlas:rebase RESULT REFUSED list-changed terrain cells 3/4 (R-7)"
+      ]
+    },
+    "^atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 \\(GridKeys=1\\); R-7 key sites 7/7 match \\(CellKeys=1\\); InferredSlots=0$": {
+      "match": [
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 7/7 match (CellKeys=1); InferredSlots=0"
+      ],
+      "noMatch": [
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 6/7 match (CellKeys=1); InferredSlots=0",
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 7/7 match (CellKeys=0); InferredSlots=0"
+      ]
+    },
+    "^atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 \\(GridKeys=1\\); R-7 key sites 7/7 match \\(CellKeys=0\\); InferredSlots=0$": {
+      "match": [
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 7/7 match (CellKeys=0); InferredSlots=0"
+      ],
+      "noMatch": [
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 7/7 match (CellKeys=1); InferredSlots=0",
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 2/2 (I-patches not built); InferredSlots=0"
+      ]
+    },
+    "^atlas:rebase R-7 site 0x[0-9A-F]{6} on \\(": {
+      "match": [
+        "atlas:rebase R-7 site 0xC8035E on (A 0xAE39399F key in 0xC80300, 6 bytes, resume 0xC80364)",
+        "atlas:rebase R-7 site 0xC82762 on (G 0xB2D882 key in 0xC825F0, 8 bytes, resume 0xC8276A)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 site 0xC8035E rolled back",
+        "atlas:rebase R-7 on: 7/7 key sites, side table 12288 cells"
+      ]
+    },
+    "^atlas:rebase R-7 on: 7/7 key sites, side table 12288 cells$": {
+      "match": [
+        "atlas:rebase R-7 on: 7/7 key sites, side table 12288 cells"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 off (CellKeys=0): terrain cells not shifted, key sites untouched",
+        "atlas:rebase R-7 on: 6/7 key sites, side table 12288 cells"
+      ]
+    },
+    "^atlas:rebase lists R-7: terrain cells [1-9]\\d* \\(owner 0x[0-9A-F]{8}\\), side table [1-9]\\d* entries$": {
+      "match": [
+        "atlas:rebase lists R-7: terrain cells 1024 (owner 0x1A2B3C40), side table 1024 entries"
+      ],
+      "noMatch": [
+        "atlas:rebase lists R-7: terrain cells 0 (owner 0x1A2B3C40), side table 0 entries",
+        "atlas:rebase R-7: terrain cells not shifted this run (r7-no-owner, owner 0x00000000)"
+      ]
+    },
+    "^atlas:rebase R-7 counters at run end: key builds A \\d+ B \\d+ C \\d+ D \\d+ E \\d+ F \\d+ G \\d+, source keys used \\d+, stale 0, owners seen [1-9]\\d*, cells shifted [1-9]\\d*, ": {
+      "match": [
+        "atlas:rebase R-7 counters at run end: key builds A 12 B 340 C 0 D 5 E 5 F 2 G 1, source keys used 3, stale 0, owners seen 1, cells shifted 2048, side table 1024, refused 0"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 counters at run end: key builds A 12 B 340 C 0 D 5 E 5 F 2 G 1, source keys used 3, stale 2, owners seen 1, cells shifted 2048, side table 1024, refused 0",
+        "atlas:rebase R-7 counters at run end: key builds A 0 B 0 C 0 D 0 E 0 F 0 G 0, source keys used 0, stale 0, owners seen 0, cells shifted 0, side table 0, refused 1"
+      ]
+    },
+    "^atlas:rebase R-7 (REFUSED |site 0x[0-9A-F]{6} rolled back)": {
+      "match": [
+        "atlas:rebase R-7 REFUSED r7-bytes-differ at site D 0xB2D882 key in 0xC7F750 (0xC7F8CA); nothing left written, terrain cells not shifted",
+        "atlas:rebase R-7 site 0xC8035E rolled back"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 site 0xC8035E on (A 0xAE39399F key in 0xC80300, 6 bytes, resume 0xC80364)"
+      ]
+    },
+    "^atlas:rebase R-7: terrain cells not shifted this run ": {
+      "match": [
+        "atlas:rebase R-7: terrain cells not shifted this run (r7-no-owner, owner 0x00000000)"
+      ],
+      "noMatch": [
+        "atlas:rebase lists R-7: terrain cells 1024 (owner 0x1A2B3C40), side table 1024 entries"
+      ]
+    },
+    "^atlas:rebase R-7 counters at .*, stale [1-9]": {
+      "match": [
+        "atlas:rebase R-7 counters at world quit: key builds A 1 B 1 C 0 D 0 E 0 F 0 G 0, source keys used 0, stale 3, owners seen 1, cells shifted 0, side table 0, refused 0"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 counters at run end: key builds A 1 B 1 C 0 D 0 E 0 F 0 G 0, source keys used 0, stale 0, owners seen 1, cells shifted 10, side table 0, refused 0"
+      ]
+    },
+    "^atlas:rebase R-7 off \\(CellKeys=0\\): terrain cells not shifted, key sites untouched$": {
+      "match": [
+        "atlas:rebase R-7 off (CellKeys=0): terrain cells not shifted, key sites untouched"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 on: 7/7 key sites, side table 12288 cells"
+      ]
+    },
+    "^atlas:rebase (R-7 (site|on:|counters|REFUSED)|lists R-7)": {
+      "match": [
+        "atlas:rebase R-7 site 0xC8035E on (A 0xAE39399F key in 0xC80300, 6 bytes, resume 0xC80364)",
+        "atlas:rebase lists R-7: terrain cells 1024 (owner 0x1A2B3C40), side table 1024 entries",
+        "atlas:rebase R-7 counters at run end: key builds A 0 B 0 C 0 D 0 E 0 F 0 G 0, source keys used 0, stale 0, owners seen 0, cells shifted 0, side table 0, refused 0"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 off (CellKeys=0): terrain cells not shifted, key sites untouched",
+        "atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 (GridKeys=1); R-7 key sites 7/7 match (CellKeys=0); InferredSlots=0"
+      ]
+    },
+    "^atlas:icalls rebase SKIP ": {
+      "match": [
+        "atlas:icalls rebase SKIP no script domain in 600 s (host 0x00000000): 9 internal calls not registered"
+      ],
+      "noMatch": [
+        "atlas:icalls rebase: 9 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED r7-": {
+      "match": [
+        "atlas:rebase RESULT REFUSED r7-table-full: 12288 entries, cell 5 of 1024; nothing written"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 REFUSED r7-bytes-differ at site A (0xC8035E); nothing left written, terrain cells not shifted"
+      ]
+    },
+    "^atlas:rebase R-7 safe point: [1-9]\\d* other threads held, none inside a site, after [1-9]\\d* tries \\(\\d+ with a thread inside, last EIP 0x[0-9A-F]{8}\\)$": {
+      "match": [
+        "atlas:rebase R-7 safe point: 87 other threads held, none inside a site, after 1 tries (0 with a thread inside, last EIP 0x00000000)",
+        "atlas:rebase R-7 safe point: 90 other threads held, none inside a site, after 3 tries (2 with a thread inside, last EIP 0x00C80361)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 safe point: 0 other threads held, none inside a site, after 1 tries (0 with a thread inside, last EIP 0x00000000)",
+        "atlas:rebase R-7 REFUSED r7-thread-inside: 500 tries, 500 with a thread inside a site (last EIP 0x00C80361), 0 threads; nothing written, terrain cells not shifted"
+      ]
+    },
+    "^atlas:rebase R-7 safe point": {
+      "match": [
+        "atlas:rebase R-7 safe point: 87 other threads held, none inside a site, after 1 tries (0 with a thread inside, last EIP 0x00000000)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-7 off (CellKeys=0): terrain cells not shifted, key sites untouched"
+      ]
+    },
+    "^atlas 0\\.3\\.15 .*\\brebase=6\\b": {
+      "match": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 12:00:00, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.14 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=5 oop=3 seed=1 built x",
+        "atlas 0.3.15 p1=2 rebase=5 built x",
+        "atlas 0.3.15 p1=2 rebase=60 built x"
+      ]
+    },
+    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 6, shape 92/92, 9 internal calls registered$": {
+      "match": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 6, shape 92/92, 9 internal calls registered"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 5, shape 77/77, 9 internal calls registered",
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 6, shape 91/92, 9 internal calls registered"
+      ]
+    },
+    "^atlas:rebase script half ready \\(rebase-4\\), native version 6$": {
+      "match": [
+        "atlas:rebase script half ready (rebase-4), native version 6"
+      ],
+      "noMatch": [
+        "atlas:rebase script half ready (rebase-4), native version 5",
+        "atlas:rebase script half ready (rebase-4), native version 60"
+      ]
+    },
+    "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
+      "match": [
+        "atlas:icalls ready 3: groups 0x03FE"
+      ],
+      "noMatch": [
+        "atlas:icalls ready 1: groups 0x03FE",
+        "atlas:icalls ready 3: groups 0x3FE"
+      ]
+    },
+    "^atlas:rebase (G-519: closed list rebuilt from R and footprint hash emptied \\(Rt\\)$|RESULT REFUSED (binade|physics-root))": {
+      "match": [
+        "atlas:rebase G-519: closed list rebuilt from R and footprint hash emptied (Rt)",
+        "atlas:rebase RESULT REFUSED binade x"
+      ],
+      "noMatch": [
+        "atlas:rebase G-519: closed list rebuilt from R and footprint hash emptied (rollback)",
+        "atlas:rebase G-519: SKIP Rt: W 0x00000000 holds R 0x00000000, not 0x12345678: closed list and footprint hash left"
+      ]
+    },
+    "^atlas:rebase G-519: SKIP ": {
+      "match": [
+        "atlas:rebase G-519: SKIP Rt: W 0x00000000 holds R 0x00000000, not 0x12345678: closed list and footprint hash left"
+      ],
+      "noMatch": [
+        "atlas:rebase G-519: closed list rebuilt from R and footprint hash emptied (Rt)"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-rebase-r7-t5-sv",
+      "note": "[est 20 min] Atlas docs/022 §8.8.13 rebase R-7 on Sunset Valley, [Rebase] CellKeys=1 GridKeys=1: the seven key sites install (one line each), then east / west / north one-chunk and east 256 m round trips with the terrain cells in pass T. Pass: 4 bytes lines equal (or REFUSED binade / physics-root), terrain cells listed in each run, run-end counters with stale 0 and cells shifted > 0; never MISMATCH, DIFFER, FAIL or an R-7 refusal.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-main12",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from Atlas main 05a0e61 (0.3.15: P3 2051e8e and R-7 b3f498e merged with the FindClosest reset and the G-519 redo, rebase=6; boot race fix: every group final before the repro, Groups ready 3; game-copy/atlas-main12/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-main12 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976, build rebase-4 read back by the \"script half ready\" line).",
+      "save": "Baseline-SV",
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main12/atlas.asi",
+        "sha256": "7234484249a761573003715742b02bdbb2d57c0b1f9d0ef11b1f8ae6a8428f3d",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 0,
+          "Rebase.CellKeys": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 .*\\brebase=6\\b": 1,
+          "^atlas:icalls rebase: 9 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 6, shape 92/92, 9 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 6$": 1,
+          "^atlas:rebase (bytes: routing records [0-9A-F]{8} -> [0-9A-F]{8}, G keys .*: equal$|RESULT REFUSED (binade|physics-root))": 4,
+          "^atlas:rebase RESULT (PASS roundtrip step \\((-?32, 0|0, -?32|256, 0)\\)|REFUSED (binade|physics-root))": 4,
+          "^atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 \\(GridKeys=1\\); R-7 key sites 7/7 match \\(CellKeys=1\\); InferredSlots=0$": 1,
+          "^atlas:rebase R-7 site 0x[0-9A-F]{6} on \\(": 7,
+          "^atlas:rebase R-7 safe point: [1-9]\\d* other threads held, none inside a site, after [1-9]\\d* tries \\(\\d+ with a thread inside, last EIP 0x[0-9A-F]{8}\\)$": 1,
+          "^atlas:rebase R-7 on: 7/7 key sites, side table 12288 cells$": 1,
+          "^atlas:rebase lists R-7: terrain cells [1-9]\\d* \\(owner 0x[0-9A-F]{8}\\), side table [1-9]\\d* entries$": 4,
+          "^atlas:rebase R-7 counters at run end: key builds A \\d+ B \\d+ C \\d+ D \\d+ E \\d+ F \\d+ G \\d+, source keys used \\d+, stale 0, owners seen [1-9]\\d*, cells shifted [1-9]\\d*, ": 3,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase (G-519: closed list rebuilt from R and footprint hash emptied \\(Rt\\)$|RESULT REFUSED (binade|physics-root))": 1
+        },
+        "logForbid": {
+          "^atlas:rebase MISMATCH ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase RESULT (PASS slide|CHECKED slide)": 0,
+          "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-|routing-rebuild-pending)": 0,
+          "^atlas:rebase bytes: .*: DIFFER$": 0,
+          "^atlas:rebase window: check refused|^atlas:rebase window save: ": 0,
+          "^atlas:rebase pass Rd .* ms in \\d+ slices \\(max [1-9]\\d{2,} ms\\)": 0,
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase RESULT REFUSED r7-": 0,
+          "^atlas:rebase R-7 (REFUSED |site 0x[0-9A-F]{6} rolled back)": 0,
+          "^atlas:rebase R-7: terrain cells not shifted this run ": 0,
+          "^atlas:rebase R-7 counters at .*, stale [1-9]": 0,
+          "^atlas:rebase G-519: SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-rebase-r7-t5-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    },
+    {
+      "id": "atlas-rebase-r7-off-sv",
+      "note": "[est 20 min] Control arm of atlas-rebase-r7-t5-sv: same build and round trips with [Rebase] CellKeys=0. Pass: 'R-7 off' line, no R-7 site, list or counter line, the same 4 round trips equal (P3 behaviour).",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-main12",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from Atlas main 05a0e61 (0.3.15: P3 2051e8e and R-7 b3f498e merged with the FindClosest reset and the G-519 redo, rebase=6; boot race fix: every group final before the repro, Groups ready 3; game-copy/atlas-main12/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-main12 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976, build rebase-4 read back by the \"script half ready\" line).",
+      "save": "Baseline-SV",
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main12/atlas.asi",
+        "sha256": "7234484249a761573003715742b02bdbb2d57c0b1f9d0ef11b1f8ae6a8428f3d",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 0,
+          "Rebase.CellKeys": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.15 .*\\brebase=6\\b": 1,
+          "^atlas:icalls rebase: 9 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 6, shape 92/92, 9 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 6$": 1,
+          "^atlas:rebase (bytes: routing records [0-9A-F]{8} -> [0-9A-F]{8}, G keys .*: equal$|RESULT REFUSED (binade|physics-root))": 4,
+          "^atlas:rebase RESULT (PASS roundtrip step \\((-?32, 0|0, -?32|256, 0)\\)|REFUSED (binade|physics-root))": 4,
+          "^atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 \\(GridKeys=1\\); R-7 key sites 7/7 match \\(CellKeys=0\\); InferredSlots=0$": 1,
+          "^atlas:rebase R-7 off \\(CellKeys=0\\): terrain cells not shifted, key sites untouched$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase (G-519: closed list rebuilt from R and footprint hash emptied \\(Rt\\)$|RESULT REFUSED (binade|physics-root))": 1
+        },
+        "logForbid": {
+          "^atlas:rebase MISMATCH ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase RESULT (PASS slide|CHECKED slide)": 0,
+          "^atlas:rebase RESULT REFUSED (off|damaged|not-sim-thread|busy|mono-worker-unknown|mono-worker-busy|route-worker-unparkable|route-worker-busy|s3-ini-absent|main-not-running|list-changed|no-world|saving|no-routing-graph|no-object-or-physics-service|graph-shape|list-shape|out-of-memory|snapshot-full|step-|slide-|routing-rebuild-pending)": 0,
+          "^atlas:rebase bytes: .*: DIFFER$": 0,
+          "^atlas:rebase window: check refused|^atlas:rebase window save: ": 0,
+          "^atlas:rebase pass Rd .* ms in \\d+ slices \\(max [1-9]\\d{2,} ms\\)": 0,
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase RESULT REFUSED r7-": 0,
+          "^atlas:rebase (R-7 (site|on:|counters|REFUSED)|lists R-7)": 0,
+          "^atlas:rebase R-7 safe point": 0,
+          "^atlas:rebase G-519: SKIP ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-rebase-r7-t5-sv"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    }
+  ]
+}

@@ -392,6 +392,8 @@ object creates are capped per frame (start: 4) because small-object `CreateObjec
 traffic cars use the same cap; save flush unthrottled. A lot with 20 plants x 3 sim-days is 60 arithmetic steps + 20
 field writes [inferred: well under 2 ms]; spawners, harvests and fires carry the create / destroy cost.
 
+Deviation as built (docs/358, 2026-11-26; `FarHubCore.Frame`): a game that runs above 25 ms all the time would never get a boundary pass, a switch-off drop or a go-near, so after 7 skipped long frames in a row the 8th steps with a 0.5 ms budget (`kOverRunEvery` 8, `kForcedBudgetUs` 500). The run of long frames restarts on a normal frame, on pause and on world quit.
+
 ## 8. Final split measurement (P0, design only, not queued)
 
 Gaps after the 11-22 run: (1) no-position owners (`WorldLot`, `AlarmOneShot`, `OneShotFunction`, `StateMachine`);

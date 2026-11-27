@@ -36,12 +36,45 @@ static class DescWriterScanOffline
         // DWS_JOBS=1 (docs/336 §14 census): only CareerManager.mJob / mSchool stores, EA assemblies included, every writer listed
         bool jobs = Environment.GetEnvironmentVariable("DWS_JOBS") == "1";
         if (jobs) { foreach (string k in new List<string>(fields.Keys)) if (!k.StartsWith("Sims3.Gameplay.Careers.CareerManager::")) fields.Remove(k); lists.Clear(); }
+        // DWS_SIMDESC=1 (docs/359 §5): the simdescindex targets instead (one kind, printed as "coworkers"; no pins)
+        bool sdi = Environment.GetEnvironmentVariable("DWS_SIMDESC") == "1";
+        if (sdi)
+        {
+            const string hh = "Sims3.Gameplay.CAS.Household", mem = "Sims3.Gameplay.CAS.Household+Members", sd = "Sims3.Gameplay.CAS.SimDescription";
+            fields.Clear(); lists.Clear();
+            fields[hh + "::sHouseholdList"] = 1; fields[hh + "::mMembers"] = 1; fields[mem + "::mAllSimDescriptions"] = 1; fields[sd + "::mSimDescriptionId"] = 1;
+            Dictionary<string, int> calls = new Dictionary<string, int>();
+            calls[hh + "::get_AllSimDescriptions"] = 1; calls[mem + "::get_AllSimDescriptionList"] = 1; calls[sd + "::set_SimDescriptionId"] = 1;
+            lists[hh + "::sHouseholdList"] = true; lists[mem + "::mAllSimDescriptions"] = true;
+            lists[hh + "::get_AllSimDescriptions"] = true; lists[mem + "::get_AllSimDescriptionList"] = true;
+            DescWriterScan.CallTargets = calls; DescWriterScan.AliasLocals = true;
+            DescWriterScan.Wrappers = new Dictionary<string, bool>();
+            DescWriterScan.Derived = new Dictionary<string, bool>();
+            DescWriterScan.ReadCallees = new Dictionary<string, bool>();
+            DescWriterScan.ReadCallees["Sims3.Gameplay.CAS.MiniSimDescription::UpdateHouseholdMembers"] = true;
+            DescWriterScan.ReadCallees["Sims3.Gameplay.Skills.TournamentManagement::FindSuitableOpponent"] = true;
+        }
         Dictionary<string, bool> allowed = new Dictionary<string, bool>();
-        foreach (string k in new string[] { "Ts3Fixes.Fixes::DescriptionHolders", "Ts3Fixes.Fixes::DdSetPregnancy", "Ts3Fixes.Fixes::TakeARiskCheck", "Ts3Fixes.Fixes::.cctor" }) allowed[k] = true;
+        if (sdi) allowed["Ts3Agent.Handlers::ListSims"] = allowed["Ts3Fixes.Fixes::.cctor"] = true; // as SimDescIndex.cs SdiScan
+        else foreach (string k in new string[] { "Ts3Fixes.Fixes::DescriptionHolders", "Ts3Fixes.Fixes::DdSetPregnancy", "Ts3Fixes.Fixes::TakeARiskCheck", "Ts3Fixes.Fixes::.cctor" }) allowed[k] = true;
         string[] core = { "mscorlib", "System", "System.Xml", "ScriptCore", "SimIFace", "Sims3GameplaySystems", "Sims3GameplayObjects", "Sims3Metadata", "Sims3StoreObjects", "UI" };
         DescWriterScan.Core = delegate(Assembly x) { return Array.IndexOf(core, x.GetName().Name) >= 0; };
         DescWriterScan.Result all = new DescWriterScan.Result();
         Stopwatch total = Stopwatch.StartNew();
+        // simdescindex: a first pass over everything only collects the methods that return a target list (repeated until
+        // no new one); the pass below is the verdict (as SimDescIndex.cs SdiScan)
+        for (int pass = 0; sdi && pass < 4; pass++)
+        {
+            DescWriterScan.NewWrappers = 0;
+            for (int i = 1; i < args.Length; i++)
+            {
+                Type[] ts;
+                try { ts = Assembly.LoadFrom(args[i]).GetTypes(); } catch (ReflectionTypeLoadException e) { ts = e.Types; }
+                DescWriterScan.ScanTypes("pre", ts, null, null, DescWriterScan.ReflectionBody, fields, lists, new DescWriterScan.Result(), 0);
+            }
+            Console.WriteLine("wrapper pass " + pass + ": " + DescWriterScan.NewWrappers + " new, " + DescWriterScan.Wrappers.Count + " in all, " + DescWriterScan.Derived.Count + " fields");
+            if (DescWriterScan.NewWrappers == 0) break;
+        }
         for (int i = 1; i < args.Length; i++)
         {
             Assembly a = Assembly.LoadFrom(args[i]);
@@ -55,7 +88,9 @@ static class DescWriterScanOffline
                     {
                         Type ht = cut > 0 ? a.GetType(tm.Substring(0, cut), false) : null;
                         if (ht == null) continue;
-                        foreach (MethodInfo hm in ht.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                        List<MethodBase> hms = new List<MethodBase>(ht.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
+                        hms.AddRange(ht.GetConstructors(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
+                        foreach (MethodBase hm in hms)
                             if (hm.Name == tm.Substring(cut + 2))
                                 Console.WriteLine("hash " + a.GetName().Name + " " + AutShadowCore.SigKey(hm) + " " + AutShadowCore.MethodIlHash(AutShadowCore.SigKey(hm), hm, new Dictionary<Module, Dictionary<int, string>>()).ToString("x16"));
                     }
@@ -63,9 +98,16 @@ static class DescWriterScanOffline
                 }
             bool refs = jobs && a.GetName().Name == "Sims3GameplaySystems";
             foreach (AssemblyName rn in a.GetReferencedAssemblies()) if (rn.Name == "Sims3GameplaySystems") refs = true;
-            if (!refs) { Console.WriteLine(a.GetName().Name + ": no Sims3GameplaySystems reference, skipped"); continue; }
+            if (!refs && !(sdi && DescWriterScan.Wrappers.Count + DescWriterScan.Derived.Count > 0)) { Console.WriteLine(a.GetName().Name + ": no Sims3GameplaySystems reference, skipped"); continue; }
             DescWriterScan.Result r = new DescWriterScan.Result();
             Stopwatch sw = Stopwatch.StartNew();
+            Dictionary<string, bool> alSdi = null;
+            if (sdi)
+            {   // as SimDescIndex.cs kSdiRead: read by hand, covered while the IL hash matches
+                alSdi = new Dictionary<string, bool>(allowed);
+                int cov = !DescWriterScan.HashesAre(a, DescWriterScan.SdiSelectionRead) ? 0 : DescWriterScan.CoverByHash(a, "NRaas.RegisterSpace.Options.Service.SelectService+SimSelection", ".ctor", 0xecd7ec9c49a86425UL, alSdi);
+                if (cov > 0) Console.WriteLine(a.GetName().Name + ": " + cov + " method(s) covered by hash");
+            }
             // offline stand-in for the in-game sSwapsByHook test: our hook classes are the nested *Hook types of Fixes
             Predicate<Type> skip = a.GetName().Name == "Ts3Fixes" ? (Predicate<Type>)delegate(Type t) { return t.DeclaringType != null && t.DeclaringType.FullName == "Ts3Fixes.Fixes" && t.Name.EndsWith("Hook"); } : null;
             // .NET Framework cannot load every type of a TS3 script assembly (EA's own mscorlib); the game loads them all, so the
@@ -82,9 +124,9 @@ static class DescWriterScanOffline
             }
             r.Assemblies++;
             // pinned writers (LC-7c): a hash match counts as covered, as when the game installs its hook
-            Dictionary<string, bool> al = new Dictionary<string, bool>(allowed);
+            Dictionary<string, bool> al = alSdi ?? new Dictionary<string, bool>(allowed);
             List<string> mism = new List<string>();
-            foreach (KeyValuePair<DescWriterScan.Pin, MethodBase> pm in DescWriterScan.MatchPins(a, DescWriterScan.Pins, mism))
+            if (!sdi) foreach (KeyValuePair<DescWriterScan.Pin, MethodBase> pm in DescWriterScan.MatchPins(a, DescWriterScan.Pins, mism))
             {
                 DescWriterScan.Cover(al, pm.Value);
                 Console.WriteLine(a.GetName().Name + ": pinned " + pm.Key.Key + (pm.Key.Hook != null ? " (hook " + pm.Key.Hook + ")" : " (no hook: event or removals only)"));

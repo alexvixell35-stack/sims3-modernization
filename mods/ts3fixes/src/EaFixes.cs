@@ -117,6 +117,9 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "FindMetricValue", typeof(MetricSkillMissingHook), "ValueHook", "ValueOrig");  // MetricSkillMissing.cs, docs/532
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricTitle", typeof(MetricSkillMissingHook), "TitleHook", "TitleOrig");  // MetricSkillMissing.cs, docs/532
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricDescription", typeof(MetricSkillMissingHook), "DescHook", "DescOrig");  // MetricSkillMissing.cs, docs/532
+            ApplyViewerRideHooks();  // UnseenViewers.cs, docs/335 viewerridehooks
+            ApplyFarHold();  // FarHold.cs + FarHub.cs, docs/358 (farhold, off)
+            ApplyFarObj();   // FarObj.cs, docs/358 (farobj / farobjlight, off): after doorprivacynull, so a skipped door update skips its copy too
             ApplyPoolNoLane();  // PoolNoLane.cs
             ApplyAutonomyFailCooldown();  // AutonomyFailCooldown.cs
             ApplyVenuePickTime();  // VenuePickTime.cs

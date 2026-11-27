@@ -113,12 +113,49 @@ namespace Ts3Fixes
         // The list loaded at ins[x] is only read, removed from, or passed to a callee that does no more (callee check).
         static bool ListSafe(List<Ins> ins, int x, Resolver resolve, Callee callee)
         {
-            int y = x + 1, pushes = 0; // pushes: values above the list
-            for (; y < ins.Count && y <= x + 12; y++)
+            int y = x + 1, pushes = 0, win = 12; // pushes: values above the list
+            for (; y < ins.Count && y <= x + win; y++)
             {
                 int o = ins[y].Op;
                 if (SimplePush(o)) { pushes++; continue; }
                 if (o == 0x7B && pushes >= 1) continue; // ldfld of an argument
+                if (CallTargets != null && o == 0xFE06) { pushes++; continue; } // ldftn (a delegate for a later argument)
+                if (CallTargets != null && pushes >= 1 && (o == 0x25 || o == 0xFE07 || o == 0x65 || o == 0x66 || (o >= 0x67 && o <= 0x6E) || o == 0x76))
+                {   // dup of an argument; ldvirtftn, neg, not, conv.*: one value for one
+                    if (o == 0x25) pushes++;
+                    continue;
+                }
+                if (CallTargets != null && pushes >= 2 && o >= 0x58 && o <= 0x64) { pushes--; continue; } // add .. shr.un on two arguments
+                if (CallTargets != null && o == 0x7E && y + 8 < ins.Count && ins[y + 1].Op == 0x25 && (ins[y + 2].Op == 0x2D || ins[y + 2].Op == 0x3A)
+                    && ins[y + 3].Op == 0x26 && ins[y + 4].Op == 0x7E && ins[y + 5].Op == 0xFE06 && ins[y + 6].Op == 0x73 && ins[y + 7].Op == 0x25
+                    && ins[y + 8].Op == 0x80 && ins[y + 8].Tok == ins[y].Tok)
+                {   // the newer compiler's cached delegate (ldsfld F; dup; brtrue; pop; ldsfld; ldftn; newobj; dup; stsfld F): one push
+                    win += 8; y += 8; pushes++;
+                    continue;
+                }
+                if (CallTargets != null && o == 0x7E)
+                {   // ldsfld as an argument; the compiler's cached-delegate idiom (ldsfld F; brtrue; ldnull; ldftn; newobj; stsfld F; [br]; ldsfld F) is one push
+                    if (y + 6 < ins.Count && (ins[y + 1].Op == 0x2D || ins[y + 1].Op == 0x3A) && ins[y + 2].Op == 0x14 && ins[y + 3].Op == 0xFE06
+                        && ins[y + 4].Op == 0x73 && ins[y + 5].Op == 0x80 && ins[y + 5].Tok == ins[y].Tok)
+                    {
+                        int z = y + 6;
+                        if (ins[z].Op == 0x2B || ins[z].Op == 0x38) z++;
+                        if (z >= ins.Count || ins[z].Op != 0x7E || ins[z].Tok != ins[y].Tok) break;
+                        win += z - y; // the window of 12 instructions does not count the idiom
+                        y = z;
+                    }
+                    pushes++;
+                    continue;
+                }
+                if (CallTargets != null && o == 0x73)
+                {   // newobj that takes only values pushed after the list
+                    ConstructorInfo ci = resolve(ins[y].Tok) as ConstructorInfo;
+                    if (ci == null) break;
+                    int cp = ci.GetParameters().Length;
+                    if (cp > pushes || cp == 0) break; // cp == 0: may be the consumer check's business (none takes the list)
+                    pushes += 1 - cp;
+                    continue;
+                }
                 if (o != 0x28 && o != 0x6F) break;
                 MethodInfo mb = resolve(ins[y].Tok) as MethodInfo; // a call that takes only values pushed after the list
                 if (mb == null) break;
@@ -128,12 +165,40 @@ namespace Ts3Fixes
             }
             if (y >= ins.Count) return false;
             int c = ins[y].Op;
+            if (Wrappers != null && pushes == 0 && c == 0x2A) { Returned = true; return true; } // returned as it is: the method becomes a getter (ScanTypes)
             if (pushes == 0 && (c == 0x2C || c == 0x2D || c == 0x39 || c == 0x3A || c == 0x26)) return true;
             if (pushes == 1 && y == x + 2 && ins[x + 1].Op == 0x14 && (c == 0xFE01 || c == 0xFE03 || c == 0x2E || c == 0x33 || c == 0x3B || c == 0x40)) return true;
-            if (c == 0x73) return ReadUse(resolve(ins[y].Tok), pushes, true);
+            if (c == 0x73)
+            {
+                MemberInfo cm = resolve(ins[y].Tok);
+                return ReadUse(cm, pushes, true) || (CallTargets != null && cm != null && (ReadArg(cm, pushes) || (callee != null && callee(cm, pushes, true))));
+            }
+            if (Derived != null && pushes == 0 && (c == 0x7D || c == 0x80))
+            {   // kept in a field of a mod: the field becomes a target list (its loads are judged; storing to it is no write)
+                FieldInfo df = resolve(ins[y].Tok) as FieldInfo;
+                string dn = df != null ? AutShadowCore.MemberName(df) : null;
+                if (dn == null || (Core != null && Core(df.Module.Assembly))) return false;
+                if (!Derived.ContainsKey(dn)) { Derived[dn] = true; NewWrappers++; }
+                return true;
+            }
             if (c != 0x28 && c != 0x6F) return false;
             MemberInfo m = resolve(ins[y].Tok);
-            return ReadUse(m, pushes, false) || (pushes == 0 && SourceUse(m)) || (callee != null && m != null && callee(m, pushes, true));
+            return ReadUse(m, pushes, false) || (pushes == 0 && SourceUse(m)) || (CallTargets != null && ReadArg(m, pushes))
+                || (callee != null && m != null && callee(m, pushes, true));
+        }
+
+        // simdescindex: the list is the argument `fromEnd` places from the last one of a callee that cannot add to it: the
+        // parameter is an IEnumerable (no Add without a cast back), or the callee is named in ReadCallees (read by hand).
+        static bool ReadArg(MemberInfo mi, int fromEnd)
+        {
+            MethodBase m = mi as MethodBase;
+            if (m == null || m.DeclaringType == null) return false;
+            ParameterInfo[] ps = m.GetParameters();
+            int at = ps.Length - 1 - fromEnd;
+            if (at < 0) return false; // the list is the receiver
+            string pt = GenericName(ps[at].ParameterType);
+            if (pt == "System.Collections.Generic.IEnumerable`1" || pt == "System.Collections.IEnumerable") return true;
+            return ReadCallees != null && ReadCallees.ContainsKey(m.DeclaringType.FullName + "::" + m.Name);
         }
 
         // The ref loaded at ins[x] (ldflda / ldarg of a ref parameter) is only read or cleared: initobj, `ldnull; stind.ref`,
@@ -150,6 +215,88 @@ namespace Ts3Fixes
             if (y >= ins.Count || callee == null || (ins[y].Op != 0x28 && ins[y].Op != 0x6F)) return false;
             MemberInfo m = resolve(ins[y].Tok);
             return m != null && callee(m, pushes, false);
+        }
+
+        // simdescindex (docs/359 §5), set by the caller around its scan; null / false (the default) changes nothing for
+        // other scans. CallTargets: targets named as methods, "Full.Type::Method" -> kind. One that is also a key of
+        // `lists` is a getter that returns a target list (judged like a load of the list field); any other is a store (a
+        // setter), unless its receiver is a local that only ever holds an object created in this method (FreshReceiver).
+        // AliasLocals: a target list stored to a local is judged at every load of that local instead of counting as a write.
+        public static Dictionary<string, int> CallTargets;
+        public static bool AliasLocals;
+        // With CallTargets. ReadCallees: "Full.Type::Method" of callees that only read a list they are given. Wrappers
+        // (null: off): methods that return a target list as it is; such a return is no write, the method's calls are judged
+        // like the getter's. ScanTypes adds a method when it sees the return, so the caller repeats the scan until
+        // NewWrappers stays 0; the last pass is the verdict. Keyed by name, all overloads together (over-counting only).
+        public static Dictionary<string, bool> ReadCallees, Wrappers;
+        // Derived (null: off): "Type::field" of mod fields a target list was stored to; found like Wrappers (NewWrappers).
+        public static Dictionary<string, bool> Derived;
+        static int sCalleeDepth;
+        public static int NewWrappers;
+        public static bool Returned; // the last ScanIl returned a target list
+
+        static int LocStore(Ins i, byte[] il) { return i.Op >= 0x0A && i.Op <= 0x0D ? i.Op - 0x0A : i.Op == 0x13 ? il[i.At + 1] : i.Op == 0xFE0E ? BitConverter.ToUInt16(il, i.At + 2) : -1; }
+        static int LocLoad(Ins i, byte[] il) { return i.Op >= 0x06 && i.Op <= 0x09 ? i.Op - 0x06 : i.Op == 0x11 ? il[i.At + 1] : i.Op == 0xFE0C ? BitConverter.ToUInt16(il, i.At + 2) : -1; }
+        static int LocAddr(Ins i, byte[] il) { return i.Op == 0x12 ? il[i.At + 1] : i.Op == 0xFE0D ? BitConverter.ToUInt16(il, i.At + 2) : -1; }
+
+        // ListSafe, or (AliasLocals) the list goes to a local whose every load is ListSafe and whose address is never taken.
+        // The local may hold other lists at other times: those loads are judged too (over-counting costs speed only).
+        static bool ListSafeAlias(List<Ins> ins, int x, byte[] il, Resolver resolve, Callee callee)
+        {
+            if (ListSafe(ins, x, resolve, callee)) return true;
+            if (!AliasLocals || x + 1 >= ins.Count) return false;
+            int n = LocStore(ins[x + 1], il);
+            if (n < 0) return false;
+            for (int y = 0; y < ins.Count; y++)
+            {
+                if (LocAddr(ins[y], il) == n) return false;
+                if (LocLoad(ins[y], il) == n && !ListSafe(ins, y, resolve, callee)) return false;
+            }
+            return true;
+        }
+
+        // The setter called at ins[x] (receiver, one value) gets a receiver that cannot be in a target list yet: a local
+        // whose every store is a `newobj` of the setter's class, whose address is never taken, with no call into a class
+        // that declares a target list between the first such store and the setter. Anything not plainly that is a write.
+        static bool FreshReceiver(List<Ins> ins, int x, byte[] il, Dictionary<int, bool> targets, MethodBase setter, Dictionary<string, bool> lists, Resolver resolve)
+        {
+            if (setter.IsStatic || setter.GetParameters().Length != 1) return false;
+            int want = 2, n = -1;
+            for (int y = x - 1; y >= 0 && n < 0; y--)
+            {
+                if (targets.ContainsKey(ins[y + 1].At)) return false; // another path may bring the receiver
+                int o = ins[y].Op;
+                if (o == 0x7B || (o >= 0x67 && o <= 0x6E)) { if (want == 1) return false; continue; } // ldfld, conv.*: one value for one
+                if (!SimplePush(o)) return false;
+                if (--want == 0) { n = LocLoad(ins[y], il); if (n < 0) return false; }
+            }
+            if (n < 0) return false;
+            int first = -1;
+            for (int y = 0; y < ins.Count; y++)
+            {
+                if (LocAddr(ins[y], il) == n) return false;
+                if (LocStore(ins[y], il) != n) continue;
+                if (y == 0 || ins[y - 1].Op != 0x73 || targets.ContainsKey(ins[y].At)) return false;
+                MemberInfo c = resolve(ins[y - 1].Tok);
+                if (c == null || c.DeclaringType != setter.DeclaringType) return false;
+                if (first < 0) first = y;
+            }
+            if (first < 0 || first > x) return false;
+            for (int y = first; y < x; y++)
+            {
+                if (ins[y].Op != 0x28 && ins[y].Op != 0x6F && ins[y].Op != 0x73) continue;
+                MemberInfo c = resolve(ins[y].Tok);
+                string dt = c != null && c.DeclaringType != null ? c.DeclaringType.FullName : null;
+                if (dt == null) { if (c == null) return false; continue; }
+                foreach (string k in lists.Keys)
+                {
+                    string owner = k.Substring(0, k.IndexOf("::"));
+                    int plus = owner.IndexOf('+');
+                    if (plus > 0) owner = owner.Substring(0, plus);
+                    if (dt == owner || dt.StartsWith(owner + "+")) return false;
+                }
+            }
+            return true;
         }
 
         // Kinds this body writes. fields: target "Type::field" name -> kind; lists: the targets that are lists; callee: the
@@ -226,13 +373,33 @@ namespace Ts3Fixes
                         int g = Reflective(resolve(ins[x].Tok));
                         if (g == 2) { mask = KAll; Reflect = true; Hit = (Hit == null ? "" : Hit + "; ") + "IL_" + ins[x].At.ToString("x4") + " " + Through(ins, x, resolve) + " (every kind)"; }
                         else if (g == 1 && !byName) { byName = true; Hit = (Hit == null ? "" : Hit + "; ") + "IL_" + ins[x].At.ToString("x4") + " " + Through(ins, x, resolve) + " (by name)"; }
-                        continue;
+                        if (g != 0 || CallTargets == null) continue;
                     }
+                }
+                if (CallTargets != null && (op == 0x28 || op == 0x6F))
+                {
+                    MethodBase cm = resolve(ins[x].Tok) as MethodBase;
+                    string cn = cm != null && cm.DeclaringType != null ? cm.DeclaringType.FullName + "::" + cm.Name : null;
+                    int ck = 0;
+                    bool wrap = cn != null && Wrappers != null && Wrappers.ContainsKey(cn);
+                    if (wrap) ck = 1;
+                    if (cn != null && (wrap || CallTargets.TryGetValue(cn, out ck)) && (mask & ck) != ck
+                        && !(wrap || lists.ContainsKey(cn) ? ListSafeAlias(ins, x, il, resolve, callee) : FreshReceiver(ins, x, il, targets, cm, lists, resolve)))
+                    {
+                        mask |= ck;
+                        if (Hit == null || Hit.Split(';').Length < 2) Hit = (Hit == null ? "" : Hit + "; ") + "IL_" + ins[x].At.ToString("x4") + " call " + cn;
+                    }
+                    continue;
                 }
                 bool store = op == 0x7D || op == 0x80, addr = op == 0x7C || op == 0x7F, load = op == 0x7B || op == 0x7E;
                 if (!store && !addr && !load) continue;
                 string name = AutShadowCore.MemberName(resolve(ins[x].Tok));
                 int kind;
+                if (name != null && Derived != null && Derived.ContainsKey(name))
+                {
+                    if ((mask & 1) == 0 && (addr || (load && !ListSafeAlias(ins, x, il, resolve, callee)))) { mask |= 1; NoteHit(ins, x, name, resolve); }
+                    continue;
+                }
                 if (name == null || !fields.TryGetValue(name, out kind) || (mask & kind) == kind) continue;
                 if (store)
                 {
@@ -241,7 +408,7 @@ namespace Ts3Fixes
                     continue;
                 }
                 if (addr) { if (!RefSafe(ins, x, resolve, callee)) { mask |= kind; NoteHit(ins, x, name, resolve); } continue; }
-                if (lists.ContainsKey(name) && !ListSafe(ins, x, resolve, callee)) { mask |= kind; NoteHit(ins, x, name, resolve); }
+                if (lists.ContainsKey(name) && !ListSafeAlias(ins, x, il, resolve, callee)) { mask |= kind; NoteHit(ins, x, name, resolve); }
             }
             if (byName && named != 0) { mask |= named; Reflect = true; }
             return mask;
@@ -301,12 +468,24 @@ namespace Ts3Fixes
             if (il == null) return false;
             List<Ins> ins = Decode(il, new Dictionary<int, bool>());
             Resolver r = For(m, cache);
+            // simdescindex: up to 3 calls deep, a local that holds the argument is followed; a callee that returns it does not keep it
+            Callee inner = null;
+            if (CallTargets != null && sCalleeDepth < 3)
+                inner = delegate(MemberInfo c2, int fe2, bool l2)
+                {
+                    sCalleeDepth++;
+                    try { return CalleeKeeps(c2, fe2, l2, body, cache, core); }
+                    catch (Exception) { return false; }
+                    finally { sCalleeDepth--; }
+                };
+            bool ret0 = Returned;
             for (int x = 0; x < ins.Count; x++)
             {
                 int op = ins[x].Op;
                 if (op == 0x0F || op == 0xFE0A || op == 0x10 || op == 0xFE0B) { if (ArgIndex(op == 0x0F ? 0x0E : op == 0x10 ? 0x0E : 0xFE09, il, ins[x].At) == arg) return false; continue; }
                 if (ArgIndex(op, il, ins[x].At) != arg) continue;
-                if (!(list ? ListSafe(ins, x, r, null) : RefSafe(ins, x, r, null))) return false;
+                if (!(list ? (CallTargets != null ? ListSafeAlias(ins, x, il, r, inner) : ListSafe(ins, x, r, null)) : RefSafe(ins, x, r, inner))) { Returned = ret0; return false; }
+                if (Returned != ret0) { Returned = ret0; return false; }
             }
             return true;
         }
@@ -483,6 +662,49 @@ namespace Ts3Fixes
             allowed[AutShadowCore.SigKey(m)] = true;
         }
 
+        // simdescindex: a method read by hand is covered only while its IL hash is the one that was read (another version
+        // of the mod is scanned like any method). Methods and constructors named `name` of `type`; the number covered.
+        public static int CoverByHash(Assembly a, string type, string name, ulong hash, Dictionary<string, bool> allowed)
+        {
+            Type t = a.GetType(type, false);
+            if (t == null) return 0;
+            List<MethodBase> ms = new List<MethodBase>();
+            ms.AddRange(t.GetMethods(kAll)); ms.AddRange(t.GetConstructors(kAll));
+            int n = 0;
+            foreach (MethodBase m in ms)
+                if (m.Name == name && AutShadowCore.MethodIlHash(AutShadowCore.SigKey(m), m, new Dictionary<Module, Dictionary<int, string>>()) == hash) { Cover(allowed, m); n++; }
+            return n;
+        }
+
+        // NRaas ProtoSelection<T> / ProtoSimSelection<T> as read (docs/51 V-628-7): every body that touches mItems, "SigKey", IL hash
+        public static readonly object[] SdiSelectionRead = {
+            "NRaas.CommonSpace.Selection.ProtoSelection`1::.ctor(string,string,System.Collections.Generic.ICollection`1<T>)", 0xac8182e9d5bc2cefUL,
+            "NRaas.CommonSpace.Selection.ProtoSelection`1::get_All()", 0xbe643a769d739af2UL,
+            "NRaas.CommonSpace.Selection.ProtoSelection`1::GetRowInfo()", 0xe4aff71200a3bec8UL,
+            "NRaas.CommonSpace.Selection.ProtoSimSelection`1::.ctor(string,T,System.Collections.Generic.ICollection`1<T>,bool,bool)", 0x77d7258fa2be2e5bUL,
+            "NRaas.CommonSpace.Selection.ProtoSimSelection`1::.ctor(string,string,T,System.Collections.Generic.ICollection`1<T>,bool,bool)", 0xf5ad08075161f087UL,
+            "NRaas.CommonSpace.Selection.ProtoSimSelection`1::get_IsEmpty()", 0xd0af71059ea549d0UL,
+            "NRaas.CommonSpace.Selection.ProtoSimSelection`1::FilterSims(System.Collections.Generic.ICollection`1<NRaas.CommonSpace.Selection.ProtoSimSelection`1+ICriteria<T>>,System.Collections.Generic.IEnumerable`1<NRaas.CommonSpace.Selection.ProtoSimSelection`1+ICriteria<T>>,bool,bool&)", 0x6d21d4291aefae0fUL,
+        };
+
+        // every ("Full.Type::Name(params)" SigKey, IL hash) pair of `rows` names a method or constructor of `a` with that hash
+        public static bool HashesAre(Assembly a, object[] rows)
+        {
+            for (int i = 0; i + 1 < rows.Length; i += 2)
+            {
+                string sig = (string)rows[i];
+                Type t = a.GetType(sig.Substring(0, sig.IndexOf("::")), false);
+                if (t == null) return false;
+                List<MethodBase> ms = new List<MethodBase>();
+                ms.AddRange(t.GetMethods(kAll)); ms.AddRange(t.GetConstructors(kAll));
+                bool ok = false;
+                foreach (MethodBase m in ms)
+                    if (AutShadowCore.SigKey(m) == sig) { ok = AutShadowCore.MethodIlHash(sig, m, new Dictionary<Module, Dictionary<int, string>>()) == (ulong)rows[i + 1]; break; }
+                if (!ok) return false;
+            }
+            return true;
+        }
+
         public sealed class Result
         {
             public int Mask, Assemblies, Methods, Unreadable, Unresolved, Reflect;
@@ -521,7 +743,7 @@ namespace Ts3Fixes
         public static int ScanMethod(MethodBase m, BodyReader body, Dictionary<Module, Dictionary<int, MemberInfo>> cache, Dictionary<string, int> fields, Dictionary<string, bool> lists, out bool unreadable)
         {
             unreadable = false;
-            Unresolved = Reflect = false;
+            Unresolved = Reflect = Returned = false;
             Hit = null;
             try
             {
@@ -570,6 +792,7 @@ namespace Ts3Fixes
                     r.Methods++;
                     bool bad;
                     int k = ScanMethod(m, body, cache, fields, lists, out bad);
+                    if (Returned && Wrappers != null && !Wrappers.ContainsKey(key)) { Wrappers[key] = true; NewWrappers++; }
                     if (bad) r.Unreadable++;
                     if (Unresolved) r.Unresolved++;
                     if (Reflect) r.Reflect++;

@@ -1,0 +1,463 @@
+{
+  "note": "docs/362 §1.3: every job requires the IsSimThread read-back (simdescindex uses OnSimThread). m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-correct-1126 (docs/359, WRITTEN, NOT RUN; correctness, any machine; build simdesc-index-1126c): SimDescription.Find from the description index. Smoke first (stops the queue), then BP / IP / SV 10 min natural play with simdescindexverify (every answered lookup compared with the game's walk: find_mismatch 0, errors 0, script errors 0, scan trusted), BP 10 min on the real path (verify off), and BP 10 min with the NRaas full set, and six writer repros with verify on (save + reload, travel, Edit Town, moving, death, birth). A repro that does not trigger here is N/A, not FAIL: its gate for this queue is find_mismatch 0 / errors 0. ON rule: PASS here + a gain or no loss in simdesc-index-time-1126; these jobs are also the ON gate of the inferences I-628-1, -2, -3, -5, -8, -9 (docs/51 §628: not verified statically). Est ~3 h 10 min (12 jobs).",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "rewind": "off",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-sdi-smoke",
+      "note": "[est 9 min] SMOKE (stops the queue on fail): BP 3 min natural play, release defaults plus simdescindex + simdescindexverify ON. Pass: version, Apex + bridge lines, hooks in (ready 7: writer hooks + lookup, urn hook, scan done), mod scan trusted (untrusted 0; if not, ts3native.log names the writer: fix the scan or the allow list, docs/359 §5), the index answered lookups, every answer equal to the game's walk (find_mismatch 0), 0 errors, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 20,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "noSamplers": true,
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=20,simdescindex_hits>=10,simdescindex_shadow>=10",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      },
+      "stopQueueOnFail": true
+    },
+    {
+      "id": "bp-sdi-correct",
+      "note": "[est 15 min] BP 10 min natural play (seed 12345), simdescindex + simdescindexverify ON: every answered lookup also runs the game's walk and the objects are compared. Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other. Read calls / hits / misses per second (counter / 600 s), game (left to the game's walk) and walk_saved_k.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=100,simdescindex_hits>=50,simdescindex_shadow>=50,simdescindex_rebuilds>=1,simdescindex_entries>=20",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "ip-sdi-correct",
+      "note": "[est 15 min] IP 10 min natural play, as bp-sdi-correct (houseboats, resort, more townies). Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=100,simdescindex_hits>=50,simdescindex_shadow>=50,simdescindex_rebuilds>=1,simdescindex_entries>=20",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "sv-sdi-correct",
+      "note": "[est 15 min] SV 10 min natural play, as bp-sdi-correct. Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-SV-Spring",
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=100,simdescindex_hits>=50,simdescindex_shadow>=50,simdescindex_rebuilds>=1,simdescindex_entries>=20",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "bp-sdi-sample",
+      "note": "[est 15 min] BP 10 min natural play, simdescindex ON, verify OFF: the real path (the index's answer is returned; only every 64th answered lookup is compared). Script errors and hangs show here, not under verify. Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "simdescindex",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=100,simdescindex_hits>=50,simdescindex_rebuilds>=1",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "bp-sdi-nraas-full",
+      "note": "[est 17 min] BP 10 min natural play with the NRaas full set installed (modSet lc7-nraas-full-1123), simdescindex + simdescindexverify ON. Pass: the mod scan trusts the set (untrusted 0: its helpers only read the lists; offline DWS_SIMDESC=1 desc-writer-scan.ts finds no writer), the index answers lookups (hits >= 50), every answer equal to the game's walk. If untrusted > 0, ts3native.log names the method (simdescindex scan: writer ...): the job then proves nothing about the index. Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=100,simdescindex_hits>=50,simdescindex_shadow>=50,simdescindex_rebuilds>=1,simdescindex_entries>=20",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      },
+      "modSet": "game-copy/mod-sets/lc7-nraas-full-1123"
+    },
+    {
+      "id": "bp-sdi-saves",
+      "note": "[est 17 min] writers: save and reload (repro bp-deadrefs-saves: the reload brings every list without a call). Pass: no mismatch after the reload, a rebuild after it; leak gate: entries and urns stay under a bound a second world's worth on top would break (4000 descriptions, 1500 urns; not calibrated on this save: read the reported values and tighten). Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "noSamplers": true,
+          "repro": "bp-deadrefs-saves",
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=20,simdescindex_rebuilds>=2,simdescindex_entries<=4000,simdescindex_high_entries<=4000,simdescindex_urns<=1500",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "bp-sdi-travel",
+      "note": "[est 25 min] writers: travel out and back (repro travel-roundtrip-bp: traveler household, world loads, imports). Pass: no mismatch; lookups during IsStartingVacation are the game's; leak gate as bp-sdi-saves (the home world's entries must not stay on top of the vacation world's). Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 45,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "noSamplers": true,
+          "repro": "travel-roundtrip-bp",
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=20,simdescindex_entries<=4000,simdescindex_high_entries<=4000,simdescindex_urns<=1500",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "bp-sdi-edittown",
+      "note": "[est 15 min] writers: Edit Town (repro scen-edittown: households placed, moved, evicted). Pass: no mismatch. Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "scen-edittown",
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=20",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "bp-sdi-movein",
+      "note": "[est 15 min] writers: moving (repro movein-partner-cap: a Sim changes household). Pass: no mismatch, writer_notes >= 1. Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "movein-partner-cap",
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=20,simdescindex_writer_notes>=1",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "bp-sdi-death",
+      "note": "[est 15 min] writers: death (repro rare-death-walk: a description leaves its household, an urnstone appears). Pass: no mismatch, the miss path ran (misses >= 1, urn_seeds >= 1). Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "rare-death-walk",
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=20,simdescindex_misses>=1,simdescindex_urn_seeds>=1",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    },
+    {
+      "id": "bp-sdi-birth",
+      "note": "[est 15 min] writers: birth (repro birth-hospital-retry: a new description joins a household through Members.Add). Pass: no mismatch, writer_notes >= 1. Household untouched: the hook returns the game's own object or runs the game's lookup, nothing about a Sim is changed; the check is the shadow compare (every answered lookup here), which covers household and selected Sims' ids like any other.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "birth-hospital-retry",
+          "fixesOn": "simdescindex,simdescindexverify",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=20,simdescindex_writer_notes>=1",
+          "fixesReport": "simdescindex"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": 1
+      }
+    }
+  ],
+  "regexCases": {
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+        "ts3native 0.36.299-m1122 2026-11-22 06:55:20",
+        "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+        "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^ts3fixes: simthread: IsSimThread 1 on the sim thread, call there \\(docs/362\\)": {
+      "match": [
+        "ts3fixes: simthread: IsSimThread 1 on the sim thread, call there (docs/362)"
+      ],
+      "noMatch": [
+        "ts3fixes: simthread: IsSimThread 0 on the sim thread, call there (docs/362)",
+        "ts3fixes: simthread: IsSimThread 0 on the sim thread, call missing (docs/362)"
+      ]
+    }
+  }
+}

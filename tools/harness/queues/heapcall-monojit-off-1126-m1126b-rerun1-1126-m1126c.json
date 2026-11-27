@@ -1,0 +1,156 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] heapcall-monojit-off-1126-m1126b rerun 1 (2026-11-26): diag rerun of the 11-26 first-run stall of bp-heapcall-monojit-off (agent heartbeat frozen 11:48:07 UTC, sim thread busy in one Simulate iteration, main thread fine; same signature as docs/67 §25). Same job with [StallWatch] on (Names, Managed, MainThread) so the stalled iteration logs named sim stacks; two tries, stop at the first stall. Pass = no stall, version + stall watch read back. A stall: read the stall watch: lines, keep probe-out/dumps/<kill dump> before cleanup.",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "jobs": [
+    {
+      "id": "bp-heapcall-monojit-off",
+      "note": "[est 15 min] [natural play, no cheats] Baseline-BP-Spring 10 min, release defaults + [MonoJit] Enabled=0, [Crash] HeapCall=1 (default), HeapCallDump=0. Read every heapcall: line: eip region (heap / mapped, prot 20 or 40 = executable) and whether the stack names Mono-jitted frames. Diag: [StallWatch] Enabled=1 Names=1 Managed=1 MainThread=1.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] master set m1126b (0.36.306-m1126b, merge/cp0-1126 rule-review fixes): the first build with HeapCallDump split off",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "MonoJit.Enabled": 0,
+        "StallWatch.Enabled": 1,
+        "StallWatch.Names": 1,
+        "StallWatch.Managed": 1,
+        "StallWatch.MainThread": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §948\\)": 1,
+        "^OK   stall watch \\(docs/67 §25\\): sim thread stack logged": 1
+      },
+      "logForbid": {
+        "^OK   mono jit \\(docs/527\\)": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25,
+      "regexCases": {
+        "^ts3native 0\\.36\\.307-m1126c ": {
+          "match": [
+            "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+            "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+            "ts3native 0.36.305-m1124g 2026-11-25 10:00:00"
+          ]
+        },
+        "^OK   crash log: heapcall detector \\(docs/51 §948\\)": {
+          "match": [
+            "OK   crash log: heapcall detector (docs/51 §948): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 0 minidumps at most ([Crash] HeapCallDump=0); tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277"
+          ],
+          "noMatch": [
+            "crash log: heapcall detector off ([Crash] HeapCall=0)"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1), 0 list rows"
+          ],
+          "noMatch": [
+            "OK   mono jit hot reserve (docs/537 §32): HotReserve=1, 512 KB of the 12288 KB region, 0 methods"
+          ]
+        },
+        "^OK   stall watch \\(docs/67 §25\\): sim thread stack logged": {
+          "match": [
+            "OK   stall watch (docs/67 §25): sim thread stack logged after 5000 ms without a finished Simulate iteration, every 10000 ms, poll 1000 ms, up to 6 lines"
+          ],
+          "noMatch": [
+            "OK   stall watch deep stacks (docs/666): StackKB=8 Frames=24 KeepNoSim=0 MainThread=1 Names=1 (0 names) Managed=1, one line"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "bp-heapcall-monojit-off-2",
+      "note": "[est 15 min] [natural play, no cheats] Baseline-BP-Spring 10 min, release defaults + [MonoJit] Enabled=0, [Crash] HeapCall=1 (default), HeapCallDump=0. Read every heapcall: line: eip region (heap / mapped, prot 20 or 40 = executable) and whether the stack names Mono-jitted frames. Diag: [StallWatch] Enabled=1 Names=1 Managed=1 MainThread=1.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] master set m1126b (0.36.306-m1126b, merge/cp0-1126 rule-review fixes): the first build with HeapCallDump split off",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "MonoJit.Enabled": 0,
+        "StallWatch.Enabled": 1,
+        "StallWatch.Names": 1,
+        "StallWatch.Managed": 1,
+        "StallWatch.MainThread": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §948\\)": 1,
+        "^OK   stall watch \\(docs/67 §25\\): sim thread stack logged": 1
+      },
+      "logForbid": {
+        "^OK   mono jit \\(docs/527\\)": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25,
+      "regexCases": {
+        "^ts3native 0\\.36\\.307-m1126c ": {
+          "match": [
+            "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+            "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+            "ts3native 0.36.305-m1124g 2026-11-25 10:00:00"
+          ]
+        },
+        "^OK   crash log: heapcall detector \\(docs/51 §948\\)": {
+          "match": [
+            "OK   crash log: heapcall detector (docs/51 §948): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 0 minidumps at most ([Crash] HeapCallDump=0); tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277"
+          ],
+          "noMatch": [
+            "crash log: heapcall detector off ([Crash] HeapCall=0)"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1), 0 list rows"
+          ],
+          "noMatch": [
+            "OK   mono jit hot reserve (docs/537 §32): HotReserve=1, 512 KB of the 12288 KB region, 0 methods"
+          ]
+        },
+        "^OK   stall watch \\(docs/67 §25\\): sim thread stack logged": {
+          "match": [
+            "OK   stall watch (docs/67 §25): sim thread stack logged after 5000 ms without a finished Simulate iteration, every 10000 ms, poll 1000 ms, up to 6 lines"
+          ],
+          "noMatch": [
+            "OK   stall watch deep stacks (docs/666): StackKB=8 Frames=24 KeepNoSim=0 MainThread=1 Names=1 (0 names) Managed=1, one line"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0
+    }
+  ],
+  "rewind": "auto",
+  "regexCases": {}
+}

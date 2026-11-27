@@ -309,6 +309,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00654110, 0x006546E0},
     {0x00654CC0, 0x00000000},
     {0x00655AFB, 0x0065612B},
+    {0x00656277, 0x00000000},
     {0x00657650, 0x00657BF0},
     {0x006583E0, 0x00658830},
     {0x0065BB90, 0x0065BFE0},
@@ -1644,6 +1645,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x011F2F9C, 0x011F3F9C},
     {0x011F2FA8, 0x011F3FA8},
     {0x011F2FB4, 0x011F3FB4},
+    {0x011F2FC0, 0x00000000},
     {0x011F303C, 0x011F403C},
     {0x011F3054, 0x011F4054},
     {0x011F3070, 0x011F4070},
@@ -1683,6 +1685,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x012225C4, 0x012235C4},
     {0x012225D4, 0x012235D4},
     {0x012225D8, 0x012235D8},
+    {0x0122D714, 0x00000000},
     {0x01233318, 0x01234318},
     {0x01234338, 0x01235338},
     {0x0123433C, 0x0123533C},
@@ -1694,7 +1697,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x01234374, 0x01235374},
 };
 // cullrace-1123 (docs/338): 0x0059A500 0x006E4720 0x006F3C3B 0x006F401B verified in the retail 1.67 exe (call targets, prologues)
-constexpr int ts3addr_count = 1688;
+constexpr int ts3addr_count = 1691;
 // unresolved: 0x0061A340 no-retail-row native/ts3native/eafix.cpp (VbFreeDelay, retail stub logs SKIP; docs/314 §5)
 // unresolved: 0x0061A410 no-retail-row native/ts3native/eafix.cpp (VbFreeDelay, retail stub logs SKIP; docs/314 §5)
 // unresolved: 0x005A2C00 xref-none native/ts3native/allocsites-owners.h:16 (+1)

@@ -117,6 +117,53 @@ static class LoopCostTest
 
         PartitionChecks(rnd);
         SharedDropChecks(rnd);
+        // docs/335 viewerridehooks: walk cadence, set compare, and a model of the hook ride set against the walk-every-wake set
+        Check(LoopCostCore.RideWalkDue(false, 0, 10000), "unseeded set walks");
+        Check(LoopCostCore.RideWalkDue(true, -1, 10000), "never walked walks");
+        Check(!LoopCostCore.RideWalkDue(true, 9999, 10000), "seeded under the floor skips");
+        Check(LoopCostCore.RideWalkDue(true, 10000, 10000), "floor reached walks");
+        Check(LoopCostCore.SameIdSet(new List<ulong> { 1, 2, 3 }, new List<ulong> { 3, 1, 2 }), "same set, other order");
+        Check(!LoopCostCore.SameIdSet(new List<ulong> { 1, 2 }, new List<ulong> { 1, 3 }), "other set");
+        Check(!LoopCostCore.SameIdSet(new List<ulong> { 1 }, new List<ulong> { 1, 1 }), "other count");
+        // Model: 40 Sims, a ride flag each; hooked starts add the Sim to the set, ends clear only the flag, a rare unhooked
+        // (mod) start sets the flag alone. Wakes every 83 ms (5 ticks), floor walk 10 s; the floor walk adds every flagged Sim
+        // and a miss turns on walk-every-wake for the rest of the load. Expect: equal sets on every wake with hooked starts
+        // only; an unhooked start differs at most until the next floor walk, then never again.
+        Random rr = new Random(335);
+        for (int round = 0; round < 100; round++)
+        {
+            bool mods = round % 2 == 1;
+            bool[] ride = new bool[40];
+            List<ulong> set = new List<ulong>();
+            bool seeded = false, fallback = false; long lastWalk = -1; long missSince = -1;
+            for (int w = 0; w < 3000; w++)
+            {
+                long now = w * 83L;
+                int s = rr.Next(40);
+                int ev = rr.Next(20);
+                if (ev == 0 && !ride[s]) { ride[s] = true; if (!set.Contains((ulong)s)) set.Add((ulong)s); }
+                else if (ev == 1) ride[s] = false;
+                else if (ev == 2 && mods && rr.Next(10) == 0 && !ride[s]) { ride[s] = true; if (missSince < 0) missSince = now; }
+                List<ulong> walk = new List<ulong>();
+                for (int i = 0; i < 40; i++) if (ride[i]) walk.Add((ulong)i);
+                List<ulong> got;
+                if (fallback || LoopCostCore.RideWalkDue(seeded, lastWalk < 0 ? -1 : now - lastWalk, 10000))
+                {
+                    foreach (ulong id in walk) if (!set.Contains(id)) { set.Add(id); if (seeded) fallback = true; }
+                    seeded = true; lastWalk = now; missSince = -1;
+                    got = new List<ulong>(walk);
+                }
+                else
+                {
+                    set.RemoveAll(delegate(ulong id) { return !ride[(int)id]; });
+                    got = new List<ulong>(set);
+                }
+                if (!LoopCostCore.SameIdSet(got, walk))
+                {
+                    Check(mods && missSince >= 0 && now - missSince < 10000 + 83, "ride set differs only after an unhooked start, until the floor walk (round " + round + ", wake " + w + ")");
+                }
+            }
+        }
 
         Console.WriteLine(sFails == 0 ? "loopcost selftest: PASS" : "loopcost selftest: FAIL " + sFails);
         Environment.Exit(sFails == 0 ? 0 : 1);

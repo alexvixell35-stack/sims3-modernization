@@ -101,6 +101,21 @@ namespace Ts3Fixes
             catch (Exception) { c[errSlot]++; }
         }
 
+        // docs/335 viewerridehooks: the full LotManager.Actors walk runs when the ride set is not seeded (load, switch just
+        // turned on, a refused hook) or floorMs passed since the last walk (mods that start rides past our hooks).
+        public static bool RideWalkDue(bool seeded, long msSinceWalk, long floorMs)
+        {
+            return !seeded || msSinceWalk < 0 || msSinceWalk >= floorMs;
+        }
+
+        // Same ids, any order (shadow compare of the hook ride set against the walk's).
+        public static bool SameIdSet(List<ulong> a, List<ulong> b)
+        {
+            if (a.Count != b.Count) return false;
+            foreach (ulong x in a) if (!b.Contains(x)) return false;
+            return true;
+        }
+
         // Same ids in the same order (the native table is replaced whole).
         public static bool SameIds(List<ulong> a, List<ulong> b)
         {

@@ -1,0 +1,268 @@
+{
+ "note": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes moved to master set m1126b (0.36.306-m1126b), agent stays m1126 (agentPackage), version read-back escaped. [previous] m1126 repin (2026-11-26, merge/cp0-1126, CP-0 of docs/340): pinned to master set m1126 (0.36.306-m1126); copy of inst-probe-1122.json. inst-probe-1122 (WRITTEN, NOT RUN: a game chain was running when it was written): docs/325, the cost of one Sim instantiation on the sim thread by part (spot search, age-up outfit wait, object create split into native / Sim.OnCreation / Sim.OnStartup, dynamic footprint, AddInitialObjects, rest; the next two sim frames) and of one Sim.Destroy, by phase (world load, steady natural play, forced visitor spawn of 10 townies + removal, travel of the active Sim to the farthest community lot). Sets the per-frame ms budget of the far-Sim spread queue (docs/324). Correctness + measurement queue, not a timing A/B: job 1 = measurement smoke (BP, stops the queue on fail), then BP, IP, SV 10 min each, fresh loads, Bin state apex (Apex + RTX Remix bridge via tools/turbo-compat.ts snapshot -> state apex -> restore). Switch read-back: native \"OK   inst probe ... Enabled=1\" + ts3fixes \"instprobe: on ... Enabled 1\"; heavy tools off (noSamplers, no stack samplers, no shadow). Run from the worktree (repros.json has inst-probe-session / inst-probe-smoke): node tools/harness/queue.ts tools/harness/queues/inst-probe-1122.json --no-smoke. Read: the \"ts3fixes: instprobe: summary end <phase> <part> n N p50 X p95 Y max Z ms\" lines at the end of the job ts3native.log (phases load / steady / visitor / travel; parts total busy spot ageup create native oncreation onstartup footprint initobj rest f0 f1 f1x destroy startuponly), per-event \"instprobe: inst #\" / \"destroy\" / \"startuponly\" lines for scope, age, outfits, lot.",
+ "agentPackage": "game-copy/ts3agent.package.m1126",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.306-m1126b ": {
+   "match": [
+    "ts3native 0.36.306-m1126b 2026-11-26 16:30:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+    "ts3native 0.36.299-iprobe1 2026-11-22 10:45:00",
+    "ts3native 0.36.299-m1122 2026-11-22 07:00:00"
+   ]
+  },
+  "^OK   inst probe \\(docs/325\\): \\[InstProbe\\] Enabled=1, ": {
+   "match": [
+    "OK   inst probe (docs/325): [InstProbe] Enabled=1, ts3fixes instprobe times each Sim instantiate / destroy by part from game start (instprobe: lines)"
+   ],
+   "noMatch": [
+    "OK   unseen bands (docs/322): edges 50,150,400,1000 m"
+   ]
+  },
+  "^ts3fixes: instprobe: on \\(docs/325\\), native \\[InstProbe\\] Enabled 1, ": {
+   "match": [
+    "ts3fixes: instprobe: on (docs/325), native [InstProbe] Enabled 1, switch instprobe False; measurement only, every hook calls EA unchanged"
+   ],
+   "noMatch": [
+    "ts3fixes: instprobe: on (docs/325), native [InstProbe] Enabled 0, switch instprobe True; measurement only, every hook calls EA unchanged"
+   ]
+  },
+  "^ts3fixes: instprobe: inst #\\d+ \\S+ scope (household|selected|npc|unknown) age \\S+ species \\S+ outfits \\d+ lot \\S+ path (pos|lot|offscreen)( nested)? t \\d+ total [\\d.]+ busy [\\d.]+ spot [\\d.]+ ageup [\\d.]+ create [\\d.]+ \\(native [\\d.]+ oncreation [\\d.]+ onstartup [\\d.]+\\) footprint [\\d.]+ initobj [\\d.]+ rest [\\d.]+ f0 [\\d.]+ f1 [\\d.]+ base [\\d.]+ yielded [01] ms": {
+   "match": [
+    "ts3fixes: instprobe: inst #12 visitor scope npc age YoungAdult species Human outfits 9 lot residential:1234 path pos t 5123456 total 41.20 busy 41.20 spot 0.00 ageup 0.00 create 30.10 (native 18.00 oncreation 7.10 onstartup 5.00) footprint 0.30 initobj 2.00 rest 8.80 f0 60.00 f1 18.00 base 16.70 yielded 0 ms",
+    "ts3fixes: instprobe: inst #3 load scope unknown age Adult species Human outfits 0 lot - path offscreen nested t 99 total 1.00 busy 1.00 spot 0.20 ageup 0.00 create 0.50 (native 0.30 oncreation 0.10 onstartup 0.10) footprint 0.10 initobj 0.00 rest 0.20 f0 1.00 f1 1.00 base 1.00 yielded 1 ms"
+   ],
+   "noMatch": [
+    "ts3fixes: instprobe: destroy steady scope npc age Adult species Human outfits 9 lot world:1 t 5 ms 2.10",
+    "ts3fixes: instprobe: inst #12 visitor scope npc age YoungAdult"
+   ]
+  },
+  "^ts3fixes: instprobe: destroy \\S+ scope ": {
+   "match": [
+    "ts3fixes: instprobe: destroy visitor scope npc age Adult species Human outfits 9 lot residential:12 t 5123 ms 2.10"
+   ],
+   "noMatch": [
+    "ts3fixes: instprobe: startuponly load scope household age Adult species Human outfits 9 lot residential:12 t 5 ms 1.00"
+   ]
+  },
+  "^ts3fixes: instprobe: summary end totals: events [1-9]\\d*, destroys [1-9]\\d*, startuponly \\d+, lines dropped \\d+, errors 0, ": {
+   "match": [
+    "ts3fixes: instprobe: summary end totals: events 37, destroys 10, startuponly 4, lines dropped 0, errors 0, samples dropped 0, native ini 1, switch False"
+   ],
+   "noMatch": [
+    "ts3fixes: instprobe: summary end totals: events 0, destroys 10, startuponly 4, lines dropped 0, errors 0, samples dropped 0, native ini 1, switch False",
+    "ts3fixes: instprobe: summary end totals: events 3, destroys 1, startuponly 0, lines dropped 0, errors 2, samples dropped 0, native ini 1, switch False"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  },
+  "^ts3fixes: instprobe: summary \\S+ totals: .*errors [1-9]": {
+   "match": [
+    "ts3fixes: instprobe: summary 5min totals: events 3, destroys 1, startuponly 0, lines dropped 0, errors 2, samples dropped 0, native ini 1, switch False"
+   ],
+   "noMatch": [
+    "ts3fixes: instprobe: summary end totals: events 37, destroys 10, startuponly 4, lines dropped 0, errors 0, samples dropped 0, native ini 1, switch False"
+   ]
+  },
+  "^ts3fixes: instprobe lines capped": {
+   "match": [
+    "ts3fixes: instprobe lines capped at 8000"
+   ],
+   "noMatch": [
+    "ts3fixes: instprobe: summary end totals: events 37, destroys 10, startuponly 4, lines dropped 0, errors 0,"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-instprobe-smoke",
+   "note": "[est 8 min] SMOKE (measurement proof, must pass before the 10-min jobs): BP 3 min, release defaults + [InstProbe] Enabled=1, [UserDiag] LinesPerPrefix=8000. Steps: mark visitor, spawn_sims 3, remove_sims, InstProbeSummary end (answer must show events > 0, destroys > 0, errors 0). Pass: version + both read-back lines, >= 1 full inst line and destroy line, summary totals line, Apex + bridge lines, 0 script errors. Measurement only: every instprobe hook calls EA with the same arguments and returns its result (no Sim, lot or save change); household, selected and unknown-scope Sims are only labelled (scope column), never treated differently. The forced steps touch new townies (spawn_sims / remove_sims) and the active Sim's player-directed visit only.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: feature/inst-probe-1122 (builds.json ts3native.asi.inst-probe-1122 sha256 7634ac2fb8d5, 0.36.299-iprobe1 = master m1122 + [InstProbe] Enabled (GetOption2 q 15); ini ts3native.ini.inst-probe-1122 sha256 85f1754a9659 = the branch ini; ts3fixes.package.inst-probe-1122 sha256 eaa316a09c74 tuning 54c6265ac19c = master + instprobe (InstProbe.cs))",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "ini": {
+    "InstProbe.Enabled": 1,
+    "UserDiag.LinesPerPrefix": 8000
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^OK   inst probe \\(docs/325\\): \\[InstProbe\\] Enabled=1, ": 1,
+    "^ts3fixes: instprobe: on \\(docs/325\\), native \\[InstProbe\\] Enabled 1, ": 1,
+    "^ts3fixes: instprobe: inst #\\d+ \\S+ scope (household|selected|npc|unknown) age \\S+ species \\S+ outfits \\d+ lot \\S+ path (pos|lot|offscreen)( nested)? t \\d+ total [\\d.]+ busy [\\d.]+ spot [\\d.]+ ageup [\\d.]+ create [\\d.]+ \\(native [\\d.]+ oncreation [\\d.]+ onstartup [\\d.]+\\) footprint [\\d.]+ initobj [\\d.]+ rest [\\d.]+ f0 [\\d.]+ f1 [\\d.]+ base [\\d.]+ yielded [01] ms": 1,
+    "^ts3fixes: instprobe: destroy \\S+ scope ": 1,
+    "^ts3fixes: instprobe: summary end totals: events [1-9]\\d*, destroys [1-9]\\d*, startuponly \\d+, lines dropped \\d+, errors 0, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^ts3fixes: instprobe: summary \\S+ totals: .*errors [1-9]": 0,
+    "^ts3fixes: instprobe lines capped": 0
+   },
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "noSamplers": true,
+     "repro": "inst-probe-smoke"
+    }
+   },
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "bp-instprobe",
+   "note": "[est 15 min] BP 10 min: load rows (from game start, native ini), ~2 min natural play (steady), visitor (spawn_sims 10 + remove_sims: destroy rows), travel (active Sim to the farthest community lot), natural play to the end, InstProbeSummary end. Measurement only: every instprobe hook calls EA with the same arguments and returns its result (no Sim, lot or save change); household, selected and unknown-scope Sims are only labelled (scope column), never treated differently. The forced steps touch new townies (spawn_sims / remove_sims) and the active Sim's player-directed visit only. Read: the \"ts3fixes: instprobe: summary end <phase> <part> n N p50 X p95 Y max Z ms\" lines at the end of the job ts3native.log (phases load / steady / visitor / travel; parts total busy spot ageup create native oncreation onstartup footprint initobj rest f0 f1 f1x destroy startuponly), per-event \"instprobe: inst #\" / \"destroy\" / \"startuponly\" lines for scope, age, outfits, lot.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: feature/inst-probe-1122 (builds.json ts3native.asi.inst-probe-1122 sha256 7634ac2fb8d5, 0.36.299-iprobe1 = master m1122 + [InstProbe] Enabled (GetOption2 q 15); ini ts3native.ini.inst-probe-1122 sha256 85f1754a9659 = the branch ini; ts3fixes.package.inst-probe-1122 sha256 eaa316a09c74 tuning 54c6265ac19c = master + instprobe (InstProbe.cs))",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "ini": {
+    "InstProbe.Enabled": 1,
+    "UserDiag.LinesPerPrefix": 8000
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^OK   inst probe \\(docs/325\\): \\[InstProbe\\] Enabled=1, ": 1,
+    "^ts3fixes: instprobe: on \\(docs/325\\), native \\[InstProbe\\] Enabled 1, ": 1,
+    "^ts3fixes: instprobe: inst #\\d+ \\S+ scope (household|selected|npc|unknown) age \\S+ species \\S+ outfits \\d+ lot \\S+ path (pos|lot|offscreen)( nested)? t \\d+ total [\\d.]+ busy [\\d.]+ spot [\\d.]+ ageup [\\d.]+ create [\\d.]+ \\(native [\\d.]+ oncreation [\\d.]+ onstartup [\\d.]+\\) footprint [\\d.]+ initobj [\\d.]+ rest [\\d.]+ f0 [\\d.]+ f1 [\\d.]+ base [\\d.]+ yielded [01] ms": 1,
+    "^ts3fixes: instprobe: destroy \\S+ scope ": 1,
+    "^ts3fixes: instprobe: summary end totals: events [1-9]\\d*, destroys [1-9]\\d*, startuponly \\d+, lines dropped \\d+, errors 0, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^ts3fixes: instprobe: summary \\S+ totals: .*errors [1-9]": 0,
+    "^ts3fixes: instprobe lines capped": 0
+   },
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "repro": "inst-probe-session"
+    }
+   }
+  },
+  {
+   "id": "ip-instprobe",
+   "note": "[est 15 min] IP, same steps as bp-instprobe (the farthest community lot may be across water: the visit can take the whole travel window). Measurement only: every instprobe hook calls EA with the same arguments and returns its result (no Sim, lot or save change); household, selected and unknown-scope Sims are only labelled (scope column), never treated differently. The forced steps touch new townies (spawn_sims / remove_sims) and the active Sim's player-directed visit only.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: feature/inst-probe-1122 (builds.json ts3native.asi.inst-probe-1122 sha256 7634ac2fb8d5, 0.36.299-iprobe1 = master m1122 + [InstProbe] Enabled (GetOption2 q 15); ini ts3native.ini.inst-probe-1122 sha256 85f1754a9659 = the branch ini; ts3fixes.package.inst-probe-1122 sha256 eaa316a09c74 tuning 54c6265ac19c = master + instprobe (InstProbe.cs))",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "ini": {
+    "InstProbe.Enabled": 1,
+    "UserDiag.LinesPerPrefix": 8000
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^OK   inst probe \\(docs/325\\): \\[InstProbe\\] Enabled=1, ": 1,
+    "^ts3fixes: instprobe: on \\(docs/325\\), native \\[InstProbe\\] Enabled 1, ": 1,
+    "^ts3fixes: instprobe: inst #\\d+ \\S+ scope (household|selected|npc|unknown) age \\S+ species \\S+ outfits \\d+ lot \\S+ path (pos|lot|offscreen)( nested)? t \\d+ total [\\d.]+ busy [\\d.]+ spot [\\d.]+ ageup [\\d.]+ create [\\d.]+ \\(native [\\d.]+ oncreation [\\d.]+ onstartup [\\d.]+\\) footprint [\\d.]+ initobj [\\d.]+ rest [\\d.]+ f0 [\\d.]+ f1 [\\d.]+ base [\\d.]+ yielded [01] ms": 1,
+    "^ts3fixes: instprobe: destroy \\S+ scope ": 1,
+    "^ts3fixes: instprobe: summary end totals: events [1-9]\\d*, destroys [1-9]\\d*, startuponly \\d+, lines dropped \\d+, errors 0, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^ts3fixes: instprobe: summary \\S+ totals: .*errors [1-9]": 0,
+    "^ts3fixes: instprobe lines capped": 0
+   },
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "repro": "inst-probe-session"
+    }
+   }
+  },
+  {
+   "id": "sv-instprobe",
+   "note": "[est 15 min] SV, same steps as bp-instprobe. Measurement only: every instprobe hook calls EA with the same arguments and returns its result (no Sim, lot or save change); household, selected and unknown-scope Sims are only labelled (scope column), never treated differently. The forced steps touch new townies (spawn_sims / remove_sims) and the active Sim's player-directed visit only.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "m1126b repin (2026-11-26, merge/cp0-1126 rule-review fixes): asi + ini + ts3fixes of master set m1126b (0.36.306-m1126b: [Crash] HeapCallDump split off, default 0; UnseenViewers sRides cleared), agent stays m1126. Before: m1126 repin (2026-11-26, merge/cp0-1126): master set m1126 asi + ini + ts3fixes (0.36.306-m1126). Before: feature/inst-probe-1122 (builds.json ts3native.asi.inst-probe-1122 sha256 7634ac2fb8d5, 0.36.299-iprobe1 = master m1122 + [InstProbe] Enabled (GetOption2 q 15); ini ts3native.ini.inst-probe-1122 sha256 85f1754a9659 = the branch ini; ts3fixes.package.inst-probe-1122 sha256 eaa316a09c74 tuning 54c6265ac19c = master + instprobe (InstProbe.cs))",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "ini": {
+    "InstProbe.Enabled": 1,
+    "UserDiag.LinesPerPrefix": 8000
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1,
+    "^OK   inst probe \\(docs/325\\): \\[InstProbe\\] Enabled=1, ": 1,
+    "^ts3fixes: instprobe: on \\(docs/325\\), native \\[InstProbe\\] Enabled 1, ": 1,
+    "^ts3fixes: instprobe: inst #\\d+ \\S+ scope (household|selected|npc|unknown) age \\S+ species \\S+ outfits \\d+ lot \\S+ path (pos|lot|offscreen)( nested)? t \\d+ total [\\d.]+ busy [\\d.]+ spot [\\d.]+ ageup [\\d.]+ create [\\d.]+ \\(native [\\d.]+ oncreation [\\d.]+ onstartup [\\d.]+\\) footprint [\\d.]+ initobj [\\d.]+ rest [\\d.]+ f0 [\\d.]+ f1 [\\d.]+ base [\\d.]+ yielded [01] ms": 1,
+    "^ts3fixes: instprobe: destroy \\S+ scope ": 1,
+    "^ts3fixes: instprobe: summary end totals: events [1-9]\\d*, destroys [1-9]\\d*, startuponly \\d+, lines dropped \\d+, errors 0, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^ts3fixes: instprobe: summary \\S+ totals: .*errors [1-9]": 0,
+    "^ts3fixes: instprobe lines capped": 0
+   },
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "repro": "inst-probe-session"
+    }
+   }
+  }
+ ]
+}

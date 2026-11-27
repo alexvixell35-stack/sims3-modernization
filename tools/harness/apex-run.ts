@@ -32,6 +32,7 @@ import { asiVersion, loadDb, type Build } from '../builds.ts';
 import { dumpHungGame } from './game-alive.ts';
 import { clearJob, markJob, waitHold } from './hold.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
+import { strayAsi } from './extra-asi.ts';
 
 const HERE = resolve(import.meta.dirname, '..', '..');
 export const mainRoot = (r: string) => /^(.*?)[\\/]\.claude[\\/]worktrees[\\/][^\\/]+[\\/]?$/.exec(r)?.[1] ?? r;
@@ -154,6 +155,7 @@ async function main(v: Record<string, any>) {
   if (existsSync(MARKER)) fail(`an earlier apex run did not restore Bin (${MARKER}): node tools/harness/apex-run.ts --restore`);
   if (existsSync(apexPending)) fail(`Apex restore pending (${apexPending}): close TS3W.exe, then run.ps1 -Restore <its run dir>`);
   if (gameRunning()) fail(`${GAME_EXE} is running: close it first`);
+  { const st = strayAsi(BIN); if (st.length) fail(`Bin holds ${st.join(', ')}: not a Bin-state module (a killed queue's extraAsi?): run a queue start or turbo-compat restore, or remove it`); }
   if (existsSync(summary)) fail(`${out} already has a run: pass another --tag`);
   // the test agent is per checkout (ignored outputs/): a fresh Apex worktree has none and run.ps1 throws "No test agent" in 2 s
   // (chain-1117g 11-17: all 9 GI steps on gi-merge-r4 / gi-s2-06 "runner exit 1, 0 min"); built from this checkout's agent source

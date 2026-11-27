@@ -146,6 +146,7 @@ namespace Ts3Fixes
                 ulong id = 0;
                 try { id = ObjectId.Value; } catch (Exception) { }
                 DestroyOrig();
+                SdiUrnDestroy(this, id);  // docs/359 (SimDescIndex.cs)
                 if (id == 0 || !sPl.Seeded || !sPl.Has(id)) return;
                 try { if (GameObject.GetObject(new ObjectGuid(id)) == null && sPl.Drop(id)) { int[] c = PatchCounters(); c[1722]++; DrPlGauges(c); } } catch (Exception) { PatchCounters()[410]++; }
             }

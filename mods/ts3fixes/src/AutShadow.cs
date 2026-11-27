@@ -32,6 +32,13 @@ namespace Ts3Fixes
         // 0 Mode (-1 off/no cut hook, 0 count only, 1 R, 2 W), 1 Sample, 2 WarmIn, 3 DumpOnMismatch, 4 worker ready 1/0
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern int Config(int key);
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern bool IsWorker();
+        // docs/362 (ts3native 0.36.306-simhc1 or later; no contract bump, an older ts3native throws MissingMethodException): true only on the
+        // game's sim thread; false on any other thread and while the game has not set its sim thread id. Call it through Fixes.OnSimThread().
+        [MethodImpl(MethodImplOptions.InternalCall)] public static extern bool IsSimThread();
+        // docs/362 main-heap core reader: 0 = read now under the heap lock (1 ok, 0 no answer; at most one walk a second, never per frame),
+        // then the last answer: 1 flags, 2 cores, 3 committed KB, 4 reserved KB, 5 free chunk KB, 6 uncommitted tail KB, 7 largest free run KB,
+        // 8 free chunks, 9 walk us
+        [MethodImpl(MethodImplOptions.InternalCall)] public static extern int MainHeap(int field);
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern void Abort(int reason);
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern int Aborted();
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern void ResetAbort();
@@ -584,6 +591,9 @@ namespace Ts3Fixes
                 // Warm-up: nothing is pending, so each returns at once; it transforms them on the sim thread first.
                 AutFinish(); AutReference(); AutWork();
                 ColdWarm();
+                // docs/362: the read-back, and the first call on the sim thread (a call first made on the worker is a cold transform there)
+                bool onSim = OnSimThread();
+                DiagLine("simthread: IsSimThread " + (onSim ? 1 : 0) + " on the sim thread, call " + (sNoSimThreadIc ? "missing" : "there") + " (docs/362)");
                 sSample = Math.Max(1, AutShadowNative.Config(1));
                 sFreshEvery = AutShadowNative.Config(11);
                 sKeepPartial = AutShadowNative.Config(12) != 0;
@@ -1511,6 +1521,15 @@ namespace Ts3Fixes
         }
 
         static bool OnWorker() { return sInWork && AutShadowNative.IsWorker(); }
+        // docs/362: the game's mscorlib has no Thread class, so ts3native names the thread. False = not the sim thread, not known yet, or a
+        // ts3native without the call: the caller then takes the game's own path.
+        static bool sNoSimThreadIc;
+        public static bool OnSimThread()
+        {
+            if (sNoSimThreadIc) return false;
+            try { return AutShadowNative.IsSimThread(); }
+            catch (Exception) { sNoSimThreadIc = true; return false; }
+        }
 
         // H11 (docs/127 §4): Autonomy.CalculateScoreForObjectInteraction, with Seasons on, rain or hail, an autonomy search
         // and an outdoor non-Sim target, creates a throwaway InteractionInstance (InteractionInstance.sNextId++, a static

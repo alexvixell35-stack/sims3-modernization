@@ -59,7 +59,7 @@ Round 2 (2026-11-22, branch `feature/large-worlds-1122`): static reads of the op
 |---|---|---|---|---|---|
 | World bounds `0xC65E00` (0x90624C1B) | file, u32 metres | none (u32) | fine | generator writes the size | [verified] |
 | Point-in-world `0xC6BAB0`, camera checks `0x96ECB0`, `0x9713E0`, `0x9729D0`, `0x97C410`, world centre `0x96C010` | `WM+0xB4..+0xC4` | none; no 2048 / 4096 constants in `0x960000..0x980000` | fine | none (camera clamp routine itself not found) | [verified] checks |
-| Terrain cell grid (TerrainData `0xC2DA80`, `0xC2E550`) | WTXT +6 / +10 (object +0x3C / +0x40): cols / rows = ceil(size / 256), cell vectors +0xAC / +0xBC | none | **WTXT must be grown**, else no terrain cells past 2048 m | generator `--wtxt size` (default) | [verified] |
+| Terrain cell grid (TerrainData `0xC2DA80`, `0xC2E550`) | WTXT +6 / +10 (object +0x3C / +0x40): cols / rows = ceil(size / 256), cell vectors +0xAC / +0xBC | none | **WTXT must be grown**, else no terrain cells past 2048 m | generator `--wtxt size` (default) | [verified] *[Corrected 2026-11-26, Boundless Atlas docs/017 §7: `0xC2DA80` runs for WTXT version 7 only (fills every entry); version 8 and later are loaded by `0xC2DC70`]* |
 | Terrain cell lookups `0xC2A470`, `0xC2A4B0`; rect clamp `0xC29C10`; checks `0xC29F43`, `0xC2B5D9`, `0xC2C164` | unsigned check against cols / rows, null when outside | - | no OOB | none; callers' null handling [inferred] | [verified] |
 | Heightmap 0x2AD195F2 (`0xC2A420..0xC2A4D7`) | dims in file; cell = coord >> 8 checked against the row count; terrain chunk 0x101 samples (`0xC2AA24`) | none | 33.6 MB vs 8.4 MB | generator | [verified] |
 | Blend / paint weight map **0x3D8632D0** (loader `0xC238E0`, header `0xC21A20`) | magic `0xA5FF03xx`, u32 w / h, 16 x 16 m tiles only (`0xC239EE`), tile count ceil(w/16) x ceil(h/16) (`0xC23880`) | **tile index u16** (hi / lo bytes, `0xC23BD4`): 65,536 tiles = 256 x 256 = **4096 m max**; layer id u8 | exactly fits | > 4096 m: wider index in format + loader + saver (`0xC22A70`, [inferred] mirror) + CAW writer | [verified] loader |
@@ -226,6 +226,8 @@ the bridge yet, so "the untracked 16 MB driver blocks are gone" is still [inferr
   long-session or big-save memory run.
 
 ### 4.3 4x-world estimate (all [inferred])
+
+> Per-consumer version of this table for 2048 / 4096 / 8192 m, with the streaming decision: Boundless Atlas docs/011 (2026-11-26, memory budget by consumer, "stream only what is heavy").
 
 | Owner | Today MB | 4x area | Why |
 |---|---|---|---|

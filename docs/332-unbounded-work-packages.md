@@ -201,7 +201,7 @@ split), ME-8 (no per-lot memory number), ME-9 (caps fill only measured on 2048 m
 ## 3. Handoff format
 
 Every package ends by appending this block to `docs/data/unbounded-packages-handoff.md` (the repo's handoff convention is
-`docs/data/<topic>-handoff.md`; there is no `docs/handoffs/` folder) and updating its row in that file's status table. A fresh
+`docs/data/<topic>-handoff.md`; there is no `docs/handoff/` folder) and updating its row in that file's status table. A fresh
 agent for the next package reads that file first.
 
 ```
@@ -307,3 +307,65 @@ critical prerequisites for a streamed world are lane A (CP-1..4), T4 (FS-16..19)
 No new inferred claims: the plan restates docs/324 / 331 / 320 / 321 inferences with their existing ledger numbers (§575, §576,
 §582, §584, §585). The facts this doc adds (band edge parser and report generality, chain order) are [verified] from code and
 logs. Packages that find new inferences reserve a § with `node tools/registry.ts reserve ledger`.
+
+## 9. Package answers
+
+### ME-4 T3 edge per world (2026-11-26 PHT, Fable)
+
+- **Done:** digest written: `docs/data/results/2026-11-26-farmodel-bands-1123-digest.md`, short form in docs/322 §4.
+- **Verified:** the ME-1 band dumps are gone (written to the removed `nonsim-split-1122` worktree). No six-band table exists.
+- **Not verified:** the edges. Working values from docs/322 §3 [inferred]: BP 450 m, IP 450 m, SV 300 m.
+- **Next:** rerun `farmodel-bands-1123-m1123.json` from the main checkout (~60 min game time, Rodney's go), then fill the
+  digest. FS-4 may start on the working edges. docs/324 §1.3 and docs/331 §2.1 (on their lane branches) get the table then.
+
+### ST-9 Day-run harness check (2026-11-26 PHT, Fable)
+
+Answer: **yes, with existing keys plus one new repros.json entry; no harness code change.** [verified, code lines below;
+never run]
+
+| Need | How | Code line |
+|---|---|---|
+| Game speed 3 | Nothing to set: a `run.profile` window always runs at x3. There is no `speed` key for `profile` (only `run.soak`, `run.routelock`, `run.worldimage` take `speed: normal / fast / ultra`). | `tools/harness/profile-world.ts:327` `await ag('autopilot', { enabled: true, speed: 'ultra', dialogs: true }); // window start: unpause to x3`; `queue.ts:604`, `:606`, `:547` |
+| 25 min window | `run: { profile: { minutes: 25, seed: 12345, repro: "<id>" } }`; default `timeoutMin` 60 covers it. | `queue.ts:571` (`run.profile.minutes must be > 0`), `:2732` (timeout check) |
+| Story progression on | Leave `gameArgs` out of the job (do not copy `"gameArgs": ["-disablestoryprogression"]` from `nonsim-split-1122.json`). The launcher adds only `-noupnp`. | `queue.ts:8`, `:536`, `:3101` `launchArgs` |
+| Prove it is on | Repro step `{ "cmd": "town_snapshot" }` and read `story_progression` (`Enabled`). If the save has the option off: step `{ "cmd": "story_days", "args": { "days": 0, "mode": "Enabled" } }` (`days` defaults to 1, so pass 0). | `mods/ts3agent/src/plugin/Handlers/StoryHandlers.cs:125`, `:322`, `:334`; rule in docs/180 (option `EnableStoryProgression` on, switch absent) |
+| Start before 05:00 | No job key. Repro step `{ "cmd": "test_env", "args": { "hour": 4 } }` through `run.profile.repro`; it steps the clock forward with `SimClock.AddOneHour` until the hour matches (at most a day). Precedent: repro `stuck-check-3am`. The 30 s clock guard calls `test_env` without `hour`, so it does not undo the jump. | `mods/ts3agent/src/plugin/Handlers/HarnessHandlers.cs:932-937`; `profile-world.ts:273`; `queue.ts:117` |
+
+Job shape for ME-6 (new repro id is the only new data):
+`{ "id": "bp-farmodel-day", "save": "Baseline-BP-Spring", "run": { "profile": { "minutes": 25, "seed": 12345, "repro": "day-run-0400" } } }`
+with no `gameArgs`, and repro `day-run-0400` = `test_env {hour: 4}`, then `town_snapshot`.
+
+Limits, for the ME-6 author:
+- The clock only jumps forward. Baseline-BP-Spring loads at 11:00 and Baseline-SV-Spring at 09:00, so `hour: 4` skips 17-19
+  sim-hours; Baseline-IP-Spring loads at 03:00 and needs no jump [measured: `test_env` lines of the ME-1 chain output].
+  That alarms due inside the skipped hours fire at once is [inferred] (same note as `stuck-check-3am`); the first minutes
+  after the jump then hold a burst that is not a normal day. Either start the measured window after it or use IP for the
+  clean case.
+- EA's story progression alarm runs once a sim day at 01:00 (docs/180). A window from 04:00 crosses 05:00 but not 01:00
+  unless 25 min at x3 covers 21 sim-hours. Sim-minutes per wall minute at x3 were not found in kept files [not measured
+  here]: ME-6 should read `simMinutes` from the job's `-rng.json` in its smoke and set the start hour from that.
+- `run.profile.repro` turns the stack samplers off (`queue.ts:117`); the band and split probes are counters and stay on.
+
+### ST-4 Alarm owner and dispatch site, ST-7a callback census (2026-11-26 PHT, Fable)
+
+- **Done:** `docs/346-alarm-hold-hook-and-census.md`, `docs/data/alarm-callback-census.csv`, ledger §614, handoff
+  `docs/handoff/st4-st7a-1126.md`.
+- **Verified:** one dispatch site (`AlarmManager.Simulate`, only caller `Lot.Simulate`), owner = `Timer.ObjectRef`,
+  Sim alarms on the global manager, object alarms on the lot manager, the save reads the heap only. 1,339
+  registration sites in the shipped packs.
+- **Design (not built):** one prefix on `AlarmManager.Simulate` and a bracket on `AlarmManager.Write`; a parked lot's
+  manager is not simulated, a held Sim's due timers wait in a side list and are put back at go-live.
+- **Not verified:** the model hint per census row (heuristic), EA 1.69 (by docs/235 only), cost.
+- **Next:** ST-15 (API note), FO-1 (probe uses the same heap walk), SD-2 (reads the CSV per class), ST-7b (needs the
+  scan in `tools/`).
+
+### ST-15 Shared far API, names and module layout (2026-11-26 PHT, Fable)
+
+- **Done:** `docs/351-far-shared-api-names.md`, ledger §620, handoff `docs/handoff/st15-simreset-1126.md`.
+- **Decided:** files by prefix (`FarHold*`, `FarHub*`, `FarSave*`, `FarSidecar*` = MS; `FarSim*` = FS; `FarObj*` = FO;
+  `Lazy*` = LZ); `FarHold` methods `FarHoldSim` / `FarReleaseSim` / `FarParkLot` / `FarReleaseLot` / `FarReleaseAll` /
+  `FarIsSimHeld` / `FarIsLotParked` / `FarPassThrough`; one owner table with tags; `FarHub` owns load, world quit
+  order, frame budget and pause gate, `FarSave` (docs/353) owns saves; E1 pass-through is take mode through EA's
+  dispatch (FO-3 reads "E1 own dispatch" as that).
+- **Not verified:** docs/350 (SD-2) was in work and not read; which pause predicate `FarHubPaused` wraps.
+- **Next:** FO-3 (builds `FarHold*`, `FarHub*`), FS-1, FO-1.

@@ -1,0 +1,137 @@
+{
+  "note": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-time-1126 (docs/359, WRITTEN, NOT RUN; timing, needs quiet machine; build simdesc-index-1126c): in-load ABBA of simdescindex on BP / IP / SV, per-arm ms/s. queue.ts runs the measurement smoke first (per-arm split, heavy tools off, switch read back). The mod scan runs once per process at the first lookup with the switch on (or under the load screen when it is on at load): if the first on-slice shows a one-off stall, read the later slices. Run only after simdesc-index-correct-1126 passes. Est ~1 h 40 min (3 jobs + smoke).",
+  "agentPackage": "game-copy/ts3agent.package.m1126c",
+  "rewind": "off",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-sdi-ab",
+      "note": "[est 32 min] BP 25 min in-load ABBA (5-min slices, 10 min per arm), --ab simdescindex (verify off; the 1-in-64 shadow sample stays, it is part of the switch). Per-arm ms/s; read simdescindex_calls / hits / misses / game per second of the on arm, walk_saved_k and the shadow's us per description (shadow_hit_us / shadow_hit_walked, shadow_miss_us / shadow_misses) for the saved-time estimate (docs/359 §6). needs quiet machine.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": true,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 45,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "slice": 5,
+          "noSamplers": true,
+          "ab": "simdescindex",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=100,simdescindex_hits>=50"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      }
+    },
+    {
+      "id": "ip-sdi-ab",
+      "note": "[est 32 min] IP 25 min in-load ABBA (5-min slices, 10 min per arm), --ab simdescindex (verify off; the 1-in-64 shadow sample stays, it is part of the switch). Per-arm ms/s; read simdescindex_calls / hits / misses / game per second of the on arm, walk_saved_k and the shadow's us per description (shadow_hit_us / shadow_hit_walked, shadow_miss_us / shadow_misses) for the saved-time estimate (docs/359 §6). needs quiet machine.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": true,
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 45,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "slice": 5,
+          "noSamplers": true,
+          "ab": "simdescindex",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=100,simdescindex_hits>=50"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      }
+    },
+    {
+      "id": "sv-sdi-ab",
+      "note": "[est 32 min] SV 25 min in-load ABBA (5-min slices, 10 min per arm), --ab simdescindex (verify off; the 1-in-64 shadow sample stays, it is part of the switch). Per-arm ms/s; read simdescindex_calls / hits / misses / game per second of the on arm, walk_saved_k and the shadow's us per description (shadow_hit_us / shadow_hit_walked, shadow_miss_us / shadow_misses) for the saved-time estimate (docs/359 §6). needs quiet machine.",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+      "pinReason": "m1126c repin (2026-11-26, release/merge-window-1126): asi, ini, ts3fixes and ts3agent of master set m1126c (0.36.307-m1126c), version read-back moved. [previous] simdesc-index-1126 (docs/359): master set m1126b asi + ini (0.36.306-m1126b, no native change) with ts3fixes.package.simdesc-index-1126c (m1126b source + simdescindex / simdescindexverify, default OFF, slots 1899-1922; build c: the mod scan reads the NRaas helper shapes as reads; rule-review fixes: misses check the member counts, a shadow mismatch ends the session's use, body hashes) and agent ts3agent.package.simdesc-index-1126 (m1126 agent source + the two switch names and the simdescindex_* counters)",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": true,
+      "save": "Baseline-SV-Spring",
+      "timeoutMin": 45,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "slice": 5,
+          "noSamplers": true,
+          "ab": "simdescindex",
+          "fixesRequire": "simdescindex_ready>=7,simdescindex_untrusted<=0,simdescindex_find_mismatch<=0,simdescindex_errors<=0,simdescindex_calls>=100,simdescindex_hits>=50"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.307-m1126c ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      }
+    }
+  ],
+  "regexCases": {
+    "^ts3native 0\\.36\\.307-m1126c ": {
+      "match": [
+        "ts3native 0.36.307-m1126c 2026-11-26 16:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.306-m1126b 2026-11-26 07:55:29",
+        "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+        "ts3native 0.36.299-m1122 2026-11-22 06:55:20",
+        "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+        "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    }
+  }
+}

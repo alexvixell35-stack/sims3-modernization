@@ -1,0 +1,68 @@
+{
+  "note": "heapcall-monojit-off-1126 (2026-11-26, merge/cp0-1126 rule-review fixes, NOT RUN): [Crash] HeapCall's HcdOutside (heapcall.cpp) skips only our [MonoJit] region, not Mono's own code manager chunks (private executable memory; no cheap range lookup, Mono is linked into TS3W). An exception in Mono-jitted code (an AV Mono turns into a NullReferenceException) would then log as a heapcall line. This job runs master set m1126b with [MonoJit] Enabled=0, so every managed method runs from Mono's code manager: compare its heapcall lines (eip region, prot, bytes at eip, stack) with the MonoJit-on smoke of master-smoke-m1126. Pass = no crash, detector and version read back, MonoJit off; the heapcall line count is the answer (no limit).",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "jobs": [
+    {
+      "id": "bp-heapcall-monojit-off",
+      "note": "[est 15 min] [natural play, no cheats] Baseline-BP-Spring 10 min, release defaults + [MonoJit] Enabled=0, [Crash] HeapCall=1 (default), HeapCallDump=0. Read every heapcall: line: eip region (heap / mapped, prot 20 or 40 = executable) and whether the stack names Mono-jitted frames.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "master set m1126b (0.36.306-m1126b, merge/cp0-1126 rule-review fixes): the first build with HeapCallDump split off",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "MonoJit.Enabled": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^OK   crash log: heapcall detector \\(docs/51 §948\\)": 1
+      },
+      "logForbid": {
+        "^OK   mono jit \\(docs/527\\)": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25,
+      "regexCases": {
+        "^ts3native 0\\.36\\.306-m1126b ": {
+          "match": [
+            "ts3native 0.36.306-m1126b 2026-11-26 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+            "ts3native 0.36.305-m1124g 2026-11-25 10:00:00"
+          ]
+        },
+        "^OK   crash log: heapcall detector \\(docs/51 §948\\)": {
+          "match": [
+            "OK   crash log: heapcall detector (docs/51 §948): eip outside every module, C0000096 or C000001D -> context + 16 return addresses, 48 + 8 lines, 0 minidumps at most ([Crash] HeapCallDump=0); tags in GC heap, handled/continued after 3000 ms; AV count at 0x00656277"
+          ],
+          "noMatch": [
+            "crash log: heapcall detector off ([Crash] HeapCall=0)"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1), 0 list rows"
+          ],
+          "noMatch": [
+            "OK   mono jit hot reserve (docs/537 §32): HotReserve=1, 512 KB of the 12288 KB region, 0 methods"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0
+    }
+  ],
+  "rewind": "auto",
+  "regexCases": {}
+}
