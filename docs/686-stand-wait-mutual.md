@@ -2591,3 +2591,92 @@ restriction plus a portal check for autonomous routes). Audit of the household f
 - standwaitlocked ends a wait at a privacy-locked room earlier; it opens nothing.
 - reachcache sets doors to `Nobody` for a moment and restores them in the same call (its own measurement; docs/688).
 - familybath (§44) changes the privacy situation's rule only and refuses any room the player locked.
+
+## 44. The bathroom as one system; family may use another fixture in a room with privacy (`familybath`, `familybathhh`, `familybathlog`; 2026-11-27, `post/familybath-1127`, built, default off, CHANGES AN EA RULE, storm A/B s703)
+
+### 44.1 Review of the bathroom fixes (facilityplan, facilityquick, facilitychain, showerpeeplan, privacyroom, bathroomwait, lineswitch, standwaitlocked)
+
+Measured (8 Sims, one bathroom, s691 / s693, `hhwait.py`): the toilet line costs 27 sim-min per Sim-day (p50 21, p90
+36); a bath or shower holds the room's privacy for a mean of 51-76 sim-min, and for that time the toilet and the sink
+are closed to everyone but toddlers and the bather's partner; an autonomous toilet clean takes a turn in the line.
+
+1. **The room, not the fixture, is the unit EA locks.** Every fix so far works inside that rule: privacyroom stops
+   autonomy from picking a fixture in the room, bathroomwait waits for the toilet's room to open, facilityplan counts
+   every fixture of the room as taken until the privacy use ends. None of them can use the toilet during a bath.
+   That is the largest remaining wait and is an EA rule, so it is a switch of its own: familybath (44.2).
+2. **Cleaning takes a turn** while Sims queue: cleandefer (§45).
+3. **Two "who is sent to which toilet" tables.** bathroomwait keeps its own claim list (30 sim-min) beside nextplan's
+   claim table; a Sim sent by bathroomwait is not seen by nextplan's pick or by cleandefer until its action is queued.
+   To do: bathroomwait's claim as an `HhHold` (§41). Not changed here (the queued action is seen by both a tick later).
+4. **Order tests** in bathroomwait and fridgeline now use `HhDirected` (§41).
+5. **Checked, no change:** privacyroom and familybath answer different questions (who is *in* the situation; who may
+   *ignore* it) and do not overlap; lineswitch and facilitychain move only autonomous actions; standwaitlocked ends a
+   wait at a room with privacy and opens nothing; none of them touches a door lock the player set (§41.3).
+6. **Left alone on purpose:** shower and bath lengths, motive rates and autonomy weights (balance, not bugs).
+
+### 44.2 familybath [verified, decompiled `GenericPrivacySituation`, `PrivacySituation`, `Toilet.ToiletSituation`, `Shower` / `Bathtub` privacy situations, `Sim.CanIgnoreNormalPrivacySituationsWith`, `CommonDoor`]
+
+EA has two different things that keep a Sim out of a bathroom:
+
+- **The door's lock**, set by the player on the door (`CommonDoor.tLock`: nobody, selected Sim, household, pets, owner
+  list, VIP room), asked by the door itself (`CommonDoor.IsAllowedThrough`). **familybath never changes or bypasses
+  it** (the player: "If its locked its manually locked, i think we shouldnt mess with that"). A Sim the door refuses
+  waits or goes elsewhere exactly as in EA's game, and a room whose doors the player locked against a Sim is never
+  granted (`HhDoorLockedAgainst`; selftest cases for both mechanisms).
+- **The automatic privacy situation** a Sim gets while it showers, bathes or uses the toilet: a room restriction, a
+  portal check for autonomous routes, and a shoo for Sims inside. Its one rule for exceptions is
+  `OtherSimCanIgnorePrivacy`: toddlers and babies, and for these situations the Sim's romantic partner.
+
+familybath adds one more exception to the second: a Sim of the **same household** that comes for a **different
+fixture**: the toilet or the sink while someone showers or bathes, the sink while someone uses the toilet (its running
+or next action targets that fixture in that room). It keeps a pass for 5 sim-min after its last such ask (it washes
+its hands and walks out without being shooed), and the Sim it joined is accepted by the newcomer's own situation (a
+toilet user does not shoo the bather out of the tub).
+
+Never: guests, visitors, service Sims (not the household); either Sim Never Nude or Shy (EA's modesty traits); pets;
+the same fixture; a second toilet user; WooHoo and every other privacy situation. Everything else is EA's: the Sims
+walk in and use EA's animations, nothing is snapped, skipped or clipped, the privacy situation still runs for
+everyone else, buffs and events are unchanged.
+
+Scope: `familybath` = households the player does not control, `familybathhh` = the active household. It changes an EA
+rule, so no other switch turns it on and it is in no proven set.
+
+Works with: privacyroom (unchanged), bathroomwait (`FbOpenFor` with commit: a toilet in a room held only by a household
+member's shower or bath counts as free, and the pushed Sim has its pass before the game's tests), facilityplan
+(`FbOpenFor` estimate: such a toilet or sink is not counted as taken), cleandefer, nextplan.
+
+Swap: `GenericPrivacySituation.OtherSimCanIgnorePrivacy` (EA's body folded in, no extra frame with the switches off).
+Counters 5090-5099. Selftest `tools/selftest/familybath` (15 checks).
+
+### 44.3 Storm A/B s703 (2026-11-27, Deck, Sunset Valley new game, 25 min, seed 156, the s691 / s693 household: 8 Sims, "Shotgun Style - 2br, 1ba", a group meal every 6 min; test build = the s693 base + §41 + §44 + §45) [verified in logs]
+
+Arm a = the household fixes planned on (facilityplan, facilityquick, facilitychain, showerpeeplan, nextplan, fridgeline,
+clipwait, all with hh; bathroomwait, privacyroom). Arm b = a plus `familybath familybathhh cleandefer cleandeferhh`.
+Household waits from `hhwait.py` (HH=Northcott), 7.2 Sim-days each:
+
+| | a (planned set) | b (+ familybath, cleandefer) |
+|---|---|---|
+| toilet line, sim-min per Sim-day (n, p50, p90) | 23.3 (6, 30.7, 41.9) | 17.7 (5, 22.7, 43.5) |
+| shower / bath line, per Sim-day (n) | 5.9 (4) | 2.1 (3) |
+| household members let into a room with privacy | 0 (would 18) | 11, all on screen |
+| the joined Sim accepted by the newcomer's situation | 0 | 86 asks |
+| "be shooed to the next room" lines | 16 | 6 |
+| first-plan route fails at bathroom fixtures (household) | 34 | 31 |
+| EA's rule kept: modest / not family / door locked by the player | 0 / 0 / 0 | 0 / 0 / 0 |
+| snaps, clips | 0 | 0 |
+| familybath errors, native exception lines | 0, 15 | 0, 16 |
+| hitches >= 300 ms | 7 | 7 |
+| all household waits, per Sim-day | 48.6 | 72.4 |
+
+Reading: the mechanism works (11 household members used the toilet or the sink during a bath or shower, with EA's
+animations, no shoo of the bather, no error) and the bathroom lines are lower, but **the line figures are not proof**:
+the same configuration gave 7.9 to 38.0 sim-min per Sim-day of toilet line across s691a/b and s693a/b, so 23.3 vs 17.7
+is inside the run-to-run spread (5-6 waits per arm). The total rose because the fridge line was 31.2 per Sim-day in b
+against 4.8 in a (4.8 to 23.4 in the four earlier runs); nothing in these two fixes touches the fridge, but one run
+cannot rule out an indirect effect (more Sims free at the same time). A third run of each arm would settle both.
+A first attempt at arm b ran with the 8-Sim household unselected (the harness's household switch threw) and is not
+counted; there the Northcotts, as an NPC household, were let in 7 times with 0 errors. No door on that lot is locked by
+the player, so the door-lock rule is covered by the selftest only (not run in game).
+The first test build, on the current upstream main, died at world load twice with the s693 asi (an access violation
+at address 0, once with none of these switches on); the cause is not established (the combo build with the same hooks
+loads). The storm therefore ran on the s693 base; the post branches are built and checked, not loaded in game.
