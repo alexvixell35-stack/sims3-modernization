@@ -114,3 +114,5 @@
 #   seatclash seatclashhh
 # docs/686 §43 mopclaim (2026-11-27): a puddle being mopped is held in nextplan's claim table; forced repro mopclaim-force only, default off:
 #   mopclaim mopclaimhh
+# docs/686 §44 familybath (2026-11-27): changes an EA rule (household members may enter a room with shower / bath / toilet privacy for another fixture); the player's choice, default off, never in a proven set:
+#   familybath familybathhh

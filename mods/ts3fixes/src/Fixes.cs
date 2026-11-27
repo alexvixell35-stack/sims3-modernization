@@ -566,6 +566,7 @@ namespace Ts3Fixes
             ApplySinkFree();           // docs/686 §40 (SinkFree.cs): sinkfree / sinkfreehh / sinkfreelog, off by default (counts either way); swaps ServingContainer.ServingContainer_CleanUp.GetBestObjectToWashDishes
             ApplySeatClash();          // docs/686 §42 (SeatClash.cs): seatclash / seatclashhh / seatclashlog, off by default (the probe counts either way); swaps ChairDining / ChairBarStool.RouteToForSitting, ChairDining.CanScootBack (after doorseat's: theirs answers first), GameObject.PushSimsFromFootprint, EatingSurfaceImpl.GetClosestFreeSlotPair
             ApplyMopClaim();           // docs/686 §43 (MopClaim.cs): mopclaim / mopclaimhh / mopclaimlog, off by default (the probe counts either way); swaps Terrain.PuddleInteraction.GetClosestPuddle, Terrain.Mopping.Run
+            ApplyFamilyBath();    // docs/686 §44 (FamilyBath.cs): familybath / familybathhh / familybathlog, off by default (changes an EA rule: the player's choice); swaps GenericPrivacySituation.OtherSimCanIgnorePrivacy
             ApplyUnseenSkip();         // docs/686 §37 (UnseenSkip.cs): rhskipunseen, bookskipunseen, gymtwin, lineswitchpc, slidehang and their household opt-ins, off by default (counts either way); swaps Bookshelf_ReadSomething.Run; the rest rides ObjShare's, ShareLanes' and LineSwitch's hooks
             ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh / elevskiphhunseen, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
             ApplyElevParked();         // docs/686 §34 (ElevParked.cs): elevparked / elevparkedhh, off by default (counts either way); swaps ElevatorDoorsPortalComponent.OnApproachingPortalObject
@@ -1873,7 +1874,9 @@ namespace Ts3Fixes
         // [5060-5072] mopclaim (MopClaim.cs, docs/686 §43; 5060-5079 reserved by hand 2026-11-27): mop runs / ended with a failed walk or
         // shrug / puddle picks / held by another mopping Sim / took another puddle / none left / would / ordered: kept / holds / errors /
         // lines / household runs / household failed.
-        const int kCounterSlots = 5090;  // 5090: seatclash 5020-5039, fridgeshare 5040-5059, mopclaim 5060-5079, sinkfree 5080-5089
+        // [5090-5099] familybath (FamilyBath.cs, docs/686 §44; reserved 2026-11-27): household members let in / would / joined Sim accepted /
+        // modest / not family / door locked by the player / let in on screen / errors / lines / planner asks answered open.
+        const int kCounterSlots = 5110;  // 5090: seatclash 5020-5039, fridgeshare 5040-5059, mopclaim 5060-5079, sinkfree 5080-5089
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2285,6 +2288,9 @@ namespace Ts3Fixes
                 case "mopclaim": return Instantiator.kMopClaim;  // MopClaim.cs (docs/686 §43): a puddle being mopped is held, another Sim's own pick takes a free puddle or ends quietly, NPCs, off
                 case "mopclaimhh": return Instantiator.kMopClaimHh;  // MopClaim.cs: the same for household and selected Sims (stands alone), off
                 case "mopclaimlog": return Instantiator.kMopClaimLog;  // MopClaim.cs: one line per pick of a held puddle and per failed mop run
+                case "familybath": return Instantiator.kFamilyBath;  // FamilyBath.cs (docs/686 §44): household members may enter a room with shower / bath / toilet privacy for another fixture, NPC households, off (changes an EA rule)
+                case "familybathhh": return Instantiator.kFamilyBathHh;  // FamilyBath.cs: the same for the active household (stands alone), off
+                case "familybathlog": return Instantiator.kFamilyBathLog;  // FamilyBath.cs: one line per new answer; counts the would-be passes with the switches off
                 case "reachcache": return Instantiator.kReachCache;  // ReachCache.cs (docs/688): an NPC's plan to rooms behind portals locked for it fails at once, autonomy skips the pair, off
                 case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off
                 case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off

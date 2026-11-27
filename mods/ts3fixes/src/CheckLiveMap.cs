@@ -187,6 +187,9 @@ namespace Ts3Fixes
                 case "failreplanboat": return EpLive(typeof(RouteBackoffHook), 4);
                 case "fairyauratimer": return EpLive(typeof(FairyAuraHook), 1);
                 case "famcursorleak": return EpLive(typeof(CplHook), 0, "sCplDashRemove", sCplDashRemove, 1, "sBilDict", sBilDict, null, "sBilDict", sBilDict, "static", "sBilHandle", sBilHandle, "get", "sBilDeregister", sBilDeregister, 1);
+                case "familybath": return EpLive(typeof(FbHook), 1);
+                case "familybathhh": return EpLive(typeof(FbHook), 1);
+                case "familybathlog": return EpLive(typeof(FbHook), 1);
                 case "familyinvghost": return EpLive(typeof(FigHook), 1);
                 case "farthestsorted": return EpLive(typeof(FarthestLotHook), 1);
                 case "fastreftable": return EpLive(typeof(RefTableHook), 0);

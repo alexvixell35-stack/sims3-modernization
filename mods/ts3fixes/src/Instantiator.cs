@@ -548,6 +548,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kMopClaim = false;  // mopclaim (docs/686 §43): the puddle an NPC mops is held for it; another Sim's own pick of that puddle takes a free one or ends without a walk (MopClaim.cs)
         [Tunable] public static bool kMopClaimHh = false;  // mopclaimhh: the same for household and selected Sims
         [Tunable] public static bool kMopClaimLog = false;  // mopclaimlog: one ts3native.log line per pick of a held puddle and per failed mop run
+        [Tunable] public static bool kFamilyBath = false;  // familybath (docs/686 §44): in households the player does not control, a household member may enter a room with shower, bath or toilet privacy to use another fixture (EA lets only toddlers and partners in); never past a door the player locked (FamilyBath.cs)
+        [Tunable] public static bool kFamilyBathHh = false;  // familybathhh: the same for the active household
+        [Tunable] public static bool kFamilyBathLog = false;  // familybathlog: one ts3native.log line per new answer
         [Tunable] public static bool kFridgeFfLog = false;  // fridgefflog: one ts3native.log line per fast grab
         [Tunable] public static bool kCamSafe = false;  // camsafe (docs/690): every off-screen shortcut asks one camera-safe rule: predictive reach margin, recently-seen hold, camera-jump pause (CamSafe.cs); off = each fix's old test, unchanged
         [Tunable] public static bool kCamSafeLog = false;  // camsafelog: with camsafe off, sample the camera and count what camsafe would say (counters 4880-4899), behaviour unchanged
