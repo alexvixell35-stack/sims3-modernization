@@ -313,6 +313,9 @@ namespace Ts3Fixes
                 case "moodtankreset": return EpLive(typeof(BMtHook), 1, "sMtPrev", sMtPrev, null);
                 case "moondiallistener": return EpLive(typeof(BMdlHook), 1, "sMdlListener", sMdlListener, null);
                 case "moonriselistener": return EpJoin(EpLive(typeof(BMrFairyHook), 1), EpLive(typeof(BMrWolfHook), 1));
+                case "mopclaim": return EpJoin(EpLive(typeof(McPickHook), 1), EpLive(typeof(McRunHook), 1));
+                case "mopclaimhh": return EpJoin(EpLive(typeof(McPickHook), 1), EpLive(typeof(McRunHook), 1));
+                case "mopclaimlog": return EpLive(typeof(McRunHook), 1);
                 case "mopunreachable": return EpJoin(EpLive(typeof(MopFloorHook), 1), EpLive(typeof(MopRunHook), 1, "sMuJig", sMuJig, null));
                 case "motivebar": return EpLive(typeof(MotiveBarHook), 0);
                 case "motivebuf": return EpLive(typeof(MotivesUpdateHook), 1, "sMbMotives", sMbMotives, null);

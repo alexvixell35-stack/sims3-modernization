@@ -112,3 +112,5 @@
 #   doorseat doorseathh seatreach seatreachhh seatsnap
 # docs/686 §42 seatclash (2026-11-27): chairs held from pick to seat, push wait ends after the shared grace; forced repro seatclash-force only, default off:
 #   seatclash seatclashhh
+# docs/686 §43 mopclaim (2026-11-27): a puddle being mopped is held in nextplan's claim table; forced repro mopclaim-force only, default off:
+#   mopclaim mopclaimhh

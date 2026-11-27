@@ -306,6 +306,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSeatClash value="False" />
     <kSeatClashHh value="False" />
     <kSeatClashLog value="False" />
+    <kMopClaim value="False" />
+    <kMopClaimHh value="False" />
+    <kMopClaimLog value="False" />
     <kCamSafe value="False" />
     <kCamSafeLog value="False" />
     <kCamSafeMarginPct value="25" />

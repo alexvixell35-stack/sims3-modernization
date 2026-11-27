@@ -156065,5 +156065,1089 @@
         "optional": true
       }
     ]
+  },
+  {
+    "id": "mopclaim-force",
+    "bug": "A puddle has no reservation: every Sim that mops takes the nearest puddle, walks over and only then finds the tile blocked by the Sim already mopping it; the second Sim plays the route-fail shrug and gives up (docs/686 §43)",
+    "fix": "ts3fixes MopClaim.cs: mopclaim (NPCs) / mopclaimhh (household and selected Sims), default off, docs/686 §43",
+    "save": "Sunset Valley new game (the household and the room are made by the repro)",
+    "note": "4 household Sims in one room; rounds 1-2 one puddle, rounds 3-4 three puddles; 'MopClaimCheck mop' queues EA's own autonomous mop for all four at once. Both arms run the planned-on household set; arm on adds mopclaim + mopclaimhh.",
+    "expect": "off: mop runs that ended with a failed walk or shrug > 0, 'would' > 0. on: failed runs 0 (or far fewer), 'took another puddle' > 0 in the three-puddle rounds, 'ended quietly' > 0 in the one-puddle rounds, every puddle mopped, errors 0.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "mopclaim": false,
+          "mopclaimhh": false,
+          "mopclaimlog": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Mopclaim",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Ada",
+              "last": "Mopclaim",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Ben",
+              "last": "Mopclaim",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Cia",
+              "last": "Mopclaim",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "d",
+              "first": "Dov",
+              "last": "Mopclaim",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "4-Sim household on a vacant lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Mopclaim"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "setup": true,
+        "waitS": 1,
+        "note": "only the orders move the Sims"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E",
+            "E E E E E E E",
+            "E E E E E E E",
+            "E E E E E E E",
+            "c E E E E E E"
+          ],
+          "house": true,
+          "margin": 0,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "sim_timeout_s": 120,
+          "legend": {
+            "c": {
+              "name": "",
+              "class": "Counter",
+              "facing": "N"
+            }
+          }
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 420
+        },
+        "note": "one room 7x5 with a counter as the place marker"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "mustMatch": "controls ok"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "nextplan": true,
+          "nextplanhh": true,
+          "clipwait": true,
+          "clipwaithh": true,
+          "mopclaim": false,
+          "mopclaimhh": false,
+          "mopclaimlog": true,
+          "routefaillog": true
+        },
+        "waitS": 1,
+        "note": "arm off: the planned-on set, mopclaim off (probe only)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fridgeline": true,
+          "fridgelinehh": true,
+          "bathroomwait": true,
+          "privacyroom": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "the rest of the planned-on set, where the branch has it"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 2.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-off-1: puddle 1 of 1"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "mopclaim-off-1"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "mop"
+          ]
+        },
+        "max": 4000,
+        "waitS": 40,
+        "mustMatch": "queued for 4",
+        "note": "mopclaim-off-1: all four Sims start EA's autonomous mop at once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "mopclaim-off-1 counters"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 2.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-off-2: puddle 1 of 1"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "mopclaim-off-2"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "mop"
+          ]
+        },
+        "max": 4000,
+        "waitS": 40,
+        "mustMatch": "queued for 4",
+        "note": "mopclaim-off-2: all four Sims start EA's autonomous mop at once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "mopclaim-off-2 counters"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 2.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-off-3: puddle 1 of 3"
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 3.5
+        },
+        "waitS": 1,
+        "note": "mopclaim-off-3: puddle 2 of 3"
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 5.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-off-3: puddle 3 of 3"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "mopclaim-off-3"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "mop"
+          ]
+        },
+        "max": 4000,
+        "waitS": 40,
+        "mustMatch": "queued for 4",
+        "note": "mopclaim-off-3: all four Sims start EA's autonomous mop at once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "mopclaim-off-3 counters"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 2.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-off-4: puddle 1 of 3"
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 3.5
+        },
+        "waitS": 1,
+        "note": "mopclaim-off-4: puddle 2 of 3"
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 5.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-off-4: puddle 3 of 3"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "mopclaim-off-4"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "mop"
+          ]
+        },
+        "max": 4000,
+        "waitS": 40,
+        "mustMatch": "queued for 4",
+        "note": "mopclaim-off-4: all four Sims start EA's autonomous mop at once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "mopclaim-off-4 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "nextplan": true,
+          "nextplanhh": true,
+          "clipwait": true,
+          "clipwaithh": true,
+          "mopclaim": true,
+          "mopclaimhh": true,
+          "mopclaimlog": true,
+          "routefaillog": true
+        },
+        "waitS": 1,
+        "note": "arm on: the planned-on set plus mopclaim + mopclaimhh"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fridgeline": true,
+          "fridgelinehh": true,
+          "bathroomwait": true,
+          "privacyroom": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "the rest of the planned-on set, where the branch has it"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 2.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-on-1: puddle 1 of 1"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "mopclaim-on-1"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "mop"
+          ]
+        },
+        "max": 4000,
+        "waitS": 40,
+        "mustMatch": "queued for 4",
+        "note": "mopclaim-on-1: all four Sims start EA's autonomous mop at once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "mopclaim-on-1 counters"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 2.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-on-2: puddle 1 of 1"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "mopclaim-on-2"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "mop"
+          ]
+        },
+        "max": 4000,
+        "waitS": 40,
+        "mustMatch": "queued for 4",
+        "note": "mopclaim-on-2: all four Sims start EA's autonomous mop at once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "mopclaim-on-2 counters"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 2.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-on-3: puddle 1 of 3"
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 3.5
+        },
+        "waitS": 1,
+        "note": "mopclaim-on-3: puddle 2 of 3"
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 5.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-on-3: puddle 3 of 3"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "mopclaim-on-3"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "mop"
+          ]
+        },
+        "max": 4000,
+        "waitS": 40,
+        "mustMatch": "queued for 4",
+        "note": "mopclaim-on-3: all four Sims start EA's autonomous mop at once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "mopclaim-on-3 counters"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Mopclaim"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 2.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-on-4: puddle 1 of 3"
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 3.5
+        },
+        "waitS": 1,
+        "note": "mopclaim-on-4: puddle 2 of 3"
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 2.5,
+          "right": 5.0
+        },
+        "waitS": 1,
+        "note": "mopclaim-on-4: puddle 3 of 3"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "mopclaim-on-4"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "mop"
+          ]
+        },
+        "max": 4000,
+        "waitS": 40,
+        "mustMatch": "queued for 4",
+        "note": "mopclaim-on-4: all four Sims start EA's autonomous mop at once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopClaimCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "mopclaim-on-4 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      }
+    ]
   }
 ]
