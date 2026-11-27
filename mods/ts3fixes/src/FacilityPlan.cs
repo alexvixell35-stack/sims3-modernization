@@ -319,7 +319,7 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             c[kFpChecks]++;
             if (!w.FpSeen) { w.FpSeen = true; c[kFpWaits]++; }
-            bool on = ShortcutOn("facilityplan"), human = LswHuman(sim), auto = w.Ia.Autonomous;
+            bool on = ShortcutOn("facilityplan"), human = LswHuman(sim), auto = !HhDirected(w.Ia);  // an ordered action keeps its object (HhShared.cs)
             bool scope = ShlScope(sim, ShortcutOn("facilityplanhh"));
             bool joinUnused; Sim user;
             float cur = FpBusy(w.Target, sim, kind, out joinUnused, out user);

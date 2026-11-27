@@ -86,7 +86,11 @@ namespace Ts3Fixes
         {
             Release(sim);
             Claim old;
-            if (mByTarget.TryGetValue(target, out old) && old.Sim != sim) mBySim.Remove(old.Sim);  // newer claim wins (EA queued both)
+            if (mByTarget.TryGetValue(target, out old))
+            {
+                ulong ot;
+                if (old.Sim != sim && mBySim.TryGetValue(old.Sim, out ot) && ot == target) mBySim.Remove(old.Sim);  // newer claim wins (EA queued both)
+            }
             else if (mByTarget.Count >= kMaxClaims) { Sweep(now, true); if (mByTarget.Count >= kMaxClaims) { Full++; return false; } }
             Claim c; c.Sim = sim; c.Until = now + ttl;
             mByTarget[target] = c;
@@ -100,7 +104,9 @@ namespace Ts3Fixes
             Claim c;
             if (!mByTarget.TryGetValue(target, out c)) return 0;
             if (c.Until > now) return c.Sim;
-            mByTarget.Remove(target); mBySim.Remove(c.Sim); Expired++;
+            mByTarget.Remove(target); Expired++;
+            ulong t;
+            if (mBySim.TryGetValue(c.Sim, out t) && t == target) mBySim.Remove(c.Sim);  // a hold has no by-Sim entry: the Sim's claim stays
             return 0;
         }
 
@@ -111,6 +117,34 @@ namespace Ts3Fixes
         }
 
         public ulong TargetOf(ulong sim) { ulong t; return mBySim.TryGetValue(sim, out t) ? t : 0; }
+
+        // ---- holds (docs/686 §41): the other household fixes' reservations (a chair a Sim walks to, a puddle a Sim mops)
+        // live in the same table, so every search and every fix reads one answer from Holder. A hold differs from a claim
+        // in one way: it is not the Sim's "next target", so the Sim's next claim does not drop it and Release(sim) leaves
+        // it; it ends by Drop(target, sim) or by its expiry. A hold on a claimed target replaces the claim.
+        public bool Hold(ulong target, ulong sim, long now, long ttl)
+        {
+            Claim old;
+            if (mByTarget.TryGetValue(target, out old))
+            {
+                ulong t;
+                if (mBySim.TryGetValue(old.Sim, out t) && t == target) mBySim.Remove(old.Sim);
+            }
+            else if (mByTarget.Count >= kMaxClaims) { Sweep(now, true); if (mByTarget.Count >= kMaxClaims) { Full++; return false; } }
+            Claim c; c.Sim = sim; c.Until = now + ttl;
+            mByTarget[target] = c;
+            return true;
+        }
+
+        // ends sim's hold or claim on target; another Sim's stays
+        public void Drop(ulong target, ulong sim)
+        {
+            Claim c;
+            if (!mByTarget.TryGetValue(target, out c) || c.Sim != sim) return;
+            mByTarget.Remove(target);
+            ulong t;
+            if (mBySim.TryGetValue(sim, out t) && t == target) mBySim.Remove(sim);
+        }
 
         public void Release(ulong sim)
         {

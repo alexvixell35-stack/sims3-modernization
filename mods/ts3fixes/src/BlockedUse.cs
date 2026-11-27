@@ -350,11 +350,8 @@ namespace Ts3Fixes
             {
                 GameObject target = s.Obj[pick];
                 Vector3 pos = s.Pos[pick], fwd = target.GetForwardOfSlot(s.Name[pick]);
-                bool fade = k.Seat && SrFadeWanted(sim, pos);
-                if (fade) sim.FadeOut(true, false);
-                sim.SetPosition(pos);
-                if (BuValid(fwd)) sim.SetForward(fwd);
-                if (fade) sim.FadeIn();
+                bool fade = HhSnapSeen(sim, pos);  // every snap that can be seen is faded (HhShared.cs, docs/686 §41), not seats only
+                HhSnap(sim, pos, fwd, BuValid(fwd), fade);
                 if (k.Seat) SrSnapped(fade);
                 RoutePlanResult ok = new RoutePlanResult();
                 ok.mType = RoutePlanResultType.Succeeded;
@@ -618,8 +615,7 @@ namespace Ts3Fixes
                     }
                     if (!BuValid(to)) return r;
                     Vector3 from = sim.Position;
-                    sim.SetPosition(to);
-                    if (found && BuValid(fwd)) sim.SetForward(fwd);
+                    HhSnap(sim, to, fwd, found && BuValid(fwd), x.Owner == 0 && HhSnapSeen(sim, to));  // faded when seen; a woohoosnap / pairsnap exit keeps its own timing
                     c[kBuSnapOut]++;
                     if (found) c[kBuOutFound]++;
                     if (x.Owner != 0) WhsOut(sim, x.Owner, from, to);  // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20)

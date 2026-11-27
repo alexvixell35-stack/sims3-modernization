@@ -39,7 +39,6 @@ namespace Ts3Fixes
         const int kDsTests = 4980, kDsWould = 4981, kDsScootFixed = 4982, kDsFeetFixed = 4983, kDsNoDoor = 4984, kDsKept = 4985,
             kDsExempt = 4986, kDsErrors = 4987, kDsScootRefused = 4988, kDsFeetRefused = 4989, kSrFaded = 4990, kDsLines = 4991,
             kSrCases = 4995, kSrGraceWalked = 4996, kSrClip = 4997, kSrSnap = 4998, kSrTestAllowed = 4999;
-        const int kSrGraceMs = 2500;  // real time the Sim waits at a closed seat before the clip walk (the slot may open)
         const float kDsReach = 3f;   // doors this close to the chair (flat, metres) may be allowed
 
         static readonly LineCapCore sDsCap = new LineCapCore(20, 60000, 300);
@@ -190,7 +189,7 @@ namespace Ts3Fixes
         // ---- seatreach / seatreachhh / seatsnap (docs/686 §39.4): any seat the Sim cannot reach ----
         // A player's wish: "if sims cant reach the table chair they could just teleport to the interaction maybe like the
         // bed thing ... or walk there clipping through things". Order: (1) the game's own approach slots; (2) after a
-        // grace of kSrGraceMs a normal plan again, then blockeduse's walk through objects (clip) to the slot; (3) only when
+        // grace (the shared one, HhGraceMs) a normal plan again, then blockeduse's walk through objects (clip) to the slot; (3) only when
         // no such walk exists and seatsnap is on, the snap onto the slot, behind a fade when the Sim or the slot is on
         // screen. Seats: dining chairs, bar stools and every object with a Sittable (sofas, loveseats, living chairs,
         // benches). The chair's own seat tests (pull out, feet area) refused by anything but a Sim's own slot are
@@ -221,12 +220,12 @@ namespace Ts3Fixes
             catch (Exception e) { DsError(e); return false; }
         }
 
-        // The grace: the Sim stands kSrGraceMs, then the route is planned again as the game planned it. True = it
+        // The grace: the Sim stands the shared grace (HhGraceMs), then the route is planned again as the game planned it. True = it
         // succeeded (r holds that plan, the caller walks it). A cancelled or reset Sim keeps the failed plan.
         static bool SrGrace(Sim sim, Route r, BuCase k)
         {
-            int t0 = System.Environment.TickCount;
-            for (int i = 0; i < 2000 && System.Environment.TickCount - t0 < kSrGraceMs; i++)
+            int t0 = System.Environment.TickCount, graceMs = HhGraceMs();  // the shared grace (HhShared.cs): the slot may open
+            for (int i = 0; i < 2000 && System.Environment.TickCount - t0 < graceMs; i++)
             {
                 Simulator.Sleep(10);
                 if (sim.HasBeenDestroyed || sim.HasExitReason()) return false;
@@ -236,13 +235,6 @@ namespace Ts3Fixes
             PatchCounters()[kSrGraceWalked]++;
             DsLine("seatreach: " + sim.FullName + " -> " + k.Obj.GetType().Name + " 0x" + k.Obj.ObjectId.Value.ToString("X") + ": slot open after the grace, walks");
             return true;
-        }
-
-        static bool SrFadeWanted(Sim sim, Vector3 pos)
-        {
-            try { return UcOnScreen(sim) || !FarFromCamera(pos) || !FarFromCamera(sim.Position); }
-            catch (ResetException) { throw; }
-            catch (Exception) { return true; }
         }
 
         static void SrSnapped(bool faded)
