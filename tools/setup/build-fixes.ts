@@ -312,6 +312,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFamilyBath value="False" />
     <kFamilyBathHh value="False" />
     <kFamilyBathLog value="False" />
+    <kCleanDefer value="False" />
+    <kCleanDeferHh value="False" />
+    <kCleanDeferLog value="False" />
     <kCamSafe value="False" />
     <kCamSafeLog value="False" />
     <kCamSafeMarginPct value="25" />

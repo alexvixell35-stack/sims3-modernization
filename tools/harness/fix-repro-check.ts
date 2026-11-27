@@ -218,6 +218,9 @@ export const EXEMPT: Record<string, string> = {
   iafailmemo: 'Dalexlol unseen route cost PR: default off (his own advice: until a watchdog A/B), route-cost memo for townies, judged by natural games (no off arm); no forced repro',
   // contributor PR post/fglinbound-1121 (docs/682 §9)
   fglinboundhh: 'contributor: default off, household variant of fglinbound (same code path, the household gate lifted); its repro is fglinbound-check, whose live / live:big compares call the path directly; turned on only after fglinbound shadow runs (docs/682 §9.8 step 3)',
+  cleandefer: 'measured by the household storm A/B of docs/686 §45 (8 Sims, one bathroom); no forced repro: the case needs a toilet line and an autonomous clean at the same time, which the storm gives',
+  cleandeferhh: 'measured by the household storm A/B of docs/686 §45 (8 Sims, one bathroom); no forced repro: the case needs a toilet line and an autonomous clean at the same time, which the storm gives',
+  cleandeferlog: 'measured by the household storm A/B of docs/686 §45 (8 Sims, one bathroom); no forced repro: the case needs a toilet line and an autonomous clean at the same time, which the storm gives',
   familybath: 'measured by the household storm A/B of docs/686 §44 (8 Sims, one bathroom); no forced repro: the case needs a bath in progress and a second Sim with a bladder need, which the storm gives',
   familybathhh: 'measured by the household storm A/B of docs/686 §44 (8 Sims, one bathroom); no forced repro: the case needs a bath in progress and a second Sim with a bladder need, which the storm gives',
   familybathlog: 'measured by the household storm A/B of docs/686 §44 (8 Sims, one bathroom); no forced repro: the case needs a bath in progress and a second Sim with a bladder need, which the storm gives',

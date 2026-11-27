@@ -116,3 +116,5 @@
 #   mopclaim mopclaimhh
 # docs/686 §44 familybath (2026-11-27): changes an EA rule (household members may enter a room with shower / bath / toilet privacy for another fixture); the player's choice, default off, never in a proven set:
 #   familybath familybathhh
+# docs/686 §45 cleandefer (2026-11-27): a toilet clean waits while Sims wait for the toilet; storm A/B only, default off:
+#   cleandefer cleandeferhh

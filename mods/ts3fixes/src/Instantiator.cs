@@ -551,6 +551,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kFamilyBath = false;  // familybath (docs/686 §44): in households the player does not control, a household member may enter a room with shower, bath or toilet privacy to use another fixture (EA lets only toddlers and partners in); never past a door the player locked (FamilyBath.cs)
         [Tunable] public static bool kFamilyBathHh = false;  // familybathhh: the same for the active household
         [Tunable] public static bool kFamilyBathLog = false;  // familybathlog: one ts3native.log line per new answer
+        [Tunable] public static bool kCleanDefer = false;  // cleandefer (docs/686 §45): an NPC's own pick to clean a toilet ends quietly while other Sims wait for that toilet (line, queued, claimed, household bladder need); ordered cleans and toilets deferred 120 sim-min are cleaned (CleanDefer.cs)
+        [Tunable] public static bool kCleanDeferHh = false;  // cleandeferhh: the same for household and selected Sims
+        [Tunable] public static bool kCleanDeferLog = false;  // cleandeferlog: one ts3native.log line per deferred, would-be, ordered or capped clean
         [Tunable] public static bool kFridgeFfLog = false;  // fridgefflog: one ts3native.log line per fast grab
         [Tunable] public static bool kCamSafe = false;  // camsafe (docs/690): every off-screen shortcut asks one camera-safe rule: predictive reach margin, recently-seen hold, camera-jump pause (CamSafe.cs); off = each fix's old test, unchanged
         [Tunable] public static bool kCamSafeLog = false;  // camsafelog: with camsafe off, sample the camera and count what camsafe would say (counters 4880-4899), behaviour unchanged

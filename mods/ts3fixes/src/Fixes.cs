@@ -567,6 +567,7 @@ namespace Ts3Fixes
             ApplySeatClash();          // docs/686 §42 (SeatClash.cs): seatclash / seatclashhh / seatclashlog, off by default (the probe counts either way); swaps ChairDining / ChairBarStool.RouteToForSitting, ChairDining.CanScootBack (after doorseat's: theirs answers first), GameObject.PushSimsFromFootprint, EatingSurfaceImpl.GetClosestFreeSlotPair
             ApplyMopClaim();           // docs/686 §43 (MopClaim.cs): mopclaim / mopclaimhh / mopclaimlog, off by default (the probe counts either way); swaps Terrain.PuddleInteraction.GetClosestPuddle, Terrain.Mopping.Run
             ApplyFamilyBath();    // docs/686 §44 (FamilyBath.cs): familybath / familybathhh / familybathlog, off by default (changes an EA rule: the player's choice); swaps GenericPrivacySituation.OtherSimCanIgnorePrivacy
+            ApplyCleanDefer();    // docs/686 §45 (CleanDefer.cs): cleandefer / cleandeferhh / cleandeferlog, off by default; swaps Toilet.Clean.Run
             ApplyUnseenSkip();         // docs/686 §37 (UnseenSkip.cs): rhskipunseen, bookskipunseen, gymtwin, lineswitchpc, slidehang and their household opt-ins, off by default (counts either way); swaps Bookshelf_ReadSomething.Run; the rest rides ObjShare's, ShareLanes' and LineSwitch's hooks
             ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh / elevskiphhunseen, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
             ApplyElevParked();         // docs/686 §34 (ElevParked.cs): elevparked / elevparkedhh, off by default (counts either way); swaps ElevatorDoorsPortalComponent.OnApproachingPortalObject
@@ -1876,6 +1877,8 @@ namespace Ts3Fixes
         // lines / household runs / household failed.
         // [5090-5099] familybath (FamilyBath.cs, docs/686 §44; reserved 2026-11-27): household members let in / would / joined Sim accepted /
         // modest / not family / door locked by the player / let in on screen / errors / lines / planner asks answered open.
+        // [5100-5107] cleandefer (CleanDefer.cs, docs/686 §45; 5100-5109 reserved 2026-11-27): toilet cleans started / deferred / would /
+        // ordered: cleaned / deferred too long: cleaned / errors / lines / nobody waiting.
         const int kCounterSlots = 5110;  // 5090: seatclash 5020-5039, fridgeshare 5040-5059, mopclaim 5060-5079, sinkfree 5080-5089
         static int[] sCountersCache;
         static int[] PatchCounters()
@@ -2291,6 +2294,9 @@ namespace Ts3Fixes
                 case "familybath": return Instantiator.kFamilyBath;  // FamilyBath.cs (docs/686 §44): household members may enter a room with shower / bath / toilet privacy for another fixture, NPC households, off (changes an EA rule)
                 case "familybathhh": return Instantiator.kFamilyBathHh;  // FamilyBath.cs: the same for the active household (stands alone), off
                 case "familybathlog": return Instantiator.kFamilyBathLog;  // FamilyBath.cs: one line per new answer; counts the would-be passes with the switches off
+                case "cleandefer": return Instantiator.kCleanDefer;  // CleanDefer.cs (docs/686 §45): a Sim's own pick to clean a toilet waits while other Sims wait for that toilet, NPCs, off
+                case "cleandeferhh": return Instantiator.kCleanDeferHh;  // CleanDefer.cs: the same for household and selected Sims (stands alone), off
+                case "cleandeferlog": return Instantiator.kCleanDeferLog;  // CleanDefer.cs: one line per deferred, would-be, ordered or capped clean
                 case "reachcache": return Instantiator.kReachCache;  // ReachCache.cs (docs/688): an NPC's plan to rooms behind portals locked for it fails at once, autonomy skips the pair, off
                 case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off
                 case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off
