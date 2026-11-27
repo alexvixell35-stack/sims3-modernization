@@ -57,6 +57,20 @@ static class SinkFreeTest
         Check(SinkFreeCore.Nearest(null, null, null, L) == -1 && SinkFreeCore.Nearest(new float[0], new bool[0], null, L) == -1, "no sinks");
     }
 
+    static void Join()
+    {
+        const int N = SinkFreeCore.kJoinNone, Wa = SinkFreeCore.kJoinWasher, Nx = SinkFreeCore.kJoinNext;
+        Check(SinkFreeCore.Join(3f, false, 0f, false, 0f, 0, 0f) == N, "sink free, nobody coming: EA's own wash");
+        Check(SinkFreeCore.Join(3f, true, 5f, false, 0f, 0, 5f) == Wa, "washer still at it when it arrives: hand in");
+        Check(SinkFreeCore.Join(3f, true, 0.8f, false, 0f, 0, 0.8f) == N, "EA's 1-min wash done before it arrives: no wait, own wash");
+        Check(SinkFreeCore.Join(3f, true, 0.8f, true, 1f, 1, 1.8f) == Nx, "washer done soon, one in line: join the next wash");
+        Check(SinkFreeCore.Join(3f, false, 0f, true, 4f, 0, 0f) == Nx, "carrier ahead, its wash ends after this arrives: join it");
+        Check(SinkFreeCore.Join(3f, false, 0f, true, 2f, 0, 0f) == N, "carrier ahead done before this arrives: own wash");
+        Check(SinkFreeCore.Join(3f, false, 0f, true, 2f, 0, 4f) == Nx, "facilityplan says busy past the arrival: join the next wash");
+        Check(SinkFreeCore.Join(3f, false, 0f, false, 0f, 2, 9f) == N, "a line but no wash to join (hands, teeth): EA's line");
+        Check(SinkFreeCore.Join(float.NaN, true, 0.5f, false, 0f, 0, 0f) == Wa, "unknown walk counts as 0");
+    }
+
     static void Handoff()
     {
         Check(SinkFreeCore.Handoff(true, true, true, true, false, 2, 0) == G, "kitchen sink, someone washing, no free kitchen: hand in");
@@ -148,7 +162,7 @@ static class SinkFreeTest
 
     static int Main()
     {
-        Decide(); Pick(); Nearest(); Handoff(); Merge(); Open(); Times(); End();
+        Decide(); Pick(); Nearest(); Join(); Handoff(); Merge(); Open(); Times(); End();
         Console.WriteLine(sFails == 0 ? "sinkfree selftest: all passed" : "sinkfree selftest: " + sFails + " failed");
         return sFails == 0 ? 0 : 1;
     }
