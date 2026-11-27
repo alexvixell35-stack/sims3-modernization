@@ -177,7 +177,7 @@ namespace Ts3Fixes
             w.Soft = false;
             try
             {
-                if (ii.Autonomous) { sFglAutoQuiet++; return false; }
+                if (!HhDirected(ii)) { sFglAutoQuiet++; return false; }  // the shared order test (HhShared.cs)
                 if (FglFill(ii, a)) { w.Filled = true; return false; }  // this fridge action ends quietly; WashHands, then a fresh one, are next in the queue
                 a.RemoveExitReason(ExitReason.ObjectInUse | ExitReason.TimedOut);
                 a.LoopIdle();

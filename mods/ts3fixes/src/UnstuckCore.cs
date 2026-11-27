@@ -11,7 +11,7 @@ namespace Ts3Fixes
     public static class UnstuckCore
     {
         public const int kMinFails = 3;           // failed plans from one spot before the Sim is looked at
-        public const float kGraceMinutes = 2.5f;  // and at least this long since the first of them (2-3 s at normal speed)
+        public const float kGraceMinutes = HhSharedCore.kGraceMin;  // and at least this long since the first of them (2-3 s at normal speed)
         public const float kSpotTol = 0.6f;       // "one spot": this close to the first failure (flat), metres
         public const float kWindowMinutes = 120f; // a failure this long after the last one starts a new count
         public const float kAwayMin = 3f;         // "a way out": a normal plan to a place at least this far away

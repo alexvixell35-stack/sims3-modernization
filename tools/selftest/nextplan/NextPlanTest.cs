@@ -43,6 +43,23 @@ static class NextPlanTest
         Check(!k.Add(9000, 99999, 201, 5) && k.Full == 1, "full of live claims: refused, counted");
         k.Sweep(2000, false);
         Check(k.Count == 0, "sweep drops every expired claim");
+        // holds (docs/686 §41): another fix's reservation in the same table
+        NextPlanCore hd = new NextPlanCore();
+        Check(hd.Hold(700, 7, 0, 100) && hd.Holder(700, 1) == 7 && hd.TargetOf(7) == 0, "hold: held, not the Sim's next target");
+        Check(hd.Add(800, 7, 1, 100) && hd.Holder(700, 2) == 7 && hd.Holder(800, 2) == 7, "hold: the Sim's next claim leaves its hold");
+        hd.Release(7);
+        Check(hd.Holder(700, 3) == 7 && hd.Holder(800, 3) == 0, "hold: Release(sim) ends the claim only");
+        Check(hd.HeldByOther(700, 8, 3) && !hd.HeldByOther(700, 7, 3), "hold: held by another Sim");
+        hd.Drop(700, 8);
+        Check(hd.Holder(700, 4) == 7, "hold: another Sim's Drop leaves it");
+        hd.Drop(700, 7);
+        Check(hd.Holder(700, 5) == 0 && hd.Count == 0, "hold: Drop by its Sim ends it");
+        hd.Add(900, 9, 0, 100); hd.Hold(900, 10, 1, 100);
+        Check(hd.Holder(900, 2) == 10 && hd.TargetOf(9) == 0, "hold on a claimed target replaces the claim");
+        hd.Add(910, 9, 2, 1000); hd.Hold(920, 9, 2, 5);
+        Check(hd.Holder(920, 10) == 0 && hd.TargetOf(9) == 910 && hd.Holder(910, 10) == 9, "an expired hold leaves the Sim's claim");
+        hd.Hold(930, 9, 10, 5); hd.Sweep(100, true);
+        Check(hd.Holder(930, 100) == 0 && hd.TargetOf(9) == 910, "sweep: an expired hold leaves the Sim's claim");
         k.Add(1, 1, 3000, 100); k.Sweep(3001, false);
         Check(k.Count == 1, "a sweep within kSweepEvery is skipped, live claim kept");
 

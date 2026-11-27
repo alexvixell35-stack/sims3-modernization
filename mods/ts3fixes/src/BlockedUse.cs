@@ -344,8 +344,8 @@ namespace Ts3Fixes
             {
                 GameObject target = s.Obj[pick];
                 Vector3 pos = s.Pos[pick], fwd = target.GetForwardOfSlot(s.Name[pick]);
-                sim.SetPosition(pos);
-                if (BuValid(fwd)) sim.SetForward(fwd);
+                bool fade = HhSnapSeen(sim, pos);  // every snap that can be seen is faded (HhShared.cs, docs/686 §41)
+                HhSnap(sim, pos, fwd, BuValid(fwd), fade);
                 RoutePlanResult ok = new RoutePlanResult();
                 ok.mType = RoutePlanResultType.Succeeded;
                 ok.mDestSlotNameHash = (uint)s.Name[pick];
@@ -608,8 +608,7 @@ namespace Ts3Fixes
                     }
                     if (!BuValid(to)) return r;
                     Vector3 from = sim.Position;
-                    sim.SetPosition(to);
-                    if (found && BuValid(fwd)) sim.SetForward(fwd);
+                    HhSnap(sim, to, fwd, found && BuValid(fwd), x.Owner == 0 && HhSnapSeen(sim, to));  // faded when seen; a woohoosnap / pairsnap exit keeps its own timing
                     c[kBuSnapOut]++;
                     if (found) c[kBuOutFound]++;
                     if (x.Owner != 0) WhsOut(sim, x.Owner, from, to);  // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20)

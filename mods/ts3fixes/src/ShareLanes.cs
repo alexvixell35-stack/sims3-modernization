@@ -497,7 +497,7 @@ namespace Ts3Fixes
                 bool kept;
                 int d = ShareLanesCore.Pass(on, ShlScope(sim, scopeAll), sims, others, all, atDest, out kept);
                 bool atGrace = site == kSpsAtGrace;
-                if (d != ShareLanesCore.kNone && !atGrace) d = ShareLanesCore.Timed(d, ShlNearPortal(sim, sSpsSeen), 0f, Instantiator.kClipGraceMinutes);
+                if (d != ShareLanesCore.kNone && !atGrace) d = ShareLanesCore.Timed(d, ShlNearPortal(sim, sSpsSeen), 0f, HhGraceMin());
                 sSpsSeen.Clear();
                 if (d == ShareLanesCore.kDefer)
                 {
@@ -568,7 +568,7 @@ namespace Ts3Fixes
             {
                 if (sim == null || path == null || sSwfMissing.Length > 0 || !path.PlanResult.Succeeded()) return true;
                 SwfState st = SwfStateOf(sim, action);
-                if (!ShareLanesCore.GraceDue(SimClock.ElapsedTime(TimeUnit.Minutes, st.Start), Instantiator.kClipGraceMinutes)) return true;
+                if (!ShareLanesCore.GraceDue(SimClock.ElapsedTime(TimeUnit.Minutes, st.Start), HhGraceMin())) return true;
                 if (st.SpsCounted && !ShortcutOn("simpass")) return true;  // compare mode: one judgement per wait
                 ObjectGuid[] obstacles = path.FindObstaclesForSim(sim.Proxy);
                 if (obstacles == null || !SpsPass(sim, path, obstacles, kSpsAtGrace, ref st.SpsCounted)) return true;
@@ -669,7 +669,7 @@ namespace Ts3Fixes
                 && ShareLanesCore.Pass(true, true, 1, 0, true, true, out kept) == ShareLanesCore.kNone && ShareLanesCore.Pass(true, true, 1, 0, false, false, out kept) == ShareLanesCore.kExempt;
             bool ctlLadder = ShareLanesCore.AngleLadder(true, true, true, false, true) == ShareLanesCore.kNone && ShareLanesCore.AngleLadder(true, true, true, true, true) == ShareLanesCore.kGo
                 && ShareLanesCore.LadderLine(true, false, true, true) == ShareLanesCore.kNone;
-            float grace = Instantiator.kClipGraceMinutes;
+            float grace = HhGraceMin();
             bool ctlTimed = ShareLanesCore.Timed(ShareLanesCore.kGo, true, 0f, grace) == ShareLanesCore.kGo && ShareLanesCore.Timed(ShareLanesCore.kGo, false, 0f, 2.5f) == ShareLanesCore.kDefer
                 && ShareLanesCore.Timed(ShareLanesCore.kGo, false, 2.5f, 2.5f) == ShareLanesCore.kGo && ShareLanesCore.NearLane(1f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f)
                 && !ShareLanesCore.NearLane(2f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f) && !ShareLanesCore.NearLane(0f, 3f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f);

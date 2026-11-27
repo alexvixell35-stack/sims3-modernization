@@ -147,7 +147,7 @@ namespace Ts3Fixes
             bool scopeAll = hhOn || !on;  // off: count what both switches would do
             ClwSeen s = new ClwSeen();
             s.Case.ElapsedMin = elapsed;
-            s.Case.GraceMin = Instantiator.kClipGraceMinutes;
+            s.Case.GraceMin = HhGraceMin();
             s.Case.ObjectDestAllowed = Instantiator.kClipWaitObjectDest;
             s.Case.SimInScope = ShlScope(sim, scopeAll);
             s.Case.AllInScope = true;
@@ -158,7 +158,7 @@ namespace Ts3Fixes
             if (ia != null)
             {
                 s.Case.Social = ia.Target is Sim && !object.ReferenceEquals(ia.Target, sim);
-                s.Case.PlayerGoHere = !ia.Autonomous && IsPlayerSim(sim) && (ia is Terrain.GoHere || ia.GetType().Name.StartsWith("GoHere", StringComparison.Ordinal));
+                s.Case.PlayerGoHere = HhPlayerOrder(ia) && (ia is Terrain.GoHere || ia.GetType().Name.StartsWith("GoHere", StringComparison.Ordinal));
             }
 
             // the route's end: the game's own 0.6 m
@@ -238,7 +238,7 @@ namespace Ts3Fixes
             bool pet = PrxClip(sim, s.Case, s.Sims, ref petCounted, out destAccepted, out petHousehold, out petGrace);
             if (!pet)
             {
-                if (!ClipWaitCore.Due(elapsed, Instantiator.kClipGraceMinutes)) return true;
+                if (!ClipWaitCore.Due(elapsed, HhGraceMin())) return true;
                 int kept;
                 int d = ClipWaitCore.Decide(on, s.Case, out kept, out destAccepted);
                 if (!counted && (d != ClipWaitCore.kNone || kept != ClipWaitCore.kKeptNot))
@@ -429,7 +429,7 @@ namespace Ts3Fixes
         static ClipWaitCore.Case ClwCase(float elapsed, int sims, int others, bool atDest, int destKind, bool inUse)
         {
             ClipWaitCore.Case k = new ClipWaitCore.Case();
-            k.ElapsedMin = elapsed; k.GraceMin = 2.5f; k.Sims = sims; k.Others = others; k.SimAtDest = atDest; k.DestKind = destKind; k.DestInUse = inUse;
+            k.ElapsedMin = elapsed; k.GraceMin = HhSharedCore.kGraceMin; k.Sims = sims; k.Others = others; k.SimAtDest = atDest; k.DestKind = destKind; k.DestInUse = inUse;
             k.SimsOnWay = atDest ? 0 : sims; k.ObjectDestAllowed = true; k.SimInScope = true; k.AllInScope = true;
             return k;
         }
@@ -459,7 +459,7 @@ namespace Ts3Fixes
             bool ctlScope = ClipWaitCore.Decide(true, k, out kept, out dest) == ClipWaitCore.kExempt;
             bool controls = ctlGrace && ctlObject && ctlInUse && ctlFloor && ctlSocial && ctlGoHere && ctlGoHereWay && ctlScope;
             return "clipwait check (switch " + (on ? "on" : "off") + ", household " + (ShortcutOn("clipwaithh") ? "on" : "off") + ", simpass " + (ShortcutOn("simpass") ? "on" : "off")
-                + ", grace " + Instantiator.kClipGraceMinutes.ToString("0.0") + " sim-min, timer " + Instantiator.kClipWaitMinutes.ToString("0.0") + " sim-min): a Sim that waited past the grace for a busy Sim walks through="
+                + ", grace " + HhGraceMin().ToString("0.0") + " sim-min, timer " + Instantiator.kClipWaitMinutes.ToString("0.0") + " sim-min): a Sim that waited past the grace for a busy Sim walks through="
                 + fixedNow + "; control: before the grace kept=" + ctlGrace + ", object in the way kept=" + ctlObject + ", Sim using the object at the route's end kept=" + ctlInUse
                 + ", floor spot taken by a Sim accepted=" + ctlFloor + ", social kept=" + ctlSocial + ", player Go Here: end kept=" + ctlGoHere + ", way walked=" + ctlGoHereWay
                 + ", Sim out of scope exempt=" + ctlScope + "; controls ok=" + controls
