@@ -10,7 +10,7 @@ namespace Ts3Fixes
     //      to EA's pick when it is a kitchen sink, else to the nearest kitchen sink. A bathroom sink gets dishes only on a lot
     //      without a kitchen sink (then: the nearest free sink when EA's is busy). A kitchen pick never moves to a bathroom.
     //   2. Drop it in the sink: at a kitchen sink where another Sim is washing dishes, with no other kitchen sink free, the
-    //      Sim walks over and puts its dishes down beside the sink; the washer's wash runs longer by EA's time per dish and
+    //      Sim walks over and puts its dishes down beside the sink; the washer's wash runs a little longer (1/16 of EA's wash per dish, +20 % at most) and
     //      the dishes count as washed when that wash ends as EA's does. At most kHandCap dishes are handed in per wash; a
     //      wash that ends early leaves the dishes where they were put down (dirty, for EA's own cleanup).
     // Dishwashers and food synthesizers EA picks are never changed.
@@ -87,12 +87,18 @@ namespace Ts3Fixes
             return on ? kGo : kWould;
         }
 
-        // sim-minutes the wash runs longer for the dishes handed in: EA's wash length covers a full stack (kMaxDishStackSize),
-        // so one dish is length / stack size.
-        public static float ExtraMinutes(float washLengthMin, int maxStack, int dishes)
+        // sim-minutes the wash runs longer for `dishes` handed in after `before` were already handed into the same wash: a
+        // small fixed share of EA's wash length per dish (1/16), the whole wash at most kExtraCapShare (20 %) longer however
+        // many dishes come in, so the washer is not held at the sink for long.
+        public const float kExtraPerDishShare = 1f / 16f, kExtraCapShare = 0.2f;
+        public static float ExtraMinutes(float washLengthMin, int before, int dishes)
         {
-            if (washLengthMin <= 0f || maxStack <= 0 || dishes <= 0) return 0f;
-            return washLengthMin / maxStack * dishes;
+            if (washLengthMin <= 0f || dishes <= 0) return 0f;
+            if (before < 0) before = 0;
+            float cap = washLengthMin * kExtraCapShare;
+            float had = System.Math.Min(washLengthMin * kExtraPerDishShare * before, cap);
+            float now = System.Math.Min(washLengthMin * kExtraPerDishShare * (before + dishes), cap);
+            return now - had;
         }
 
         // At the end of the wash a handed-in dish is destroyed as washed only when the wash ended as EA counts it done and the

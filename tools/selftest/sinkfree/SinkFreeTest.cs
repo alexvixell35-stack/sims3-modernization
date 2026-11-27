@@ -82,8 +82,16 @@ static class SinkFreeTest
 
     static void Times()
     {
-        Check(Math.Abs(SinkFreeCore.ExtraMinutes(16f, 8, 2) - 4f) < 1e-4, "16 sim-min for a stack of 8: 2 dishes = 4 sim-min");
-        Check(SinkFreeCore.ExtraMinutes(16f, 8, 0) == 0f && SinkFreeCore.ExtraMinutes(0f, 8, 2) == 0f && SinkFreeCore.ExtraMinutes(16f, 0, 2) == 0f, "no time for nothing");
+        Check(Math.Abs(SinkFreeCore.ExtraMinutes(45f, 0, 1) - 2.8125f) < 1e-4, "45 sim-min wash: 1 dish = 45/16 = 2.81 sim-min");
+        Check(Math.Abs(SinkFreeCore.ExtraMinutes(45f, 0, 2) - 5.625f) < 1e-4, "45 sim-min wash: 2 dishes = 5.63 sim-min");
+        Check(Math.Abs(SinkFreeCore.ExtraMinutes(45f, 0, 3) - 8.4375f) < 1e-4, "45 sim-min wash: 3 dishes = 8.44 sim-min (under the 9 cap)");
+        Check(Math.Abs(SinkFreeCore.ExtraMinutes(45f, 0, 5) - 9f) < 1e-4, "5 dishes capped at 20 % = 9 sim-min");
+        Check(Math.Abs(SinkFreeCore.ExtraMinutes(45f, 2, 2) - 3.375f) < 1e-4, "2 more after 2: up to the cap, 9 - 5.625 = 3.375");
+        Check(SinkFreeCore.ExtraMinutes(45f, 4, 1) == 0f, "past the cap: nothing more");
+        float sum = 0f; for (int i = 0; i < 10; i++) sum += SinkFreeCore.ExtraMinutes(45f, i, 1);
+        Check(Math.Abs(sum - 9f) < 1e-4, "one at a time never passes the cap");
+        Check(SinkFreeCore.ExtraMinutes(45f, 0, 0) == 0f && SinkFreeCore.ExtraMinutes(0f, 0, 2) == 0f && SinkFreeCore.ExtraMinutes(-5f, 0, 2) == 0f, "no time for nothing");
+        Check(Math.Abs(SinkFreeCore.ExtraMinutes(45f, -3, 1) - 2.8125f) < 1e-4, "a bad count before counts as none");
     }
 
     static void End()
