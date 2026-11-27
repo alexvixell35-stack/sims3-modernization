@@ -533,6 +533,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kAlibiWalkLog = false;  // alibiwalklog: count what alibiwalk would cut (and long NPC walks by interaction), behaviour unchanged
         [Tunable] public static float kAlibiWalkMinM = 60f;  // alibiwalk: shortest planned route (m) that is cut
         [Tunable] public static float kAlibiWalkTailM = 10f;  // alibiwalk: metres of the route's last walking path the Sim still walks
+        [Tunable] public static bool kFamilyBath = false;  // familybath (docs/686 §44): in households the player does not control, a household member may enter a room with shower, bath or toilet privacy to use another fixture (EA lets only toddlers and partners in); never past a door the player locked (FamilyBath.cs)
+        [Tunable] public static bool kFamilyBathHh = false;  // familybathhh: the same for the active household
+        [Tunable] public static bool kFamilyBathLog = false;  // familybathlog: one ts3native.log line per new answer
         [Tunable] public static float kCamSafeMarginPct = 25f;  // camsafe: the camera reach (largest of the last kCamSafeHoldS s) grown by this many percent (screen-border margin)
         [Tunable] public static float kCamSafeLeadS = 2f;  // camsafe: plus how far the camera travels in this many seconds at its smoothed speed (prediction)
         [Tunable] public static float kCamSafeSpeedMax = 150f;  // camsafe: speed cap, m/s (a jump is handled by the jump pause, not the speed)

@@ -122,3 +122,5 @@
 #   queuewake queuewakelog
 # Dalexlol PR #712 (import 2026-11-27), default off by choice: partnerpull ends a partner's autonomous action (household included) so a waiting linked half starts; storm A/B only, known side effect (a seated partner pulled at a computer can freeze ~21 sim-min near its spot, 4 of 6 Bridgeport storms), repro pending (docs/686 §21):
 #   partnerpull partnerpulllog
+# docs/686 §44 familybath (2026-11-27): changes an EA rule (household members may enter a room with shower / bath / toilet privacy for another fixture); the player's choice, default off, never in a proven set:
+#   familybath familybathhh

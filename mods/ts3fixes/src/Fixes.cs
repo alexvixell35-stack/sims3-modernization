@@ -542,6 +542,7 @@ namespace Ts3Fixes
             ApplyUnseenOutfitNoSpin();  // docs/809, ON 2026-11-20, needs unseenoutfitdefer (UnseenOutfitNoSpin.cs)
             ApplyInstProbe();  // docs/325, measurement only, off (InstProbe.cs); last: its Instantiate hooks wrap the others
             ApplyFarSim();  // docs/345 far-Sim shadow (FarSimShadow.cs), off; no hooks, a world-load handler only
+            ApplyFamilyBath();    // docs/686 §44 (FamilyBath.cs): familybath / familybathhh / familybathlog, off by default (changes an EA rule: the player's choice); swaps GenericPrivacySituation.OtherSimCanIgnorePrivacy
         }
 
         // issue #92 (docs/130 §11): each extra hook on one method is one more interpreter frame on every call through it.
@@ -1787,7 +1788,9 @@ namespace Ts3Fixes
         // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
         // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
-        const int kCounterSlots = 4960;  // 4960 from #752 (nextplan 4940-4959)
+        // [5090-5099] familybath (FamilyBath.cs, docs/686 §44; reserved 2026-11-27): household members let in / would / joined Sim accepted /
+        // modest / not family / door locked by the player / let in on screen / errors / lines / planner asks answered open.
+        const int kCounterSlots = 5110;  // 4960 from #752 (nextplan 4940-4959); 5110: doorseat 4980-4999, sinkfree 5000-5019 and 5080-5089, seatclash 5020-5039, fridgeshare 5040-5059, mopclaim 5060-5079, familybath 5090-5099, cleandefer 5100-5109 (other branches)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2092,6 +2095,9 @@ namespace Ts3Fixes
                 case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
                 case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
                 case "ufplansplit": return false;  // log only: where a slow unseen-fallback plan's wall time goes (UnseenFallback.cs)
+                case "familybath": return Instantiator.kFamilyBath;  // FamilyBath.cs (docs/686 §44): household members may enter a room with shower / bath / toilet privacy for another fixture, NPC households, off (changes an EA rule)
+                case "familybathhh": return Instantiator.kFamilyBathHh;  // FamilyBath.cs: the same for the active household (stands alone), off
+                case "familybathlog": return Instantiator.kFamilyBathLog;  // FamilyBath.cs: one line per new answer; counts the would-be passes with the switches off
                 case "doorshare": return Instantiator.kDoorShare;  // DoorShare.cs (docs/674): mark Sim-independent door answers for ts3native [RouteSnap] DoorShare, off
                 case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
