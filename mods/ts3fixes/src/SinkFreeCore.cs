@@ -77,12 +77,48 @@ namespace Ts3Fixes
             return f >= 0 ? f : ea;
         }
 
+        // Rule 1b: a sink in a room locked for privacy (someone on the toilet or in the shower there; EA's route then fails with
+        // FailedBecauseDestinationPortalLocked) is skipped while any other usable sink exists: Pick over the others, and when
+        // EA's pick is the locked one, EA's own rule (the nearest) over the others stands in for it. locked: also true for an
+        // unusable sink. All sinks locked: Pick as before.
+        public static int PickOpen(int ea, bool[] kitchen, bool[] busy, bool[] locked, float[] dist, bool[] otherLevel, float levelScore)
+        {
+            int n = kitchen.Length;
+            if (locked == null || locked.Length != n || ea < 0 || ea >= n) return Pick(ea, kitchen, busy, dist, otherLevel, levelScore);
+            bool[] open = new bool[n]; bool anyOpen = false;
+            for (int i = 0; i < n; i++) { open[i] = !locked[i]; if (open[i]) anyOpen = true; }
+            if (!anyOpen) return Pick(ea, kitchen, busy, dist, otherLevel, levelScore);
+            bool[] k2 = new bool[n], b2 = new bool[n];
+            for (int i = 0; i < n; i++) { k2[i] = kitchen[i] && open[i]; b2[i] = busy[i] || !open[i]; }
+            int ea2 = open[ea] ? ea : Nearest(dist, open, otherLevel, levelScore);
+            if (ea2 < 0) return Pick(ea, kitchen, busy, dist, otherLevel, levelScore);
+            int r = Pick(ea2, k2, b2, dist, otherLevel, levelScore);
+            return r >= 0 && open[r] ? r : ea2;
+        }
+
         // Rule 2: hand the dishes in? washerWashing: another Sim runs WashDishes at this sink now; freeKitchen: another
         // kitchen sink is free; dishes: in the carrier's stack; handed: dishes already handed in to this wash.
         public static int Handoff(bool on, bool inScope, bool kitchenSink, bool washerWashing, bool freeKitchen, int dishes, int handed)
         {
             if (!kitchenSink || !washerWashing || freeKitchen || dishes <= 0) return kNone;
             if (handed + dishes > kHandCap) return kCapped;
+            if (!inScope) return kExempt;
+            return on ? kGo : kWould;
+        }
+
+        // Rule 3: merge dish trips? Another Sim (the carrier) is on its way to the same kitchen sink with dishes (its WashDishes
+        // runs, it does not wash yet) and no other kitchen sink is free. The Sim with the dishes walks to the carrier and adds
+        // its dishes to the carrier's wash only when the carrier is near (kMergeNear) and nearer than the sink, so the walk
+        // is short and on the way; and only while the carrier's stack plus what joined it plus these dishes fit in EA's
+        // kMaxDishStackSize. kMergeFar: the carrier is not close (EA's own trip).
+        public const float kMergeNear = 4f, kMergeReach = 1.5f;
+        public const int kMergeFar = 5;
+        public static int Merge(bool on, bool inScope, bool kitchenSink, bool carrierWalking, bool freeKitchen, float distToCarrier,
+            float distToSink, int dishes, int carrierStack, int joined, int maxStack)
+        {
+            if (!kitchenSink || !carrierWalking || freeKitchen || dishes <= 0) return kNone;
+            if (!(distToCarrier <= kMergeNear) || !(distToCarrier < distToSink)) return kMergeFar;
+            if (maxStack <= 0 || carrierStack + joined + dishes > maxStack) return kCapped;
             if (!inScope) return kExempt;
             return on ? kGo : kWould;
         }

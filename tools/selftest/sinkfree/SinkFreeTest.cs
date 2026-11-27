@@ -80,6 +80,53 @@ static class SinkFreeTest
             }
     }
 
+    static void Open()
+    {
+        float[] dist = { 1f, 4f, 8f };
+        bool[] none = { false, false, false };
+        // 0 = bathroom sink (locked), 1 = kitchen sink, 2 = second bathroom sink
+        Check(SinkFreeCore.PickOpen(0, new bool[] { false, true, false }, none, new bool[] { true, false, false }, dist, null, 0.25f) == 1, "EA's locked bathroom sink: kitchen sink");
+        Check(SinkFreeCore.PickOpen(0, new bool[] { false, false, false }, none, new bool[] { true, false, false }, dist, null, 0.25f) == 1, "no kitchen: nearest open sink");
+        Check(SinkFreeCore.PickOpen(0, new bool[] { false, false, false }, new bool[] { false, true, true }, new bool[] { true, false, false }, dist, null, 0.25f) != 0, "others busy: still not the locked one");
+        Check(SinkFreeCore.PickOpen(0, new bool[] { false, false, false }, none, new bool[] { true, true, true }, dist, null, 0.25f) == 0, "all locked: EA's pick");
+        Check(SinkFreeCore.PickOpen(1, new bool[] { true, true, false }, new bool[] { false, true, false }, new bool[] { true, false, false }, dist, null, 0.25f) == 1, "free kitchen sink locked: busy open kitchen sink, never the locked one");
+        Check(SinkFreeCore.PickOpen(1, new bool[] { false, true, false }, none, none, dist, null, 0.25f) == SinkFreeCore.Pick(1, new bool[] { false, true, false }, none, dist, null, 0.25f), "nothing locked: Pick");
+        Check(SinkFreeCore.PickOpen(1, new bool[] { false, true, false }, none, null, dist, null, 0.25f) == 1, "no lock list: Pick");
+        for (int mask = 0; mask < 8; mask++)
+            for (int lk = 0; lk < 7; lk++)
+                for (int ea = 0; ea < 3; ea++)
+                {
+                    bool[] busy = { (mask & 1) != 0, (mask & 2) != 0, (mask & 4) != 0 };
+                    bool[] locked = { (lk & 1) != 0, (lk & 2) != 0, (lk & 4) != 0 };
+                    int r = SinkFreeCore.PickOpen(ea, new bool[] { false, true, false }, busy, locked, dist, null, 0.25f);
+                    Check(r >= 0 && r < 3 && !locked[r], "open sink when one exists: busy " + mask + " locked " + lk + " ea " + ea);
+                }
+    }
+
+    static void Merge()
+    {
+        int G = SinkFreeCore.kGo;
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 2f, 6f, 1, 1, 0, 8) == G, "carrier 2 m away, sink 6 m: merge");
+        Check(SinkFreeCore.Merge(false, true, true, true, false, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kWould, "off: would");
+        Check(SinkFreeCore.Merge(true, false, true, true, false, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kExempt, "out of scope: exempt");
+        Check(SinkFreeCore.Merge(true, true, false, true, false, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kNone, "bathroom sink: never");
+        Check(SinkFreeCore.Merge(true, true, true, false, false, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kNone, "no carrier: none");
+        Check(SinkFreeCore.Merge(true, true, true, true, true, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kNone, "another kitchen sink free: wash there");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 0f, 6f, 0, 1, 0, 8) == SinkFreeCore.kNone, "no dishes: none");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 4.5f, 9f, 1, 1, 0, 8) == SinkFreeCore.kMergeFar, "carrier past kMergeNear: own trip");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 3f, 2f, 1, 1, 0, 8) == SinkFreeCore.kMergeFar, "sink nearer than the carrier: own trip");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, float.NaN, 6f, 1, 1, 0, 8) == SinkFreeCore.kMergeFar, "no distance: own trip");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 4f, 6f, 1, 1, 0, 8) == G, "at kMergeNear: merge");
+        for (int stack = 1; stack <= 8; stack++)
+            for (int joined = 0; joined <= 4; joined++)
+                for (int n = 1; n <= 4; n++)
+                {
+                    int r = SinkFreeCore.Merge(true, true, true, true, false, 1f, 5f, n, stack, joined, 8);
+                    Check((r == G) == (stack + joined + n <= 8) && (r == G || r == SinkFreeCore.kCapped), "stack " + stack + "+" + joined + "+" + n);
+                }
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 1f, 5f, 1, 1, 0, 0) == SinkFreeCore.kCapped, "no stack size: never");
+    }
+
     static void Times()
     {
         Check(Math.Abs(SinkFreeCore.ExtraMinutes(45f, 0, 1) - 2.8125f) < 1e-4, "45 sim-min wash: 1 dish = 45/16 = 2.81 sim-min");
@@ -104,7 +151,7 @@ static class SinkFreeTest
 
     static int Main()
     {
-        Decide(); Pick(); Nearest(); Handoff(); Times(); End();
+        Decide(); Pick(); Nearest(); Handoff(); Merge(); Open(); Times(); End();
         Console.WriteLine(sFails == 0 ? "sinkfree selftest: all passed" : "sinkfree selftest: " + sFails + " failed");
         return sFails == 0 ? 0 : 1;
     }
