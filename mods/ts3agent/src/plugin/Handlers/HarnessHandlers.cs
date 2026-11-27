@@ -76,6 +76,7 @@ namespace Ts3Agent
             Dispatcher.Register("autopilot", Autopilot);
             Dispatcher.Register("dialog_expect", DialogExpect);
             Dispatcher.Register("rink_state", RinkState);
+            Dispatcher.Register("surf_line", SurfLine);
             RegisterGates(); // docs/179: game-mode gates wrap the handlers registered above
             StartAutopilot();
         }
@@ -892,6 +893,63 @@ namespace Ts3Agent
                 r["reset"] = done;
             }
             return r;
+        }
+
+        // The surf area's waiting line (2026-11-27, ts3fixes surfline): SurfArea.mSimQueue (Sim ids). sim_a + sim_b: queue A then B,
+        // then run EA's own Cleanup of a fresh Surf interaction for B (B leaves while 2nd in line, as a time-out, reset or cancel
+        // does). EA leaves [A, B] (its Cleanup does not touch the line, so B's id stays behind as a ghost); surfline removes B and
+        // every id whose Sim is not surfing there (A in this test). The line is put back as it was afterwards. The area: the nearest
+        // in the world, else a catalogue product made out of the world (a surf area does not place on land; destroyed afterwards).
+        static object SurfLine(Args a)
+        {
+            RequireLive();
+            Sim sa = Util.FindSim(a, "sim_a"), sb = Util.FindSim(a, "sim_b");
+            BindingFlags bf = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
+            Dictionary<string, object> r = Util.Obj();
+            List<object> left = new List<object>();
+            bool made = false;
+            Sims3.Gameplay.Abstracts.GameObject area = SlArea(a.Str("hint", "surf"), r, ref made);
+            try
+            {
+                Type at = area.GetType();
+                while (at != null && at.Name != "SurfArea") at = at.BaseType;
+                FieldInfo qf = at != null ? at.GetField("mSimQueue", bf) : null;
+                Type st = at != null ? at.GetNestedType("Surf", BindingFlags.NonPublic) : null;
+                FieldInfo sf = st != null ? st.GetField("Singleton", bf) : null;
+                InteractionDefinition def = sf != null ? sf.GetValue(null) as InteractionDefinition : null;
+                Queue<ulong> q = qf != null ? qf.GetValue(area) as Queue<ulong> : null;
+                if (q == null || def == null) throw new McpException("SurfArea.mSimQueue / SurfArea.Surf.Singleton not found");
+                ulong[] keep = q.ToArray();
+                q.Clear(); q.Enqueue(sa.SimDescription.SimDescriptionId); q.Enqueue(sb.SimDescription.SimDescriptionId);
+                try { def.CreateInstance(area, sb, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true).Cleanup(); }
+                catch (Exception e) { r["cleanup_error"] = e.GetType().Name + ": " + e.Message; }
+                foreach (ulong id in q) { SimDescription d = SimDescription.Find(id); left.Add(d != null ? d.FullName : id.ToString()); }
+                q.Clear(); foreach (ulong id in keep) q.Enqueue(id);
+                r["verdict"] = left.Count == 2 ? "EA: the leaving Sim's id stays (ghost)" : left.Count == 0 ? "leaving Sim and ghost removed"
+                    : left.Count == 1 && (string)left[0] == sa.FullName ? "leaving Sim removed" : "other";
+            }
+            finally { if (made) try { area.Destroy(); } catch (Exception) { } }
+            r["before"] = sa.FullName + " then " + sb.FullName + " (" + sb.FullName + " leaving)";
+            r["after"] = left;
+            return r;
+        }
+
+        // surf_line's area: the nearest SurfArea in the world, else the first catalogue product (name has `hint`) that makes one,
+        // made out of the world (made = true: the caller destroys it)
+        static Sims3.Gameplay.Abstracts.GameObject SlArea(string hint, Dictionary<string, object> r, ref bool made)
+        {
+            Sims3.Gameplay.Abstracts.GameObject g = null;
+            try { g = NearestOfType("SurfArea"); } catch (McpException) { }  // throws "no SurfArea in this world"
+            if (g != null) { r["area"] = "in the world: " + g.GetType().Name; return g; }
+            foreach (Sims3.SimIFace.BuildBuy.BuildBuyProduct p in Catalog())
+            {
+                if ((p.CatalogName ?? "").ToLowerInvariant().IndexOf(hint) < 0) continue;
+                Sims3.Gameplay.Abstracts.GameObject o = null;
+                try { o = GlobalFunctions.CreateObjectOutOfWorld(p.ProductResourceKey) as Sims3.Gameplay.Abstracts.GameObject; } catch (Exception) { }
+                if (o != null && IsOfTypeName(o.GetType(), "SurfArea")) { made = true; r["area"] = "out of the world: " + p.CatalogName; return o; }
+                if (o != null) try { o.Destroy(); } catch (Exception) { }
+            }
+            throw new McpException("no SurfArea in the world or the catalogue (store object not installed?)");
         }
 
         // test_env: world conditions that skew measurements, corrected without making runs unrealistic (Rodney, 2026-10-17:

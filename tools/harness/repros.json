@@ -151161,6 +151161,58 @@
     ]
   },
   {
+    "id": "surf-line-ghost",
+    "switches": [
+      "surfline"
+    ],
+    "note": "2026-11-27 EA bug check (surfline): SurfArea.mSimQueue - a waiting surfer that times out, is reset or cancels leaves its id (a cancel also removes the head); later surfers wait 6 h behind it. surf_line runs EA's own Surf.Cleanup for the 2nd Sim in line: EA leaves both ids, surfline removes the own id and ids of Sims not surfing there.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {},
+        "show": "surfline",
+        "max": 100000,
+        "waitS": 1,
+        "note": "arm (job fixesOn / fixesOff)"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 2,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "surf_line",
+        "args": {
+          "sim_a": "picked:1",
+          "sim_b": "picked:2"
+        },
+        "waitS": 2,
+        "max": 4000,
+        "note": "EA's own Surf.Cleanup for B with A then B queued (deterministic: no timing); the area: in the world, else the catalogue product out of the world"
+      },
+      {
+        "cmd": "surf_line",
+        "args": {
+          "sim_a": "picked:2",
+          "sim_b": "picked:1"
+        },
+        "waitS": 2,
+        "max": 4000,
+        "note": "same, Sims swapped"
+      },
+      {
+        "cmd": "leak_census",
+        "show": "fix_counters",
+        "max": 200000,
+        "waitS": 2,
+        "note": "surfline counters: 4009 own id removed, 4010 ids of Sims not surfing dropped, 4011 errors"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

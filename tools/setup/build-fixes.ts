@@ -656,6 +656,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPlantDormantFlip value="True" />
     <kPlantDormantTime value="True" />
     <kRinkExit value="False" />
+    <kSurfLine value="False" />
     <kPlantRoofShelter value="True" />
     <kHarvestExtras value="True" />
     <kShroomSlots value="True" />

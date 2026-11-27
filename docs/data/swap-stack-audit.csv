@@ -1385,3 +1385,4 @@ FfHaveHook.RunHook,Fridge_Have,Run,FridgeFf.cs,RunOrig,yes,Fridge_Have::Run > In
 FfLeftHook.RunHook,sFfLeftType,Run,FridgeFf.cs,RunOrig,yes,Fridge_EatLeftovers::Run > InteractionInstance::AnimateSim > StateMachineClient::RequestState (internal type by name),"fridgeff / fridgeffunseen (docs/686 §36.11): the same for leftovers","keep, stub remap (SavedStacks.cs)"
 RinkExitHook.ExitHook,SkatingRink,FinishedWaitingAtExit,RinkExit.cs,ExitOrig,no,no path to a yield in 1 overload(s),"rinkexit (2026-11-27): queue edit only, no yield",keep
 RinkExitHook.CanHook,SkatingRink,CanSimExitNow,RinkExit.cs,CanOrig,no,no path to a yield in 1 overload(s),"rinkexit (2026-11-27): queue read/prune only, no yield",keep
+SurfLineHook.CleanupHook,sSuType,Cleanup,SurfLine.cs,CleanupOrig,no,no path to a yield in 1 overload(s),"surfline (2026-11-27): surf line edit only, then EA Cleanup (internal type by name)",keep
