@@ -533,6 +533,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kAlibiWalkLog = false;  // alibiwalklog: count what alibiwalk would cut (and long NPC walks by interaction), behaviour unchanged
         [Tunable] public static float kAlibiWalkMinM = 60f;  // alibiwalk: shortest planned route (m) that is cut
         [Tunable] public static float kAlibiWalkTailM = 10f;  // alibiwalk: metres of the route's last walking path the Sim still walks
+        [Tunable] public static bool kCleanDefer = false;  // cleandefer (docs/686 §45): an NPC's own pick to clean a toilet ends quietly while other Sims wait for that toilet (line, queued, claimed, household bladder need); ordered cleans and toilets deferred 120 sim-min are cleaned (CleanDefer.cs)
+        [Tunable] public static bool kCleanDeferHh = false;  // cleandeferhh: the same for household and selected Sims
+        [Tunable] public static bool kCleanDeferLog = false;  // cleandeferlog: one ts3native.log line per deferred, would-be, ordered or capped clean
         [Tunable] public static float kCamSafeMarginPct = 25f;  // camsafe: the camera reach (largest of the last kCamSafeHoldS s) grown by this many percent (screen-border margin)
         [Tunable] public static float kCamSafeLeadS = 2f;  // camsafe: plus how far the camera travels in this many seconds at its smoothed speed (prediction)
         [Tunable] public static float kCamSafeSpeedMax = 150f;  // camsafe: speed cap, m/s (a jump is handled by the jump pause, not the speed)

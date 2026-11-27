@@ -102,6 +102,9 @@ namespace Ts3Fixes
                 case "ceremonyspot": return EpJoin(EpLive(typeof(CeremonySpotHook), 1), EpLive(typeof(EventCrowdRingHook), 1));
                 case "chessdefeated": return EpLive(typeof(B12CdHook), 1, "sCdRank", sCdRank, typeof(int), "sCdBest", sCdBest, typeof(int), "sCdWho", sCdWho, null, "sCdBest", sCdBest, null);
                 case "chestuselist": return EpLive(typeof(ChestUseListHook), 0);
+                case "cleandefer": return EpLive(typeof(CdHook), 1);
+                case "cleandeferhh": return EpLive(typeof(CdHook), 1);
+                case "cleandeferlog": return EpLive(typeof(CdHook), 1);
                 case "cleanflag": return EpJoin(EpLive(typeof(CfBasketHook), 0), EpLive(typeof(CfPitHook), 0));
                 case "cleanupvfx": return EpLive(typeof(B12CvHook), 1, "sCvList", sCvList, null);
                 case "combojob": return EpJoin(EpJoin(EpJoin(EpLive(typeof(ComboJobHook), 1), EpLive(typeof(ComboJobMapTagHook), 1)), EpLive(typeof(ComboOppHook), 2)), EpLive(typeof(ComboOppTestHook), 4));
