@@ -37,7 +37,7 @@
 // logRequire regex has regexCases that pass; notes that say a job FAILs by design need expectFail; the disk gate; the total est
 // fits before the cutoff; the generated script has no rm/del/elevation and feeds every child /dev/null.
 import { execFileSync, spawn } from 'node:child_process';
-import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -175,8 +175,19 @@ export function unlock(file: string, night: string): boolean {
 // job ids of FAIL / VOID / CRASH rows in queue.ts output ("HH:MM:SS queue: <id>: FAIL in 3 min ...")
 // deterministic same-build failures: a rerun of the same build gives the same result, so the chain does not rerun them
 // (2026-11-27: Atlas P1 native inspect fault 0xC0000005 in Inspect, step 'inspect io set', -99 on every run of main 0.3.21)
-export const NO_RERUN: RegExp[] = [/native inspect -99\b/];
-export const noRerunJobs = (out: string): string[] => [...new Set([...out.matchAll(/^\d\d:\d\d:\d\d queue: ([\w.-]+): (?:FAIL|VOID|CRASH) in [^\n]*/gm)].filter(m => NO_RERUN.some(re => re.test(m[0]))).map(m => m[1]))];
+// (2026-11-27: hollow until the native lot lookup lands: no native lot for the script's lots, a rerun of the same build only repeats it)
+export const NO_RERUN: RegExp[] = [/native inspect -99\b/, /native lot not found/, /no pageable lot/, /lot footprint native: leaving 0 \(window\), 0 \(R-9 cells[^\n]*first 3: none/];
+// a job's text = its rows in the .out (first "queue: <id>:" row to its FAIL row, unprefixed lines included) + its newest extraAsi
+// log (<results stem>-<id>-HHMM-atlas.log next to the "queue: results:" jsonl): lotseam's "native lot not found" is only there
+export const atlasLogOf = (out: string) => (id: string): string => {
+  const r = /queue: results: ([^,\n]+?)\.jsonl/.exec(out); if (!r) return '';
+  const dir = dirname(r[1]), stem = basename(r[1]);
+  try { const f = readdirSync(dir).filter(n => n.startsWith(`${stem}-${id}-`) && /^\d{4}-atlas\.log$/.test(n.slice(stem.length + id.length + 2))).sort().pop(); return f ? readFileSync(join(dir, f), 'latin1') : ''; } catch { return ''; }
+};
+export const noRerunJobs = (out: string, logOf: (id: string) => string = atlasLogOf(out)): string[] => [...new Set([...out.matchAll(/^\d\d:\d\d:\d\d queue: ([\w.-]+): (?:FAIL|VOID|CRASH) in [^\n]*/gm)].filter(m => {
+  const from = out.indexOf(` queue: ${m[1]}: `), blk = out.slice(from < 0 ? m.index! : Math.min(from, m.index!), m.index! + m[0].length);
+  return NO_RERUN.some(re => re.test(blk) || re.test(logOf(m[1])));
+}).map(m => m[1]))];
 export const failedJobs = (out: string): string[] => [...new Set([...out.matchAll(/^\d\d:\d\d:\d\d queue: ([\w.-]+): (?:FAIL|VOID|CRASH) in /gm)].map(m => m[1]))];
 // first-pass triage: known failure patterns of a queue's output -> class + suggested fix (the night-all-1124 failures)
 export const CLASSES: { cls: string; re: RegExp; fix: (m: RegExpMatchArray) => string }[] = [
@@ -340,15 +351,17 @@ node --no-warnings tools/harness/cleanup.ts gate </dev/null >> $L 2>&1 || { mk "
 [ "$(git rev-parse --abbrev-ref HEAD)" = master ] || { mk "CHAIN STOP: main checkout is not on master"; wake "STOP not on master"; exit 1; }
 [ -e "$D" ] && { mk "CHAIN STOP: $D already exists"; wake "STOP snapshot dir exists"; exit 1; }
 $TC snapshot $D > $O/$C-snapshot.out 2>&1 < /dev/null || { mk "CHAIN STOP: snapshot failed, Bin unchanged"; wake "STOP snapshot"; exit 1; }
-restore() { [ -n "$RGBPID" ] && kill $RGBPID 2>/dev/null; nogame; sleep 5; $TC restore $D > $O/$C-restore.out 2>&1 < /dev/null && mk "Bin restored" || mk "WARN: Bin restore failed";
+# the trap ignores INT / TERM / HUP: a signal during its nogame / sleep would end bash before the restore (2026-11-27 track stop)
+restore() { trap '' INT TERM HUP; [ -n "$RGBPID" ] && kill $RGBPID 2>/dev/null; nogame; sleep 5; $TC restore $D > $O/$C-restore.out 2>&1 < /dev/null && mk "Bin restored" || mk "WARN: Bin restore failed";
+  for k in $D/agent-*.wt; do [ -f "$k" ] && agentout "$(cat "$k")" "$(basename "$k" .wt | sed 's/^agent-//')"; done
   $NP --unlock $N </dev/null >/dev/null 2>&1; mk "CHAIN END"; wake "DONE $N"; }
 trap restore EXIT
 agentin() { # worktree agent tag: back up the worktree's build/ts3agent.package once, install the queue's agent
   local b=$1/build/ts3agent.package bak=$D/agent-$3.bak
   mkdir -p $1/build
-  [ -f "$b" ] && cp -p "$b" "$bak"
+  [ -f "$b" ] && cp -p "$b" "$bak" && echo "$1" > $D/agent-$3.wt
   cp "$2" "$b" && cmp -s "$b" "$2"; }
-agentout() { local b=$1/build/ts3agent.package bak=$D/agent-$2.bak; [ -f "$bak" ] && cp -p "$bak" "$b" && mk "agent put back in $1"; }
+agentout() { local b=$1/build/ts3agent.package bak=$D/agent-$2.bak; [ -f "$bak" ] && ! cmp -s "$bak" "$b" && cp -p "$bak" "$b" && mk "agent put back in $1"; }
 runq() { # worktree queue agent est timeout tag [--only ids]
   local w=$1 q=$2 a=$3 e=$4 to=$5 tag=$6 name=$(basename $2 .json); shift 6
   local st; st=$($NP --bin-state $q --wt $w --stage < /dev/null 2>&1) || { mk "SKIPPED $name$tag: Bin state refused ($(echo "$st" | tail -1 | cut -c1-140))"; return 1; }; st=$(echo "$st" | tail -1)
@@ -508,7 +521,22 @@ function selfCheck() {
   { const o = '08:45:11 queue: atlas-main-smoke-on-sv: FAIL in 2.3 min | FAIL: reflect_call failed: {"result":"p1: RESULT FAIL native inspect -99, inspect lots 93 pageable 0"}\n08:12:39 queue: atlas-main20c-smoke-lotseam-sv: FAIL in 2.8 min | FAIL: atlas.log log rules: x\n08:13:00 queue: ok-job: PASS in 1 min\n';
     assert.deepEqual(noRerunJobs(o), ['atlas-main-smoke-on-sv'], 'the P1 inspect fault row is not rerun');
     assert.deepEqual(failedJobs(o).filter(id => !noRerunJobs(o).includes(id)), ['atlas-main20c-smoke-lotseam-sv'], 'other FAILs still rerun');
-    assert.deepEqual(noRerunJobs('08:45:11 queue: j: FAIL in 2 min | FAIL: p1: RESULT FAIL native inspect -990\n'), [], 'only -99 itself'); }
+    assert.deepEqual(noRerunJobs('08:45:11 queue: j: FAIL in 2 min | FAIL: p1: RESULT FAIL native inspect -990\n'), [], 'only -99 itself');
+    // the real main20h line: unprefixed, between the job's rows and its FAIL row
+    const p = '09:16:24 queue: atlas-main-smoke-on-sv-20h: extraAsi Bin/atlas.asi\n09:18:00 FAIL: reflect_call failed: {"result":"p1: RESULT REFUSED no pageable lot in this world right now"}\n09:18:04 queue: atlas-main-smoke-on-sv-20h: FAIL in 2.3 min | x\n09:19:00 queue: other-sv: extraAsi Bin/atlas.asi\n09:20:00 queue: other-sv: FAIL in 1 min | FAIL: frame gap\n';
+    assert.deepEqual(noRerunJobs(p, () => ''), ['atlas-main-smoke-on-sv-20h'], 'no pageable lot in the job block: no rerun; the next job is not tainted');
+    // the real lotseam line lives only in the job's atlas.log
+    const ls = '09:23:14 queue: atlas-lotseam-r9-cells-sv: FAIL in 2.4 min | FAIL: atlas.log log rules: extraAsi log /^atlas:rebase lot footprint native/ 0 lines (want >= 1)\n09:25:51 queue: atlas-lotseam-oneway-sv: FAIL in 2.5 min | FAIL: atlas.log log rules: y\n';
+    const lg: Record<string, string> = { 'atlas-lotseam-r9-cells-sv': "atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 512: native code -9 (refused), hub refuses: lot-in-leaving-strip: lot 0x0908001FDB5CDC40 'Stoney Falls': native lot not found; nothing written\n", 'atlas-lotseam-oneway-sv': 'atlas:rebase lot footprint native: leaving 0 (window)\n' };
+    assert.deepEqual(noRerunJobs(ls, id => lg[id] ?? ''), ['atlas-lotseam-r9-cells-sv'], 'native lot not found in the atlas.log: no rerun; a log without it still reruns');
+    lg['atlas-lotseam-oneway-sv'] = 'atlas:rebase lot footprint native: leaving 0 (window), 0 (R-9 cells, R-8 off), origin test misses 0, int bounds inside the corner box 0/0; world lot not listed; first 3: none\n';
+    assert.deepEqual(noRerunJobs(ls, id => lg[id] ?? ''), ['atlas-lotseam-r9-cells-sv', 'atlas-lotseam-oneway-sv'], 'the empty native lot list (the real oneway line): no rerun');
+    assert.deepEqual(noRerunJobs(ls, () => 'atlas:rebase lot footprint native: leaving 2 (window), 0 (R-9 cells), origin test misses 0; first 3: 0x1 [0 0 1 1]\n'), [], 'native lots found: reruns');
+    const td2 = mkdtempSync(join(tmpdir(), 'nr-'));
+    try { writeFileSync(join(td2, 'q-2026-11-27-j-sv-0920-atlas.log'), 'old\n'); writeFileSync(join(td2, 'q-2026-11-27-j-sv-0931-atlas.log'), 'native lot not found\n'); writeFileSync(join(td2, 'q-2026-11-27-j-sv2-0931-atlas.log'), 'x\n');
+      const lo = atlasLogOf(`09:40:00 queue: results: ${join(td2, 'q-2026-11-27.jsonl')}, other.csv\n`);
+      assert.equal(lo('j-sv'), 'native lot not found\n', 'newest log of that id'); assert.equal(lo('nope'), ''); assert.equal(atlasLogOf('no results line')('j-sv'), ''); }
+    finally { rmSync(td2, { recursive: true, force: true }); } }
   assert.deepEqual(failedJobs('18:42:44 queue: bp-cullrace-smoke: FAIL in 0 min | x\n18:44:48 queue: ip-c: PASS in 3 min\n21:12:13 queue: bp-l: CRASH in 11 min | y\n'), ['bp-cullrace-smoke', 'bp-l']);
   const cls = (out: string, o = { est: 30, minutes: 20, rc: 1 }) => triage(out, o);
   assert.deepEqual(cls('18:42:44 queue: bp-c: FAIL in 0 min | FAIL: asi missing: game-copy/ts3native.asi.cullrace1 (refused before touching the game)').classes, ['setup: build file missing']);

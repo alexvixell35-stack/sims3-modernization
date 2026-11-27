@@ -1,0 +1,165 @@
+{
+  "note": "Repinned 2026-11-27 to atlas-main20j (asi 67e214a2) + atlas-main20e-1127 script half. boatroutenull-ip-1127 (written 2026-11-27, not run): natural repro of the GetOutOfBoat NRE (docs/51 §636). Arm off = ts3fixes brn-det-1127 (release tuning + detector), arm on = brn-on-1127 (kBoatRouteNull on). Natural hit rate: 1 in 1 run so far; a miss is no data, not a pass. node tools/harness/queue.ts tools/harness/queues/boatroutenull-ip-1127.json",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 18:37:48"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^\\[Rewind\\] Park on: ": {
+      "match": [
+        "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+      ],
+      "noMatch": [
+        "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)",
+        "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
+      ]
+    },
+    "^atlas:script pkg=6ca205e2 ": {
+      "match": [
+        "atlas:script pkg=6ca205e2 (script half loadA-4)"
+      ],
+      "noMatch": [
+        "atlas:script pkg=273b675c (script half loadA-4)",
+        "atlas:script pkg=8cda3053 (script half loadA-4)"
+      ]
+    },
+    "^atlas:script init failed: ": {
+      "match": [
+        "atlas:script init failed: Instantiator threw TypeInitializationException"
+      ],
+      "noMatch": [
+        "atlas:script pkg=6ca205e2 (script half loadA-4)",
+        "atlas:ready 3 early lines written late (said before the log call was registered)"
+      ]
+    },
+    "tuning: broken script mod AtlasMod": {
+      "match": [
+        "ts3fixes: tuning: broken script mod AtlasMod: GetTypes failed, missing assembly Sims3StoreBuilder; skipped, other mods tuned"
+      ],
+      "noMatch": [
+        "ts3fixes: tuning: broken script mod icarusallsorts.WOBakeWithAnyIngredient: GetTypes failed, missing assembly icarusallsorts.CookWithAnyIngredient; skipped"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "brn-ip-off",
+      "note": "[est 25 min] boatroutenull natural repro, arm off: the atlas-houseboat-ip fd0 setup (Isla Paradiso Baseline-IP-Spring, Atlas main 0.3.20 houseboat FarDock=0) that gave the first natural NRE in Boat.RouteBoatToLandOnWayToPosition (NPC Christopher Collins, GoHome, SittingInBoat, 2026-11-27 17:43). Atlas read-backs dropped (not under study; that run already had houseboat lots 0). The NRE ScriptError is REPORTed, not failed; the ts3fixes detector line boatroutenull: names the boat state (destroyed / inWorld / driver) on any hit. Household rule: no agent action on any Sim; the fix returns EA failure result only.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.brn-det-1127",
+      "modSet": "game-copy/mod-sets/atlas-main20e-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 1,
+      "ini": {
+        "Rewind.Park": 1,
+        "IlPatch.Enabled": 1,
+        "IlPatch.ilp_tuneisolate": 1
+      },
+      "pinReason": "Repinned 2026-11-27 to the current Atlas build (repin rule): game-copy/atlas-main20j-1127/atlas.asi (sha256 67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297, atlas-main20j, boundless-atlas 184c776, 0.3.21), script half game-copy/mod-sets/atlas-main20e-1127 (pkg=6ca205e2), with IlPatch.ilp_tuneisolate=1 like atlas-houseboat-ip-1127 (the AtlasMod tunables load only with it). Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053); master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126) as atlas-rebase-terrain-slide-1127. No oop plugin (Oop stays 0).",
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main20j-1127/atlas.asi",
+        "sha256": "67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Houseboat.ShownPos": 1,
+          "Houseboat.HullGuard": 1,
+          "Houseboat.StripCheck": 1,
+          "Houseboat.FarDock": 0,
+          "Houseboat.Verbose": 1
+        },
+        "logRequire": {
+          "^atlas:script pkg=6ca205e2 ": 1
+        },
+        "logForbid": {
+          "^atlas:script init failed: ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-houseboat-ip-1127"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      },
+      "scriptErrorsReport": [
+        "Boat:RouteOrig",
+        "RouteBoatToLandOnWayToPosition"
+      ],
+      "logForbid": {
+        "tuning: broken script mod AtlasMod": 0
+      }
+    },
+    {
+      "id": "brn-ip-on",
+      "note": "[est 25 min] boatroutenull natural repro, arm on: the atlas-houseboat-ip fd0 setup (Isla Paradiso Baseline-IP-Spring, Atlas main 0.3.20 houseboat FarDock=0) that gave the first natural NRE in Boat.RouteBoatToLandOnWayToPosition (NPC Christopher Collins, GoHome, SittingInBoat, 2026-11-27 17:43). Atlas read-backs dropped (not under study; that run already had houseboat lots 0). The NRE ScriptError is REPORTed, not failed; the ts3fixes detector line boatroutenull: names the boat state (destroyed / inWorld / driver) on any hit. Household rule: no agent action on any Sim; the fix returns EA failure result only.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.brn-on-1127",
+      "modSet": "game-copy/mod-sets/atlas-main20e-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1,
+        "IlPatch.Enabled": 1,
+        "IlPatch.ilp_tuneisolate": 1
+      },
+      "pinReason": "Repinned 2026-11-27 to the current Atlas build (repin rule): game-copy/atlas-main20j-1127/atlas.asi (sha256 67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297, atlas-main20j, boundless-atlas 184c776, 0.3.21), script half game-copy/mod-sets/atlas-main20e-1127 (pkg=6ca205e2), with IlPatch.ilp_tuneisolate=1 like atlas-houseboat-ip-1127 (the AtlasMod tunables load only with it). Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053); master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126) as atlas-rebase-terrain-slide-1127. No oop plugin (Oop stays 0).",
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main20j-1127/atlas.asi",
+        "sha256": "67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Houseboat.ShownPos": 1,
+          "Houseboat.HullGuard": 1,
+          "Houseboat.StripCheck": 1,
+          "Houseboat.FarDock": 0,
+          "Houseboat.Verbose": 1
+        },
+        "logRequire": {
+          "^atlas:script pkg=6ca205e2 ": 1
+        },
+        "logForbid": {
+          "^atlas:script init failed: ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-houseboat-ip-1127"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      },
+      "scriptErrorsReport": [
+        "Boat:RouteOrig",
+        "RouteBoatToLandOnWayToPosition"
+      ],
+      "logForbid": {
+        "tuning: broken script mod AtlasMod": 0
+      }
+    }
+  ]
+}

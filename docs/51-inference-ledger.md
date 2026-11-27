@@ -7969,3 +7969,12 @@ Exception to the probe's read-only rule, allowed by Rodney 2026-11-26 for the At
 | Id | Doc | Claim | Evidence so far | Test | Pass | Fail | Status |
 |---|---|---|---|---|---|---|---|
 | I-628-1 | 67 §47 | The window behind the stale trigger hooks (`0x5166B754`) is the scene window, freed in the world teardown before `App_Shutdown` while its hooks stayed registered | hook priorities in the dump match the scene window's (`userTools` 1) [inferred]; the faulting chain and the freed, reused block [verified, dump + disassembly] | the docs/67 §47 detector on the next hit, or the exit-crash-1127 queues | detector names the scene window and its destroy before `0x7F10B0` | another window or a hook added by a mod | open |
+
+## 636. boatroutenull: GetOutOfBoat on a boat with no RoutingComponent (2026-11-27, BoatRouteNull.cs; queue boatroutenull-ip-1127, not run)
+
+| Id | Doc | Claim | Evidence so far | Test | Pass | Fail | Status |
+|---|---|---|---|---|---|---|---|
+| V-636-1 | - | The NRE at `Boat.RouteBoatToLandOnWayToPosition` IL `0x1f` is `route.SetOption2` on a null route; `boat` itself was not null | IL dump: `0x12 callvirt GameObject.CreateRoute`, `0x1f ldc.i4.1`, `0x20 callvirt Route.SetOption2`; a null boat faults at `0x12` | - | - | - | verified (IL) |
+| V-636-2 | - | A null route from `GameObject.CreateRoute` means `RoutingComponent == null` (`RoutingComponent?.CreateRoute()`); `BoatRoutingComponent.CreateRoute` and `Route.Create` return null only before `RouteCtor` is set | decompiled GameObject / BoatRoutingComponent / Route | - | - | - | verified (decompiled) |
+| I-636-3 | - | The Sim (NPC, GoHome, SittingInBoat) sat in a disposed boat: `GameObject.Dispose` is the only writer that nulls `mObjComponents` after Init | decompiled `GameObject.Dispose`; no ts3fixes vehicle/boat destroy line in that run's ts3native.log | the new `boatroutenull:` detector line on the next hit | `destroyed True` | `destroyed False` (another state) | open |
+| I-636-4 | - | Our hooks did not cause it: `BoatLandStuckHook` calls `RunOrig` first (offset `0x1`), `BoatRouteNullHook` (switch off) only reads and forwards | ts3fixes source; ScriptError frames #1-#3 | who disposed the boat is unknown (EA cleanup, NRaas Overwatch, or one of our boat switches): detector + destroy watch if it repeats | - | - | inferred |

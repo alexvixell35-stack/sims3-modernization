@@ -25,7 +25,13 @@ namespace Ts3Fixes
                     Boat b = a != null && a.Posture != null ? a.Posture.Container as Boat : null;
                     if (b != null && b.RoutingComponent == null)
                     {
-                        if (!ShortcutOn("boatroutenull")) PatchCounters()[3983]++;
+                        bool on = ShortcutOn("boatroutenull");
+                        // detector (2026-11-27, first natural hit: Atlas IP job, NPC GoHome): names the boat state on every hit, both arms
+                        VlLog("boatroutenull", "boatroutenull: " + a.FullName + " (" + (IsPlayerSim(a) ? "household" : "npc") + ") seated in " + b.GetType().Name
+                            + " " + b.ObjectId.Value.ToString("X16") + " with no RoutingComponent: destroyed " + b.HasBeenDestroyed + ", inWorld " + b.InWorld
+                            + ", driver " + (b.Driver == null ? "none" : b.Driver == a ? "self" : "other") + ", interaction " + (a.CurrentInteraction != null ? a.CurrentInteraction.GetType().Name : "none")
+                            + ", switch " + (on ? "on: returned false" : "off: EA throws"));
+                        if (!on) PatchCounters()[3983]++;
                         else { PatchCounters()[3982]++; return false; }
                     }
                 }

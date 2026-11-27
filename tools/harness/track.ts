@@ -7,8 +7,8 @@
 //   node tools/harness/track.ts stop [--after-job] [--force-hold] [--all]  stop this checkout's chains + queue.ts (+ job tree + TS3W.exe unless --after-job), clean
 //   (--all: every checkout's and unknown-owner ones; without it those are listed, not killed). Everything under a stopped chain (by
 //   Windows or MSYS parent: its queue.ts from a worktree too) goes with it. --after-job: hold, wait for the job and for the chain's
-//   queue.ts to sit idle on the hold, kill what runs under the chain, then TERM the chain bash so its EXIT trap runs (Bin restore,
-//   chain lock), and check the trap's markers (2026-11-27: taskkill /F of the chain skipped the trap, its worktree queue.ts ran on)
+//   queue.ts to sit idle on the hold, TERM the chain bash so its EXIT trap runs (Bin restore, agent package,
+//   chain lock; track does that work when no "Bin restored" marker shows), then kill what ran under it (2026-11-27 x2)
 //   node tools/harness/track.ts switch <script.sh> [--after-job]   stop, then start the script detached (out: probe-out/queue/<name>.out)
 //   node tools/harness/track.ts wait-chain <script.sh>         block until that chain, every queue.ts and the job are gone (use in the next chain)
 //   node tools/harness/track.ts marker [--chain <name>] <text>  in a chain: prints "marker: <time> <text>" (the .out) and appends it to
@@ -19,7 +19,7 @@
 //   node tools/harness/track.ts build-done [--force-hold]     release the hold if it is a build-window hold
 //   node tools/harness/track.ts --self-check                 temp dir, fake process list
 import { execFileSync, spawn } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { GAME_EXE } from './game-exe.ts';
@@ -31,7 +31,7 @@ export type Proc = { pid: number; ppid: number; name: string; cmd: string; start
 // me/main: this checkout and the main one, for hold ownership (default CHECKOUT / MAIN_ROOT of hold.ts); roots: every checkout
 // (git worktree list), for process owners (default [] = owners only from the hold.ts registry)
 // term: a signal bash can trap (its EXIT trap runs); kill: taskkill /T /F (no trap)
-type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; term: (pid: number) => boolean; sleepMs: number; log: (m: string) => void; me?: string; main?: string; roots?: string[] };
+type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; term: (pid: number) => boolean; rescue?: (chain: string) => string; sleepMs: number; log: (m: string) => void; me?: string; main?: string; roots?: string[] };
 
 const read = (f: string) => { try { return readFileSync(f, 'utf8').trim(); } catch { return null; } };
 // max(0): clock skew on a fresh dir gave < 0, read as "absent"
@@ -216,7 +216,7 @@ async function waitIdle(e: Env, chainPids: number[]) {
     await sleep(e.sleepMs);
   }
 }
-// TERM a chain bash (its children are already gone), wait for it to exit, then check what its EXIT trap left: night-plan chains
+// TERM a chain bash (its children idle on the hold), wait for it to exit, then check what its EXIT trap left: night-plan chains
 // write "Bin restored" / "CHAIN END" markers and release probe-out/queue/night-chain.lock
 async function termChain(e: Env, ch: Proc & { script: string }) {
   const n = chainName(ch.script), mf = join(e.dir, `${n}.markers`), before = (read(mf) ?? '').split(/\r?\n/).filter(Boolean).length;
@@ -226,8 +226,27 @@ async function termChain(e: Env, ch: Proc & { script: string }) {
   if (t >= IDLE_CAP) return `${ch.script}(${ch.pid}): TERM sent, still running its EXIT trap (waits for ${GAME_EXE}?): check again with status`;
   const ms = (read(mf) ?? '').split(/\r?\n/).filter(Boolean).slice(before).join(' | ');
   let lock = 'lock free'; try { const o = JSON.parse(readFileSync(join(e.dir, 'night-chain.lock'), 'utf8')); if (o.night === n.replace(/^chain-/, '')) lock = `LOCK STILL HELD (${o.night}): node tools/harness/night-plan.ts --unlock ${o.night}`; } catch { /* no lock */ }
+  if (!/Bin restored|Bin restore failed/.test(ms) && e.rescue) return classify(e.procs()).game.length ? `${ch.script}(${ch.pid}) stopped by TERM, no "Bin restored" marker and ${GAME_EXE} runs: Bin not restored; ${lock}` : `${ch.script}(${ch.pid}) stopped by TERM, its EXIT trap left no "Bin restored" marker: ${e.rescue(n)}`;
   const bin = /Bin restored/.test(ms) ? 'Bin restored' : /Bin restore failed/.test(ms) ? `BIN RESTORE FAILED: node tools/turbo-compat.ts restore probe-out/${n}` : `no "Bin restored" marker (not a night-plan chain?): check probe-out/${n}`;
-  return `${ch.script}(${ch.pid}) stopped by TERM, EXIT trap ran: ${bin}; ${lock}; the stopped queue's agent package was not put back (agentout runs after its queue)`;
+  return `${ch.script}(${ch.pid}) stopped by TERM, EXIT trap ran: ${bin}; ${lock}`;
+}
+// the trap's work, done by track when a chain's EXIT trap did not log it (an older chain script, a trap cut short): Bin back to the
+// chain's snapshot, each worktree's agent package back (agent-<queue>.bak, its worktree in agent-<queue>.wt; older chains have no
+// .wt: listed), chain lock released. The snapshot dir stays (the next run of the same chain refuses it: rename it by hand)
+function realRescue(n: string) {
+  const D = join(QUEUE_DIR, '..', n), out: string[] = [];
+  if (!existsSync(D)) return `no snapshot ${D}: not a night-plan chain, nothing restored`;
+  const run = (args: string[]) => { try { execFileSync('node', ['--no-warnings', ...args], { cwd: MAIN_ROOT, timeout: 300000, stdio: 'ignore' }); return true; } catch { return false; } };
+  out.push(run(['tools/turbo-compat.ts', 'restore', D]) ? 'track restored Bin from the snapshot' : `BIN RESTORE FAILED: node tools/turbo-compat.ts restore ${D}`);
+  for (const f of readdirSync(D).filter(f => /^agent-.*\.bak$/.test(f))) {
+    const wt = join(D, f.replace(/\.bak$/, '.wt'));
+    if (!existsSync(wt)) { out.push(`agent ${join(D, f)}: no .wt, put it back by hand`); continue; }
+    const dst = join(readFileSync(wt, 'utf8').trim().replace(/^\/([a-z])\//i, '$1:/'), 'build', 'ts3agent.package');
+    try { if (!existsSync(dst) || !readFileSync(dst).equals(readFileSync(join(D, f)))) { copyFileSync(join(D, f), dst); out.push(`agent put back in ${dst}`); } } catch { out.push(`AGENT NOT PUT BACK: ${join(D, f)} -> ${dst}`); }
+  }
+  const night = n.replace(/^chain-/, '');
+  out.push(run(['tools/harness/night-plan.ts', '--unlock', night]) ? 'lock released' : `UNLOCK FAILED: node tools/harness/night-plan.ts --unlock ${night}`);
+  return out.join('; ');
 }
 
 export async function stop(e: Env, afterJob: boolean, forceHold = false, everything = false) {
@@ -241,11 +260,18 @@ export async function stop(e: Env, afterJob: boolean, forceHold = false, everyth
   // under a stopped chain = ours, whatever checkout it runs from (a worktree queue.ts of a main-checkout chain)
   const kids = new Set(chains.flatMap(ch => [...descendants(ps0, ch.pid)]).filter(pid => !c.self.has(pid)));
   const queues = pick(c.queues, p => `queue ${p.queue}`, kids);
-  if (!afterJob) for (const p of chains) e.kill(p.pid);   // --after-job: TERM below, once the children are gone (no next chain step)
-  for (const pid of kids) e.kill(pid);
+  // --after-job: TERM each chain first, while its children sit idle on the hold, so its EXIT trap restores Bin; then kill the
+  // children. 2026-11-27: killing the children first ended the chain's while-loop subshell, the chain ran to its end and the TERM
+  // then cut its EXIT trap in its nogame / sleep (no Bin restore, lock held)
+  const trapped: string[] = [];
+  if (afterJob) for (const ch of chains) trapped.push(await termChain(e, ch));
+  else for (const p of chains) e.kill(p.pid);
+  const psK = afterJob ? e.procs() : ps0;   // children the chain started after ps0 (a rerun queue.ts) sit under the old children
+  const all = new Set([...kids].flatMap(k => [k, ...descendants(psK, k)]).filter(pid => !c.self.has(pid)));
+  for (const pid of all) e.kill(pid);
   for (const p of queues) e.kill(p.pid);
-  if (chains.length || queues.length) did.push(`${afterJob ? 'stopped' : 'killed'} ${chains.map(p => `${p.script}(${p.pid})`).concat(queues.map(p => `queue ${p.queue}(${p.pid})`)).join(', ')}${kids.size ? ` (${kids.size} process(es) under the chains)` : ''}`);
-  if (afterJob) for (const ch of chains) did.push(await termChain(e, ch));
+  if (chains.length || queues.length) did.push(`${afterJob ? 'stopped' : 'killed'} ${chains.map(p => `${p.script}(${p.pid})`).concat(queues.map(p => `queue ${p.queue}(${p.pid})`)).join(', ')}${all.size ? ` (${all.size} process(es) under the chains)` : ''}`);
+  did.push(...trapped);
   if (!afterJob) {
     const j = jobState(e, c.alive), jp = j ? ps0.find(p => p.pid === j.pid) : undefined;
     const jOwner = j?.owner ?? (jp ? f.owner(jp) : null);
@@ -291,7 +317,7 @@ function worktreeRoots() {
   catch { return [MAIN_ROOT]; }
 }
 function env(): Env {
-  return { dir: QUEUE_DIR, roots: worktreeRoots(), procs: realProcs, kill: realKill, term: realTerm, sleepMs: 5000, log: m => console.log(`${new Date().toISOString().slice(11, 19)} track: ${m}`) };
+  return { dir: QUEUE_DIR, roots: worktreeRoots(), procs: realProcs, kill: realKill, term: realTerm, rescue: realRescue, sleepMs: 5000, log: m => console.log(`${new Date().toISOString().slice(11, 19)} track: ${m}`) };
 }
 
 if (import.meta.main) {
@@ -441,7 +467,32 @@ if (import.meta.main) {
       ps = chainTable(); chainOwners(); writeFileSync(join(d, 'night-chain.lock'), JSON.stringify({ night: 'main20c-x', pid: 100 }));
       const left = await stop({ ...chainEnv([], []), term: pid => { ps = ps.filter(p => p.pid !== pid); return true; } }, true);
       assert.ok(left.some(l => /no "Bin restored" marker .*; LOCK STILL HELD \(main20c-x\)/.test(l)), `trap work missing is reported: ${left.join(' | ')}`);
+      // 2026-11-27: TERM first (trap runs while the children idle), kill the children after; a trap with no marker: track does its work
+      ps = chainTable(); chainOwners(); writeFileSync(join(d, 'night-chain.lock'), JSON.stringify({ night: 'main20c-x', pid: 100 }));
+      const seq: string[] = [], rescued: string[] = [];
+      const res = await stop({ ...chainEnv([], []), kill: pid => { seq.push(`kill ${pid}`); ps = ps.filter(p => p.pid !== pid); },
+        term: pid => { seq.push(`term ${pid}`); ps = ps.filter(p => p.pid !== pid); return true; }, rescue: n => (rescued.push(n), 'track restored Bin from the snapshot; lock released') }, true);
+      assert.equal(seq[0], 'term 100', `TERM before any kill: ${seq}`);
+      assert.ok(seq.includes('kill 101') && seq.includes('kill 104'), `children killed after the TERM: ${seq}`);
+      assert.deepEqual(rescued, ['chain-main20c-x'], 'no marker: track rescues');
+      assert.ok(res.some(l => /left no "Bin restored" marker: track restored Bin/.test(l)), res.join(' | '));
       rmSync(join(d, 'night-chain.lock'), { force: true });
+      // real Git Bash: a TERM reaches the EXIT trap of a chain bash that waits on a while-loop pipeline, and a second TERM during
+      // the trap's sleep does not cut it (the chain template's restore() starts with trap '' INT TERM HUP)
+      if (process.platform === 'win32') {
+        const tsh = join(d, 'trap.sh'), tf = join(d, 'trap.out');
+        writeFileSync(tsh, [`restore() { trap '' INT TERM HUP; sleep 3; echo restored > '${tf.replace(/\\/g, '/')}'; }`, 'trap restore EXIT',
+          'echo x | while read -r l; do sleep 60; done', ''].join('\n'));
+        const b = spawn('bash', [tsh], { stdio: 'ignore' });
+        const gone = new Promise(r => b.on('exit', r));
+        await sleep(1500);
+        assert.ok(realTerm(b.pid!), 'TERM sent');
+        await sleep(1000);
+        realTerm(b.pid!);   // second TERM inside the trap's sleep
+        await Promise.race([gone, sleep(20000)]);
+        assert.equal(existsSync(tf) && readFileSync(tf, 'utf8').trim(), 'restored', 'EXIT trap ran to its end under two TERMs');
+        try { execFileSync('taskkill', ['/T', '/F', '/PID', String(b.pid)], { stdio: 'ignore' }); } catch { /* gone */ }
+      }
       // the real start path: echo, tee and node lines of the chain all land in the .out (2026-11-16: echo and tee lines were lost)
       const sh = join(d, 'chain-echo.sh'), chOut = join(d, 'chain-echo.out');
       writeFileSync(sh, ['echo "06:44 mono-1115 rest start"', 'echo "tee line" | tee /dev/null', 'node -e "console.log(\'node line\')"',
