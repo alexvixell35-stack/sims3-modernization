@@ -1710,3 +1710,42 @@ rs-C storm, or `[Crash2Diag]` (its DestroyRoute ring) without DestroyDefer.
 **What the node is [inferred].** `{next = head, prev = &msg+4}` followed by `old tail.next = node` is MSVC `std::list::push_back` (`_Buynode(head, head->prev)`, `head->prev = node`, `node->prev->next = node`). The head is the list's separately allocated sentinel, not a field: the routing world's block is only 0xB50 bytes (`new(0xB50)` at `0x836280`, world = block + 0x10 at `0x836210`) [verified disassembly], and no instruction uses displacement `0x13654` or `0xF7A4` as a list (Ghidra `ScalarRefs` 0x1364C-0x1365C, 0xF7A0-0xF7A8, 0x12D3C: only float fields of another object at `0x7A88D0` / `0x7BD4C0` / `0x7A26A0`) [verified static]. So "world + 0x13654" is load-time allocation order (the sentinel was allocated ~79 KB after the world), and the owner is the object whose list member holds that sentinel address. The old tail was freed while still linked (or appended by two threads without a lock), its block reused for this message, and the next `push_back` wrote into the live message. Class not named yet.
 
 **Log (0.36.302-drainlog1125 on fix/drainlog-1125, default off).** `[UnseenAnim] DrainNodeLog=1` (read even with `Enabled=0`; crash path only): when `[msg+4]` is not in TS3W.exe the dump adds the node (16 bytes before: allocator header, 48 at it), the head (16 before, 32 at: `[head]` first node, `[head+4]` last), the routing world `[0x11D9128]` with `head - world`, and up to 8 addresses in the 256 KB below the head that hold the head address (the `std::list` object's `_Myhead`; with its neighbours this names the owner and, from the owner's vtable, the class). It also takes the return address from the first 4 stack words (the 11-22 run had one extra word pushed). Selftest `TestAaDrainNode` (slot search, word scan over an unreadable page). Next: turn it on in the storm queue; the first hit gives the owner address, then Ghidra `OffsetWrites` / `XrefsTo` on its vtable gives the insert and erase sites.
+
+## 48. `0xF6B?804F` on the main or sim thread (2026-11-14 to 11-27): the process-teardown line, not a cause; the Bridgeport storm crashes under it are §40
+
+**Symptom** [verified: grep over the local run folders]. `exception C0000005 at 0xF6BB804F (info 00000000 FFFFFFFF)` (also `0xF6BA804F`, and with other bases `0xF59E604F`, `0xF6BE404F`, `0xF6BF404F`, `0xF6C6B04F`, `0xF722C04F`: the low 12 bits `0x04F` never change) is the last exception line of 148 phase/autotest logs since 2026-11-14, on every build (0.36.247 to 0.36.305) and every world. Thread: main (232/228, esp `0xFF8xxxxx`-`0xFFFxxxxx`, ebx = esp+0x170) or the sim thread (esp `0xF7Cxx044`, ebx `...E9C8`, esi `...FD90`); eax = ecx = 0, edx = 0x21; no stack code refs. docs/689 §6 (s598a) and docs/691 (s640c/s641c/s641d) read it as the crash.
+
+**What it is.**
+
+- It is written at teardown, whatever ends the process [verified]. Phase sessions end with `wineserver -k` (`phasesoakr.sh` line 127), and the line is at the end of runs whose measurement finished (phase-20261124-1044: 5-min storm, `measurement end`, `snap end`, then the line). It never follows a clean exit: 0 of the 75 logs with `diag: exit after` have it. In the same second the Steam console (Steam's `logs/console-linux.txt`, which holds Wine's stderr) has `wine client error:<tid>: write: Bad file descriptor` for the same thread ids (`e8` = 232 main), for every forced end and every crash.
+- The address is outside every PE module (the crash log names no module) and high in the 4 GB space, as the stacks are. Our reading [inferred, not traced]: it is Wine's thread teardown after the wineserver connection is gone, reported with a 32-bit view of the context. It is not ts3native, Mono or a JIT stub: the line looks the same on builds with and without `[MonoJit]` and on all 0.36.2xx/3xx asi builds.
+- So the line tells you the process died. It does not tell you why. Look at the AVs before it.
+
+**The Bridgeport crashes under it** (autotest `RESULT: CRASH`, build 0.36.305-m1124d, 30-min storms, LotLevelPastEnd **off** in every arm because the storm ini keeps the shipped default).
+
+| run (phase / autotest) | arm | min | first real fault (sim thread) | code words | cause |
+|---|---|---|---|---|---|
+| s640c phase-20261126-1206 / auto-1206 | alibiwalklog (log only) | 17 | write `0xE6CFCB5A` at `0x6824EC` (`Realm_MoveShape`, Group from past the deque) | `0094E601 0094E653 00936CB7 00C713A9 00ACDFD0 00C8AFF8` | §40 |
+| s641c phase-20261126-1317 / auto-1317 | alibiwalklog (log only) | 15 | `msvcr80+0xC868` memcpy read from `0x862206` <- `0x68250D` (the Group's vector insert) | `00862206 0068250D 0094E601 0094E653 ...` | §40 |
+| s641d auto-1351 | alibiwalk | 14 | none logged | - | unknown |
+| s676d auto-20261127-0136 (docs/693) | cartrip | 6 | none logged; no `wine client error`, no kernel line | - | unknown |
+| 2026-11-15 auto-1335 | (older build) | 22 | same code words | `0094E601 0094E653` | §40 |
+
+A wild second fault in the same thread usually follows (`0x7E54000F`, `0xA20E3300`, `Sims3SettingsSetter+0x4E313`, §40 of the 11-23 block), then the teardown line on the main thread. The 2026-11-20 `0xE6463F` read-8 series at 1-4 min is the second §41 (11-23). In s641d and s676d the address space was as tight as in the runs that survived (probe `memory.csv`: about 24 MB free, largest block 0.9-1.4 MB the whole game), and nothing was logged; the owner is open.
+
+**Not ours, not jobyieldroad.** The §40 path is EA's (`ParkingSpace.ParkVehicle` < `Slots.AttachToSlot` across a lot change), and it hit log-only and off arms (s598a off, s640c, s641c). Bridgeport parks many cars, which fits it being the world where this shows up. No native or managed fix of ours is on that path.
+
+**Fix:** already built: `[EaCrashFixes] LotLevelPastEnd` (eafix.cpp, upstream since 56ee401c, default off). Storm proof on this PC: §48.1.
+
+### 48.1 Storm proof s690 (2026-11-27, this PC)
+
+s641c setup (asi ci-45754579321 = 0.36.305-m1124d, packages alibi-1126e/alibi-1126, camsafe + alibiwalklog, `GC.InitialHeapMB=512`, 30-min route storm, new game from `Bridgeport.world`) plus `[EaCrashFixes] LotLevelPastEnd=1`. Install line `OK   ea fix: LotLevelPastEnd` in all three games.
+
+| | Bridgeport 30-min games | reached 30 min | §40 crashes | other deaths | LotLevelPastEnd hits |
+|---|---|---|---|---|---|
+| off (s640c, s640d, s641c, s641d; 2026-11-26) | 4 | 1 | 2 (15, 17 min) | 1 silent (14 min) | - |
+| on (s690e/f/g, seeds 156/157/158) | 3 | 3 | 0 | 0 | 1 (s690f) |
+
+The s690f hit is the §40 case: `lot ... has 4 level Group(s) from level 0, object ... asks for level 4 (index 4, caller 0x00C713A0): answered the top Group ... instead of the word past the table`, from `Slots.AttachToSlot` [verified: phase-20261127-0417 ts3native-full.log]. With the fix off, that same read takes whatever word follows the table. All three on games end with the teardown line (`0xF59E604F`, `0xF6C6B04F`) at the `wineserver -k` after `snap end`, which shows again that the line is not a crash. Bin pair restored after every arm.
+
+Proof status: **safe in game, one natural hit served, crash rate not proven**: 0 of 3 on against 2 of 4 off is a small sample (p ≈ 0.43). Next: keep `EaCrashFixes.LotLevelPastEnd=1` in the Bridgeport storm keys, so other A/B runs stop losing games to §40, and count crashes as the runs pile up. Default-on stays the owner's call (§40 "Next").
