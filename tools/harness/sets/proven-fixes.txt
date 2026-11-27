@@ -101,6 +101,8 @@
 # termlenguard (docs/692, EA IndexOutOfRange on every Sims University class change) is ON by default since the 2026-11-27 Dalexlol #751 import, so no longer listed
 # docs/686 §38 nextplan (Dalexlol #752, import 2026-11-27): next action picked as soon as the queue empties; changes household timing and picks, not proven exact, default off:
 #   nextplan nextplanhh nextplanlog
+# docs/686 §39 doorseat (2026-11-27): door / arch chair pull-out test allowed, seat out of reach clipped or snapped; forced repro only (off 26/36 seated, on 36/36), default off:
+#   doorseat doorseathh seatreach seatreachhh seatsnap
 # perf: viewer push ride set from hooks (docs/335 LC-4, 2026-11-23) and its diagnostic shadow, default off, NOT RUN:
 #   viewerridehooks viewerridehookshadow
 # far features (docs/358, 2026-11-26), default off, NOT RUN: FarHold parked-lot hook, FarLight pulse skip, their shadows and the pulse probe:

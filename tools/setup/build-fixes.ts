@@ -196,6 +196,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSlideHang value="False" />
     <kSlideHangHh value="False" />
     <kLineSwitchMinutes value="2" />
+    <kDoorSeat value="False" />
+    <kDoorSeatHh value="False" />
+    <kSeatReach value="False" />
+    <kSeatReachHh value="False" />
+    <kSeatSnap value="False" />
     <kNextPlan value="False" />
     <kNextPlanHh value="False" />
     <kNextPlanLog value="False" />

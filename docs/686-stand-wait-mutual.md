@@ -2518,3 +2518,89 @@ moved into "Shotgun Style - 2br, 1ba": 1 toilet, 1 shower/bath, 2 sinks, 1 fridg
 - Proof status: storm A/B on two worlds and an 8-Sim house, 0 errors of its own, no hitch rise; one run per arm, so the
   needs and hitch differences are within noise. Not run: a forced repro of a player's queued order against a pre-pick
   (EA's own rule; counted as "dropped by a higher-priority add" 71-157 per on arm, the storm's pushes).
+
+## 39. Seats next to a door or arch, and seats out of reach (`doorseat`, `doorseathh`, `seatreach`, `seatreachhh`, `seatsnap`; 2026-11-27, `feat/doorslot-1127`, built, default off, forced repro s682)
+
+> On this branch (cut from upstream main) the fix, its counters, `DoorSeatCheck` and the selftest are included; the repro's `build_layout` `doors` list / `first` option and the `doorseat-force` entry in `tools/harness/repros.json` live on the combo branch (`feat/taskserve-1117`).
+
+Community report: "objects becoming inaccessible when placed too close to a door/archway ... Even when you place tables
+without MoveObjects, not all chairs are usable." Player wish (2026-11-27): "if sims cant reach the table chair they could
+just teleport to the interaction maybe like the bed thing ... or walk there clipping through things". `DoorSeat.cs`,
+rules in `DoorSeatCore.cs`, the seat path of blockeduse in `BlockedUse.cs` (§10).
+
+### 39.1 How a Sim gets onto a dining chair [verified, decompiled `ChairDining`, `ChairBarStool`, `SittableComponent`, `EatingSurfaceImpl`]
+
+- `ChairDining.RouteToForSitting`: a chair on its own first asks `CanEnableFeetFootprint` (its `ftp_Feet` area switched on,
+  `World.TestObjectPlacement`, other Sims allowed); refused = no slot is planned at all and the route answers
+  `FailedBecauseNoDestinationSpecified` with the chair as blocker (blockeduse never sees a slot list, so §10 cannot help).
+  A chair at a table plans to its two side slots (`RoutingSlot_5`, `_6`), walks, and then asks `CanScootBack` (the
+  chair where it stands with `ftp_Center` off): refused = the route-fail shrug at the chair, after a successful walk.
+- `ChairBarStool.CanScootBack` tests the stool 0.75 m back; refused = only the front slot, or the shrug.
+  `EatingSurfaceImpl` picks a table chair only when `CanGetInAndOut` (= `CanScootBack`) passes.
+- Both tests are the build-mode placement test. Buy mode slots a chair only after `HandToolChildAllowPlacementInSlot`
+  passes with its `ftp_BackPlacement` (pulled-out) area on. Sofas, loveseats and benches go through
+  `SimRoutingComponent.RouteToUnusedPart` (one slot destination per free part) and fail only in the route plan.
+
+### 39.2 What the forced repro shows (s682 rerun6, `phase-20261127-1252`, Deck, Sunset Valley new game) [measured]
+
+Layout (`doorseat-force`, built with `build_layout` and its new `doors` list): a room 11x7, an inner wall with a door,
+an arch and a door (diagonal to its table) in it, four 1x1 dining tables (three by the inner-wall openings, one away from
+them with trash cans beside its south chair), a sofa beside the front door. `DoorSeatCheck furnish` slots chairs the way
+the buy tool does (its buy-mode test first).
+
+- The buy-mode test refused exactly the chair slots that face a door or the arch (the chair would pull out into the
+  opening): 1 of 4 slots at the door table and at the arch table (the slot facing the opening), 3 of 4 at the
+  trash-can table, 0 of 4 at the diagonal-door table; 11 chairs slotted. Every chair the buy tool accepts passed its seat test, every routing slot planned (`DoorSeatCheck lot`: 13 seats, all
+  slots ok, sofa 9 of 9), and the selected Sim sat on every seat: 78 of 78 orders (13 seats, ordered and autonomous,
+  three arms); doorseat / seatreach counters 0.
+- So a chair placed legally next to a door is usable. The report's case is a chair whose pull-out area reaches into a
+  door's keep-clear area although buy mode would refuse that slot: a door or arch built after the chairs, or a table set
+  moved there (the door tool and a moved table do not run the chairs' test [inferred]). Rerun7 forces that end state.
+
+Rerun7 (`phase-20261127-1409`, same layout, `furnish all`: the 5 slots buy mode refused are filled too; 18 seats; arms
+off / door / full; each seat ordered, and as an autonomous pick in off and full):
+
+| | off | door (`doorseat`, `doorseathh`) | full (+ `seatreach`, `seatreachhh`, `seatsnap`) |
+|---|---|---|---|
+| orders seated / not seated | 26 / 10 | 15 / 3 | 36 / 0 |
+| seats unusable | 5: door chair, arch chair, 3 trash-can chairs | 3 trash-can chairs | 0 |
+| how | - | door retry allowed the pull-out 2x | + pull-out allowed (chair clips) 4, snap onto the slot 2 (both faded, no clip route), grace walk 0, clip 0 |
+| `routefail:` lines | 2 | 1 | 10 (the snapped chair's plans, then blockeduse's way out) |
+| errors | 0 | 0 | 0 |
+
+- Root cause [verified]: `DoorSeatCheck lot` on the forced chairs: the chair at the door and the chair at the arch plan
+  both side slots fine (route ok), but their **`CanScootBack` placement test is refused, and passes when only that door
+  (or the arch, `DoorSingleCountryArch`) is allowed to intersect**. The Sim walks there and shrugs. Not a routing slot in
+  a portal footprint, not a one-slot approach: the chair's pull-out test counts the door's keep-clear area. The
+  trash-can chairs are refused by the trash cans (no door passes), the furniture case.
+- Sofa beside the front door: 9 of 9 slots plan, usable in every arm (no failure to fix there).
+- Storm check s682b (10 min route storm, Sunset Valley, all five switches on): 0 errors, 0 script errors; 13 doorseat
+  lines, most `seatreach` allowing a household bar stool's pull-out (the stool's 0.75 m test against other furniture /
+  Sims), one dining chair whose door retry did not pass.
+- Proof status: forced repro off / on, one run per arm; storm on-only. Not run: an EA-built world house, NPCs at a
+  community lot (same code path, switch `doorseat` / `seatreach` without `hh`).
+
+### 39.3 What is built
+
+1. `doorseat` / `doorseathh` (counters 4980-4991): `ChairDining.CanScootBack`, `ChairDining.CanEnableFeetFootprint`
+   and `ChairBarStool.CanScootBack` swapped. When the game refuses the test for a Sim (the build-mode and load calls pass
+   no Sim and keep the game's answer) and a door stands within 3 m, the test is made again with that door allowed to
+   intersect (the chair's own `mAllowIntersectionObject`, the field the game uses for the Sim and the table) and all
+   Sims allowed. Passes = the Sim sits; walls, furniture and the table still count.
+2. `seatreach` / `seatreachhh` (4995-4999): a seat (dining chair, bar stool, anything with a `Sittable`) the Sim cannot
+   reach: (a) a seat test the door retry did not pass is allowed (the chair clips into what refused it); (b) a failed
+   plan to a seat's slots goes through blockeduse's rules (§10) even with blockeduse's own switches off: walk up,
+   **a grace of 2.5 s and a normal plan again** (the slot may have opened), then the walk through objects ("pass through
+   objects", "no slot obstruction test", walls still count, at most 6 m).
+3. `seatsnap`: only when no such walk exists, blockeduse's snap onto the nearest wanted slot (4 m), **behind a fade
+   (`FadeOut` / `FadeIn`) when the Sim is on screen or near the camera**; without `seatsnap` the seat case keeps the
+   game's answer. The way out is blockeduse's (§10.3 step 4).
+
+Scope: the plain switches = Sims the player does not control, the `hh` ones = household and selected Sims (each alone),
+humans only. Ordinary walks never come here. Off = compare mode. Check: `DoorSeatCheck run | result | lot | furnish
+[all] | sit <i> [auto] | seated`; selftest `tools/selftest/doorseat` (25 checks); repro `doorseat-force` (arms off / door
+/ full).
+
+Counters 4980-4999 (`kCounterSlots` 5000): door retry cases / would / allowed scoot / feet / refused, no door near / kept /
+exempt / errors / scoot refused / feet refused / snaps faded / lines / check sit orders / seated / not seated / seat cases
+/ walked after the grace / clip / snap / seat test allowed.

@@ -500,6 +500,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kSlideHang = false;  // slidehang (docs/686 §37, EA bug): an NPC on a slide's HangOutOn that holds the ladder line past EA's HangOutTimeMax with a Sim waiting behind slides down (ExitReason.Finished, as PlayOn)
         [Tunable] public static bool kSlideHangHh = false;  // slidehanghh: slidehang for household heads on an autonomous hang-out too (not the selected Sim)
         [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
+        [Tunable] public static bool kDoorSeat = false;  // doorseat: an NPC may sit on a chair whose pull-out or feet test only a door's keep-clear area refuses (DoorSeat.cs, docs/686 §39)
+        [Tunable] public static bool kDoorSeatHh = false;  // doorseathh: the same for household and selected Sims
+        [Tunable] public static bool kSeatReach = false;  // seatreach: an NPC that cannot reach a seat (chair, stool, sofa, bench) waits a grace, walks there through objects, or (seatsnap) is put on the slot (DoorSeat.cs, docs/686 §39.4)
+        [Tunable] public static bool kSeatReachHh = false;  // seatreachhh: the same for household and selected Sims
+        [Tunable] public static bool kSeatSnap = false;  // seatsnap: seatreach's last step, the snap onto the seat's slot (faded on screen)
         [Tunable] public static bool kNextPlan = false;  // nextplan (docs/686 §38): a Sim whose queue ran empty runs EA's own autonomy pass on its own task at once, not after the manager's one-a-frame queue (NPCs: high LOD, kNextPlanNpcPerTick)
         [Tunable] public static bool kNextPlanHh = false;  // nextplanhh: household and selected Sims too; a non-active household Sim also skips EA's 5 sim-min delay after a player's action (the active Sim keeps it)
         [Tunable] public static bool kNextPlanLog = false;  // nextplanlog: one ts3native.log line per pass (capped)

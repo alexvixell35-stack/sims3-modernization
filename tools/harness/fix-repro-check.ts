@@ -155,6 +155,11 @@ export const EXEMPT: Record<string, string> = {
   simfestkeep: 'EA bug fix from the decompiled code (docs/546 §11), not yet run: no harness check exists yet (a SimFest needs a ShowStage, an emcee and a winner pulled from the audience); add a SimFestKeepCheck and a repro before turning it on',
   unigradkeep: 'EA bug fix from the decompiled code (docs/546 §12), not yet run: needs a University world (Annex), a Sim with a completed degree whose rewards were not granted and the 12:00 ceremony; no check yet, verify in a University save before turning it on',
   bsrefund: 'EA bug fix from the decompiled code (docs/546 §12), not yet run: the pickup needs an enrolment (modal dialog), a night and an NPC car whose drive fails; no forced trigger yet, verify the refund (2351) in a play run before turning it on',
+  doorseat: 'the forced repro doorseat-force (docs/686 §39, s682: off 26/36 seated, on 36/36) needs the build_layout doors list of the combo branch (feat/taskserve-1117); exempt here until that lands upstream',
+  doorseathh: 'the forced repro doorseat-force (docs/686 §39, s682: off 26/36 seated, on 36/36) needs the build_layout doors list of the combo branch (feat/taskserve-1117); exempt here until that lands upstream',
+  seatreach: 'the forced repro doorseat-force (docs/686 §39, s682: off 26/36 seated, on 36/36) needs the build_layout doors list of the combo branch (feat/taskserve-1117); exempt here until that lands upstream',
+  seatreachhh: 'the forced repro doorseat-force (docs/686 §39, s682: off 26/36 seated, on 36/36) needs the build_layout doors list of the combo branch (feat/taskserve-1117); exempt here until that lands upstream',
+  seatsnap: 'the forced repro doorseat-force (docs/686 §39, s682: off 26/36 seated, on 36/36) needs the build_layout doors list of the combo branch (feat/taskserve-1117); exempt here until that lands upstream',
   // 2026-11-17: these were missing from the agent's names list (so no repro could set them); exempt until a repro lands
   asyncroute: 'async route plans, on since docs/18 (ts3native [RouteAsync]): judged by every timing/correctness job, which runs it on by default; no forced repro',
   autt2local: 'docs/276 rank 5 piece 2: HouseholdToo local exact path (AutShadowLocalCore.cs), nothing reads it before piece 3; needs [Experimental] HouseholdToo=1',

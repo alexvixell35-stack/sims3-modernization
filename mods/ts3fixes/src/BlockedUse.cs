@@ -72,6 +72,7 @@ namespace Ts3Fixes
         {
             public GameObject Obj; public BuRec Rec; public Route Near; public Vector3 Origin, Goal;
             public RoutePlanResult Saved; public bool OptObjects, OptOverride, OptChecks;
+            public bool Seat;  // seatreach (DoorSeat.cs, docs/686 §39): a seat case; grace replan first, snap only with seatsnap, faded on screen
         }
         // a Sim that was let onto a slot
         // Obj: the object whose slot it is (0 = none). Owner: 0 blockeduse, 1 woohoosnap, 2 pairsnap (WooHooSnap.cs)
@@ -248,6 +249,8 @@ namespace Ts3Fixes
             bool kind = BlockedUseCore.Kind((int)pr.mType, blockerSim) && BuSimOk(sim) && BuObjOk(obj);
             int d = BlockedUseCore.Decide(kind, IsPlayerSim(sim), ShortcutOn("blockeduse"), ShortcutOn("blockedusehh"));
             if (kind && d != BlockedUseCore.kGo && RuSlotCase(sim, obj)) d = BlockedUseCore.kGo;  // reachuse (ReachUse.cs, docs/686 §12): a chore at its target's own slots
+            bool seat = kind && d != BlockedUseCore.kGo && SrSeatCase(sim, obj);  // seatreach (DoorSeat.cs, docs/686 §39): a seat's own slots
+            if (seat) d = BlockedUseCore.kGo;
             if (d == BlockedUseCore.kNone) { c[kBuNotKind]++; return null; }
             if (d == BlockedUseCore.kWould) { c[kBuWould]++; return null; }
             if (d == BlockedUseCore.kExempt) { c[kBuExempt]++; return null; }
@@ -256,7 +259,7 @@ namespace Ts3Fixes
             { c[kBuCooling]++; return null; }
 
             BuCase k = new BuCase();
-            k.Obj = obj; k.Rec = rec; k.Saved = pr;
+            k.Obj = obj; k.Rec = rec; k.Saved = pr; k.Seat = seat;
             BuSlots s = BuReadSlots(sim, rec, false);
             float nearest = float.MaxValue;
             for (int i = 0; i < s.N; i++) if (s.Usable[i] && s.Dist[i] < nearest) nearest = s.Dist[i];
@@ -315,6 +318,7 @@ namespace Ts3Fixes
             bool clipOk = false, simAtGoal = false;
             float len = 0f;
             RoutePlanResult pr = k.Saved;
+            if (k.Seat && here && SrGrace(sim, r, k)) return BlockedUseCore.kClip;  // the slot opened during the grace: walked as planned, options unchanged
             if (here)
             {
                 r.SetOption(Route.RouteOption.PassThroughObjects, true);
@@ -336,16 +340,22 @@ namespace Ts3Fixes
             {
                 k.Goal = pr.mDestination;
                 c[kBuClip]++;
+                if (k.Seat) c[kSrClip]++;
                 BuLine(head + ": clip " + len.ToString("0.0") + " m to slot 0x" + pr.mDestSlotNameHash.ToString("X") + " at " + BuAt(k.Goal) + (k.Near != null ? ", walked up first" : ""));
                 return step;
             }
             BuRestoreOptions(r, k);
+            if (step == BlockedUseCore.kSnap && k.Seat && !ShortcutOn("seatsnap")) step = BlockedUseCore.kKeep;  // seatreach without seatsnap: clip only
             if (step == BlockedUseCore.kSnap)
             {
                 GameObject target = s.Obj[pick];
                 Vector3 pos = s.Pos[pick], fwd = target.GetForwardOfSlot(s.Name[pick]);
+                bool fade = k.Seat && SrFadeWanted(sim, pos);
+                if (fade) sim.FadeOut(true, false);
                 sim.SetPosition(pos);
                 if (BuValid(fwd)) sim.SetForward(fwd);
+                if (fade) sim.FadeIn();
+                if (k.Seat) SrSnapped(fade);
                 RoutePlanResult ok = new RoutePlanResult();
                 ok.mType = RoutePlanResultType.Succeeded;
                 ok.mDestSlotNameHash = (uint)s.Name[pick];
