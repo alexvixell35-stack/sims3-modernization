@@ -213,6 +213,9 @@ namespace Ts3Fixes
                 case "fridgeff": return EpJoin(EpLive(typeof(FfHaveHook), 1, "sFfThing", sFfThing, null), EpLive(typeof(FfLeftHook), 0, "sFfChosen", sFfChosen, null));
                 case "fridgefflog": return EpJoin(EpLive(typeof(FfHaveHook), 1, "sFfThing", sFfThing, null), EpLive(typeof(FfLeftHook), 0, "sFfChosen", sFfChosen, null));
                 case "fridgeffunseen": return EpJoin(EpLive(typeof(FfHaveHook), 1, "sFfThing", sFfThing, null), EpLive(typeof(FfLeftHook), 0, "sFfChosen", sFfChosen, null));
+                case "fridgeshare": return EpLive(typeof(FrsCleanHook), 0);
+                case "fridgesharehh": return EpLive(typeof(FrsCleanHook), 0);
+                case "fridgesharelog": return EpLive(typeof(FrsCleanHook), 0);
                 case "fridgetestnull": return EpLive(typeof(BFtHook), 1);
                 case "frolicexit": return EpLive(typeof(B12FeHook), 1, "sFeSustained", sFeSustained, typeof(long));
                 case "frontstageowner": return EpLive(typeof(FrontStageOwnerHook), 1);

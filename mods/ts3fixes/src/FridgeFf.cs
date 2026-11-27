@@ -60,6 +60,19 @@ namespace Ts3Fixes
             return head != null && head != a;
         }
 
+        // Nobody sees the Sim at the fridge (also fridgeshare's at-once test, FridgeShare.cs): camsafe's shared CsDecide when
+        // camsafe is on, else elevskip's tests. The selected Sim is never unseen.
+        static bool FfUnseen(Fridge f, Sim a, params Vector3[] spots)
+        {
+            bool npc = !IsPlayerSim(a);
+            if (!npc && a == PlumbBob.SelectedActor) return false;
+            if (sCsOn) return CsDecide(a, true, f, spots);
+            Vector3 slot = spots.Length > 0 ? spots[0] : f.Position;
+            for (int i = 1; i < spots.Length; i++) if (!(npc ? FarFromViewers(spots[i]) : FarFromCamera(spots[i]))) return false;
+            return npc ? TownieUnseen(a, null) && !UcOnScreen(f) && FarFromViewers(slot)
+                : !UcOnScreen(a) && FarFromCamera(a.Position) && !UcOnScreen(f) && FarFromCamera(slot);
+        }
+
         // Decided once, at the start of the Run: true = take the food now.
         static bool FfGo(Fridge f, Sim a, string what)
         {
@@ -73,16 +86,14 @@ namespace Ts3Fixes
             bool selected = a == PlumbBob.SelectedActor;
             if (!npc && selected) { c[kFfExempt]++; return false; }  // the selected Sim never counts as unseen
             // camsafe (CamSafe.cs, docs/690): the same test through the shared CsDecide (camera-safe reach, holds, jump pause)
-            bool unseen = sCsOn ? CsDecide(a, true, f, slot)
-                : npc ? TownieUnseen(a, null) && !UcOnScreen(f) && FarFromViewers(slot)
-                : !selected && !UcOnScreen(a) && FarFromCamera(a.Position) && !UcOnScreen(f) && FarFromCamera(slot);
+            bool unseen = FfUnseen(f, a, slot);
             if (!unseen) { c[kFfSeen]++; return false; }
             FfLine("fridgeff: " + (npc ? "npc " : "household ") + a.FullName + " takes its " + what + " at once, " + f.GetType().Name + " busy (users " + f.ActorsUsingMe.Count
                 + ", line " + (f.Line == null ? 0 : f.Line.MemberCount()) + "), " + (a.Position - slot).Length().ToString("0.0") + " m from the slot");
             return true;
         }
 
-        public abstract class FfHaveHook : Fridge_Have
+        public abstract partial class FfHaveHook : Fridge_Have
         {
             public bool RunHook()
             {
@@ -90,7 +101,7 @@ namespace Ts3Fixes
                 try { go = !CheckForCancelAndCleanup() && ChosenRecipe != null && FfGo(Target, Actor, "food"); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { FfError(e); }
-                if (!go) return RunOrig();
+                if (!go) return FrsWanted(Actor) ? FrsHave() : RunOrig();  // docs/686 §41 (FridgeShare.cs): fridgeshare's copy of EA's body
                 return FfHave();
             }
             public bool RunOrig() { return false; }  // receives Fridge_Have.Run's original body
@@ -131,7 +142,7 @@ namespace Ts3Fixes
             }
         }
 
-        public abstract class FfLeftHook : Interaction<Sim, Fridge>  // `this` is a Fridge_EatLeftovers (internal): its fields by reflection
+        public abstract partial class FfLeftHook : Interaction<Sim, Fridge>  // `this` is a Fridge_EatLeftovers (internal): its fields by reflection
         {
             ServingContainer ChosenContainer { get { return sFfChosen.GetValue(this) as ServingContainer; } set { sFfChosen.SetValue(this, value); } }
             bool PushEat { get { return (bool)sFfPushEat.GetValue(this); } }
@@ -141,7 +152,7 @@ namespace Ts3Fixes
                 try { go = ChosenContainer != null && ChosenContainer.HasFoodLeft() && FfGo(Target, Actor, "leftovers"); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { FfError(e); }
-                if (!go) return RunOrig();
+                if (!go) return FrsWanted(Actor) ? FrsLeft() : RunOrig();  // docs/686 §41 (FridgeShare.cs)
                 return FfLeft();
             }
             public bool RunOrig() { return false; }  // receives Fridge_EatLeftovers.Run's original body

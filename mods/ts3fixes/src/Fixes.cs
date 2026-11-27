@@ -563,6 +563,7 @@ namespace Ts3Fixes
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
             ApplyDoorSeat();           // docs/686 §39 (DoorSeat.cs): doorseat / doorseathh / seatreach / seatreachhh / seatsnap, off by default (counts either way); swaps ChairDining.CanScootBack / CanEnableFeetFootprint, ChairBarStool.CanScootBack
             ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
+            ApplyFridgeShare();        // docs/686 §41 (FridgeShare.cs): fridgeshare / fridgesharehh / fridgesharelog, off by default (counts either way); swaps Fridge_CleanOutBadFood.Run, rides FridgeFf's Fridge_Have / Fridge_EatLeftovers swaps and LineSwitch's waiter check
             ApplySinkFree();           // docs/686 §40 (SinkFree.cs): sinkfree / sinkfreehh / sinkfreelog, off by default (counts either way); swaps ServingContainer.ServingContainer_CleanUp.GetBestObjectToWashDishes
             ApplyUnseenSkip();         // docs/686 §37 (UnseenSkip.cs): rhskipunseen, bookskipunseen, gymtwin, lineswitchpc, slidehang and their household opt-ins, off by default (counts either way); swaps Bookshelf_ReadSomething.Run; the rest rides ObjShare's, ShareLanes' and LineSwitch's hooks
             ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh / elevskiphhunseen, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
@@ -1864,7 +1865,11 @@ namespace Ts3Fixes
         // allowed scoot / feet / kept: no door near / door allowed still refused / exempt / errors / scoot refused / feet refused /
         // snaps faded / lines / check sit orders / seated / not seated / seatreach: seat cases / walked after the grace / clip /
         // snap / seat test allowed.
-        const int kCounterSlots = 5090;  // 5090 from sinkfree's merge counters (5080-5089; 5020-5079 belong to other branches)
+        // [5040-5059] fridgeshare (FridgeShare.cs, docs/686 §41; reserved by hand 2026-11-27): uses / shared at once / beside / heads
+        // gave way / would give way / would share / exempt / no spot beside / waited at the fridge / timed out / clean-outs released /
+        // errors / overlapping uses / stepped in / capped / kept for a player's order / shared from the line / dish wait / gave way
+        // then waited / quick grab before a clean-out.
+        const int kCounterSlots = 5090;  // 5090 from sinkfree's merge counters (5080-5089; fridgeshare 5040-5059; 5020-5039 and 5060-5079 belong to other branches)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2267,6 +2272,9 @@ namespace Ts3Fixes
                 case "alibiwalk": return Instantiator.kAlibiWalk;  // AlibiWalk.cs (docs/691): an unseen NPC's long walk off the active lot cut to its tail, off
                 case "alibiwalklog": return Instantiator.kAlibiWalkLog;  // AlibiWalk.cs: count what alibiwalk would cut, off
                 case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
+                case "fridgeshare": return Instantiator.kFridgeShare;  // FridgeShare.cs (docs/686 §41): two short fridge uses at once, a waiter at the fridge before a head still walking over (NPCs), off
+                case "fridgesharehh": return Instantiator.kFridgeShareHh;  // FridgeShare.cs: the same for household and selected Sims, off
+                case "fridgesharelog": return Instantiator.kFridgeShareLog;  // FridgeShare.cs: one line per share / give-way / release
                 case "sinkfree": return Instantiator.kSinkFree;  // SinkFree.cs (docs/686 §40): dish cleanup washes at the nearest free sink when EA's pick is busy (NPCs), off
                 case "sinkfreehh": return Instantiator.kSinkFreeHh;  // SinkFree.cs: the same for household and selected Sims, off
                 case "sinkfreelog": return Instantiator.kSinkFreeLog;  // SinkFree.cs: one line per busy pick

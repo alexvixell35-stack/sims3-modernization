@@ -108,6 +108,8 @@
 #   elevatorlightrig optionsnoopapply npmfuzzy npmhousehold
 #   camsafe camsafelog reachcache reachcachehh reachcachelog alibiwalk alibiwalklog termlenguard
 #   nextplan nextplanhh nextplanlog
+# docs/686 §41 fridgeshare (2026-11-27): two short fridge uses at once / beside the slot, waiter before a walking head; not proven yet, default off:
+#   fridgeshare fridgesharehh fridgesharelog
 # docs/686 §39 doorseat (2026-11-27): door / arch chair pull-out test allowed, seat out of reach clipped or snapped; forced repro only (off 26/36 seated, on 36/36), default off:
 #   doorseat doorseathh seatreach seatreachhh seatsnap
 # docs/686 §40 sinkfree (2026-11-27): dish washing joins a busy kitchen sink instead of EA's line; changes household timing, not proven, default off:
