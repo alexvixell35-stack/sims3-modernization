@@ -244,7 +244,7 @@ namespace Ts3Fixes
                 {
                     // off arm (compare mode): a short use in the line behind a short user
                     if (on || !FrsHumanUser(w) || !FrsShortUse(w.CurrentInteraction, f)) return false;
-                    if (FridgeShareCore.Share(false, FrsScope(w), othersIn, sN, lN, 0, false) == FridgeShareCore.kWould
+                    if (FridgeShareCore.Share(false, true, true, sN, lN, 0, false) == FridgeShareCore.kWould  // compare mode: as if both switches were on
                         && FrsTell(((long)w.ObjectId.Value) ^ ((long)head.ObjectId.Value << 1))) c[kFrsWouldShare]++;
                     return false;
                 }
@@ -277,7 +277,7 @@ namespace Ts3Fixes
                 if (!sFrsSeenWalk.TryGetValue(head, out since)) { if (sFrsSeenWalk.Count > 64) sFrsSeenWalk.Clear(); since = SimClock.CurrentTicks; sFrsSeenWalk[head] = since; }
             }
             bool player = hIa != null && !hIa.Autonomous;
-            int y = FridgeShareCore.Yield(on && headMine, FrsScope(head) && FrsScope(w), walks, player, sFrsGaveWay.ContainsKey(head), hDist, OjsMinutes(since),
+            int y = FridgeShareCore.Yield(on && headMine, !on || FrsScope(head) && FrsScope(w), walks, player, sFrsGaveWay.ContainsKey(head), hDist, OjsMinutes(since),
                 true, wDist, w.IsRouting, Instantiator.kClipGraceMinutes);
             if (y == FridgeShareCore.kNone) return false;
             long key = ((long)head.ObjectId.Value) ^ (since << 1);
