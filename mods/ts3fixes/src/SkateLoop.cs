@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Sims3.Gameplay.Abstracts;
+using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Objects;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
@@ -16,9 +17,13 @@ namespace Ts3Fixes
     // since the last call) returns the route with a failed plan result; EA's loop then ends (flag = false) and the Sim leaves
     // the rink as after any failed plan. Normal skating builds one path per DoRoute, seconds of sim time apart.
     // Counters: [4003] spins ended, [4004] spins seen with the switch off (once per spin), [4005] errors.
+    // Each spin (on or off, first kSkLogLines per session) logs one "skateloop:" line to ts3native.log with the rink and
+    // Sim state, so a real one shows its trigger (rink out of world or destroyed, Sim off the lane, routing parent, ...).
     public static partial class Fixes
     {
         const int kSkSpinCalls = 20;
+        const int kSkLogLines = 8;
+        static int sSkLogged;
         static readonly Dictionary<ulong, long[]> sSkLast = new Dictionary<ulong, long[]>();  // Sim object id -> {sim tick, calls at it}
 
         static void ApplySkateLoop()
@@ -37,6 +42,29 @@ namespace Ts3Fixes
             return (int)++e[1];
         }
 
+        // logging only: reads, never writes game state
+        static void SkLog(GameObject actor, List<Vector3> pts, ISkatableObject rink, bool looping)
+        {
+            try
+            {
+                Sim sim = actor as Sim;
+                GameObject go = rink as GameObject;
+                float near = -1f;
+                if (pts != null) foreach (Vector3 v in pts) { float d = (v - actor.Position).Length(); if (near < 0f || d < near) near = d; }
+                DiagLine("skateloop: " + (sim != null ? sim.FullName : actor.GetType().Name) + " spin (switch " + (ShortcutOn("skateloop") ? "on" : "off")
+                    + "): rink " + (rink != null ? rink.GetType().Name : "null") + " " + (go != null ? go.ObjectId.Value.ToString() : "-")
+                    + " inworld " + (go != null && go.InWorld) + " destroyed " + (go != null && go.HasBeenDestroyed)
+                    + " lot " + (go != null && go.LotCurrent != null ? go.LotCurrent.Name : "-")
+                    + " dist " + (go != null ? ((int)(go.Position - actor.Position).Length()).ToString() : "-")
+                    + " verts " + (pts != null ? pts.Count : -1) + " nearest " + (int)near + " looping " + looping
+                    + " posture " + (sim != null && sim.Posture != null ? sim.Posture.GetType().Name : "-")
+                    + " parent " + (actor.RoutingComponent != null && actor.RoutingComponent.RoutingParent != null ? actor.RoutingComponent.RoutingParent.GetType().Name : "-")
+                    + " exit " + (sim != null ? ((ulong)sim.ExitReason).ToString("X") : "-")
+                    + " interaction " + (sim != null && sim.CurrentInteraction != null ? sim.CurrentInteraction.GetType().FullName : "-"));
+            }
+            catch (Exception) { PatchCounters()[4005]++; }
+        }
+
         public class SkLoopHook
         {
             public Route PathHook(List<Vector3> targetPoints, ISkatableObject skatingObject, bool looping)
@@ -47,6 +75,7 @@ namespace Ts3Fixes
                     GameObject actor = (GameObject)(object)this;
                     int n = SkCalls(actor.ObjectId.Value, SimClock.CurrentTicks);
                     if (n < kSkSpinCalls || r == null) return r;
+                    if (n == kSkSpinCalls && sSkLogged < kSkLogLines) { sSkLogged++; SkLog(actor, targetPoints, skatingObject, looping); }
                     if (!ShortcutOn("skateloop")) { if (n == kSkSpinCalls) PatchCounters()[4004]++; return r; }
                     RoutePlanResult pr = r.PlanResult;
                     pr.mType = RoutePlanResultType.FailedBecausePlannerAborted;
