@@ -2519,7 +2519,7 @@ moved into "Shotgun Style - 2br, 1ba": 1 toilet, 1 shower/bath, 2 sinks, 1 fridg
   needs and hitch differences are within noise. Not run: a forced repro of a player's queued order against a pre-pick
   (EA's own rule; counted as "dropped by a higher-priority add" 71-157 per on arm, the storm's pushes).
 
-## 40. Dishes washed at a free kitchen sink, or handed in to the Sim already washing (`sinkfree`, `sinkfreehh`, `sinkfreelog`; 2026-11-27, `post/sinkfree-1127`, built, default off, storm A/B s691-s693)
+## 40. Dishes washed at a free kitchen sink, or joined to a wash instead of EA's sink line (`sinkfree`, `sinkfreehh`, `sinkfreelog`; 2026-11-27, `post/sinkfree-1127`, built, default off, storm A/B s693, forced repro s700-s701)
 
 ### 40.1 What the household waits on
 
@@ -2531,34 +2531,77 @@ the Sim's room, else on the lot, whether it is in use or not (`skipObjectsInUse:
 only halves an in-use sink's score (`kCleanupScoreModifierForInUse` 0.5, so a busy sink counts as twice as far), so a
 bathroom sink a step away beats the kitchen sink, and a busy kitchen sink beats a free one two rooms away.
 
+How EA's dish trip runs (decompiled, verified): eating ends with `EatHeldFood.TryPushCleanup`, which pushes the
+plate's `ServingContainer_CleanUp`. Its `DoCleanUp` gathers every dirty plate in the room into one stack (up to
+`kMaxDishStackSize` 8, `PickUpAnother`), so EA already merges most trips: in s700 four Sims made 1-3 trips a round.
+It then pushes `Sink.WashDishes` as a continuation on the picked sink, so the sink is always game-picked, never a
+player order. `WashDishes.Run` calls `Sink.RouteToSink`, which is `Line.WaitForTurn(..., kTimeToWaitInLine 15)`
+(EA's `SimQueue`, at most 3) and then `RouteToSlotAndCheckInUse`; then `StandardEntry`, the `TimedStage` of
+`WashDishesLengthInMinutes`, EA's `kWashedOneDish` / `kCleanedObject` events and `Destroy` of the stack. The
+in-game `WashDishesLengthInMinutes` is 1.0 sim-min (tuning, read in s700), so the washing is short: the wait is the
+walk plus EA's line behind the Sim at the sink.
+
 ### 40.2 The fix (`SinkFree.cs`, rules in `SinkFreeCore.cs`)
 
 1. **Kitchen sinks first.** EA's pick runs as before, then `SinkFreeCore.Pick` keeps it when it is a free kitchen
-   sink, else takes the nearest free kitchen sink, using EA's own tests (not broken, not charred, `CanRouteToSink`) and
-   EA's level factor (`kDifferentLevelScore` 0.25). A bathroom sink (`SinkPedestal`, or a sink in a room with a toilet,
-   shower or bathtub) gets dishes only on a lot with no kitchen sink, and the fix never moves dishes from a kitchen
-   sink to a bathroom one.
-2. **Hand it in.** If the kitchen sink is busy because another Sim is running `Sink.WashDishes` there, and no other
-   kitchen sink is free, the Sim with the dishes walks over for real (`RouteToObjectRadialRange` 0.6-1.6 m) and puts
-   them down with EA's `CarrySystem.PutDownOnFloor`. Each handed-in dish makes the washer's `TimedStage` 1/16 of EA's
-   `WashDishesLengthInMinutes` longer (EA's default is 45 sim-min, so 2.8 sim-min a dish). The wash grows by at most
-   20 % in all (9 sim-min) however many dishes come in, so the washer is not held at the sink for long. At most
-   `kHandCap` = 3 dishes go into one wash, else EA's line.
-3. **Out of sight.** Right after the put-down the dish gets EA's `FadeOut`, a hidden footprint and all interactions
-   off (`DisableInteractions(All)`, EA's `InteractionsDisabledComponent`). It looks washed along with the washer's
-   dishes, and nobody can pick it up or clean it. When the washer's own `Run` ends with its stage done, the dish gets
-   EA's events (`kWashedOneDish` per stack item, `kCleanedObject`) and is destroyed, as EA destroys a washed stack.
-   A wash that ends early (cancel, reset, need) shows the dish again where it lies (`FadeIn`, interactions back on),
-   dirty, for EA's cleanup. A world load does the same for any loose dish still hidden this way, and a reset washer is
-   caught at the next dish trip. Nothing is created, so nothing is lost or duplicated.
+   sink, else takes the nearest free kitchen sink, using EA's own tests (not broken, not charred, `CanRouteToSink`)
+   and EA's level factor (`kDifferentLevelScore` 0.25). A bathroom sink gets dishes only on a lot with no kitchen
+   sink, and the fix never moves dishes from a kitchen sink to a bathroom one. The kitchen test is "a `SinkCounter`
+   in a room with no toilet, shower or bathtub": pedestal sinks (for example `SinkPedestalModerate`) derive from
+   `Sink`, not `SinkPedestal`, so the first test (`is SinkPedestal`) took them for kitchen sinks (found in s694).
+2. **Locked rooms skipped.** A sink in a room locked for privacy (`Lot.RoomLockedByPrivacy`, the same test
+   facilityplan and bathroomwait use, so privacyroom's answer when that is on) is skipped while another usable sink
+   exists (`SinkFreeCore.PickOpen`). If EA's own pick is locked, the nearest open sink stands in for it. s693 had
+   1 `WashDishes` route fail on a locked portal per arm (and 12 / 6 `CleanUp` fails, which are the plate pickups,
+   not the sink pick).
+3. **Join a wash instead of waiting in EA's line.** At the start of the dish Sim's `WashDishes.Run`, which is where
+   `RouteToSink` would put it into `Line.WaitForTurn`, `SinkFreeCore.Join` asks whether it would wait there:
+   the washer's stage still runs when it arrives (`TimedStage.TimeRemaining` against its walk,
+   `FacilityPlanCore.Travel`), Sims stand in EA's line, another dish Sim ahead would still be washing when it
+   arrives, or facilityplan's `FpBusy` (busy-until of the sink, its line and queued users) is past its arrival.
+   If not, EA's own line and wash run unchanged. If it would wait and another kitchen sink is not free:
+   - **hand-in** (current wash): another Sim washes there now: the dishes join that wash;
+   - **merge** (next wash): another Sim with dishes waits in the line or walks there: the dishes join its wash,
+     only while its stack plus what already joined plus these fit in EA's `kMaxDishStackSize`;
+   - a sink busy with something else (hands, teeth) has no wash to join: EA's line.
+   At most `kHandCap` = 3 hand-in dishes per wash, else EA's line.
+4. **Put-down.** The Sim walks to the sink for real and sets the dishes down with EA's
+   `CarrySystem.PutDownOnNearestSurface` on a counter or table within 2.2 m of the sink (same room and lot, not in
+   use). With no such surface the floor by the sink is used only when camsafe's `CsDecide` says nobody sees it (EA's
+   `PutDownOnFloor` after a real walk); else EA's line and own wash. No dish is ever left on a seen floor.
+5. **Out of sight.** Right after the put-down the dish gets EA's `FadeOut`, a hidden footprint and all interactions
+   off (`DisableInteractions(All)`). It looks washed along with the washer's dishes, and nobody can pick it up. The
+   joined wash's `TimedStage` grows by 1/16 of EA's wash length per dish (0.06 sim-min in game), at most +20 % in all
+   (`SinkFreeCore.ExtraMinutes`). When that wash's `Run` ends with its stage done, each joined dish gets EA's events
+   (`kWashedOneDish` per stack item, `kCleanedObject`) and is destroyed, as EA destroys a washed stack. **The
+   washed-dish credit goes to the Sim who washes**, who did the work; the Sim who brought the dish gets none.
+6. **Stops.** If the joined wash stops while the dish Sim is walking over (or the next wash's stack filled up), the
+   dish is shown again (`FadeIn`, interactions on) and EA's `ServingContainer_CleanUp` is pushed on it as the dish
+   Sim's continuation: it picks the dishes up again (with any others in the room) and washes them itself; it does not
+   try to join again on that trip. A wash that ends early later (cancel, reset, need) shows the dishes again where
+   they lie, dirty, for EA's cleanup; a world load does the same for any loose dish still hidden, and a reset washer
+   is caught at the next dish trip. Nothing is created, so nothing is lost or duplicated.
 
 The other nearest-sink pick for dishes (`BarTray.CleanUp`) already skips sinks in use. When the switch is off but
-`sinkfreelog` is on, the fix only logs what it would do and counts it. `sinkfreehh` extends it to household and
-selected Sims. `SinkFreeCheck("run|result|reset")` (repro `sinkfree-check`). Selftest:
-`tools/selftest/sinkfree` (pick with every busy mask, the hand-in cap grid and scope, extra time and its cap, end
-of wash).
+`sinkfreelog` is on, the fix only logs and counts what it would do. `sinkfreehh` extends it to household and
+selected Sims (off, they count as exempt, so the off arm of a household repro shows exempt, not would). Player
+orders are never rerouted: `WashDishes` is only EA's continuation of a cleanup. `SinkFreeCheck("run|result|home|reset")`
+(repros `sinkfree-check`, `sinkfree-force`). Selftest `tools/selftest/sinkfree`: pick with every busy mask, open
+pick, the join rule, the hand-in cap grid and scope, the merge stack grid, extra time and its cap, end of wash.
 
-### 40.3 Storm A/B s693 (same setup as s691: arm a = planned fixes, arm b = planned fixes + sinkfree + sinkfreehh)
+### 40.3 Works with
+
+- **nextplan**: claims only autonomous queue picks of single-use targets; sinks are never claimed, so no overlap.
+- **facilityplan**: sinkfree reads its `FpBusy` for the wait test and the same privacy test; facilityplan scores
+  bathroom visits and never moves dishes, so neither undoes the other.
+- **fridgeline, servingshare**: act before eating (fridge line, shared serving); sinkfree acts on the plate after,
+  through EA's own cleanup.
+- **privacyroom / bathroomwait**: the locked-room skip asks `RoomLockedByPrivacy`, so it follows privacyroom when on;
+  sinkfree never enters a locked room to set a dish down (the surface must be in the sink's room).
+- **clipwait, doorseat / seatreach**: sinkfree adds no snaps or clips; the walks are EA routes.
+- **camsafe**: the floor put-down uses its `CsDecide`; nothing else is hidden from view.
+
+### 40.4 Storm A/B s693 (s691 setup: arm a = planned fixes, arm b = planned fixes + sinkfree + sinkfreehh, v2)
 
 | per Sim-day (Northcott, 7.2 Sim-days each) | s693a | s693b |
 |---|---|---|
@@ -2566,15 +2609,54 @@ of wash).
 | sink, kitchen | 3.6 (n=5) | 5.5 (n=5) |
 | all waits | 84.0 | 70.4 |
 
-In s693b the dish-cleanup hook ran on 25 dish trips. EA's sink was busy on 6 of them, none needed a move to a
-kitchen sink (EA never picked the bathroom sink in this run), and none were handed in. One stack of 4 dishes was
-over the cap and went to EA's line, and in one case the washer finished before the Sim with the dishes arrived, so
-it washed its own. There were 0 errors and no "must have a counter" stalls in either arm. The bathroom-sink dish
-waits of s691b (17) did not come back, but s693a had few of them too (n=1), so this run does not show the gain. The
-hand-in and hide path was not reached in a natural storm; it needs a forced repro (two Sims with dishes and one
-kitchen sink) before it can be called proven. The dirty-dish census was not taken (`dish_census` is not in the
-test agent package). The kitchen-sink and total figures come from five waits per arm and do not separate the arms.
+25 dish trips went through the hook in s693b, 6 with EA's sink busy, no moves to a kitchen sink needed, no hand-ins,
+0 errors. The kitchen-sink and total figures rest on five waits per arm and do not separate the arms.
 
-Counters 5000-5018 (`kCounterSlots` 5020): dish trips / EA's sink busy / switched / would / no better sink / exempt
-/ errors / EA's sink free / not a sink / lines / to a kitchen sink / dishes handed in / hand-in would / capped /
-handed dishes washed / left down / moved while hidden / washer stopped first / hidden dishes shown again.
+### 40.5 Forced repro `sinkfree-force` (s700, s701)
+
+Household "Basin" (4 Sims, Myrtle Bungalow in Sunset Valley via `make_household` funds, one kitchen counter sink
+plus the bathroom sink), all planned fixes on in both arms (facilityplan, facilityquick, facilitychain,
+showerpeeplan, nextplan, clipwait, each with its household switch). Hand rounds: Ada takes a plate from a platter,
+the others 6 sim-min later, 3 s apart; merge rounds: two at once; one cancel round on the on arm (Ada cancelled
+mid-wash, every hidden dish must be shown again).
+
+s700 (v3, join at the start of the trip whenever someone washed):
+
+| | off | on |
+|---|---|---|
+| `WashDishes` line waits | 5, 35 sim-min | 0 |
+| dish trips, mean | 13, 13.0 sim-min | 12, 12.0 sim-min |
+| hand-ins | - | 2 (1 washed, 1 washer stopped first) |
+| merges | - | 0 |
+
+A handed-in trip took 4.4 sim-min against 9-13 for washing one's own. The other hand-in found the 1-min wash
+already over, so the dish was left dirty on the counter; that is why v4 (this version) joins only where EA's line
+would make the Sim wait and pushes EA's cleanup back on the dish when the wash stops first.
+
+s701 (v4, this version: join only where EA's line would make the Sim wait; same repro, same house):
+
+| | off | on |
+|---|---|---|
+| `WashDishes` line waits | 6, 67.1 sim-min | 3, 20.7 sim-min (1 of them cancelled by the round's end) |
+| dish trips, mean | 10, 19.0 sim-min | 16, 11.7 sim-min (own washes 14.8) |
+| joined the next wash (merge, Sim in EA's line) | - | 5 trips, 7 dishes, 3.2-6.3 sim-min each (mean 4.7) |
+| joined dishes washed with EA's events | - | 7 of 7 |
+| hand-ins to the Sim washing now | - | 0 (EA's 1-min wash always ended before the next Sim arrived) |
+| shown again / taken back with EA's cleanup | - | 0 / 0 (no joined wash stopped during a walk) |
+| no counter by the sink while seen: EA's line instead | - | 1 |
+
+Every join fired with one Sim in EA's line ahead (`line 1`, facilityplan's busy 2.0 sim-min) and joined that
+Sim's wash; the joined stack grew the wash by 0.06-0.20 sim-min. The off arm counts household Sims as exempt
+(`sinkfreehh` off), so it logs no "would" lines. Some rounds had no dish trips in either arm (the Sims did not eat
+in the window), so trip counts differ between arms. The cancel round again found no joined dish pending (the Sims
+were still eating at the cancel), so the early-stop show-again path rests on s700's washer-stopped case and the
+selftest; the CleanUp push-back path was not reached in game.
+
+Immersion (s700, s701): every put-down on a counter, 0 floor put-downs, 0 snaps, 0 clips, nothing odd seen in the
+logs (no dish on a floor, no kitchen chore in a bathroom). Bin pair at the s612 baseline before and after each run.
+
+Counters 5000-5019 and 5080-5087 (`kCounterSlots` 5090; 5020-5079 belong to other branches): dish trips / EA's sink
+busy / switched / would / no better sink / exempt / errors / EA's sink free / not a sink / lines / to a kitchen sink
+/ dishes handed in / hand-in would / capped / handed dishes washed / left down / moved while hidden / washer stopped
+first / hidden dishes shown again / dishes merged; merge would / merge stack full / (spare) / merge lost / locked
+sink skipped / no surface by the sink / floor put-down, unseen / put-down on screen.
