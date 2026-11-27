@@ -1788,9 +1788,9 @@ namespace Ts3Fixes
         // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
         // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
-        // [5000-5018] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
-        // would / no better sink / exempt / errors / EA's sink free / not a sink / lines / to kitchen / handed in / hand-in would / capped / washed / left down / moved while hidden / washer stopped first / shown again; 5019 spare.
-        const int kCounterSlots = 5020;  // 5020 from sinkfree (5000-5019)
+        // [5000-5019, 5080-5084] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
+        // would / no better sink / exempt / errors / EA's sink free / not a sink / lines / to kitchen / handed in / hand-in would / capped / washed / left down / moved while hidden / washer stopped first / shown again / merged dishes; 5080-5084 merge would / stack full / carrier not close / carrier out of reach / locked-room sink skipped; 5085-5089 spare.
+        const int kCounterSlots = 5090;  // 5090 from sinkfree's merge counters (5080-5089; 5020-5079 belong to other branches)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {

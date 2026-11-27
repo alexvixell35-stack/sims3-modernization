@@ -12,6 +12,7 @@ using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.ObjectComponents;
 using Sims3.Gameplay.Objects.CookingObjects;
 using Sims3.Gameplay.Objects.Plumbing;
+using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
 
 namespace Ts3Fixes
@@ -32,13 +33,22 @@ namespace Ts3Fixes
     //    the dishes again where they lie (FadeIn, interactions on), dirty, for EA's cleanup; so does a world load for any dish
     //    still hidden. Nothing is created, so nothing is lost or duplicated.
     // The only other nearest-sink pick for dishes (BarTray.CleanUp) already skips sinks in use; hand washing has no such pick.
-    // Counters 5000-5018. Off = compare mode (would counters).
+    // 3. Merge dish trips: when nobody washes at the kitchen sink yet but another Sim (the carrier) is on its way there with
+    //    dishes, a Sim starting its own trip to the same sink close to the carrier (SinkFreeCore.kMergeNear, and nearer
+    //    than the sink) walks to within kMergeReach of the carrier, puts its dishes down and they join the carrier's wash,
+    //    hidden and settled exactly as a hand-in (extra time and the 20 % cap shared with the hand-ins). Only while the
+    //    carrier's stack plus what joined plus these dishes fit in EA's kMaxDishStackSize; else, or when the carrier is
+    //    not close or gets away during the walk, EA's own trip.
+    // 1b. A sink in a room locked for privacy (SnfLocked) is skipped while another usable sink exists (SinkFreeCore.PickOpen).
+    // Counters 5000-5019 and 5080-5084 (merge, locked). Off = compare mode (would counters).
     public static partial class Fixes
     {
         const int kSnfCalls = 5000, kSnfEaBusy = 5001, kSnfSwitched = 5002, kSnfWould = 5003, kSnfNoneFree = 5004, kSnfExempt = 5005,
             kSnfErrors = 5006, kSnfEaFree = 5007, kSnfNotSink = 5008, kSnfLines = 5009, kSnfToKitchen = 5010, kSnfHanded = 5011,
-            kSnfHandWould = 5012, kSnfCapped = 5013, kSnfWashed = 5014, kSnfLeft = 5015, kSnfTaken = 5016, kSnfHandBack = 5017, kSnfShown = 5018;
+            kSnfHandWould = 5012, kSnfCapped = 5013, kSnfWashed = 5014, kSnfLeft = 5015, kSnfTaken = 5016, kSnfHandBack = 5017, kSnfShown = 5018,
+            kSnfMerged = 5019, kSnfMergeWould = 5080, kSnfMergeFull = 5081, kSnfMergeFar = 5082, kSnfMergeLost = 5083, kSnfLocked = 5084;
         static string sSnfLast = "";
+        static FieldInfo sSnfStack;  // ServingContainer_CleanUp.kMaxDishStackSize (private static, 8): the merge's stack limit
         static FieldInfo sSnfTotal;  // SimpleStage.mTotalTime (protected): the stage's length, for TimedStage.ResetCompletionTime
 
         sealed class SnfPend { public Sim Washer; public List<GameObject> Tops = new List<GameObject>(); public List<int> Counts = new List<int>(); public int Dishes; }
@@ -49,6 +59,7 @@ namespace Ts3Fixes
             Patch(typeof(ServingContainer.ServingContainer_CleanUp), "GetBestObjectToWashDishes", Type.EmptyTypes, typeof(SnfHook), "PickHook", "PickOrig");
             Patch(typeof(Sink.WashDishes), "Run", Type.EmptyTypes, typeof(SnfWashHook), "RunHook", "RunOrig");
             sSnfTotal = typeof(SimpleStage).GetField("mTotalTime", BindingFlags.Instance | BindingFlags.NonPublic);
+            sSnfStack = typeof(ServingContainer.ServingContainer_CleanUp).GetField("kMaxDishStackSize", BindingFlags.Static | BindingFlags.NonPublic);
             World.OnWorldLoadFinishedEventHandler -= SnfWorldLoaded;
             World.OnWorldLoadFinishedEventHandler += SnfWorldLoaded;
         }
@@ -130,7 +141,7 @@ namespace Ts3Fixes
             Sink[] all = lot == null ? null : lot.GetObjects<Sink>();
             if (all == null || all.Length == 0) return ea;
             int n = all.Length, eaIdx = -1;
-            bool[] kit = new bool[n], busy = new bool[n], lvl = new bool[n]; float[] dist = new float[n];
+            bool[] kit = new bool[n], busy = new bool[n], lvl = new bool[n], locked = new bool[n]; float[] dist = new float[n];
             for (int i = 0; i < n; i++)
             {
                 Sink s = all[i];
@@ -140,9 +151,11 @@ namespace Ts3Fixes
                 busy[i] = !use || SnfBusy(s, a) || (s.Line != null && s.Line.FirstSim != null && s.Line.FirstSim != a);
                 kit[i] = use && SnfKitchen(s);
                 lvl[i] = use && s.Level != a.Level;
+                locked[i] = !use || SnfLocked(s, a);
             }
             if (eaIdx < 0) return ea;
-            int k = SinkFreeCore.Pick(eaIdx, kit, busy, dist, lvl, GlobalFunctions.kDifferentLevelScore);
+            int k = SinkFreeCore.PickOpen(eaIdx, kit, busy, locked, dist, lvl, GlobalFunctions.kDifferentLevelScore);
+            if (k != eaIdx && locked[eaIdx] && k >= 0) c[kSnfLocked]++;
             int d = SinkFreeCore.Decide(ShortcutOn("sinkfree"), ShlScope(a, ShortcutOn("sinkfreehh")), true, k != eaIdx && k >= 0);
             string who = ShlWho(a);
             if (d == SinkFreeCore.kNone)
@@ -162,6 +175,19 @@ namespace Ts3Fixes
             return to;
         }
 
+        // s is in a room locked for privacy against a (EA's GenericPrivacySituation on the room: someone else on the toilet or
+        // in the shower; a route there fails with FailedBecauseDestinationPortalLocked). a in that room already: not locked.
+        static bool SnfLocked(Sink s, Sim a)
+        {
+            Lot lot = s.LotCurrent;
+            if (lot == null || s.RoomId == 0 || a.RoomId == s.RoomId) return false;
+            List<Sims3.Gameplay.Situations.PrivacySituation> ps = lot.GetRoomPrivacySituations(s.RoomId);
+            if (ps == null) return false;
+            foreach (Sims3.Gameplay.Situations.PrivacySituation p in ps)
+                if (p != null && p.SyncTarget != a) return true;
+            return false;
+        }
+
         // The Sim washing dishes at s now (not a), and its WashDishes.
         static Sink.WashDishes SnfWasher(Sink s, Sim a, out Sim washer)
         {
@@ -173,6 +199,33 @@ namespace Ts3Fixes
                 if (w != null && w.Target == s) { washer = u; return w; }
             }
             return null;
+        }
+
+        // Another Sim on its way to s with dishes (its WashDishes runs at s, it does not wash yet), and its WashDishes.
+        static Sink.WashDishes SnfCarrier(Sink s, Sim a, out Sim carrier)
+        {
+            carrier = null;
+            Lot lot = a.LotCurrent;
+            if (lot == null) return null;
+            Sim washing;
+            SnfWasher(s, a, out washing);
+            Sim best = null; Sink.WashDishes bw = null; float bd = float.MaxValue;
+            foreach (Sim u in lot.GetAllActors())
+            {
+                if (u == null || u == a || u == washing || u.HasBeenDestroyed) continue;
+                Sink.WashDishes w = u.CurrentInteraction as Sink.WashDishes;
+                if (w == null || w.Target != s || !(u.GetObjectInRightHand() is ServingContainer)) continue;
+                float d = u.GetDistanceToObject(a);
+                if (d < bd) { bd = d; best = u; bw = w; }
+            }
+            carrier = best;
+            return bw;
+        }
+
+        static int SnfMaxStack()
+        {
+            try { if (sSnfStack != null) return (int)sSnfStack.GetValue(null); } catch (ResetException) { throw; } catch (Exception) { }
+            return 8;
         }
 
         static bool SnfFreeKitchen(Sim a, Sink not)
@@ -221,6 +274,57 @@ namespace Ts3Fixes
             if (ts != null && sSnfTotal != null) ts.ResetCompletionTime((float)sSnfTotal.GetValue(ts) + extra);
             c[kSnfHanded] += count;
             SnfLine("sinkfree: " + a.FullName + " " + who + ": hands " + count + " dishes to " + washer.FullName + " at " + s.GetType().Name + ", wash " + washLen.ToString("0.0") + " sim-min +" + extra.ToString("0.00") + " sim-min");
+            return true;
+        }
+
+        // Rule 3 for the Sim a at the start of its WashDishes at s, when nobody washes there yet: true = its dishes joined the
+        // wash of the carrier on its way to the same sink (its Run ends here). A real walk to within kMergeReach of the
+        // carrier, EA's put-down, hidden as a hand-in, settled at the end of the carrier's wash (SnfWashEnd).
+        static bool SnfTryMerge(Sink.WashDishes self)
+        {
+            Sim a = self.Actor; Sink s = self.Target;
+            if (a == null || s == null) return false;
+            ServingContainer held = a.GetObjectInRightHand() as ServingContainer;
+            if (held == null || held.StackList == null) return false;
+            Sim carrier;
+            Sink.WashDishes wi = SnfCarrier(s, a, out carrier);
+            if (wi == null) return false;
+            ServingContainer cs = carrier.GetObjectInRightHand() as ServingContainer;
+            if (cs == null || cs.StackList == null) return false;
+            SnfPrune();
+            SnfPend p;
+            int joined = sSnfPend.TryGetValue(wi, out p) ? p.Dishes : 0;
+            int dishes = held.StackList.Count, max = SnfMaxStack();
+            float dc = a.GetDistanceToObject(carrier), ds = s.GetDistanceToObject(a);
+            int[] c = PatchCounters();
+            string who = ShlWho(a);
+            int d = SinkFreeCore.Merge(ShortcutOn("sinkfree"), ShlScope(a, ShortcutOn("sinkfreehh")), SnfKitchen(s), true, SnfFreeKitchen(a, s), dc, ds,
+                dishes, cs.StackList.Count, joined, max);
+            string what = carrier.FullName + " (" + dc.ToString("0.0") + " m away, sink " + ds.ToString("0.0") + " m, stack " + cs.StackList.Count + "+" + joined + ")";
+            if (d == SinkFreeCore.kNone) return false;
+            if (d == SinkFreeCore.kMergeFar) { c[kSnfMergeFar]++; SnfLine("sinkfree: " + a.FullName + " " + who + ": " + what + " not close: own trip"); return false; }
+            if (d == SinkFreeCore.kCapped) { c[kSnfMergeFull]++; SnfLine("sinkfree: " + a.FullName + " " + who + ": " + dishes + " dishes do not fit on " + what + ": own trip"); return false; }
+            if (d == SinkFreeCore.kExempt) { c[kSnfExempt]++; return false; }
+            if (d == SinkFreeCore.kWould) { c[kSnfMergeWould]++; SnfLine("sinkfree: " + a.FullName + " " + who + ": would add " + dishes + " dishes to " + what); return false; }
+            if (!a.RouteToObjectRadialRange(carrier, 0.3f, SinkFreeCore.kMergeReach)) { a.RemoveExitReason(ExitReason.RouteFailed); c[kSnfMergeLost]++; return false; }
+            if (a.HasExitReason(ExitReason.Default)) return false;
+            int count = held.StackList.Count;
+            int joinedNow = sSnfPend.TryGetValue(wi, out p) ? p.Dishes : 0;
+            if (carrier.CurrentInteraction != wi || carrier.GetObjectInRightHand() != cs || cs.StackList == null || a.GetDistanceToObject(carrier) > SinkFreeCore.kMergeReach + 1f
+                || cs.StackList.Count + joinedNow + count > max)
+            { c[kSnfMergeLost]++; SnfLine("sinkfree: " + a.FullName + " " + who + ": " + carrier.FullName + " out of reach or full after the walk: own trip"); return false; }
+            CarrySystem.PutDownOnFloor(a);
+            if (a.GetObjectInRightHand() == held || held.Parent != null) return false;  // still held: EA's trip
+            SnfHide(held);
+            if (p == null) { p = new SnfPend(); p.Washer = carrier; sSnfPend[wi] = p; }
+            p.Tops.Add(held); p.Counts.Add(count); p.Dishes += count;
+            // the carrier's TimedStage exists from ConfigureInteraction on; ResetCompletionTime before its Start moves the start's end
+            List<Sims3.UI.Hud.IStage> st = wi.IStages; TimedStage ts = st != null && st.Count > 0 ? st[0] as TimedStage : null;
+            float washLen = s.TuningSink.WashDishesLengthInMinutes;
+            float extra = SinkFreeCore.ExtraMinutes(washLen, p.Dishes - count, count);
+            if (ts != null && sSnfTotal != null) ts.ResetCompletionTime((float)sSnfTotal.GetValue(ts) + extra);
+            c[kSnfMerged] += count;
+            SnfLine("sinkfree: " + a.FullName + " " + who + ": adds " + count + " dishes to " + what + " on the way to " + s.GetType().Name + ", wash " + washLen.ToString("0.0") + " sim-min +" + extra.ToString("0.00") + " sim-min");
             return true;
         }
 
@@ -287,18 +391,62 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
-                bool handed = false;
-                try { handed = (ShortcutOn("sinkfree") || ShortcutOn("sinkfreelog")) && SnfTryHand(this); }
+                DateAndTime t0 = SimClock.CurrentTime();
+                bool handed = false, merged = false;
+                try
+                {
+                    if (ShortcutOn("sinkfree") || ShortcutOn("sinkfreelog"))
+                    {
+                        handed = SnfTryHand(this);
+                        if (!handed) merged = SnfTryMerge(this);
+                    }
+                }
                 catch (ResetException) { throw; }
                 catch (Exception e) { SnfError(e); }
-                if (handed) return true;
+                if (handed || merged) { SnfTrip(this, t0, handed ? "handed in" : "merged"); return true; }
                 bool ok = RunOrig();
                 try { if (sSnfPend.Count > 0) SnfWashEnd(this, ok); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { SnfError(e); }
+                SnfTrip(this, t0, ok ? "washed own" : "stopped");
                 return ok;
             }
             public bool RunOrig() { return false; }  // receives Sink.WashDishes.Run's original body
+        }
+
+        // sinkfreelog: how long the Sim with the dishes was at the sink (EA's line wait included): from its WashDishes run start
+        // to its hand-in or the end of its own wash.
+        static void SnfTrip(Sink.WashDishes wi, DateAndTime t0, string how)
+        {
+            try
+            {
+                if (!ShortcutOn("sinkfreelog") || wi.Actor == null) return;
+                float min = SimClock.ElapsedTime(TimeUnit.Minutes, t0);
+                SnfLine("sinkfree: trip " + wi.Actor.FullName + " " + ShlWho(wi.Actor) + " at " + (wi.Target != null ? wi.Target.GetType().Name : "?") + ": " + how + " after " + min.ToString("0.0") + " sim-min");
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { SnfError(e); }
+        }
+
+        // SinkFreeCheck("home"): the active household lot's single plates (held, hidden or lying), for a repro's polls.
+        static Dictionary<string, object> SnfHome()
+        {
+            Dictionary<string, object> d = new Dictionary<string, object>();
+            Lot lot = Sims3.Gameplay.CAS.Household.ActiveHouseholdLot;
+            int plates = 0, hidden = 0, held = 0;
+            if (lot != null)
+                foreach (ServingContainerSingle sc in Sims3.Gameplay.Queries.GetObjects<ServingContainerSingle>())
+                {
+                    if (sc == null || sc.HasBeenDestroyed) continue;
+                    Sim holder = sc.Parent as Sim;
+                    if ((holder != null ? holder.LotCurrent : sc.LotCurrent) != lot) continue;
+                    plates++;
+                    if (holder != null) held++;
+                    if (sc.InteractionsAreDisabled(InteractionsDisabledType.All)) hidden++;
+                }
+            d["plates"] = plates; d["held"] = held; d["hidden"] = hidden; d["pending_washes"] = sSnfPend.Count;
+            d["counters"] = SnfCounters();
+            return d;
         }
 
         static string SnfCounters()
@@ -309,24 +457,28 @@ namespace Ts3Fixes
                 + " (to a kitchen sink " + c[kSnfToKitchen] + "), would " + c[kSnfWould] + ", no better sink " + c[kSnfNoneFree] + ", exempt " + c[kSnfExempt]
                 + "; handed in " + c[kSnfHanded] + " dishes (would " + c[kSnfHandWould] + " trips, capped " + c[kSnfCapped] + ", washer stopped first " + c[kSnfHandBack]
                 + "), washed " + c[kSnfWashed] + ", left down " + c[kSnfLeft] + ", moved while hidden " + c[kSnfTaken] + ", shown again " + c[kSnfShown] + ", pending washes " + sSnfPend.Count
-                + "; errors " + c[kSnfErrors] + ", lines " + c[kSnfLines] + "; last: " + (sSnfLast.Length > 0 ? sSnfLast : "none");
+                + "; merged trips: dishes " + c[kSnfMerged] + " (would " + c[kSnfMergeWould] + ", stack full " + c[kSnfMergeFull] + ", carrier not close " + c[kSnfMergeFar]
+                + ", carrier out of reach " + c[kSnfMergeLost] + "); locked-room sink skipped " + c[kSnfLocked] + "; errors " + c[kSnfErrors] + ", lines " + c[kSnfLines] + "; last: " + (sSnfLast.Length > 0 ? sSnfLast : "none");
         }
 
         // SinkFreeCheck("run"): the rules against their cases (SinkFreeCore); "result": the counters; "reset": counters cleared.
         public static object SinkFreeCheck(string what)
         {
             if (what == "result") return SnfCounters();
-            if (what == "reset") { int[] c = PatchCounters(); for (int i = kSnfCalls; i <= kSnfShown; i++) c[i] = 0; sSnfLast = ""; return "sinkfree: counters cleared"; }
-            if (what != "run") return "sinkfree <run|result|reset>";
+            if (what == "home") return SnfHome();
+            if (what == "reset") { int[] c = PatchCounters(); for (int i = kSnfCalls; i <= kSnfMerged; i++) c[i] = 0; for (int i = kSnfMergeWould; i <= kSnfLocked; i++) c[i] = 0; sSnfLast = ""; return "sinkfree: counters cleared"; }
+            if (what != "run") return "sinkfree <run|result|home|reset>";
             bool[] kit = { false, true }, busy = { true, false }; float[] dist = { 1f, 6f };
             bool toKitchen = SinkFreeCore.Pick(0, kit, busy, dist, null, 0.25f) == 1;
             bool neverBath = SinkFreeCore.Pick(1, kit, new bool[] { false, true }, dist, null, 0.25f) == 1;
             bool hand = SinkFreeCore.Handoff(true, true, true, true, false, 2, 0) == SinkFreeCore.kGo;
             bool cap = SinkFreeCore.Handoff(true, true, true, true, false, 2, 2) == SinkFreeCore.kCapped;
             bool early = SinkFreeCore.EndDish(false, true) == SinkFreeCore.kEndLeft;
-            bool hooked = typeof(ServingContainer.ServingContainer_CleanUp).GetMethod("GetBestObjectToWashDishes") != null && sSnfTotal != null;
+            bool merge = SinkFreeCore.Merge(true, true, true, true, false, 2f, 5f, 1, 2, 0, 8) == SinkFreeCore.kGo
+                && SinkFreeCore.Merge(true, true, true, true, false, 6f, 9f, 1, 2, 0, 8) == SinkFreeCore.kMergeFar;
+            bool hooked = typeof(ServingContainer.ServingContainer_CleanUp).GetMethod("GetBestObjectToWashDishes") != null && sSnfTotal != null && sSnfStack != null;
             return "sinkfree check: bathroom pick -> free kitchen " + toKitchen + ", busy kitchen never -> bathroom " + neverBath + ", hand-in " + hand
-                + ", cap " + cap + ", early end leaves dishes " + early + ", members found=" + hooked + "; " + SnfCounters();
+                + ", cap " + cap + ", merge near/far " + merge + ", early end leaves dishes " + early + ", members found=" + hooked + "; " + SnfCounters();
         }
     }
 }
