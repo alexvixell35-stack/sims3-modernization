@@ -71,6 +71,8 @@
 // repro end; a miss stops the job (FAIL early). checkAt: "end" | { "<regex>": "end" } keeps rules for the end check only.
 // expectFail: true: a FAIL row is a PASS as expected, a PASS row a FAIL (expectedFail). agentPackage (queue or job): the
 // ts3agent package copied into build/ts3agent.package before the game starts, put back at the end (night-plan.ts, 2026-11-24).
+// probeTestSqueeze: true starts ts3probe with --test-squeeze, the only switch that allows its TEST-ONLY address-space squeeze
+// (docs/51 §635, Atlas docs/040 §8 T1b); every other job's probe refuses it.
 // logForbid: { "<regex>": max lines } over the same copy (0 = the line must not appear, e.g. a replay audit MISMATCH); more turns the row FAIL.
 // apexLogRequire / apexLogForbid: the same two rules over the job's kept -ApexRadiance_LOG.txt copy (this job's lines only, keepApexLogs):
 // Apex switch and version read-back (docs/301); failed rules say "apex log /re/ ...", a missing copy is FAIL UNKNOWN.
@@ -298,6 +300,7 @@ import { EA_PACKAGE_LOCK } from '../dump-locks.ts';
 import { MARKER } from '../publish-public.ts';
 import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton, PKG_ABBA, pkgAbba } from './game-alive.ts';
 import { defaultBranch } from '../default-branch.ts';
+import { ATLAS_KIT_INI, selfCheck as atlasKitSelfCheck } from '../release/atlas-kit.ts';
 import { BLOCKED as EXTRA_BLOCKED, extraAsiInstall, extraIni, extraLog, extraMarker, extraOwned, extraPending, extraSweep, strayAsi, INI_BAK, iniBackupRestore, iniBackupWrite, iniLine, selfCheck as extraAsiSelfCheck } from './extra-asi.ts';
 import { BIN, s3mmFiles, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, relaunched, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
@@ -404,7 +407,7 @@ function machineField(tag: string): { machineTag?: string } { return tag ? { mac
 type Job = { id: string; note?: string; asi: string; extraAsi?: { asi: string; ini?: Record<string, string | number>; logRequire?: Record<string, number>; logForbid?: Record<string, number>; sha256?: string }; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; modSet?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; launch?: 'direct' | 'menu'; defaultIni?: Record<string, string | number | boolean>; optionsIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; apexProfiler?: boolean; apexToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; apexLogRequire?: Record<string, number>; apexLogForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; scriptErrorsReportBefore?: string; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; dogfood?: boolean; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false; rewindRequire?: 'snapshot' | 'rewind'; checkAt?: 'end' | Record<string, 'end'>; expectFail?: boolean; agentPackage?: string };
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; dogfood?: boolean; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false; rewindRequire?: 'snapshot' | 'rewind'; checkAt?: 'end' | Record<string, 'end'>; expectFail?: boolean; agentPackage?: string; probeTestSqueeze?: true };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string, requireAll = true) {
   if (requireAll) for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
@@ -429,7 +432,7 @@ function versionPinMiss(j: { asi?: string; logRequire?: Record<string, number> }
 }
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'dogfood', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 'optionsIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'apexToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'launch', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'modSet', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'apexLogRequire', 'apexLogForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'scriptErrorsReportBefore', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm', 'rewindRequire', 'checkAt', 'expectFail', 'agentPackage', 'extraAsi']);
+const JOB_KEYS = new Set(['id', 'dogfood', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 'optionsIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'apexToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'launch', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'modSet', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'apexLogRequire', 'apexLogForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'scriptErrorsReportBefore', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm', 'rewindRequire', 'checkAt', 'expectFail', 'agentPackage', 'extraAsi', 'probeTestSqueeze']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 // results md cell: at most `max` chars, cut at an item boundary (", " / "; " / "<br>") and marked, never inside a number
 // (docs/277 §1: the cut at 400 turned aut_l0_pairn_hh 397 / 3163 into "3" / "316"; full values stay in the jsonl row)
@@ -571,6 +574,11 @@ export function parseQueue(json: unknown): Job[] {
       if (x.ini !== undefined && (typeof x.ini !== 'object' || x.ini === null || Array.isArray(x.ini))) throw new Error(`${at}: extraAsi.ini must be an object of "Section.Key": value`);
       for (const [k, v] of Object.entries(x.ini ?? {})) if (!/^\w+\.\w+$/.test(k) || !(typeof v === 'string' ? /^[^\r\n]*$/.test(v) : typeof v === 'number' && Number.isFinite(v))) throw new Error(`${at}: extraAsi.ini key "${k}" must be Section.Key with a one-line string or a number`);
       if (!(typeof x.sha256 === 'string' && /^[0-9a-f]{64}$/i.test(x.sha256))) throw new Error(`${at}: extraAsi.sha256 is required: 64 hex digits (the pin of the module copied into Bin)`);
+      // a release job stages Atlas as a player gets it: [Kit] Release=1 (StripProve bypasses refused, tools/release/atlas-kit.ts)
+      if (/^atlas\.asi$/i.test(name) && releaseDefaults(j as Job)) {
+        if (x.ini?.['Kit.Release'] !== undefined && x.ini['Kit.Release'] !== 1) throw new Error(`${at}: a release job stages Atlas with [Kit] Release=1 (extraAsi.ini Kit.Release is ${x.ini['Kit.Release']})`);
+        x.ini = { ...x.ini, ...ATLAS_KIT_INI };
+      }
       for (const [re, n] of Object.entries(x.logRequire ?? {})) { new RegExp(re); if (!(Number.isInteger(n) && (n as number) > 0)) throw new Error(`${at}: extraAsi.logRequire "${re}" must map to a line count >= 1`); }
       for (const [re, n] of Object.entries(x.logForbid ?? {})) { new RegExp(re); if (!(Number.isInteger(n) && (n as number) >= 0)) throw new Error(`${at}: extraAsi.logForbid "${re}" must map to an integer >= 0`); }
     }
@@ -667,6 +675,7 @@ export function parseQueue(json: unknown): Job[] {
     for (const k of ['logForbid', 'apexLogForbid'] as const) if (j[k] !== undefined) for (const [re, n] of Object.entries(j[k]!)) { new RegExp(re); if (!(Number.isInteger(n) && n >= 0)) throw new Error(`${at}: ${k} "${re}" must map to an integer >= 0`); }
     checkCheckAt(j.checkAt, j.logRequire, at);
     if (j.expectFail !== undefined && typeof j.expectFail !== 'boolean') throw new Error(`${at}: expectFail must be true or false`);
+    if (j.probeTestSqueeze !== undefined && j.probeTestSqueeze !== true) throw new Error(`${at}: probeTestSqueeze must be true (or left out)`);
     if (j.agentPackage === undefined && !Array.isArray(json) && (json as any).agentPackage !== undefined) j.agentPackage = (json as any).agentPackage; // queue-level default
     if (j.agentPackage !== undefined && !(typeof j.agentPackage === 'string' && /ts3agent\.package/.test(j.agentPackage) && !j.agentPackage.includes('..'))) throw new Error(`${at}: agentPackage must be a ts3agent package path (e.g. game-copy/ts3agent.package.<tag>)`);
     if (j.regexCases !== undefined) checkRegexCases(j.regexCases, [...Object.keys(j.logRequire ?? {}), ...Object.keys(j.logForbid ?? {}), ...Object.keys(j.apexLogRequire ?? {}), ...Object.keys(j.apexLogForbid ?? {}), ...Object.keys(j.extraAsi?.logRequire ?? {}), ...Object.keys(j.extraAsi?.logForbid ?? {}), ...(j.scriptErrorsReportBefore !== undefined ? j.scriptErrorsReport ?? [] : [])], at);
@@ -1822,6 +1831,13 @@ if (values['self-check']) {
     for (const bad of [{ asi: 'x/ts3native.asi' }, { asi: 'x/atlas.dll' }, { asi: 'x/atlas.asi', ini: { PhysicsRootM: 1 } }, { asi: 'x/atlas.asi', logRequire: { x: 0 } }, { asi: 'x/atlas.asi', logForbid: { x: -1 } }, { asi: 'x/atlas.asi', logForbid: { x: 0.5 } }, { asi: 'x/atlas.asi', log: 1 }, {},
       { asi: '../x/atlas.asi' }, { asi: 'C:\\x\\atlas.asi' }, { asi: '/x/atlas.asi' }, { asi: 'x/atlas.asi', ini: { 'A.B': true } }, { asi: 'x/atlas.asi', ini: { 'A.B': 'a\nb' } }, { asi: 'x/atlas.asi', ini: [] }, { asi: 'x/atlas.asi', sha256: 'abc' }, { asi: 7 }]) assert.throws(() => xj(bad), /extraAsi/);
     assert.equal(xj({ asi: 'game-copy/atlas/atlas.asi', sha256: 'AB'.repeat(32), ini: { 'A.B': 'x', 'A.C': 1.5 } })[0].extraAsi!.sha256, 'AB'.repeat(32));
+    // [Kit] Release=1: added to release jobs that stage Atlas, refused when set otherwise there, left alone in test jobs
+    assert.deepEqual(xj({ asi: 'x/atlas.asi', ini: { 'A.B': 1 } }, { releaseDefaults: true })[0].extraAsi!.ini, { 'A.B': 1, 'Kit.Release': 1 });
+    assert.equal(xj({ asi: 'x/atlas.asi' }, { asi: 'game-copy/ts3native.asi.rel5' })[0].extraAsi!.ini!['Kit.Release'], 1, 'a release asi counts as a release job');
+    assert.throws(() => xj({ asi: 'x/atlas.asi', ini: { 'Kit.Release': 0 } }, { releaseDefaults: true }), /Kit\] Release=1/);
+    assert.equal(xj({ asi: 'x/atlas.asi' })[0].extraAsi!.ini, undefined, 'test jobs keep their own ini');
+    assert.equal(xj({ asi: 'x/other.asi' }, { releaseDefaults: true })[0].extraAsi!.ini, undefined, 'only Atlas gets the kit switch');
+    atlasKitSelfCheck();
     extraAsiSelfCheck(); // install, refusals, marker, sweep, Default.ini backup and read-back in a temp dir
     assert.throws(() => xj({ asi: 'x/atlas.asi', logRequire: { [re]: 1 } }, { regexCases: {} }), /no case for/);
     assert.equal(xj({ asi: 'x/atlas.asi', logRequire: { [re]: 1 } }, { regexCases: { [re]: { match: [line], noMatch: [off] } } }).length, 1);
@@ -2648,6 +2664,7 @@ if (values['self-check']) {
     assert.throws(() => pj({ checkAt: { b: 'end' } }), /checkAt \/b\//);
     assert.throws(() => pj({ checkAt: 'later' }), /checkAt must be/);
     assert.throws(() => pj({ expectFail: 'yes' }), /expectFail/);
+    assert.throws(() => pj({ probeTestSqueeze: 1 }), /probeTestSqueeze/); assert.equal(pj({ probeTestSqueeze: true }).probeTestSqueeze, true);
     assert.throws(() => pj({ agentPackage: 'game-copy/x.asi' }), /agentPackage/);
     const adb = [{ name: 'ts3agent.package.t1', kind: 'ts3agent', sha256: 'ab'.repeat(32), created: '' }] as Build[];
     assert.deepEqual(agentDbProblem(adb, 'game-copy/ts3agent.package.t1', 'ab'.repeat(32)), { text: '', refuse: false });
@@ -2995,7 +3012,7 @@ if (values['dry-run']) {
     if (j.crashHunt) console.log('  9 crashHunt: crashes do not stop the queue (crash bisect)');
     if (j.fixes?.install?.length) console.log(`  4 node tools/setup/install-fixes.ts install --only ${j.fixes.install.join(',')}   (uninstalled after the job)`);
     if (j.fixes?.uninstall?.length) console.log(`  4 node tools/setup/install-fixes.ts uninstall --only ${j.fixes.uninstall.join(',')}   (reinstalled after the job)`);
-    console.log(`  5 python tools/probe/ts3probe.py serve --launch${isDirect(j) ? ` --world ${saveFile(storyCopy(j, s))}` : ''} -- ${launchArgs(j.gameArgs).join(' ')}   (child, killed at job end)${isDirect(j) ? `; launch direct: TS3W.exe ... -worldFile:"${saveFile(storyCopy(j, s))}"${LAUNCH === 'steam' ? ' through steam://run/47890//' : ', SteamAppId=47890 unless set'}` : ''}${LAUNCH === 'ea' ? `; TS3_LAUNCH=ea: ${EA_LAUNCHER} ${EA_URI}, then waits for ${GAME_EXE} (game args are not passed)` : ''}`);
+    console.log(`  5 python tools/probe/ts3probe.py serve --launch${j.probeTestSqueeze ? " --test-squeeze (TEST-ONLY address-space squeeze allowed, released on probe unload)" : ""}${isDirect(j) ? ` --world ${saveFile(storyCopy(j, s))}` : ''} -- ${launchArgs(j.gameArgs).join(' ')}   (child, killed at job end)${isDirect(j) ? `; launch direct: TS3W.exe ... -worldFile:"${saveFile(storyCopy(j, s))}"${LAUNCH === 'steam' ? ' through steam://run/47890//' : ', SteamAppId=47890 unless set'}` : ''}${LAUNCH === 'ea' ? `; TS3_LAUNCH=ea: ${EA_LAUNCHER} ${EA_URI}, then waits for ${GAME_EXE} (game args are not passed)` : ''}`);
     console.log(`  5 ${describePin(pinConfig(j.pin, process.env, undefined, isTimingJob(j)))}; machine load every 30 s -> ${queueName}-<date>-${j.id}-machine.jsonl (noise verdict in the note)${j.run.profile ? (j.noiseCheck === false ? '; early noise check off (noiseCheck false)' : '; early noise check ~2.5 min in: other CPU >= 10% or clock drop stops the job; noisy -> rerun once as ' + (j.rerunOf ? 'none (this is the rerun)' : `${j.id}-rerun`) + ' at the end') : ''}`);
     if (storyCopy(j, s) !== s) console.log(`  6 copy Saves/${saveFile(s)} -> Saves/${saveFile(storyCopy(j, s))}   (story scratch copy, replaced each job; the Baseline file is only read)`);
     console.log(`  6 ${s === 'menu' ? 'wait for the main menu (agent ping)' : `node tools/harness/cycle.ts --save ${saveFile(storyCopy(j, s))}${isDirect(j) ? ' --direct   (no main menu, no load_save: waits for the world, reads load_file back, FAIL at the menu; needs its "direct load:" line)' : ''}`}`);
@@ -3454,7 +3471,7 @@ const startProbe = (j: Job, world?: string) => { // world: the save of a launch 
   log(`${j.id}: ${scOut[0]}`);
   if (sc.status === 3) throw new Error(`${scOut[1]}; refused before the game started`); // FAIL, never PASS
   const pf =createWriteStream(join(OUT, `${queueName}-${date}-${j.id}-probe.log`), { flags: 'a' });
-  const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, ...(world ? ['--world', world] : []), '--', ...launchArgs(j.gameArgs)], { cwd: ROOT });
+  const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, ...(j.probeTestSqueeze ? ['--test-squeeze'] : []), ...(world ? ['--world', world] : []), '--', ...launchArgs(j.gameArgs)], { cwd: ROOT });
   if (world) log(`${j.id}: launch direct: -worldFile:"${world}" (Apex launcher path: no main menu, no load_save)${LAUNCH === 'steam' ? ', through steam://run' : ''}`);
   apexLogOff = sizeOf(APEX_LOG); apexLogHead = headOf(APEX_LOG); apexHitchesOff = j.apexProfiler ? sizeOf(APEX_HITCHES) : -1;
   pr.stdout?.pipe(pf); pr.stderr?.pipe(pf); launched = true;

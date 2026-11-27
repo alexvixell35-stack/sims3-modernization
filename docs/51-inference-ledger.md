@@ -7946,3 +7946,20 @@ The Atlas repo (Boundless Atlas, private) keeps its own claim ids. This section 
 | I-627-6 | 358 §2 | Parking a lot through the test entry without a model only delays that lot's alarms until release | docs/346 §1 late-repeat rule [verified there]; the queue itself is never touched by Hook A [verified, our code] | farhold-farobj-correct-1126 `bp-farhold-live` | 0 script errors, lot back in the set count 0 | errors from an alarm that assumed its period | open |
 | I-627-7 | 358 §3, §6 | Zombie time owed by FarLight lots at a save is small enough to leave unpaid until `FarSave` exists | owed rows live in memory only (no mod data in saves); the time-out is a cooldown, so the error is a dance that can restart late by the owed minutes after a reload [inferred] | none planned before `FarSave` (docs/353) | - | a report tied to it: then pay every owed row from the save hook | open |
 | I-627-8 | 358 §3 | Resetting `mTimeSinceLastSimulate` to 0 at go-near (docs/350 L6) delays a broadcaster's next pulse by at most its one-minute period | `ReactionBroadcaster.Simulate` pulses when the accumulator passes 1 minute [verified, decompiled] | visit repro live, natural jobs | no script error, reactions seen on the visited lot | a broadcaster whose first pulse matters within that minute | open |
+
+## 635. ts3probe TEST-ONLY squeeze exception and Atlas HS-1 sites (2026-11-26, Atlas docs/040 §8; queue `atlas-hs1-terrain-1126`, NOT RUN)
+
+Exception to the probe's read-only rule, allowed by Rodney 2026-11-26 for the Atlas HS-1 stress job only.
+
+- **What:** `tools/probe/agent.js` `squeeze(targetMB)` reserves (`MEM_RESERVE`, `PAGE_NOACCESS`, no commit) the low part of every free region larger than the target, so the largest free block ends near the target. Nothing of the game is written or hooked.
+- **Gate:** `ts3probe.py` refuses `/squeeze` unless started with `serve --test-squeeze`; queue.ts passes that flag only for a job with `probeTestSqueeze: true` (parse check + self-check case). Each call is logged as a `test-squeeze` event (events.jsonl, probe log).
+- **Undo:** `/unsqueeze` (the last T1b step); the agent's `dispose()` releases on script unload (probe exit or kill, detach, `fridadetach`, reload); game exit frees the reservations with the process.
+
+| Id | Claim | Based on | Tag |
+|---|---|---|---|
+| S-635-1 | A reserve-only squeeze reproduces the HS-1 condition (largest free block too small) without using RAM | Windows VA semantics; the HS-1 blocks are single `VirtualAlloc` regions from `0x4E512A` (Atlas V-040-5) | inferred, T1b |
+| S-635-2 | Frida calls `dispose()` when the probe process is killed while the game lives, so no squeeze survives its probe | Frida script unload on session detach | inferred, first T1b run (probe log `unsqueeze` / largest free after a detach) |
+| V-040-1, V-040-2 | Optimizer copy alloc `0xC884A5` without null check; both height maps from `0xAA86FB`, null-checked, freed at `0xAA87ED` | Atlas docs/040 §2 | verified (Capstone) |
+| V-040-3 .. V-040-5 | copy frees `0xC87C3F` / `0xC88437`; linear readers `0xC885BD`, `0xC8880A`; large-block path `0x4E50F0` / `0x4E512A` | Atlas docs/040 §2 | verified |
+| I-040-1 | A failed optimizer allocation crashes in `0xC88330` | no null check | inferred, T1b |
+| V-hs1-WM | `[0x11ECBC4]` is the world object `0xC63840` works on (`0x787040` loads it into `ecx`) | Capstone | verified |

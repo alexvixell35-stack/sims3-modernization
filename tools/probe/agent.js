@@ -1,5 +1,6 @@
 // Frida agent for live inspection of TS3W.exe. Loaded by tools/probe/ts3probe.py, which serves it over HTTP.
-// Read-only by design: it reports state and records crashes, it never patches the game.
+// Read-only by design: it reports state and records crashes, it never patches the game. One TEST-ONLY exception: squeeze()
+// reserves address space when the probe runs with serve --test-squeeze (docs/51 §635); it writes nothing of the game.
 'use strict';
 
 const k32 = Process.getModuleByName('kernel32.dll');
@@ -9,6 +10,7 @@ const MEM_COMMIT = 0x1000, MEM_RESERVE = 0x2000, MEM_FREE = 0x10000;
 const MEM_IMAGE = 0x1000000, MEM_MAPPED = 0x40000, MEM_PRIVATE = 0x20000;
 
 const startedAt = Date.now();
+const squeezed = []; // test-only address-space reservations of squeeze() (see there)
 const events = []; // ring buffer of exceptions and notes
 let eventSeq = 0;
 function pushEvent(e) {
@@ -2100,6 +2102,42 @@ rpc.exports = {
 
   modules() {
     return Process.enumerateModules().map(m => ({ name: m.name, base: m.base.toString(), size: m.size, path: m.path }));
+  },
+
+  // TEST-ONLY exception to "read-only" (Atlas docs/040 §8, T1b): reserve address space (MEM_RESERVE, PAGE_NOACCESS: no
+  // commit, no RAM) at the base of every free region larger than targetMB, leaving targetMB free at its top, so the largest
+  // free block ends at about targetMB. Nothing of the game is written. unsqueeze releases every reservation made here.
+  squeeze(targetMB) {
+    const VA = new NativeFunction(k32.getExportByName('VirtualAlloc'), 'pointer', ['pointer', 'uint', 'uint', 'uint']);
+    const keep = Math.round(targetMB * 1048576), G = 65536, mbi = Memory.alloc(MBI_SIZE), free = [];
+    let a = ptr(0x10000);
+    while (a.compare(ptr('0xffff0000')) < 0 && VirtualQuery(a, mbi, MBI_SIZE) !== 0) {
+      const base = mbi.readPointer(), size = mbi.add(12).readU32();
+      if (mbi.add(16).readU32() === MEM_FREE && size > keep) free.push({ base, size });
+      const next = base.add(size); if (next.compare(a) <= 0) break; a = next;
+    }
+    let took = 0, fails = 0;
+    for (const f of free) {
+      const start = ((f.base.toUInt32() + G - 1) & ~(G - 1)) >>> 0, end = f.base.toUInt32() + f.size - keep;
+      const n = Math.floor((end - start) / G) * G;
+      if (n <= 0) continue;
+      const p = VA(ptr(start >>> 0), n, MEM_RESERVE, 0x01 /* PAGE_NOACCESS */);
+      if (p.isNull()) { fails++; continue; }
+      squeezed.push(p); took += n;
+    }
+    return { targetMB, regions: free.length, reservedMB: Math.round(took / 104857.6) / 10, fails, held: squeezed.length, largestFreeMB: rpc.exports.addressSpace().largestFreeMB };
+  },
+
+  unsqueeze() {
+    const VF = new NativeFunction(k32.getExportByName('VirtualFree'), 'int', ['pointer', 'uint', 'uint']);
+    let n = 0; while (squeezed.length) if (VF(squeezed.pop(), 0, 0x8000 /* MEM_RELEASE */)) n++;
+    return { released: n, largestFreeMB: rpc.exports.addressSpace().largestFreeMB };
+  },
+
+  // Frida calls dispose() when this script unloads: probe exit or kill, detach, fridadetach, reload. A squeeze never outlives
+  // the probe that made it; on game exit the reservations go with the process.
+  dispose() {
+    if (squeezed.length) rpc.exports.unsqueeze();
   },
 
   read(address, length) {

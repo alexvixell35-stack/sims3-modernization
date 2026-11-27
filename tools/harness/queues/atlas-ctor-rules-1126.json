@@ -1,0 +1,811 @@
+{
+ "note": "atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-ctor-rules-1126: Boundless Atlas docs/035 §10, constructor census levels of our own script stream reader ([PagedLots] CtorRules=1..5), five arms on Sunset Valley, all OwnReader=2 (compare against EA's read) with TestHarness=1 and LoaderA=1. Level 1 (today's default) first: its failure stops the queue. Build under test: Atlas main b2992a5 (0.3.12, feature/ctor-census-1126 769fbbe merged), game-copy/atlas-main7/atlas.asi sha256 048d509e8d29e3b6177d304571cb35e329f9bb030f9bcfa2525298a406d258d7, package sha256 cfbca58626d34aeb9ce631e94b0d0dfcf75700c39175c5558677c57ac653852f. DRY-RUN ONLY so far. NOT RUNNABLE ON MASTER YET: the job key extraAsi comes with branch feature/atlas-p0-load-1126. Since 2026-11-27 (docs/031 §14): the reader calls are internal-call group 9; the repro waits for the p1 and reader flags (AtlasNative.Groups).",
+ "agentPackage": "game-copy/ts3agent.package.m1126",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+   "match": [
+    "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 00:13:40, TS3W.exe link stamp 0x52DEC247"
+   ],
+   "noMatch": [
+    "atlas 0.3.11 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 26 2026 23:44:43, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.120 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 27 2026 00:13:40, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.8 p1=2 loadA=4 w8192=1 rings=1 fz=1 rebase=1 oop=1 seed=1 built Nov 26 2026 14:00:00, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.12 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 27 2026 00:13:40, rundll32.exe link stamp 0xB91766EA",
+    "atlas 0.3.12 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 27 2026 00:13:40, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 00:13:40, rundll32.exe link stamp 0xB91766EA",
+    "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 00:13:40, TS3W.exe link stamp 0x52DEC247"
+   ]
+  },
+  "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": {
+   "match": [
+    "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
+   ],
+   "noMatch": [
+    "paged lots: probe on (Probe=1, FarM=250), 28 internal calls registered, command file atlas-cmd.txt next to the asi"
+   ]
+  },
+  "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": {
+   "match": [
+    "p1 self-check: PASS (30 checks, 0 failed), page format version 1, header 64 bytes"
+   ],
+   "noMatch": [
+    "p1 self-check: FAIL (30 checks, 1 failed), page format version 1, header 64 bytes"
+   ]
+  },
+  "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": {
+   "match": [
+    "atlas:loadA self-check PASS (18 checks, 0 failed)"
+   ],
+   "noMatch": [
+    "atlas:loadA self-check FAIL (18 checks, 2 failed)",
+    "loadA self-check: PASS (18 checks, 0 failed)"
+   ]
+  },
+  "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": {
+   "match": [
+    "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on"
+   ],
+   "noMatch": [
+    "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 10/11 self-check PASS: SKIP, loadA takes EA's path",
+    "atlas:loadA start version 4 LoaderA=0 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: off, loadA takes EA's path",
+    "atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=1 shape 11/11 self-check PASS: on",
+    "atlas:loadA start version 3 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on"
+   ]
+  },
+  "^p1: script half ready \\(loadA-4\\), native probe version 2$": {
+   "match": [
+    "p1: script half ready (loadA-4), native probe version 2"
+   ],
+   "noMatch": [
+    "p1: script half ready, native probe version 1",
+    "p1: script half ready (loadA-3), native probe version 2"
+   ]
+  },
+  "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": {
+   "match": [
+    "p1: RESULT PASS inspect lots 92 pageable 31 auto 0x00000000004F3A21"
+   ],
+   "noMatch": [
+    "p1: RESULT PASS inspect lots 92 pageable 0 auto 0x0000000000000000",
+    "p1: RESULT REFUSED native probe off"
+   ]
+  },
+  "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": {
+   "match": [
+    "p1: RESULT PASS out lot 0x00000000004F3A21 objects 214"
+   ],
+   "noMatch": [
+    "p1: RESULT FAIL page-out write -21 (lot untouched)",
+    "p1: RESULT PASS out lot 0x00000000004F3A21 objects 0"
+   ]
+  },
+  "^p1: RESULT PASS drop [1-9]\\d*$": {
+   "match": [
+    "p1: RESULT PASS drop 214"
+   ],
+   "noMatch": [
+    "p1: RESULT FAIL drop left 3 objects (page-in will report the id clashes)"
+   ]
+  },
+  "^p1: RESULT PASS loadA path A$": {
+   "match": [
+    "p1: RESULT PASS loadA path A"
+   ],
+   "noMatch": [
+    "p1: RESULT PASS loadA path EA"
+   ]
+  },
+  "^p1: RESULT PASS status stage 3 lot 0x[0-9A-F]{16} loadA state 0 path 2$": {
+   "match": [
+    "p1: RESULT PASS status stage 3 lot 0x00000000004F3A21 loadA state 0 path 2"
+   ],
+   "noMatch": [
+    "p1: RESULT PASS status stage 3 lot 0x00000000004F3A21 loadA state 3 path 2",
+    "p1: RESULT PASS status stage 3 lot 0x00000000004F3A21 loadA state 0 path 1"
+   ]
+  },
+  "^p1: RESULT PASS verify objects [1-9]\\d*$": {
+   "match": [
+    "p1: RESULT PASS verify objects 214"
+   ],
+   "noMatch": [
+    "p1: RESULT FAIL verify census differs (3 lines)",
+    "p1: RESULT FAIL verify dangling 2"
+   ]
+  },
+  "^p1: RESULT PASS clean \\d+ files$": {
+   "match": [
+    "p1: RESULT PASS clean 3 files"
+   ],
+   "noMatch": [
+    "p1 clean: 3 files removed under the page root"
+   ]
+  },
+  "^atlas:loadA call lot=0x[0-9A-F]{16} call \\d+\\.\\d\\d ms, [1-9]\\d* bound proxies parked in ": {
+   "match": [
+    "atlas:loadA call lot=0x00000000004F3A21 call 41.30 ms, 212 bound proxies parked in 0.08 ms, 0 other new nodes left to EA"
+   ],
+   "noMatch": [
+    "atlas:loadA call lot=0x00000000004F3A21 call 41.30 ms, 0 bound proxies parked in 0.01 ms, 0 other new nodes left to EA",
+    "atlas:loadA no-park lot=0x00000000004F3A21 the list tail moved or the list is not sane (lot ids 214); EA inits the lot on the next tick"
+   ]
+  },
+  "^atlas:loadA script-result lot=0x[0-9A-F]{16} native 0, path A, ": {
+   "match": [
+    "atlas:loadA script-result lot=0x00000000004F3A21 native 0, path A, 14 ticks, 260.40 ms wall, base tick 8.40 ms"
+   ],
+   "noMatch": [
+    "atlas:loadA script-result lot=0x00000000004F3A21 native 0, path EA, 1 ticks, 60.40 ms wall, base tick 8.40 ms",
+    "atlas:loadA script-result lot=0x00000000004F3A21 native -31, path A, 600 ticks, 9000.00 ms wall, base tick 8.40 ms"
+   ]
+  },
+  "^atlas:reader self-check lot=0x0{16} \\d+ checks, 0 failed: PASS$": {
+   "match": [
+    "atlas:reader self-check lot=0x0000000000000000 13 checks, 0 failed: PASS"
+   ],
+   "noMatch": [
+    "atlas:reader self-check lot=0x0000000000000000 13 checks, 1 failed: FAIL",
+    "atlas:reader start lot=0x0000000000000000 self-check FAIL: OwnReader off"
+   ]
+  },
+  "^atlas:reader compare-result lot=0x[0-9A-F]{16} \\d+ records, 0 differ: PASS$": {
+   "match": [
+    "atlas:reader compare-result lot=0x0000000012345678 812 records, 0 differ: PASS"
+   ],
+   "noMatch": [
+    "atlas:reader compare-result lot=0x0000000012345678 812 records, 3 differ: FAIL"
+   ]
+  },
+  "^atlas:loadA dispatch-ea ": {
+   "match": [
+    "atlas:loadA dispatch-ea lot=0x00000000004F3A21 EA's path (W1 refused the page)"
+   ],
+   "noMatch": [
+    "atlas:loadA dispatch-a lot=0x00000000004F3A21 loader A, W1 on a worker, budget 3 ms, base tick 8.40 ms, at most 256 per tick"
+   ]
+  },
+  "^atlas:loadA (refused|w1-refused|shape-mismatch) ": {
+   "match": [
+    "atlas:loadA refused lot=0x0000000012345678 household"
+   ],
+   "noMatch": [
+    "atlas:loadA call lot=0x0000000012345678 call 4.10 ms"
+   ]
+  },
+  "^atlas:loadA stuck ": {
+   "match": [
+    "atlas:loadA stuck lot=0x00000000004F3A21 3 released nodes still at state 0 after 600 ticks; finishing anyway"
+   ],
+   "noMatch": [
+    "atlas:loadA release-all lot=0x00000000004F3A21 abort: 3 parked nodes released at once (0 lost)",
+    "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape ok, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 1, path EA 0, refused 0, hurry 0, faults 0, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0"
+   ]
+  },
+  "^atlas:loadA fault ": {
+   "match": [
+    "atlas:loadA fault lot=0x00000000004F3A21 in step 'release all (abort)' at node 3 of 212"
+   ],
+   "noMatch": [
+    "atlas:loadA status lot=0x00000000004F3A21 LoaderA=1 shape ok, state 0, last path A, parked 0, released 0, pending 0, lost 0, other 0, per tick 8, budget 3 ms; session: runs 1, path A 1, path EA 0, refused 0, hurry 0, faults 0, stuck 0, worst init excess 4.20 ms, worst total 260.00 ms, lines suppressed 0"
+   ]
+  },
+  "^atlas:reader (fault|mismatch|unused|stream-refused) ": {
+   "match": [
+    "atlas:reader fault lot=0x0000000012345678 in the hook: NullReferenceException"
+   ],
+   "noMatch": [
+    "atlas:reader fallback lot=0x0000000012345678 record 12: unknown type code 200"
+   ]
+  },
+  "^atlas:reader hook lot=0x0{16} REFUSED ": {
+   "match": [
+    "atlas:reader hook lot=0x0000000000000000 REFUSED already compiled: OwnReader acts as 0"
+   ],
+   "noMatch": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 1"
+   ]
+  },
+  "native fault ": {
+   "match": [
+    "p1: native fault 0xC0000005 at 0x00D80C26 in LoadA, step 'lot object load (vtable +0x24)'. The world may be damaged: do not save."
+   ],
+   "noMatch": [
+    "p1: RESULT PASS in"
+   ]
+  },
+  "DAMAGED": {
+   "match": [
+    "p1: DAMAGED (loadA -31: the lot may be partly created or not initialised): every later command is refused. Do not save this session; restart the game."
+   ],
+   "noMatch": [
+    "p1: RESULT PASS verify objects 214"
+   ]
+  },
+  "^atlas:reader (fallback|late-fallback|refused|dropped) ": {
+   "match": [
+    "atlas:reader late-fallback lot=0x0000000012345678 record 4: reader fault in stage create"
+   ],
+   "noMatch": [
+    "atlas:reader ready lot=0x0000000012345678 812 records"
+   ]
+  },
+  "^atlas:reader compare-result .*: FAIL$": {
+   "match": [
+    "atlas:reader compare-result lot=0x0000000012345678 812 records, 3 differ: FAIL"
+   ],
+   "noMatch": [
+    "atlas:reader compare-result lot=0x0000000012345678 812 records, 0 differ: PASS"
+   ]
+  },
+  "^atlas:reader start lot=0x0{16} self-check FAIL": {
+   "match": [
+    "atlas:reader start lot=0x0000000000000000 self-check FAIL: OwnReader off"
+   ],
+   "noMatch": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=1 Verbose=0 LoaderA=1 sr 2"
+   ]
+  },
+  "^ts3native 0\\.36\\.306-m1126b ": {
+   "match": [
+    "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+    "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+   ]
+  },
+  "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=1 Verbose=0 LoaderA=1 sr 2$": {
+   "match": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=1 Verbose=0 LoaderA=1 sr 2"
+   ],
+   "noMatch": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=2 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=1 Verbose=0 LoaderA=1 sr 1",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=0 ReaderK=64 ReaderBudgetUs=2000 CtorRules=1 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 Verbose=0 LoaderA=1"
+   ]
+  },
+  "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 1 \\(reader-2\\)$": {
+   "match": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 1 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at world-load-started, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 1 (reader-2)"
+   ],
+   "noMatch": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 2 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0 (reader-1)",
+    "atlas:reader hook lot=0x0000000000000000 REFUSED field table: OwnReader acts as 0 at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 1 (reader-2)"
+   ]
+  },
+  "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 1, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults \\d+\\), worst tick ": {
+   "match": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 1, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 1, initializers ran 0, not yet 0, unknown 0, native faults 2), worst tick 1.80 ms, lines suppressed 0"
+   ],
+   "noMatch": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 2, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: EA's reader, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 1, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0"
+   ]
+  },
+  "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=2 Verbose=0 LoaderA=1 sr 2$": {
+   "match": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=2 Verbose=0 LoaderA=1 sr 2"
+   ],
+   "noMatch": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=3 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=2 Verbose=0 LoaderA=1 sr 1",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=0 ReaderK=64 ReaderBudgetUs=2000 CtorRules=2 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 Verbose=0 LoaderA=1"
+   ]
+  },
+  "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 2 \\(reader-2\\)$": {
+   "match": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 2 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at world-load-started, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 2 (reader-2)"
+   ],
+   "noMatch": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 3 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0 (reader-1)",
+    "atlas:reader hook lot=0x0000000000000000 REFUSED field table: OwnReader acts as 0 at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 2 (reader-2)"
+   ]
+  },
+  "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 2, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults \\d+\\), worst tick ": {
+   "match": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 2, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 2, initializers ran 0, not yet 0, unknown 0, native faults 2), worst tick 1.80 ms, lines suppressed 0"
+   ],
+   "noMatch": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 3, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: EA's reader, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 2, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0"
+   ]
+  },
+  "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=3 Verbose=0 LoaderA=1 sr 2$": {
+   "match": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=3 Verbose=0 LoaderA=1 sr 2"
+   ],
+   "noMatch": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=4 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=3 Verbose=0 LoaderA=1 sr 1",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=0 ReaderK=64 ReaderBudgetUs=2000 CtorRules=3 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 Verbose=0 LoaderA=1"
+   ]
+  },
+  "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 3 \\(reader-2\\)$": {
+   "match": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 3 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at world-load-started, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 3 (reader-2)"
+   ],
+   "noMatch": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 4 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0 (reader-1)",
+    "atlas:reader hook lot=0x0000000000000000 REFUSED field table: OwnReader acts as 0 at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 3 (reader-2)"
+   ]
+  },
+  "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 3, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults \\d+\\), worst tick ": {
+   "match": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 3, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 3, initializers ran 0, not yet 0, unknown 0, native faults 2), worst tick 1.80 ms, lines suppressed 0"
+   ],
+   "noMatch": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 4, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: EA's reader, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 3, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0"
+   ]
+  },
+  "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=4 Verbose=0 LoaderA=1 sr 2$": {
+   "match": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=4 Verbose=0 LoaderA=1 sr 2"
+   ],
+   "noMatch": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=5 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=4 Verbose=0 LoaderA=1 sr 1",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=0 ReaderK=64 ReaderBudgetUs=2000 CtorRules=4 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 Verbose=0 LoaderA=1"
+   ]
+  },
+  "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 4 \\(reader-2\\)$": {
+   "match": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 4 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at world-load-started, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 4 (reader-2)"
+   ],
+   "noMatch": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 5 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0 (reader-1)",
+    "atlas:reader hook lot=0x0000000000000000 REFUSED field table: OwnReader acts as 0 at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 4 (reader-2)"
+   ]
+  },
+  "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 4, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults \\d+\\), worst tick ": {
+   "match": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 4, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 4, initializers ran 0, not yet 0, unknown 0, native faults 2), worst tick 1.80 ms, lines suppressed 0"
+   ],
+   "noMatch": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 5, initializers ran 40, not yet 2, unknown 1, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: EA's reader, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 4, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0"
+   ]
+  },
+  "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=5 Verbose=0 LoaderA=1 sr 2$": {
+   "match": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=5 Verbose=0 LoaderA=1 sr 2"
+   ],
+   "noMatch": [
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=4 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=5 Verbose=0 LoaderA=1 sr 1",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=0 ReaderK=64 ReaderBudgetUs=2000 CtorRules=5 Verbose=0 LoaderA=1 sr 2",
+    "atlas:reader start lot=0x0000000000000000 OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 Verbose=0 LoaderA=1"
+   ]
+  },
+  "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 5 \\(reader-2\\)$": {
+   "match": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 5 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at world-load-started, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 5 (reader-2)"
+   ],
+   "noMatch": [
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 4 (reader-2)",
+    "atlas:reader hook lot=0x0000000000000000 ok at instantiator, mode 2, K 64, budget 2000 us, Verbose 0 (reader-1)",
+    "atlas:reader hook lot=0x0000000000000000 REFUSED field table: OwnReader acts as 0 at instantiator, mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 5 (reader-2)"
+   ]
+  },
+  "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 5, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults 0\\), worst tick ": {
+   "match": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 5, initializers ran 40, not yet 2, unknown 1, native faults 0), worst tick 1.80 ms, lines suppressed 0"
+   ],
+   "noMatch": [
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 4, initializers ran 0, not yet 0, unknown 0, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: EA's reader, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 5, initializers ran 40, not yet 2, unknown 1, native faults 0), worst tick 1.80 ms, lines suppressed 0",
+    "atlas:reader summary lot=0x0000000012345678 run: our graph, loadA 0, wall 41.20 ms; session runs 1, ready 1, consumed 1, fallback 0, late fallback 0, mismatch 0, unused 0, faults 0, save waits 0, compares 1, compare diffs 0, compare faults 0, census unsafe 3 of 120 (ctor rules 5, initializers ran 40, not yet 2, unknown 1, native faults 1), worst tick 1.80 ms, lines suppressed 0"
+   ]
+  },
+  "^atlas:icalls reader: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 9 flag set$": {
+   "match": [
+    "atlas:icalls reader: 4 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 9 flag set"
+   ],
+   "noMatch": [
+    "atlas:icalls reader: 3 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 9 flag set",
+    "atlas:icalls born: 10 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 8 flag set",
+    "atlas:icalls reader SKIP no script domain in 600 s (host 0x1234ABCD): 4 internal calls not registered"
+   ]
+  },
+  "^atlas:icalls \\S+ SKIP ": {
+   "match": [
+    "atlas:icalls reader SKIP no script domain in 600 s (host 0x1234ABCD): 4 internal calls not registered"
+   ],
+   "noMatch": [
+    "atlas:icalls p1 waiting 10 s: host [0x011EE514] = 0x1234ABCD, domain [host+0xACC] = 0",
+    "atlas:icalls reader: 4 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 9 flag set"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "atlas-ctor-rules-sv-l1",
+   "note": "[est 45 min] Atlas docs/035 §10 constructor census, arm CtorRules=1 (today's default: the census rules before docs/035 §10; its failure stops the queue, levels 2..5 build on it), OwnReader=2 (our reader plus EA's full read of the same bytes, compared record by record; test only: EA's constructors run twice, timing not comparable): inspect, then two loader A page-ins (cold, warm) on each of three pageable lots of Sunset Valley (10th percentile, median and largest object count), verify after each, clean. Pass: every step logs RESULT PASS, loadA path A six times, the hook went in with ctor rules 1 (reader-2), the native start line reads back CtorRules=1 and sr 2, six reader summaries with our graph at ctor rules 1, compare PASS six times, no fallback, no script error. Recorded, not gated: census unsafe X of Y and the constructor census fix-up count on the ready lines, compared across levels by hand from atlas.log.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main b2992a5: merges f3d9348 of feature/stream-reader-1126 b840469 and b2992a5 of feature/ctor-census-1126 769fbbe; atlas 0.3.12, docs/031 §14): game-copy/atlas-main7/atlas.asi (sha256 048d509e8d29e3b6177d304571cb35e329f9bb030f9bcfa2525298a406d258d7) and game-copy/mod-sets/atlas-main7 (atlas.package cfbca58626d34aeb9ce631e94b0d0dfcf75700c39175c5558677c57ac653852f). OwnReader, LoadAState, ScriptStream and ClassInited are internal-call group 9 reader; every other feature switch off",
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 90,
+   "extraAsi": {
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+    "ini": {
+     "WorldSize.PhysicsRootM": 0,
+     "PagedLots.Probe": 1,
+     "PagedLots.FarM": 250,
+     "PagedLots.LoaderA": 1,
+     "PagedLots.BudgetMs": 3,
+     "PagedLots.Verbose": 0,
+     "PagedLots.OwnReader": 2,
+     "PagedLots.ReaderK": 64,
+     "PagedLots.ReaderBudgetUs": 2000,
+     "PagedLots.TestHarness": 1,
+     "PagedLots.CtorRules": 1
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+     "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+     "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": 1,
+     "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": 1,
+     "^p1: script half ready \\(loadA-4\\), native probe version 2$": 1,
+     "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": 1,
+     "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS drop [1-9]\\d*$": 6,
+     "^p1: RESULT PASS loadA path A$": 6,
+     "^p1: RESULT PASS status stage 3 lot 0x[0-9A-F]{16} loadA state 0 path 2$": 6,
+     "^p1: RESULT PASS verify objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS clean \\d+ files$": 1,
+     "^atlas:loadA call lot=0x[0-9A-F]{16} call \\d+\\.\\d\\d ms, [1-9]\\d* bound proxies parked in ": 6,
+     "^atlas:loadA script-result lot=0x[0-9A-F]{16} native 0, path A, ": 6,
+     "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=1 Verbose=0 LoaderA=1 sr 2$": 1,
+     "^atlas:reader self-check lot=0x0{16} \\d+ checks, 0 failed: PASS$": 1,
+     "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 1 \\(reader-2\\)$": 1,
+     "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 1, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults \\d+\\), worst tick ": 6,
+     "^atlas:reader compare-result lot=0x[0-9A-F]{16} \\d+ records, 0 differ: PASS$": 6,
+     "^atlas:icalls reader: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 9 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:loadA dispatch-ea ": 0,
+     "^atlas:loadA (refused|w1-refused|shape-mismatch) ": 0,
+     "^atlas:loadA stuck ": 0,
+     "^atlas:loadA fault ": 0,
+     "^atlas:reader (fault|mismatch|unused|stream-refused) ": 0,
+     "^atlas:reader hook lot=0x0{16} REFUSED ": 0,
+     "native fault ": 0,
+     "DAMAGED": 0,
+     "^atlas:reader (fallback|late-fallback|refused|dropped) ": 0,
+     "^atlas:reader compare-result .*: FAIL$": 0,
+     "^atlas:reader start lot=0x0{16} self-check FAIL": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   },
+   "run": {
+    "repro": "atlas-ctor-rules-sv"
+   },
+   "stopQueueOnFail": true,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   }
+  },
+  {
+   "id": "atlas-ctor-rules-sv-l2",
+   "note": "[est 45 min] Atlas docs/035 §10 constructor census, arm CtorRules=2, OwnReader=2 (our reader plus EA's full read of the same bytes, compared record by record; test only: EA's constructors run twice, timing not comparable): inspect, then two loader A page-ins (cold, warm) on each of three pageable lots of Sunset Valley (10th percentile, median and largest object count), verify after each, clean. Pass: every step logs RESULT PASS, loadA path A six times, the hook went in with ctor rules 2 (reader-2), the native start line reads back CtorRules=2 and sr 2, six reader summaries with our graph at ctor rules 2, compare PASS six times, no fallback, no script error. Recorded, not gated: census unsafe X of Y and the constructor census fix-up count on the ready lines, compared across levels by hand from atlas.log.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main b2992a5: merges f3d9348 of feature/stream-reader-1126 b840469 and b2992a5 of feature/ctor-census-1126 769fbbe; atlas 0.3.12, docs/031 §14): game-copy/atlas-main7/atlas.asi (sha256 048d509e8d29e3b6177d304571cb35e329f9bb030f9bcfa2525298a406d258d7) and game-copy/mod-sets/atlas-main7 (atlas.package cfbca58626d34aeb9ce631e94b0d0dfcf75700c39175c5558677c57ac653852f). OwnReader, LoadAState, ScriptStream and ClassInited are internal-call group 9 reader; every other feature switch off",
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 90,
+   "extraAsi": {
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+    "ini": {
+     "WorldSize.PhysicsRootM": 0,
+     "PagedLots.Probe": 1,
+     "PagedLots.FarM": 250,
+     "PagedLots.LoaderA": 1,
+     "PagedLots.BudgetMs": 3,
+     "PagedLots.Verbose": 0,
+     "PagedLots.OwnReader": 2,
+     "PagedLots.ReaderK": 64,
+     "PagedLots.ReaderBudgetUs": 2000,
+     "PagedLots.TestHarness": 1,
+     "PagedLots.CtorRules": 2
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+     "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+     "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": 1,
+     "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": 1,
+     "^p1: script half ready \\(loadA-4\\), native probe version 2$": 1,
+     "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": 1,
+     "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS drop [1-9]\\d*$": 6,
+     "^p1: RESULT PASS loadA path A$": 6,
+     "^p1: RESULT PASS status stage 3 lot 0x[0-9A-F]{16} loadA state 0 path 2$": 6,
+     "^p1: RESULT PASS verify objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS clean \\d+ files$": 1,
+     "^atlas:loadA call lot=0x[0-9A-F]{16} call \\d+\\.\\d\\d ms, [1-9]\\d* bound proxies parked in ": 6,
+     "^atlas:loadA script-result lot=0x[0-9A-F]{16} native 0, path A, ": 6,
+     "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=2 Verbose=0 LoaderA=1 sr 2$": 1,
+     "^atlas:reader self-check lot=0x0{16} \\d+ checks, 0 failed: PASS$": 1,
+     "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 2 \\(reader-2\\)$": 1,
+     "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 2, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults \\d+\\), worst tick ": 6,
+     "^atlas:reader compare-result lot=0x[0-9A-F]{16} \\d+ records, 0 differ: PASS$": 6,
+     "^atlas:icalls reader: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 9 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:loadA dispatch-ea ": 0,
+     "^atlas:loadA (refused|w1-refused|shape-mismatch) ": 0,
+     "^atlas:loadA stuck ": 0,
+     "^atlas:loadA fault ": 0,
+     "^atlas:reader (fault|mismatch|unused|stream-refused) ": 0,
+     "^atlas:reader hook lot=0x0{16} REFUSED ": 0,
+     "native fault ": 0,
+     "DAMAGED": 0,
+     "^atlas:reader (fallback|late-fallback|refused|dropped) ": 0,
+     "^atlas:reader compare-result .*: FAIL$": 0,
+     "^atlas:reader start lot=0x0{16} self-check FAIL": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   },
+   "run": {
+    "repro": "atlas-ctor-rules-sv"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   }
+  },
+  {
+   "id": "atlas-ctor-rules-sv-l3",
+   "note": "[est 45 min] Atlas docs/035 §10 constructor census, arm CtorRules=3, OwnReader=2 (our reader plus EA's full read of the same bytes, compared record by record; test only: EA's constructors run twice, timing not comparable): inspect, then two loader A page-ins (cold, warm) on each of three pageable lots of Sunset Valley (10th percentile, median and largest object count), verify after each, clean. Pass: every step logs RESULT PASS, loadA path A six times, the hook went in with ctor rules 3 (reader-2), the native start line reads back CtorRules=3 and sr 2, six reader summaries with our graph at ctor rules 3, compare PASS six times, no fallback, no script error. Recorded, not gated: census unsafe X of Y and the constructor census fix-up count on the ready lines, compared across levels by hand from atlas.log.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main b2992a5: merges f3d9348 of feature/stream-reader-1126 b840469 and b2992a5 of feature/ctor-census-1126 769fbbe; atlas 0.3.12, docs/031 §14): game-copy/atlas-main7/atlas.asi (sha256 048d509e8d29e3b6177d304571cb35e329f9bb030f9bcfa2525298a406d258d7) and game-copy/mod-sets/atlas-main7 (atlas.package cfbca58626d34aeb9ce631e94b0d0dfcf75700c39175c5558677c57ac653852f). OwnReader, LoadAState, ScriptStream and ClassInited are internal-call group 9 reader; every other feature switch off",
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 90,
+   "extraAsi": {
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+    "ini": {
+     "WorldSize.PhysicsRootM": 0,
+     "PagedLots.Probe": 1,
+     "PagedLots.FarM": 250,
+     "PagedLots.LoaderA": 1,
+     "PagedLots.BudgetMs": 3,
+     "PagedLots.Verbose": 0,
+     "PagedLots.OwnReader": 2,
+     "PagedLots.ReaderK": 64,
+     "PagedLots.ReaderBudgetUs": 2000,
+     "PagedLots.TestHarness": 1,
+     "PagedLots.CtorRules": 3
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+     "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+     "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": 1,
+     "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": 1,
+     "^p1: script half ready \\(loadA-4\\), native probe version 2$": 1,
+     "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": 1,
+     "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS drop [1-9]\\d*$": 6,
+     "^p1: RESULT PASS loadA path A$": 6,
+     "^p1: RESULT PASS status stage 3 lot 0x[0-9A-F]{16} loadA state 0 path 2$": 6,
+     "^p1: RESULT PASS verify objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS clean \\d+ files$": 1,
+     "^atlas:loadA call lot=0x[0-9A-F]{16} call \\d+\\.\\d\\d ms, [1-9]\\d* bound proxies parked in ": 6,
+     "^atlas:loadA script-result lot=0x[0-9A-F]{16} native 0, path A, ": 6,
+     "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=3 Verbose=0 LoaderA=1 sr 2$": 1,
+     "^atlas:reader self-check lot=0x0{16} \\d+ checks, 0 failed: PASS$": 1,
+     "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 3 \\(reader-2\\)$": 1,
+     "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 3, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults \\d+\\), worst tick ": 6,
+     "^atlas:reader compare-result lot=0x[0-9A-F]{16} \\d+ records, 0 differ: PASS$": 6,
+     "^atlas:icalls reader: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 9 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:loadA dispatch-ea ": 0,
+     "^atlas:loadA (refused|w1-refused|shape-mismatch) ": 0,
+     "^atlas:loadA stuck ": 0,
+     "^atlas:loadA fault ": 0,
+     "^atlas:reader (fault|mismatch|unused|stream-refused) ": 0,
+     "^atlas:reader hook lot=0x0{16} REFUSED ": 0,
+     "native fault ": 0,
+     "DAMAGED": 0,
+     "^atlas:reader (fallback|late-fallback|refused|dropped) ": 0,
+     "^atlas:reader compare-result .*: FAIL$": 0,
+     "^atlas:reader start lot=0x0{16} self-check FAIL": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   },
+   "run": {
+    "repro": "atlas-ctor-rules-sv"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   }
+  },
+  {
+   "id": "atlas-ctor-rules-sv-l4",
+   "note": "[est 45 min] Atlas docs/035 §10 constructor census, arm CtorRules=4, OwnReader=2 (our reader plus EA's full read of the same bytes, compared record by record; test only: EA's constructors run twice, timing not comparable): inspect, then two loader A page-ins (cold, warm) on each of three pageable lots of Sunset Valley (10th percentile, median and largest object count), verify after each, clean. Pass: every step logs RESULT PASS, loadA path A six times, the hook went in with ctor rules 4 (reader-2), the native start line reads back CtorRules=4 and sr 2, six reader summaries with our graph at ctor rules 4, compare PASS six times, no fallback, no script error. Recorded, not gated: census unsafe X of Y and the constructor census fix-up count on the ready lines, compared across levels by hand from atlas.log.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main b2992a5: merges f3d9348 of feature/stream-reader-1126 b840469 and b2992a5 of feature/ctor-census-1126 769fbbe; atlas 0.3.12, docs/031 §14): game-copy/atlas-main7/atlas.asi (sha256 048d509e8d29e3b6177d304571cb35e329f9bb030f9bcfa2525298a406d258d7) and game-copy/mod-sets/atlas-main7 (atlas.package cfbca58626d34aeb9ce631e94b0d0dfcf75700c39175c5558677c57ac653852f). OwnReader, LoadAState, ScriptStream and ClassInited are internal-call group 9 reader; every other feature switch off",
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 90,
+   "extraAsi": {
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+    "ini": {
+     "WorldSize.PhysicsRootM": 0,
+     "PagedLots.Probe": 1,
+     "PagedLots.FarM": 250,
+     "PagedLots.LoaderA": 1,
+     "PagedLots.BudgetMs": 3,
+     "PagedLots.Verbose": 0,
+     "PagedLots.OwnReader": 2,
+     "PagedLots.ReaderK": 64,
+     "PagedLots.ReaderBudgetUs": 2000,
+     "PagedLots.TestHarness": 1,
+     "PagedLots.CtorRules": 4
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+     "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+     "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": 1,
+     "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": 1,
+     "^p1: script half ready \\(loadA-4\\), native probe version 2$": 1,
+     "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": 1,
+     "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS drop [1-9]\\d*$": 6,
+     "^p1: RESULT PASS loadA path A$": 6,
+     "^p1: RESULT PASS status stage 3 lot 0x[0-9A-F]{16} loadA state 0 path 2$": 6,
+     "^p1: RESULT PASS verify objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS clean \\d+ files$": 1,
+     "^atlas:loadA call lot=0x[0-9A-F]{16} call \\d+\\.\\d\\d ms, [1-9]\\d* bound proxies parked in ": 6,
+     "^atlas:loadA script-result lot=0x[0-9A-F]{16} native 0, path A, ": 6,
+     "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=4 Verbose=0 LoaderA=1 sr 2$": 1,
+     "^atlas:reader self-check lot=0x0{16} \\d+ checks, 0 failed: PASS$": 1,
+     "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 4 \\(reader-2\\)$": 1,
+     "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 4, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults \\d+\\), worst tick ": 6,
+     "^atlas:reader compare-result lot=0x[0-9A-F]{16} \\d+ records, 0 differ: PASS$": 6,
+     "^atlas:icalls reader: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 9 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:loadA dispatch-ea ": 0,
+     "^atlas:loadA (refused|w1-refused|shape-mismatch) ": 0,
+     "^atlas:loadA stuck ": 0,
+     "^atlas:loadA fault ": 0,
+     "^atlas:reader (fault|mismatch|unused|stream-refused) ": 0,
+     "^atlas:reader hook lot=0x0{16} REFUSED ": 0,
+     "native fault ": 0,
+     "DAMAGED": 0,
+     "^atlas:reader (fallback|late-fallback|refused|dropped) ": 0,
+     "^atlas:reader compare-result .*: FAIL$": 0,
+     "^atlas:reader start lot=0x0{16} self-check FAIL": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   },
+   "run": {
+    "repro": "atlas-ctor-rules-sv"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   }
+  },
+  {
+   "id": "atlas-ctor-rules-sv-l5",
+   "note": "[est 45 min] Atlas docs/035 §10 constructor census, arm CtorRules=5 (adds the native Mono check of which type initializers ran: summary must show native faults 0; initializers ran / not yet / unknown recorded as data, no threshold), OwnReader=2 (our reader plus EA's full read of the same bytes, compared record by record; test only: EA's constructors run twice, timing not comparable): inspect, then two loader A page-ins (cold, warm) on each of three pageable lots of Sunset Valley (10th percentile, median and largest object count), verify after each, clean. Pass: every step logs RESULT PASS, loadA path A six times, the hook went in with ctor rules 5 (reader-2), the native start line reads back CtorRules=5 and sr 2, six reader summaries with our graph at ctor rules 5, compare PASS six times, no fallback, no script error. Recorded, not gated: census unsafe X of Y and the constructor census fix-up count on the ready lines, compared across levels by hand from atlas.log.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main b2992a5: merges f3d9348 of feature/stream-reader-1126 b840469 and b2992a5 of feature/ctor-census-1126 769fbbe; atlas 0.3.12, docs/031 §14): game-copy/atlas-main7/atlas.asi (sha256 048d509e8d29e3b6177d304571cb35e329f9bb030f9bcfa2525298a406d258d7) and game-copy/mod-sets/atlas-main7 (atlas.package cfbca58626d34aeb9ce631e94b0d0dfcf75700c39175c5558677c57ac653852f). OwnReader, LoadAState, ScriptStream and ClassInited are internal-call group 9 reader; every other feature switch off",
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 90,
+   "extraAsi": {
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+    "ini": {
+     "WorldSize.PhysicsRootM": 0,
+     "PagedLots.Probe": 1,
+     "PagedLots.FarM": 250,
+     "PagedLots.LoaderA": 1,
+     "PagedLots.BudgetMs": 3,
+     "PagedLots.Verbose": 0,
+     "PagedLots.OwnReader": 2,
+     "PagedLots.ReaderK": 64,
+     "PagedLots.ReaderBudgetUs": 2000,
+     "PagedLots.TestHarness": 1,
+     "PagedLots.CtorRules": 5
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+     "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
+     "^atlas:loadA self-check PASS \\(\\d+ checks, 0 failed\\)$": 1,
+     "^atlas:loadA start version 4 LoaderA=1 BudgetMs=3 Verbose=0 shape 11/11 self-check PASS: on$": 1,
+     "^p1: script half ready \\(loadA-4\\), native probe version 2$": 1,
+     "^p1: RESULT PASS inspect lots \\d+ pageable [1-9]\\d* auto 0x[0-9A-F]{16}$": 1,
+     "^p1: RESULT PASS out lot 0x[0-9A-F]{16} objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS drop [1-9]\\d*$": 6,
+     "^p1: RESULT PASS loadA path A$": 6,
+     "^p1: RESULT PASS status stage 3 lot 0x[0-9A-F]{16} loadA state 0 path 2$": 6,
+     "^p1: RESULT PASS verify objects [1-9]\\d*$": 6,
+     "^p1: RESULT PASS clean \\d+ files$": 1,
+     "^atlas:loadA call lot=0x[0-9A-F]{16} call \\d+\\.\\d\\d ms, [1-9]\\d* bound proxies parked in ": 6,
+     "^atlas:loadA script-result lot=0x[0-9A-F]{16} native 0, path A, ": 6,
+     "^atlas:reader start lot=0x0{16} OwnReader=2 ReaderK=64 ReaderBudgetUs=2000 CtorRules=5 Verbose=0 LoaderA=1 sr 2$": 1,
+     "^atlas:reader self-check lot=0x0{16} \\d+ checks, 0 failed: PASS$": 1,
+     "^atlas:reader hook lot=0x0{16} ok at (instantiator|startup-app|world-load-started), mode 2, K 64, budget 2000 us, Verbose 0, ctor rules 5 \\(reader-2\\)$": 1,
+     "^atlas:reader summary lot=0x[0-9A-F]{16} run: our graph, loadA 0, .*, census unsafe \\d+ of \\d+ \\(ctor rules 5, initializers ran \\d+, not yet \\d+, unknown \\d+, native faults 0\\), worst tick ": 6,
+     "^atlas:reader compare-result lot=0x[0-9A-F]{16} \\d+ records, 0 differ: PASS$": 6,
+     "^atlas:icalls reader: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 9 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:loadA dispatch-ea ": 0,
+     "^atlas:loadA (refused|w1-refused|shape-mismatch) ": 0,
+     "^atlas:loadA stuck ": 0,
+     "^atlas:loadA fault ": 0,
+     "^atlas:reader (fault|mismatch|unused|stream-refused) ": 0,
+     "^atlas:reader hook lot=0x0{16} REFUSED ": 0,
+     "native fault ": 0,
+     "DAMAGED": 0,
+     "^atlas:reader (fallback|late-fallback|refused|dropped) ": 0,
+     "^atlas:reader compare-result .*: FAIL$": 0,
+     "^atlas:reader start lot=0x0{16} self-check FAIL": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   },
+   "run": {
+    "repro": "atlas-ctor-rules-sv"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   }
+  }
+ ]
+}

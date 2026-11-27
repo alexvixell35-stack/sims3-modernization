@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { atlasKitProblem } from '../release/atlas-kit.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const KIT = join(ROOT, 'tools', 'player', 'ts3-kit');
@@ -109,8 +110,9 @@ function selfCheck() {
   const labels = Object.values(SPECS).flatMap(s => [s.arms.A.label, s.arms.B.label]);
   // the labels go through build-fixes.ts --on (comma-separated) and the TNS text: no comma, ASCII only
   const clean = labels.every(l => !l.includes(',') && /^[\x20-\x7e]+$/.test(l));
-  console.log(ok && threw && clean ? 'build-kit-ab self-check: 0 FAIL' : `build-kit-ab self-check: FAIL (retarget ${ok}, refuses ${threw}, labels ${clean})`);
-  if (!(ok && threw && clean)) process.exit(1);
+  const atlas = atlasKitProblem(readFileSync(import.meta.filename, 'utf8')); // a kit that stages Atlas writes [Kit] Release=1
+  console.log(ok && threw && clean && !atlas ? 'build-kit-ab self-check: 0 FAIL' : `build-kit-ab self-check: FAIL (retarget ${ok}, refuses ${threw}, labels ${clean}${atlas ? `, ${atlas}` : ''})`);
+  if (!(ok && threw && clean && !atlas)) process.exit(1);
 }
 
 const a = process.argv.slice(2);

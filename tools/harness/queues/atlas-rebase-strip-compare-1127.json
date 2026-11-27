@@ -1,5 +1,5 @@
 {
-  "note": "atlas-rebase-strip-compare-1127: Boundless Atlas docs/022 §8.8.16 R-9 live comparison (one-way slide plus strip build equals the world loaded at the shifted origin, hashes per structure), boundless-atlas feature/rebase-terrain-slide-1127 7174381 (Atlas 0.3.15 + R-8 + R-9 grid half, rebase=8). Job 1 window half on the generated set AtlasStripSet, job 2 reference half on AtlasStrip_8192.world; then node tools/strip-compare.ts <job 1 atlas.log> <job 2 atlas.log>. Needs queue key extraAsi, game-copy/atlas-r9b-1127/atlas.asi (sha256 pinned), game-copy/mod-sets/atlas-r9-1127, AtlasStrip_8192.world and the AtlasStripSet set plus strip pack installed (see job 1 note). Dry run validated only; not run (written 2026-11-27).",
+  "note": "atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-rebase-strip-compare-1127: Boundless Atlas docs/022 §8.8.16 R-9 live comparison (one-way slide plus strip build equals the world loaded at the shifted origin, hashes per structure), boundless-atlas feature/rebase-terrain-slide-1127 7174381 (Atlas 0.3.15 + R-8 + R-9 grid half, rebase=8). Job 1 window half on the generated set AtlasStripSet, job 2 reference half on AtlasStrip_8192.world; then node tools/strip-compare.ts <job 1 atlas.log> <job 2 atlas.log>. Needs queue key extraAsi, game-copy/atlas-r9b-1127/atlas.asi (sha256 pinned), game-copy/mod-sets/atlas-r9-1127, AtlasStrip_8192.world and the AtlasStripSet set plus strip pack installed (see job 1 note). Dry run validated only; not run (written 2026-11-27). Repinned 2026-11-27 to boundless-atlas ac6784e (game-copy/atlas-wr2-1127, mod set atlas-wr2-1127): UH switches on, InferredSlots=1, StripProve=1. The window job now needs 'PROVE bypass window-restore' on the slidecheck and the slide (the only entry left on a ready strip; effects and the G footprint are mapped by Effects=1 / InferredSlots=1), so the slide can pass; roads / ponds hash lines on both halves (tools/strip-compare.ts compares nine structures).",
   "agentPackage": "game-copy/ts3agent.package.m1126",
   "stopQueueOnFail": true,
   "regexCases": {
@@ -12,12 +12,15 @@
         "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
       ]
     },
-    "^atlas 0\\.3\\.15 .*\\brebase=8\\b": {
+    "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
       "match": [
-        "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=8 oop=0 seed=0"
+        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
       ],
       "noMatch": [
-        "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=6 oop=0 seed=0"
+        "atlas 0.3.16 (built Nov 26 2026) rebase=9 pagedlots=12",
+        "atlas 0.3.15 (built Nov 27 2026) rebase=10",
+        "atlas 0.3.16 (built Nov 27 2026 10:00:00) world8192=6 rebase=10 pagedlots=12",
+        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
       ]
     },
     "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
@@ -138,13 +141,13 @@
         "atlas:rebase R-9 step: 8 cells built, 1 differ from the plan: FAIL (rollback rebuilds the cells that wrapped in)"
       ]
     },
-    "^atlas:rebase R-9 hash strip [a-z-]+ cells 8: [0-9A-F]{8}$": {
+    "^atlas:rebase R-9 hash strip (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": {
       "match": [
         "atlas:rebase R-9 hash strip type-map cells 8: 0A1B2C3D"
       ],
       "noMatch": [
-        "atlas:rebase R-9 hash ref type-map cells 8: 0A1B2C3D",
-        "atlas:rebase R-9 hash strip type-map cells 8: 0a1b2c3d"
+        "atlas:rebase R-9 hash strip roads cells 8: 0A1B2C3D",
+        "atlas:rebase R-9 hash strip type-map cells 64: 0A1B2C3D"
       ]
     },
     "^atlas:rebase RESULT PASS slide": {
@@ -180,13 +183,13 @@
         "atlas:rebase RESULT PASS slide step (-256, 0)"
       ]
     },
-    "^atlas:rebase R-9 hash ref [a-z-]+ cells 8: [0-9A-F]{8}$": {
+    "^atlas:rebase R-9 hash ref (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": {
       "match": [
-        "atlas:rebase R-9 hash ref blend cells 8: 0A1B2C3D"
+        "atlas:rebase R-9 hash ref type-map cells 8: 0A1B2C3D"
       ],
       "noMatch": [
-        "atlas:rebase R-9 hash ref blend cells 7: 0A1B2C3D",
-        "atlas:rebase R-9 hash strip blend cells 8: 0A1B2C3D"
+        "atlas:rebase R-9 hash ref ponds cells 8: 0A1B2C3D",
+        "atlas:rebase R-9 hash strip type-map cells 8: 0A1B2C3D"
       ]
     },
     "^atlas:rebase R-9 striphash \\[2048, 2304\\) x \\[0, 2048\\) minus \\(256, 0\\): 8$": {
@@ -212,31 +215,77 @@
       "noMatch": [
         "atlas:rebase R-9 hash ref blend cells 8: 0A1B2C3D"
       ]
+    },
+    "^atlas:rebase PROVE: StripProve=1 \\(TEST ONLY": {
+      "match": [
+        "atlas:rebase PROVE: StripProve=1 (TEST ONLY: generated Atlas test worlds; unmapped entries effects / window-restore / g-footprint may be bypassed)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=1 (test only: one-way slides with a ready strip pass the unmapped list)"
+      ]
+    },
+    "^atlas:rebase PROVE bypass window-restore \\(test only": {
+      "match": [
+        "atlas:rebase PROVE bypass window-restore (test only, StripProve=1 on a generated test world): window restore at load"
+      ],
+      "noMatch": [
+        "atlas:rebase PROVE bypass effects (test only, StripProve=1 on a generated test world): effects",
+        "atlas:rebase PROVE bypass refused: the strip set is not an Atlas generated set"
+      ]
+    },
+    "^atlas:rebase PROVE bypass (effects|g-footprint|refused)": {
+      "match": [
+        "atlas:rebase PROVE bypass refused: the strip set is not an Atlas generated set",
+        "atlas:rebase PROVE bypass effects (test only, StripProve=1 on a generated test world): effects"
+      ],
+      "noMatch": [
+        "atlas:rebase PROVE bypass window-restore (test only, StripProve=1 on a generated test world): window restore at load"
+      ]
+    },
+    "^atlas:rebase R-9 hash strip (roads|ponds) cells \\d+: [0-9A-F]{8}$": {
+      "match": [
+        "atlas:rebase R-9 hash strip roads cells 0: 00000000",
+        "atlas:rebase R-9 hash strip ponds cells 3: 0A1B2C3D"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 hash strip type-map cells 8: 0A1B2C3D",
+        "atlas:rebase R-9 hash ref roads cells 0: 00000000"
+      ]
+    },
+    "^atlas:rebase R-9 hash ref (roads|ponds) cells \\d+: [0-9A-F]{8}$": {
+      "match": [
+        "atlas:rebase R-9 hash ref roads cells 0: 00000000",
+        "atlas:rebase R-9 hash ref ponds cells 3: 0A1B2C3D"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 hash ref type-map cells 8: 0A1B2C3D",
+        "atlas:rebase R-9 hash strip roads cells 0: 00000000"
+      ]
     }
   },
   "jobs": [
     {
       "id": "atlas-rebase-r9-compare-window",
-      "note": "[est 20 min] Atlas docs/022 §8.8.16 R-9 live comparison, window half, on AtlasStripSet.world (2048 m main world of the generated set): rebase slidecheck -256 0, then the real one-way rebase slide -256 0 with [Rebase] StripPack=AtlasStripSet StripProve=1 (test only). Pass: strip pack registered, two R-9 plans ready, region (1, 0) loaded into a scratch TerrainData, grid moved, 8 cells built with 0 differences, seven hash lines, the slide passes. Then: node tools/strip-compare.ts <this atlas.log> <atlas-rebase-r9-compare-ref atlas.log> must say RESULT equal. Depends on: AtlasStrip_8192.world installed; node tools/world-regions.ts split <AtlasStrip_8192.world> --set AtlasStripSet --root <game folder>; node tools/strip-pack.ts pack <game folder>/ts3native/atlas/sets/AtlasStripSet/AtlasStripSet.atlas.json (boundless-atlas). No household, no save.",
+      "note": "[est 20 min] Atlas docs/022 §8.8.16 R-9 live comparison, window half, on AtlasStripSet.world (2048 m main world of the generated set): rebase slidecheck -256 0, then the real one-way rebase slide -256 0 with [Rebase] StripPack=AtlasStripSet StripProve=1 (test only). Pass: strip pack registered, two R-9 plans ready, region (1, 0) loaded into a scratch TerrainData, grid moved, 8 cells built with 0 differences, seven terrain hash lines plus roads / ponds, PROVE bypass window-restore on the slidecheck and the slide, the slide passes. Then: node tools/strip-compare.ts <this atlas.log> <atlas-rebase-r9-compare-ref atlas.log> must say RESULT equal. Depends on: AtlasStrip_8192.world installed; node tools/world-regions.ts split <AtlasStrip_8192.world> --set AtlasStripSet --root <game folder>; node tools/strip-pack.ts pack <game folder>/ts3native/atlas/sets/AtlasStripSet/AtlasStripSet.atlas.json (boundless-atlas). No household, no save.",
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "modSet": "game-copy/mod-sets/atlas-r9-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "ini": {
         "Rewind.Park": 1
       },
-      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-terrain-slide-1127 7174381 (Atlas 0.3.15 + R-8 + R-9 grid half, rebase=8), game-copy/atlas-r9b-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-r9-1127 ('rebase striphash').",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-window-restore-1127 ac6784e (Atlas 0.3.16 + window restore with map v2 / WindowIdentity, R-9 leaving column split, held re-entry, StripProve bypass, roads / ponds hash lines, rebase=10), game-copy/atlas-wr2-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-wr2-1127 (atlas.package sha256 6148378b7eaeaf188f31b02190e9b6ec9ae76dfdfd71fa8cfda9abc22b26f5b3; rebase striphash, rebase restoreplant, WindowIdentity). Job ini: UH switches on (Rebase.WorldLotTree, LotEntries, FrameBlock, SceneMaps, Effects, RoutePaths, LooseFootprints = 1), InferredSlots=1, StripProve=1 (test only).",
       "save": "menu",
       "gameArgs": [
         "-disablestoryprogression"
       ],
       "timeoutMin": 45,
       "extraAsi": {
-        "asi": "game-copy/atlas-r9b-1127/atlas.asi",
-        "sha256": "d84e9736de41fce80f10a0e7296ba78938fac3ae1905aac0d6c997d68140772d",
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -245,15 +294,22 @@
           "Rebase.FallbackMs": 200,
           "Rebase.Verbose": 0,
           "Rebase.GridKeys": 1,
-          "Rebase.InferredSlots": 0,
+          "Rebase.InferredSlots": 1,
           "Rebase.CellKeys": 1,
           "Rebase.TerrainSlide": 1,
           "Rebase.StripBuild": 1,
           "Rebase.StripPack": "AtlasStripSet",
-          "Rebase.StripProve": 1
+          "Rebase.StripProve": 1,
+          "Rebase.WorldLotTree": 1,
+          "Rebase.LotEntries": 1,
+          "Rebase.FrameBlock": 1,
+          "Rebase.SceneMaps": 1,
+          "Rebase.Effects": 1,
+          "Rebase.RoutePaths": 1,
+          "Rebase.LooseFootprints": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.15 .*\\brebase=8\\b": 1,
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
           "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
           "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": 1,
@@ -262,8 +318,11 @@
           "^atlas:rebase R-9 grid: region \\(1, 0\\) .*AtlasStripSet_r01_00\\.world: header version \\d+, scratch TerrainData loaded$": 1,
           "^atlas:rebase R-9 grid: 1 regions, type map 32768 blocks \\(\\d+ detail blocks reused\\), blend tiles swapped$": 1,
           "^atlas:rebase R-9 step: 8 cells built, 0 differ from the plan$": 1,
-          "^atlas:rebase R-9 hash strip [a-z-]+ cells 8: [0-9A-F]{8}$": 7,
-          "^atlas:rebase RESULT PASS slide": 1
+          "^atlas:rebase R-9 hash strip (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": 7,
+          "^atlas:rebase RESULT PASS slide": 1,
+          "^atlas:rebase PROVE: StripProve=1 \\(TEST ONLY": 1,
+          "^atlas:rebase PROVE bypass window-restore \\(test only": 2,
+          "^atlas:rebase R-9 hash strip (roads|ponds) cells \\d+: [0-9A-F]{8}$": 2
         },
         "logForbid": {
           "^atlas:rebase R-9 (REFUSED|ERROR|FAIL) ": 0,
@@ -272,7 +331,8 @@
           "^atlas:rebase (SKIP|off) ": 0,
           "^atlas:rebase R-9 grid: .*FAILED$": 0,
           "^atlas:rebase RESULT REFUSED ": 0,
-          "^atlas:icalls rebase SKIP ": 0
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase PROVE bypass (effects|g-footprint|refused)": 0
         }
       },
       "run": {
@@ -285,11 +345,11 @@
     },
     {
       "id": "atlas-rebase-r9-compare-ref",
-      "note": "[est 15 min] Atlas docs/022 §8.8.16 R-9 live comparison, reference half: AtlasStrip_8192.world loaded whole (W8192 patches as atlas-rebase-r9-strip-8192), rebase striphash 2048 0 2304 2048 256 0, read-only. Pass: seven R-9 hash ref lines over 8 cells. Compare with the window job by tools/strip-compare.ts. No household, no save.",
+      "note": "[est 15 min] Atlas docs/022 §8.8.16 R-9 live comparison, reference half: AtlasStrip_8192.world loaded whole (W8192 patches as atlas-rebase-r9-strip-8192), rebase striphash 2048 0 2304 2048 256 0, read-only. Pass: seven R-9 hash ref lines over 8 cells plus roads / ponds lines. Compare with the window job by tools/strip-compare.ts. No household, no save.",
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "modSet": "game-copy/mod-sets/atlas-r9-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -300,15 +360,15 @@
       "defaultIni": {
         "Config.SceneQuadTree": "8192,512,8"
       },
-      "pinReason": "master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-terrain-slide-1127 7174381 (Atlas 0.3.15 + R-8 + R-9 grid half, rebase=8), game-copy/atlas-r9b-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-r9-1127 ('rebase striphash').",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-window-restore-1127 ac6784e (Atlas 0.3.16 + window restore with map v2 / WindowIdentity, R-9 leaving column split, held re-entry, StripProve bypass, roads / ponds hash lines, rebase=10), game-copy/atlas-wr2-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-wr2-1127 (atlas.package sha256 6148378b7eaeaf188f31b02190e9b6ec9ae76dfdfd71fa8cfda9abc22b26f5b3; rebase striphash, rebase restoreplant, WindowIdentity). Job ini: UH switches on (Rebase.WorldLotTree, LotEntries, FrameBlock, SceneMaps, Effects, RoutePaths, LooseFootprints = 1), InferredSlots=1, StripProve=1 (test only).",
       "save": "menu",
       "gameArgs": [
         "-disablestoryprogression"
       ],
       "timeoutMin": 45,
       "extraAsi": {
-        "asi": "game-copy/atlas-r9b-1127/atlas.asi",
-        "sha256": "d84e9736de41fce80f10a0e7296ba78938fac3ae1905aac0d6c997d68140772d",
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -319,16 +379,26 @@
           "Rebase.FallbackMs": 200,
           "Rebase.Verbose": 0,
           "Rebase.GridKeys": 1,
-          "Rebase.InferredSlots": 0,
-          "Rebase.CellKeys": 1
+          "Rebase.InferredSlots": 1,
+          "Rebase.CellKeys": 1,
+          "Rebase.WorldLotTree": 1,
+          "Rebase.LotEntries": 1,
+          "Rebase.FrameBlock": 1,
+          "Rebase.SceneMaps": 1,
+          "Rebase.Effects": 1,
+          "Rebase.RoutePaths": 1,
+          "Rebase.LooseFootprints": 1,
+          "Rebase.StripProve": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.15 .*\\brebase=8\\b": 1,
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
           "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
-          "^atlas:rebase R-9 hash ref [a-z-]+ cells 8: [0-9A-F]{8}$": 7,
+          "^atlas:rebase R-9 hash ref (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": 7,
           "^atlas:rebase R-9 striphash \\[2048, 2304\\) x \\[0, 2048\\) minus \\(256, 0\\): 8$": 1,
-          "^atlas:rebase hub: RESULT CHECKED rebase striphash: 8 cells hashed; nothing written$": 1
+          "^atlas:rebase hub: RESULT CHECKED rebase striphash: 8 cells hashed; nothing written$": 1,
+          "^atlas:rebase PROVE: StripProve=1 \\(TEST ONLY": 1,
+          "^atlas:rebase R-9 hash ref (roads|ponds) cells \\d+: [0-9A-F]{8}$": 2
         },
         "logForbid": {
           "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,

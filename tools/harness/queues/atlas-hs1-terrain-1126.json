@@ -1,0 +1,404 @@
+{
+  "note": "atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-hs1-terrain-1126: Boundless Atlas docs/037 HS-1 measurement (docs/040 §8, T1a + T1b), measure before building design A. The 8192 m strip world AtlasStrip_8192.world with the W8192 patches (atlas.asi [World8192] Routing / PaintIndex / PhysicsRoot = 1, Default.ini SceneQuadTree=8192,512,8, [EaCrashFixes] PortalFlagRefs=0) as in atlas-8192-patches-1126 job atlas-8192-load-strip-8192, whose install prep it needs (world installed in InstalledWorlds). [MemDiag] Enabled=1 for the diag: mem marks (big= is the largest free block). T1b uses the test-only ts3probe squeeze. Dry-run only until the strip world loads in atlas-8192-load-strip-8192. One job at a time; T1b ends at its first failure.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 18:37:48"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1-loaded ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1-loaded priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1-loadedx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1-edittown ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1-edittown priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1-edittownx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1-bulldozed ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1-bulldozed priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1-bulldozedx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1-live ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1-live priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1-livex priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1-saved ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1-saved priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1-savedx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^OK   ea fix: PortalFlagRefs ": {
+      "match": [
+        "OK   ea fix: PortalFlagRefs (docs/67 §30.5): lot portal blocked-flag writes through pairs outside R are skipped (0x0082A1CF, 0x0082B6B1)"
+      ],
+      "noMatch": [
+        "SKIP ea fix: PortalFlagRefs: bytes at 0x0082A1CF / 0x0082B6B1 differ (another mod or a probe build owns them): not installed",
+        "OK   ea fix: WorldAStarRefs (docs/67 §30): world A* neighbours outside the routing graph are skipped (0x00676F2A)"
+      ]
+    },
+    "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.2.2-w8192 built Nov 26 2026 15:30:00, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=2 loadA=4 w8192=0 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=2 loadA=4 w8192=2 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.6 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 26 2026 13:07:33, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 26 2026 13:07:33, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": {
+      "match": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, [World8192] PhysicsRoot=1"
+      ],
+      "noMatch": [
+        "physics root: off (PhysicsRootM=0), 0x00FEFBCC holds 4096",
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x45800000 (READ-BACK DIFFERS), [World8192] PhysicsRoot=1",
+        "physics root: SKIP address not mapped (PhysicsRootM=8192)"
+      ]
+    },
+    "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "w8192 self-check: PASS (210 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "w8192 self-check: FAIL (163 checks, 2 failed)",
+        "w8192: SKIP self-check failed; Routing=1 and PaintIndex=1 not installed",
+        "p1 self-check: PASS (28 checks, 0 failed), page format version 1, header 64 bytes"
+      ]
+    },
+    "^w8192 Routing R[1-7] 0x00[0-9A-F]{6}: installed \\(\\d bytes, expected bytes matched, read back ok\\)$": {
+      "match": [
+        "w8192 Routing R1 0x0063DC60: installed (5 bytes, expected bytes matched, read back ok)",
+        "w8192 Routing R7 0x0082A1D4: installed (6 bytes, expected bytes matched, read back ok)"
+      ],
+      "noMatch": [
+        "w8192 Routing R1 0x0063DC60: skipped (bytes differ; found E9 12 34 56 78)",
+        "w8192 Routing R2 0x00654E83: skipped (another Routing site differs, the switch is all-or-nothing)",
+        "w8192 Routing R3 0x00655514: FAILED (read-back differs)",
+        "w8192 PaintIndex header bound 0x00C21A85: installed (6 bytes, expected bytes matched, read back ok)"
+      ]
+    },
+    "^w8192 Routing: 7 of 7 sites installed$": {
+      "match": [
+        "w8192 Routing: 7 of 7 sites installed"
+      ],
+      "noMatch": [
+        "w8192 Routing: 6 of 7 sites installed",
+        "w8192 Routing: 0 of 7 sites installed (not installed)",
+        "w8192 Routing: off (Routing=0)"
+      ]
+    },
+    "^w8192 PaintIndex .* 0x00C2[0-9A-F]{4}: installed \\(\\d+ bytes, expected bytes matched, read back ok\\)$": {
+      "match": [
+        "w8192 PaintIndex reader 1 index 0x00C23BD4: installed (15 bytes, expected bytes matched, read back ok)",
+        "w8192 PaintIndex saver flag write 2 0x00C22905: installed (5 bytes, expected bytes matched, read back ok)"
+      ],
+      "noMatch": [
+        "w8192 PaintIndex reader 2 index 0x00C23F4A: skipped (bytes differ; found 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90)",
+        "w8192 PaintIndex saver 1 tag 0x00C22A9B: FAILED (VirtualProtect failed)",
+        "w8192 Routing R1 0x0063DC60: installed (5 bytes, expected bytes matched, read back ok)"
+      ]
+    },
+    "^w8192 PaintIndex: 7 of 7 sites installed$": {
+      "match": [
+        "w8192 PaintIndex: 7 of 7 sites installed"
+      ],
+      "noMatch": [
+        "w8192 PaintIndex: 0 of 7 sites installed (not installed)",
+        "w8192 PaintIndex: 3 of 7 sites installed (PARTIAL)",
+        "w8192 PaintIndex: off (PaintIndex=0)"
+      ]
+    },
+    "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": {
+      "match": [
+        "scene quadtree: root 8192 x 1024 x 8192 m, depth 8"
+      ],
+      "noMatch": [
+        "scene quadtree: root 2048 x 1024 x 2048 m, depth 6",
+        "scene quadtree: SKIP not the expected game image",
+        "scene quadtree: root 8192 x 1024 x 4096 m, depth 8"
+      ]
+    },
+    "^w8192 routing: fallback": {
+      "match": [
+        "w8192 routing: fallback to the stored 14 bits: portal reference 0x1A004123 at (0, 0), graph 256 x 256 chunks",
+        "w8192 routing: fallback to the stored 14 bits: portal reference 0x00000064 at (100, 9000), graph 256 x 256 chunks, no world manager"
+      ],
+      "noMatch": [
+        "w8192 counters: routing graph 256 x 256 chunks, rebuilt 40 (above 16383: 22), fallback 0; paint wide tiles read 0 (largest index 0), read fails 0, tags written v3 0 v4 0, wide tiles written 0; wide maps kept at v3: small graph 0, player save 0",
+        "w8192 Routing R2 0x00654E83: installed (6 bytes, expected bytes matched, read back ok)"
+      ]
+    },
+    "FAILED": {
+      "match": [
+        "w8192 Routing R2 0x00654E83: FAILED (VirtualProtect failed)",
+        "w8192 Routing R1 0x0063DC60: rollback FAILED"
+      ],
+      "noMatch": [
+        "w8192 Routing: 0 of 7 sites installed (not installed, rolled back after a failed write)",
+        "w8192 self-check: PASS (210 checks, 0 failed)"
+      ]
+    },
+    "\\(PARTIAL\\)": {
+      "match": [
+        "w8192 Routing: 5 of 7 sites installed (PARTIAL)",
+        "w8192 PaintIndex: 3 of 7 sites installed (PARTIAL)"
+      ],
+      "noMatch": [
+        "w8192 Routing: 6 of 7 sites installed",
+        "w8192 PaintIndex: 0 of 7 sites installed (not installed)"
+      ]
+    },
+    "self-check: FAIL": {
+      "match": [
+        "w8192 self-check: FAIL (210 checks, 2 failed)",
+        "w8192 self-check: FAIL stub keeps xmm0-7, the x87 stack, its control word and MXCSR"
+      ],
+      "noMatch": [
+        "w8192 self-check: PASS (210 checks, 0 failed)",
+        "w8192: SKIP self-check failed; Routing=1 and PaintIndex=1 not installed"
+      ]
+    },
+    "READ-BACK DIFFERS": {
+      "match": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x45800000 (READ-BACK DIFFERS), [World8192] PhysicsRoot=1"
+      ],
+      "noMatch": [
+        "physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, [World8192] PhysicsRoot=1",
+        "w8192 Routing R2 0x00654E83: FAILED (read-back differs)"
+      ]
+    },
+    "^w8192: SKIP": {
+      "match": [
+        "w8192: SKIP not TS3W.exe Steam 1.67 (link stamp 0x5A1B2C3D, image size 0x00E60000); Routing=1 and PaintIndex=1 not installed, EA 1.69 is not mapped",
+        "w8192: SKIP self-check failed; Routing=1 and PaintIndex=1 not installed"
+      ],
+      "noMatch": [
+        "w8192 Routing R7 0x0082A1D4: skipped (a jump is already at 0x0082A1CF (another module owns the site))",
+        "scene quadtree: SKIP not the expected game image"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1b-loaded ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1b-loaded priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1b-loadedx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1b-pre-edittown ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1b-pre-edittown priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1b-pre-edittownx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1b-pre-bulldozed ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1b-pre-bulldozed priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1b-pre-bulldozedx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1b-pre-saved ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1b-pre-saved priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1b-pre-savedx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1b-300-squeezed ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1b-300-squeezed priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1b-300-squeezedx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    },
+    "^diag: mem #\\d+ mark ev=hs1b-300-edittown ": {
+      "match": [
+        "diag: mem #14 mark ev=hs1b-300-edittown priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162"
+      ],
+      "noMatch": [
+        "diag: mem #14 mark ev=hs1b-300-edittownx priv=1651 wPriv=1599 t=90",
+        "diag: mem #14 load ev=world-switch priv=1651 wPriv=1599 t=90"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-hs1-t1a-strip-8192",
+      "note": "[est 15 min] T1a baseline (A off): strip world load, Edit Town, one lot place + bulldoze (et_lot_cycle), live, save; largest free (probe memory lines and diag: mem big=), new allocations >= 32 MB and the docs/360 O2 reads line after every step. Pass: no crash and all five marks logged. Decision (from the log): largest free >= 403 MB before Edit Town and >= 537 MB before the bulldoze, with margin above the Apex 320 MB line = design A stays off, ship D + E only; else build A.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-26 to the current Atlas main build pins of atlas-main-smoke-1126 / atlas-8192-patches-1126: game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354, atlas 0.3.x with w8192=1) ; no modSet (the atlas-main mod set holds only set.json on this machine and the W8192 patches are native, as in atlas-8192-load-strip-8192); master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126). No code change measured here: the jobs measure EA behaviour at 8192 m (Atlas docs/040 §8).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "ini": {
+        "EaCrashFixes.PortalFlagRefs": 0,
+        "MemDiag.Enabled": 1
+      },
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0,
+          "Diag.ConfigProbe": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": 1,
+          "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^w8192 Routing R[1-7] 0x00[0-9A-F]{6}: installed \\(\\d bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 Routing: 7 of 7 sites installed$": 1,
+          "^w8192 PaintIndex .* 0x00C2[0-9A-F]{4}: installed \\(\\d+ bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
+          "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": 1
+        },
+        "logForbid": {
+          "^w8192 routing: fallback": 0,
+          "FAILED": 0,
+          "\\(PARTIAL\\)": 0,
+          "self-check: FAIL": 0,
+          "READ-BACK DIFFERS": 0,
+          "^w8192: SKIP": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-hs1-t1a-strip-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^diag: mem #\\d+ mark ev=hs1-loaded ": 1,
+        "^diag: mem #\\d+ mark ev=hs1-edittown ": 1,
+        "^diag: mem #\\d+ mark ev=hs1-bulldozed ": 1,
+        "^diag: mem #\\d+ mark ev=hs1-live ": 1,
+        "^diag: mem #\\d+ mark ev=hs1-saved ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: PortalFlagRefs ": 0
+      }
+    },
+    {
+      "id": "atlas-hs1-t1b-squeeze-8192",
+      "note": "[est 30 min] T1b stress (A off): a pre-check rung without squeeze (fails fast if no lot-only entry or no empty plot), then a ts3probe squeeze (TEST-ONLY, probeTestSqueeze starts the probe with --test-squeeze, docs/51 §635) of the largest free block to 300, 270, 240 MB, Edit Town + place + bulldoze + save per rung, unsqueeze at the end; the first failure stops the job. No expectFail: a CRASH row is the expected finding (the crash capture names the site, 0xC88330 for the optimizer copy, I-040-1), a FAIL row is a harness or hollow failure to triage, a PASS means the blocks found room down to 240 MB (rerun with lower rungs). Required marks: the pre-check rung and the first squeeze rung.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-26 to the current Atlas main build pins of atlas-main-smoke-1126 / atlas-8192-patches-1126: game-copy/atlas-main/atlas.asi (sha256 6ca42a08f72982a71d7a38079df350c614fb512249490810b8b7789f553b3354, atlas 0.3.x with w8192=1) ; no modSet (the atlas-main mod set holds only set.json on this machine and the W8192 patches are native, as in atlas-8192-load-strip-8192); master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126). No code change measured here: the jobs measure EA behaviour at 8192 m (Atlas docs/040 §8).",
+      "save": "menu",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 60,
+      "ini": {
+        "EaCrashFixes.PortalFlagRefs": 0,
+        "MemDiag.Enabled": 1
+      },
+      "defaultIni": {
+        "Config.SceneQuadTree": "8192,512,8"
+      },
+      "extraAsi": {
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "ini": {
+          "World8192.Routing": 1,
+          "World8192.PaintIndex": 1,
+          "World8192.PhysicsRoot": 1,
+          "WorldSize.PhysicsRootM": 0,
+          "Diag.ConfigProbe": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^physics root: 4096 -> 8192 m at 0x00FEFBCC, read back 0x46000000, \\[World8192\\] PhysicsRoot=1$": 1,
+          "^w8192 self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^w8192 Routing R[1-7] 0x00[0-9A-F]{6}: installed \\(\\d bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 Routing: 7 of 7 sites installed$": 1,
+          "^w8192 PaintIndex .* 0x00C2[0-9A-F]{4}: installed \\(\\d+ bytes, expected bytes matched, read back ok\\)$": 7,
+          "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
+          "^scene quadtree: root 8192 x \\d+ x 8192 m, depth 8$": 1
+        },
+        "logForbid": {
+          "^w8192 routing: fallback": 0,
+          "FAILED": 0,
+          "\\(PARTIAL\\)": 0,
+          "self-check: FAIL": 0,
+          "READ-BACK DIFFERS": 0,
+          "^w8192: SKIP": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-hs1-t1b-squeeze-8192"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^diag: mem #\\d+ mark ev=hs1b-loaded ": 1,
+        "^diag: mem #\\d+ mark ev=hs1b-pre-edittown ": 1,
+        "^diag: mem #\\d+ mark ev=hs1b-pre-bulldozed ": 1,
+        "^diag: mem #\\d+ mark ev=hs1b-pre-saved ": 1,
+        "^diag: mem #\\d+ mark ev=hs1b-300-squeezed ": 1,
+        "^diag: mem #\\d+ mark ev=hs1b-300-edittown ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: PortalFlagRefs ": 0
+      },
+      "probeTestSqueeze": true
+    }
+  ]
+}

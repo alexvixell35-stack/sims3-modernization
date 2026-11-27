@@ -14,6 +14,10 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { mayBeStuck } from './stuck-rule.ts';
 import { stallGuard, watchGame } from './game-alive.ts';
+import { mustMatchFail } from './fixes-require.ts';
+import { deleteScratch } from './scratch-files.ts';
+import { homedir } from 'node:os';
+import { probeReader, readLine } from './read-chain.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const LIB = JSON.parse(readFileSync(join(ROOT, 'tools', 'harness', 'repros.json'), 'utf8')) as any[];
@@ -79,8 +83,10 @@ const native = async (): Promise<any> => {
 const nativeStart = r.watch?.kind === 'native' ? await native() : null;
 // "memory": true on the entry logs the probe's /memory (commitMB, privateMB, largest free block) before the steps and after each,
 // plus allocations >= 32 MB from /allocations that are new or gone since the previous log (docs/08 M9)
+// "reads": [{name, chain, bytes?}] (read-chain.ts) logs one "reads <what>: name=value ..." line at the same points, read-only
 let allocs: Map<string, any> | null = null;
 const mem = async (what: string) => {
+  if (r.reads) console.log(`${stamp()} reads ${what}: ${await readLine(probeReader(), r.reads)}`);
   if (!r.memory) return;
   try {
     const m: any = await (await fetch('http://127.0.0.1:47891/memory', { signal: AbortSignal.timeout(20000) })).json();
@@ -106,9 +112,21 @@ const fail = async (msg: string) => {
 };
 let prev: any = null;
 for (const s of r.steps ?? []) {
+  // "probe": "<ts3probe path?query>" instead of cmd: one probe call (e.g. squeeze?targetMB=300, Atlas docs/040 §8); an error reply fails
+  if (s.probe) {
+    let j: any; try { j = await (await fetch(`http://127.0.0.1:47891/${s.probe}`, { signal: AbortSignal.timeout(60000) })).json(); } catch (e) { j = { error: String(e) }; }
+    console.log(`${stamp()} step probe ${s.probe}: ${JSON.stringify(j).slice(0, s.max ?? 300)}`);
+    if (!j || j.error) await fail('FAIL: probe step failed');
+    if (s.waitS) await new Promise(res => setTimeout(res, s.waitS * 1000));
+    await mem(`after probe ${s.probe}`);
+    continue;
+  }
   // "keysFromPrev": true fills args.keys with the keys of the previous step's items (e.g. cas_parts -> wear_parts)
   const args = s.keysFromPrev && prev?.items ? { ...s.args, keys: prev.items.map((x: any) => x.key) } : s.args;
-  const res = await ag(s.cmd, args);
+  // "delete_scratch" runs here, not in the game: removes Repro-* scratch saves and Atlas placement sidecars (scratch-files.ts)
+  const res = s.cmd === 'delete_scratch'
+    ? (() => { try { return { ok: true, result: deleteScratch(process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3'), args ?? {}) }; } catch (e) { return { ok: false, error: String(e) }; } })()
+    : await ag(s.cmd, args);
   // "show": "<prefix>" prints only the result keys with that prefix (the 160-char cut hid the compaction_* counters, 2026-11-02); "max": chars logged
   const show = (v: any, prefix?: string) => prefix && v && typeof v === 'object' && !Array.isArray(v)
     ? Object.fromEntries(Object.entries(v).filter(([k]) => k.startsWith(prefix))) : v;
@@ -118,6 +136,9 @@ for (const s of r.steps ?? []) {
   // "expectError": "<text>": the step must fail with that text (negative check: the arm without the mod proves the action can fail)
   if (s.expectError) { if (res.ok || !String(res.error).includes(s.expectError)) await fail(`FAIL: step should fail with '${s.expectError}'`); continue; }
   if (!res.ok && !s.optional && !s.until) await fail('FAIL: step failed');
+  // "mustMatch": the answer must match (as profile-world.ts), e.g. a read-back of a value
+  const mm = mustMatchFail(s, res);
+  if (mm) await fail('FAIL: ' + mm);
   if (res.ok) prev = res.result;
   if (s.waitS) await sleep(s.waitS * 1000);
   // "until": poll an agent command until every condition holds (fail-fast: give up after maxS with a FAIL), e.g. the

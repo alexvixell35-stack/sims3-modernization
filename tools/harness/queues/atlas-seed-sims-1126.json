@@ -1,5 +1,5 @@
 {
-  "note": "atlas-seed-sims-1126: seed-only far Sims P1 (sims-3-modernization docs/361 §6.6; Boundless Atlas branch feature/seed-sims-1126), seven jobs on Sunset Valley (Baseline-SV) in this order: gen (new seed, save Repro-SeedSims-1126, sidecar written after the save by the SaveBracket Post handler) -> reload (status ok, regen match: the population comes back bit for bit from seed + time) -> nomod (the same save without Atlas: plain EA save, no script error; saves Repro-SeedSimsNoMod-1126) -> after-nomod (status ok, regen match) -> travel (France and back: same seed for the home town) -> stale (the no-mod save: stale, seed kept, nothing to repair) -> OFF arm. The jobs depend on each other: run them in order, never --from the middle. P1 creates nothing in the game, so the no-mod job checks only that the save is plain EA. DRY-RUN ONLY: never run. NOT RUNNABLE ON MASTER YET: extraAsi comes with branch feature/atlas-p0-load-1126 (this branch is cut from it). The Atlas pins are built from boundless-atlas feature/seed-sims-1126 0171723 (rebased on main ce7c648, hooked in); a later Atlas commit needs a rebuild and repin (asi sha256, mod-set sha). Scratch saves Repro-SeedSims-1126 and Repro-SeedSimsNoMod-1126 are removed by hand after the run; seed sidecars are deleted by the first step of the gen job (Atlas.SeedSims.CleanAndReload, files <16 hex>.seed.jsonl in ts3native\\atlas\\ only). 2026-11-27: every job repinned to Atlas main 0.3.15 (boundless-atlas main 212e136, game-copy/atlas-main13/atlas.asi sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919, mod set game-copy/mod-sets/atlas-main13); new logRequire 'atlas:icalls ready 3'; the repros wait for the settled script half (AtlasNative.Groups log, ready 3, waiting 0) before their first Atlas step. 0.3.15 read-backs (version line, rebase 6 / rebase-4, freeze native 3 and script 0.2.1-fz2, oop client 3 protocol 4, plugin 3) are inferred from the 212e136 source, not seen in a log yet.",
+  "note": "atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-seed-sims-1126: seed-only far Sims P1 (sims-3-modernization docs/361 §6.6; Boundless Atlas branch feature/seed-sims-1126), seven jobs on Sunset Valley (Baseline-SV) in this order: gen (new seed, save Repro-SeedSims-1126, sidecar written after the save by the SaveBracket Post handler) -> reload (status ok, regen match: the population comes back bit for bit from seed + time) -> nomod (the same save without Atlas: plain EA save, no script error; saves Repro-SeedSimsNoMod-1126) -> after-nomod (status ok, regen match) -> travel (France and back: same seed for the home town) -> stale (the no-mod save: stale, seed kept, nothing to repair) -> OFF arm. The jobs depend on each other: run them in order, never --from the middle. P1 creates nothing in the game, so the no-mod job checks only that the save is plain EA. DRY-RUN ONLY: never run. NOT RUNNABLE ON MASTER YET: extraAsi comes with branch feature/atlas-p0-load-1126 (this branch is cut from it). The Atlas pins are built from boundless-atlas feature/seed-sims-1126 0171723 (rebased on main ce7c648, hooked in); a later Atlas commit needs a rebuild and repin (asi sha256, mod-set sha). Scratch saves Repro-SeedSims-1126 and Repro-SeedSimsNoMod-1126 are removed by hand after the run; seed sidecars are deleted by the first step of the gen job (Atlas.SeedSims.CleanAndReload, files <16 hex>.seed.jsonl in ts3native\\atlas\\ only). 2026-11-27: every job repinned to Atlas main 0.3.15 (boundless-atlas main 212e136, game-copy/atlas-main13/atlas.asi sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919, mod set game-copy/mod-sets/atlas-main13); new logRequire 'atlas:icalls ready 3'; the repros wait for the settled script half (AtlasNative.Groups log, ready 3, waiting 0) before their first Atlas step. 0.3.15 read-backs (version line, rebase 6 / rebase-4, freeze native 3 and script 0.2.1-fz2, oop client 3 protocol 4, plugin 3) are inferred from the 212e136 source, not seen in a log yet.",
   "agentPackage": "game-copy/ts3agent.package.m1126",
   "stopQueueOnFail": true,
   "regexCases": {
@@ -11,13 +11,15 @@
         "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
       ]
     },
-    "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": {
+    "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": {
       "match": [
-        "atlas:seed native 1 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder ok"
+        "atlas:seed native 2 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder ok"
       ],
       "noMatch": [
         "atlas:seed native 1 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder MISSING",
-        "atlas:seed off (SeedSims=0)"
+        "atlas:seed off (SeedSims=0)",
+        "atlas:seed native 1 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder ok",
+        "atlas:seed native 2 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder MISSING"
       ]
     },
     "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": {
@@ -77,16 +79,19 @@
         "atlas:seed write skipped save: save result 7"
       ]
     },
-    "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+    "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
       "match": [
-        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
+        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
       ],
       "noMatch": [
         "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=2 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247",
         "atlas 0.3.10 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=1 oop=1 seed=1 built Nov 26 2026 23:10:00, TS3W.exe link stamp 0x52DEC247",
         "atlas 0.3.10 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=1 oop=1 seed=1 built Nov 27 2026 09:00:00, TS3W.exe link stamp 0x52DEC247",
         "atlas 0.3.14 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 13:10:00, TS3W.exe link stamp 0x52DEC247",
-        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, rundll32.exe link stamp 0xB91766EA"
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 06:41:54, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
       ]
     },
     "^atlas:save bracket SaveGame ok, SaveTravel ok$": {
@@ -277,7 +282,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -285,10 +290,10 @@
         "^ts3native 0\\.36\\.306-m1126b ": 1
       },
       "timeoutMin": 25,
-      "modSet": "game-copy/mod-sets/atlas-main13",
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
       "extraAsi": {
-        "asi": "game-copy/atlas-main13/atlas.asi",
-        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
         "ini": {
           "Regions.SeedSims": 1,
           "Regions.Verbose": 0,
@@ -296,8 +301,8 @@
           "WorldSize.PhysicsRootM": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
-          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
           "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
           "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
           "^atlas:seed clean: \\d+ seed sidecar\\(s\\) deleted$": 1,
@@ -331,7 +336,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -339,10 +344,10 @@
         "^ts3native 0\\.36\\.306-m1126b ": 1
       },
       "timeoutMin": 20,
-      "modSet": "game-copy/mod-sets/atlas-main13",
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
       "extraAsi": {
-        "asi": "game-copy/atlas-main13/atlas.asi",
-        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
         "ini": {
           "Regions.SeedSims": 1,
           "Regions.Verbose": 0,
@@ -350,8 +355,8 @@
           "WorldSize.PhysicsRootM": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
-          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
           "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
           "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
           "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=ok pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
@@ -403,7 +408,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -411,10 +416,10 @@
         "^ts3native 0\\.36\\.306-m1126b ": 1
       },
       "timeoutMin": 20,
-      "modSet": "game-copy/mod-sets/atlas-main13",
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
       "extraAsi": {
-        "asi": "game-copy/atlas-main13/atlas.asi",
-        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
         "ini": {
           "Regions.SeedSims": 1,
           "Regions.Verbose": 0,
@@ -422,8 +427,8 @@
           "WorldSize.PhysicsRootM": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
-          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
           "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
           "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
           "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=ok pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
@@ -456,7 +461,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -464,10 +469,10 @@
         "^ts3native 0\\.36\\.306-m1126b ": 1
       },
       "timeoutMin": 40,
-      "modSet": "game-copy/mod-sets/atlas-main13",
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
       "extraAsi": {
-        "asi": "game-copy/atlas-main13/atlas.asi",
-        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
         "ini": {
           "Regions.SeedSims": 1,
           "Regions.Verbose": 0,
@@ -475,8 +480,8 @@
           "WorldSize.PhysicsRootM": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
-          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
           "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
           "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
           "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=ok pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
@@ -511,7 +516,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -519,10 +524,10 @@
         "^ts3native 0\\.36\\.306-m1126b ": 1
       },
       "timeoutMin": 20,
-      "modSet": "game-copy/mod-sets/atlas-main13",
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
       "extraAsi": {
-        "asi": "game-copy/atlas-main13/atlas.asi",
-        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
         "ini": {
           "Regions.SeedSims": 1,
           "Regions.Verbose": 0,
@@ -530,8 +535,8 @@
           "WorldSize.PhysicsRootM": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
-          "^atlas:seed native 1 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
           "^atlas:seed on 0\\.1\\.0-seed1 \\(SeedSims=1, Verbose=0\\), native 1, pg newest 1, self-check PASS, save bracket ok$": 1,
           "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
           "^atlas:seed load world=\\S+ key=[0-9a-f]{16} status=stale pg=1 seed=[0-9a-f]{16} ticks=\\d+ sims=[1-9]\\d*$": 1,
@@ -564,7 +569,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas main d0be788 (seed-sims merged as 9b5ea24, atlas 0.3.10 seed=1, SeedSims 0.1.0-seed1), both built from that commit with a clean tree: game-copy/atlas-main5/atlas.asi (native/atlas/build.cmd, the 0.3.10 pin, start line read back with seed=1) and its script half as mod set game-copy/mod-sets/atlas-main5 (tools/build-mod.ts, atlas.package sha256 ba9227944ae4, read back by the version in the required script start line).",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -572,10 +577,10 @@
         "^ts3native 0\\.36\\.306-m1126b ": 1
       },
       "timeoutMin": 15,
-      "modSet": "game-copy/mod-sets/atlas-main13",
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
       "extraAsi": {
-        "asi": "game-copy/atlas-main13/atlas.asi",
-        "sha256": "1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919",
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
         "ini": {
           "Regions.SeedSims": 0,
           "Regions.Verbose": 0,
@@ -583,7 +588,7 @@
           "WorldSize.PhysicsRootM": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.15 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=1 born=\\d+ tiles=\\d+ paint=\\d+ heights=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:seed off \\(SeedSims=0\\)$": 1,
           "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
         },

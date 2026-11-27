@@ -1,0 +1,1040 @@
+{
+ "note": "RETIRED 2026-11-27 (atlas-main18 repin): Atlas 0.3.18+ stands FZ-1 down (Freeze.cs 0.2.2-fz3, G-633: household holds retired by the household rule, a non-household FZ-1 not reviewed; FreezeLeftBehind=1 logs \"atlas:freeze stood-down\", nothing swapped, every hold refused, frozen park off). Every job here expects holds or parks, so the queue is not repinned and not in any plan; atlas-main18-smoke-1127 checks the stand-down line. Left on its old pin for the record. atlas-frozen-park-1126: Boundless Atlas docs/042, the frozen park of a held household Sim (G-202) and the RG-3 placement file (G-203), eight jobs on Sunset Valley (Baseline-SV, Keaton household of 2: the member that is not selected is parked). Order matters: save-sv (stopQueueOnFail) writes the scratch save Repro-AtlasPark-1126 that reload-sv (stopQueueOnFail) and nomod-sv load, so those two only run after a passing save; save-sv starts and off-sv (last) ends with the local step delete_scratch (the scratch save and the placement files). If the queue stops at save-sv or reload-sv, delete them by hand or rerun off-sv. Dry-run only on 2026-11-26; never run. Repinned 2026-11-27 to Atlas main 0.3.13 (boundless-atlas merge 726514d, game-copy/atlas-main8, docs/031 §15): placement calls are internal-call group 10; every Atlas repro first polls AtlasNative.Groups until freeze (and place where Placement=1) is set. Reading the result: roundtrip-sv and save-sv PASS = every extraAsi.logRequire line, no logForbid line, FZ-1 check PASS diffs 0 including the park items; control-sv must show diffs > 0; inserts-sv proves refused inserts end cleanly (C-042-6/7); selected-sv proves the selected-Sim exemption; reload-sv status=ok proves the placement file, save id and clock match (C-042-5), its check PASS proves the re-park after a cold load; nomod-sv proves the save needs nothing of ours (read-backs on both members); off-sv proves the switch. A RESULT REFUSED (no candidate, selected, wait-timeout) is not evidence; rerun after fixing the save.",
+ "agentPackage": "game-copy/ts3agent.package.m1126",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^atlas 0\\.3\\.13 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=3 rebase=\\d+ oop=\\d+ seed=\\d+ born=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+   "match": [
+    "atlas 0.3.13 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=1 seed=1 born=2 built Nov 27 2026 00:18:54, TS3W.exe link stamp 0x52DEC247"
+   ],
+   "noMatch": [
+    "atlas 0.3.13 p1=2 loadA=4 w8192=1 rings=2 fz=2 rebase=2 oop=1 seed=1 born=2 built Nov 27 2026 00:18:54, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.12 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 27 2026 00:13:40, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.130 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=1 seed=1 born=2 built Nov 27 2026 00:18:54, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.10 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=1 seed=1 built Nov 26 2026 22:50:11, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.13 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=1 seed=1 born=2 built Nov 27 2026 00:18:54, rundll32.exe link stamp 0xB91766EA"
+   ]
+  },
+  "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0\\), 2 internal calls registered$": {
+   "match": [
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0), 2 internal calls registered"
+   ],
+   "noMatch": [
+    "atlas:freeze native 2 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0), 2 internal calls registered",
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=0, Placement=0), 2 internal calls registered",
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0), 6 internal calls registered"
+   ]
+  },
+  "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=1\\), 6 internal calls registered, placement folder ok$": {
+   "match": [
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=1), 6 internal calls registered, placement folder ok"
+   ],
+   "noMatch": [
+    "atlas:freeze native 2 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=1), 6 internal calls registered, placement folder ok",
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=0, Placement=1), 6 internal calls registered, placement folder ok",
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=1), 6 internal calls registered, placement folder MISSING",
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=1), 2 internal calls registered, placement folder ok"
+   ]
+  },
+  "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=0, Placement=0\\), 2 internal calls registered$": {
+   "match": [
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=0, Placement=0), 2 internal calls registered"
+   ],
+   "noMatch": [
+    "atlas:freeze native 2 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=0, Placement=0), 2 internal calls registered",
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0), 2 internal calls registered",
+    "atlas:freeze native 3 on (FreezeLeftBehind=1, Verbose=0, FrozenPark=0, Placement=0), 6 internal calls registered"
+   ]
+  },
+  "^atlas:freeze on 0\\.2\\.1-fz2 \\(FreezeLeftBehind=1, Verbose=0\\), hooks (\\d+)/\\1, save bracket ok, self-check PASS \\(\\d+ checks\\), fields \\d+, pair fields \\d+, hour-of-day callbacks \\d+, nraas storyprogression absent$": {
+   "match": [
+    "atlas:freeze on 0.2.1-fz2 (FreezeLeftBehind=1, Verbose=0), hooks 21/21, save bracket ok, self-check PASS (9 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent",
+    "atlas:freeze on 0.2.1-fz2 (FreezeLeftBehind=1, Verbose=0), hooks 23/23, save bracket ok, self-check PASS (9 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent"
+   ],
+   "noMatch": [
+    "atlas:freeze on 0.2.0-fz2 (FreezeLeftBehind=1, Verbose=0), hooks 21/21, save bracket ok, self-check PASS (9 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent",
+    "atlas:freeze on 0.2.1-fz2 (FreezeLeftBehind=1, Verbose=0), hooks 20/21, save bracket ok, self-check PASS (9 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression absent",
+    "atlas:freeze on 0.2.1-fz2 (FreezeLeftBehind=1, Verbose=0), hooks 21/21, save bracket ok, self-check PASS (9 checks), fields 96, pair fields 14, hour-of-day callbacks 13, nraas storyprogression loaded (stand down, no swaps)"
+   ]
+  },
+  "^atlas:park on 0\\.3\\.0-pk3 \\(FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0\\), hooks 4/4, save bracket ok \\(gate 5, order 15\\), self-check PASS \\(\\d+ checks\\)$": {
+   "match": [
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)"
+   ],
+   "noMatch": [
+    "atlas:park on 0.1.0-pk1 (FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0), hooks 4/4, save bracket ok (order 15), self-check PASS (7 checks)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0), hooks 3/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=1, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=60, Placement=0, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)"
+   ]
+  },
+  "^atlas:park on 0\\.3\\.0-pk3 \\(FrozenPark=1, ParkWaitMin=120, Placement=1, Verbose=0\\), hooks 4/4, save bracket ok \\(gate 5, order 15\\), self-check PASS \\(\\d+ checks\\)$": {
+   "match": [
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=1, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)"
+   ],
+   "noMatch": [
+    "atlas:park on 0.1.0-pk1 (FrozenPark=1, ParkWaitMin=120, Placement=1, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=1, Verbose=0), hooks 4/4, save bracket ok (order 15), self-check PASS (7 checks)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=1, Verbose=0), hooks 3/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=60, Placement=1, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)"
+   ]
+  },
+  "^atlas:park off \\(FrozenPark=0, Placement=0\\)$": {
+   "match": [
+    "atlas:park off (FrozenPark=0, Placement=0)"
+   ],
+   "noMatch": [
+    "atlas:park off (FrozenPark=0, Placement=1)",
+    "atlas:park off: hooks 3/4 (a refused swap leaves a bypass writer open), park commands refused"
+   ]
+  },
+  "^atlas:icalls place: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 10 flag set$": {
+   "match": [
+    "atlas:icalls place: 4 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 10 flag set"
+   ],
+   "noMatch": [
+    "atlas:icalls place: 4 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 8 flag set",
+    "atlas:icalls freeze: 2 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 4 flag set",
+    "atlas:icalls place: 3 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 10 flag set",
+    "atlas:icalls place SKIP no script domain in 600 s (host 0x00000000): 4 internal calls not registered"
+   ]
+  },
+  "^atlas:park selected sim ": {
+   "match": [
+    "atlas:park selected sim 1234567890: parked Sim selected, released"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (selected): parked 0.10 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ]
+  },
+  "^atlas:freeze selected sim \\d+: held Sim selected, released$": {
+   "match": [
+    "atlas:freeze selected sim 1234567890: held Sim selected, released"
+   ],
+   "noMatch": [
+    "atlas:park selected sim 1234567890: parked Sim selected, released",
+    "atlas:freeze selected sim 1234567890: held Sim selected, release pending"
+   ]
+  },
+  "^atlas:park RESULT PASS unpark sim \\d+ \\(selected\\): parked \\d+\\.\\d\\d h, .*, drift 0\\.000 m, ": {
+   "match": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (selected): parked 0.10 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 0.10 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (selected): parked 0.10 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.300 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT FAIL unpark sim 1234567890 (selected): parked 0.10 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ]
+  },
+  "^atlas:freeze RESULT PASS release sim \\d+ \\(selected\\): ": {
+   "match": [
+    "atlas:freeze RESULT PASS release sim 1234567890 (selected): H 360 ticks (0.10 h), alarms back 9 (R1 3 R2 5 R3 1, dropped 0), stamps moved 1 "
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 360 ticks (0.10 h)",
+    "atlas:freeze RESULT FAIL release sim 1234567890 (selected): failed steps 1"
+   ]
+  },
+  "^atlas:park probe select sim \\d+: SelectActor True, parked now (True|False)$": {
+   "match": [
+    "atlas:park probe select sim 1234567890: SelectActor True, parked now False",
+    "atlas:park probe select sim 1234567890: SelectActor True, parked now True"
+   ],
+   "noMatch": [
+    "atlas:park probe select sim 1234567890: SelectActor False, parked now True",
+    "atlas:park RESULT REFUSED probe: nothing parked"
+   ]
+  },
+  "^atlas:park probe social Chat npc \\d+ \\(.+, \\d+ m\\) at sim \\d+: queued True$": {
+   "match": [
+    "atlas:park probe social Chat npc 987654321 (Lenny Shutter, 42 m) at sim 1234567890: queued True"
+   ],
+   "noMatch": [
+    "atlas:park probe social Chat npc 987654321 (Lenny Shutter, 42 m) at sim 1234567890: queued False",
+    "atlas:park RESULT REFUSED probe social: no NPC in the world"
+   ]
+  },
+  "^atlas:park RESULT PASS unpark sim \\d+ \\(auto\\): parked 24\\.\\d\\d h, .*, drift 0\\.000 m, guard hits insert [1-9]\\d* lod [1-9]\\d* aging \\d+ rehide 0 refoot 0$": {
+   "match": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 0 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.500 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (selected): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ]
+  },
+  "^atlas:freeze RESULT PASS hold sim \\d+ \\(.+\\): alarms \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, one-shot R2 \\d+\\), aging off-list, static lists \\d+, tick \\d+, check armed \\(\\d+ items\\)$": {
+   "match": [
+    "atlas:freeze RESULT PASS hold sim 1234567890 (Gunther Keaton): alarms 9 (R1 3 R2 5 R3 1, one-shot R2 2), aging off-list, static lists 4, tick 2880, check armed (151 items)"
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS hold sim 1234567890 (Gunther Keaton): alarms 9 (R1 3 R2 5 R3 1, one-shot R2 2), aging off-list, static lists 4, tick 2880",
+    "atlas:freeze RESULT REFUSED hold sim 1234567890: selected"
+   ]
+  },
+  "^atlas:park RESULT PASS park sim \\d+ \\(.+\\): hidden flags 0x[0-9A-F]+ -> 0x[0-9A-F]*[13579BDF], footprint (on|off) -> off, pie menu (on|off) -> off, autonomy disabled \\d+ -> [1-9]\\d*, motives frozen [1-9]\\d*, at \\(.+\\), tick \\d+$": {
+   "match": [
+    "atlas:park RESULT PASS park sim 1234567890 (Gunther Keaton): hidden flags 0x0 -> 0x1, footprint on -> off, pie menu on -> off, autonomy disabled 1 -> 2, motives frozen 8, at (412.31, 0.00, 380.12), tick 2880",
+    "atlas:park RESULT PASS park sim 1234567890 (Gunther Keaton): hidden flags 0x2 -> 0x3, footprint on -> off, pie menu on -> off, autonomy disabled 1 -> 2, motives frozen 8, at (412.31, 0.00, 380.12), tick 2880"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS park sim 1234567890 (Gunther Keaton): hidden flags 0x0 -> 0x0, footprint on -> off, pie menu on -> off, autonomy disabled 1 -> 2, motives frozen 8, at (412.31, 0.00, 380.12), tick 2880",
+    "atlas:park RESULT PASS park sim 1234567890 (Gunther Keaton): hidden flags 0x0 -> 0x1, footprint on -> off, pie menu on -> off, autonomy disabled 1 -> 2, motives frozen 0, at (412.31, 0.00, 380.12), tick 2880",
+    "atlas:park RESULT PASS park sim 1234567890 (Gunther Keaton): hidden flags 0x0 -> 0x1, footprint on -> off, pie menu on -> off, autonomy disabled 0 -> 0, motives frozen 8, at (412.31, 0.00, 380.12), tick 2880",
+    "atlas:park RESULT PASS queued sim 1234567890 (Gunther Keaton): waiting for a safe point (max 120 sim-minutes)"
+   ]
+  },
+  "^atlas:park RESULT PASS unpark sim \\d+ \\(auto\\): parked 24\\.\\d\\d h, hidden flags 0x[0-9A-F]+ \\(EA writes deferred \\d+\\), footprint (on|off), pie menu (on|off), autonomy disabled \\d+, motives restored [1-9]\\d*, drift 0\\.000 m, guard hits insert \\d+ lod [1-9]\\d* aging \\d+ rehide 0 refoot 0$": {
+   "match": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.250 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 0 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 2 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (command): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT FAIL unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0, failed steps 1",
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 3.50 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ]
+  },
+  "^atlas:park RESULT PASS unpark sim \\d+ \\(auto\\): parked \\d+\\.\\d\\d h, hidden flags 0x[0-9A-F]+ \\(EA writes deferred \\d+\\), footprint (on|off), pie menu (on|off), autonomy disabled \\d+, motives restored [1-9]\\d*, drift 0\\.000 m, guard hits insert \\d+ lod [1-9]\\d* aging \\d+ rehide 0 refoot 0$": {
+   "match": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.250 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 0 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 2 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (command): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT FAIL unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0, failed steps 1"
+   ]
+  },
+  "^atlas:park RESULT PASS unpark sim \\d+ \\(command\\): parked \\d+\\.\\d\\d h, hidden flags 0x[0-9A-F]+ \\(EA writes deferred \\d+\\), footprint (on|off), pie menu (on|off), autonomy disabled \\d+, motives restored [1-9]\\d*, drift 0\\.000 m, guard hits insert \\d+ lod [1-9]\\d* aging \\d+ rehide 0 refoot 0$": {
+   "match": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (command): parked 0.25 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 0.25 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (command): parked 0.25 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 1.200 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park RESULT PASS unpark sim 1234567890 (command): parked 0.25 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 1"
+   ]
+  },
+  "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): H \\d+ ticks \\(\\d+\\.\\d\\d h\\), alarms back \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, dropped 0\\), stamps moved \\d+ ": {
+   "match": [
+    "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 86400 ticks (24.00 h), alarms back 9 (R1 3 R2 5 R3 1, dropped 0), stamps moved 6 , guard hits pump 0 "
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS release sim 1234567890 (command): H 86400 ticks (24.00 h), alarms back 9 (R1 3 R2 5 R3 1, dropped 0), stamps moved 6 , guard hits pump 0 ",
+    "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 86400 ticks (24.00 h), alarms back 9 (R1 3 R2 5 R3 1, dropped 1), stamps moved 6 , guard hits pump 0 "
+   ]
+  },
+  "^atlas:freeze RESULT PASS release sim \\d+ \\(command\\): ": {
+   "match": [
+    "atlas:freeze RESULT PASS release sim 1234567890 (command): H 900 ticks (0.25 h), alarms back 9 (R1 3 R2 5 R3 1, dropped 0), stamps moved 2 "
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 900 ticks (0.25 h)",
+    "atlas:freeze RESULT FAIL release sim 1234567890 (command): not held"
+   ]
+  },
+  "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 1, diffs 0$": {
+   "match": [
+    "atlas:freeze check PASS sim 1234567890: items 151, segments 1, diffs 0"
+   ],
+   "noMatch": [
+    "atlas:freeze check PASS sim 1234567890: items 151, segments 1, diffs 3",
+    "atlas:freeze check PASS sim 1234567890: items 151, segments 2, diffs 0",
+    "atlas:freeze check FAIL sim 1234567890: items 151, segments 1, diffs 1"
+   ]
+  },
+  "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 2, diffs 0$": {
+   "match": [
+    "atlas:freeze check PASS sim 1234567890: items 151, segments 2, diffs 0"
+   ],
+   "noMatch": [
+    "atlas:freeze check PASS sim 1234567890: items 151, segments 2, diffs 3",
+    "atlas:freeze check PASS sim 1234567890: items 151, segments 1, diffs 0",
+    "atlas:freeze check FAIL sim 1234567890: items 151, segments 2, diffs 1"
+   ]
+  },
+  "^atlas:freeze RESULT PASS watch sim \\d+ \\(.+\\): control arm, no hold, [1-9]\\d* items$": {
+   "match": [
+    "atlas:freeze RESULT PASS watch sim 1234567890 (Gunther Keaton): control arm, no hold, 151 items"
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS watch sim 1234567890 (Gunther Keaton): control arm, no hold, 0 items"
+   ]
+  },
+  "^atlas:freeze RESULT PASS control sim \\d+: diffs [1-9]\\d* ": {
+   "match": [
+    "atlas:freeze RESULT PASS control sim 1234567890: diffs 37 (motives 8, buffs 4)"
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS control sim 1234567890: diffs 0 (nothing changed)"
+   ]
+  },
+  "^atlas:freeze save released 1 before the native save$": {
+   "match": [
+    "atlas:freeze save released 1 before the native save"
+   ],
+   "noMatch": [
+    "atlas:freeze save released 2 before the native save",
+    "atlas:freeze travel-save released 1 before the native save"
+   ]
+  },
+  "^atlas:freeze save held again 1/1 after the native save \\(result 0\\)$": {
+   "match": [
+    "atlas:freeze save held again 1/1 after the native save (result 0)"
+   ],
+   "noMatch": [
+    "atlas:freeze save held again 0/1 after the native save (result 0)",
+    "atlas:freeze save held again 1/1 after the native save (result 14)"
+   ]
+  },
+  "^atlas:park save unparked 1 before the native save$": {
+   "match": [
+    "atlas:park save unparked 1 before the native save"
+   ],
+   "noMatch": [
+    "atlas:park save unparked 0 before the native save",
+    "atlas:park travel-save unparked 1 before the native save"
+   ]
+  },
+  "^atlas:park save parked again 1/1 after the native save \\(result 0\\)$": {
+   "match": [
+    "atlas:park save parked again 1/1 after the native save (result 0)"
+   ],
+   "noMatch": [
+    "atlas:park save parked again 0/1 after the native save (result 0)",
+    "atlas:park save parked again 1/1 after the native save (result 14)"
+   ]
+  },
+  "^atlas:place write save key=[0-9a-f]{16}-[0-9a-f]{8} sims=1 ticks=\\d+ rc=0$": {
+   "match": [
+    "atlas:place write save key=0123456789abcdef-89abcdef sims=1 ticks=5184000 rc=0"
+   ],
+   "noMatch": [
+    "atlas:place write save key=0123456789abcdef-89abcdef sims=1 ticks=5184000 rc=6",
+    "atlas:place write save key=0123456789abcdef sims=1 ticks=5184000 rc=0",
+    "atlas:place write skipped save: save result 14"
+   ]
+  },
+  "^atlas:place load key=[0-9a-f]{16}-[0-9a-f]{8} status=ok sims=1$": {
+   "match": [
+    "atlas:place load key=0123456789abcdef-89abcdef status=ok sims=1"
+   ],
+   "noMatch": [
+    "atlas:place load key=0123456789abcdef-89abcdef status=stale sims=0 (file ignored)",
+    "atlas:place load key=0123456789abcdef-89abcdef status=save sims=0 (file ignored)",
+    "atlas:place load key=0123456789abcdef-89abcdef status=ok sims=2"
+   ]
+  },
+  "^atlas:freeze load-rehold sim \\d+: held$": {
+   "match": [
+    "atlas:freeze load-rehold sim 1234567890: held"
+   ],
+   "noMatch": [
+    "atlas:freeze load-rehold sim 1234567890: atlas:freeze RESULT REFUSED hold sim 1234567890: selected",
+    "atlas:freeze load-rehold cleared 1: another save or world loaded"
+   ]
+  },
+  "^atlas:freeze status: on True, hooks (\\d+)/\\1, save bracket ok, held 0, release pending 0, ": {
+   "match": [
+    "atlas:freeze status: on True, hooks 21/21, save bracket ok, held 0, release pending 0, holds 1, releases 1"
+   ],
+   "noMatch": [
+    "atlas:freeze status: on True, hooks 21/21, save bracket ok, held 1, release pending 0, holds 1, releases 1",
+    "atlas:freeze status: on True, hooks 20/21, save bracket ok, held 0, release pending 0, holds 1, releases 1"
+   ]
+  },
+  "^atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, ": {
+   "match": [
+    "atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, want 0, parks 1, unparks 1"
+   ],
+   "noMatch": [
+    "atlas:park status: on True, hooks 4/4, save bracket ok, parked 1, pending 0, want 1",
+    "atlas:park status: on False, hooks 0/0, save bracket ok, parked 0, pending 0, "
+   ]
+  },
+  "^atlas:park status: on False, hooks 0/0, ": {
+   "match": [
+    "atlas:park status: on False, hooks 0/0, save bracket , parked 0, pending 0, want 0"
+   ],
+   "noMatch": [
+    "atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, "
+   ]
+  },
+  "^atlas:park RESULT REFUSED park sim 0: off$": {
+   "match": [
+    "atlas:park RESULT REFUSED park sim 0: off"
+   ],
+   "noMatch": [
+    "atlas:park RESULT REFUSED park sim 0: no-candidate",
+    "atlas:park RESULT PASS queued sim 1234567890 (Gunther Keaton): waiting for a safe point (max 120 sim-minutes)"
+   ]
+  },
+  "^atlas:park (travel-damage|damage-repaired|damage-repair-failed|damage-wait|damage dropped|damage list full) ": {
+   "match": [
+    "atlas:park travel-damage sim 1234567890 (travel): pie decay.7.1; in this .sims3, normal saves refused until the next load repairs it",
+    "atlas:park damage-repaired sim 1234567890 (load): pie",
+    "atlas:park damage-repair-failed sim 1234567890 (load): pie still differs, saves stay refused",
+    "atlas:park damage-wait sim 1234567890 (tick): pie, no Sim object in this world yet",
+    "atlas:park damage dropped 2: another game (its placement file still names them)",
+    "atlas:park damage list full (64), sim 1234567890 not kept"
+   ],
+   "noMatch": [
+    "atlas:park save-refused sim 1234567890 (save): damage-pending pie from a travel save; the next load repairs it",
+    "atlas:park quit: parked 1 dropped, pending 0 dropped, park wish kept for 1 (next load of the same save), damage kept 0 (repaired at the next load)",
+    "atlas:park restore-miss sim 1234567890 (save): pie"
+   ]
+  },
+  "^atlas:park (ERROR|hook-refused|self-check FAIL|off:) ": {
+   "match": [
+    "atlas:park ERROR apply sim 1234567890: NullReferenceException: Object reference not set",
+    "atlas:park hook-refused InteractionQueue.InsertInteraction: method compiled",
+    "atlas:park self-check FAIL after 3 checks: field mActor missing: feature off",
+    "atlas:park off: save bracket SaveGame refused, park commands refused"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS park sim 1234567890 (Gunther Keaton): hidden flags 0x0 -> 0x1, footprint on -> off, pie menu on -> off, autonomy disabled 1 -> 2, motives frozen 8, at (412.31, 0.00, 380.12), tick 2880",
+    "atlas:park off (FrozenPark=0, Placement=0)",
+    "atlas:park on 0.3.0-pk3 (FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0), hooks 4/4, save bracket ok (gate 5, order 15), self-check PASS (7 checks)"
+   ]
+  },
+  "^atlas:park RESULT (FAIL|REFUSED) ": {
+   "match": [
+    "atlas:park RESULT FAIL unpark sim 1234567890 (auto): parked 24.00 h",
+    "atlas:park RESULT REFUSED park sim 1234567890: wait-timeout"
+   ],
+   "noMatch": [
+    "atlas:park RESULT PASS park sim 1234567890 (Gunther Keaton): hidden flags 0x0 -> 0x1, footprint on -> off, pie menu on -> off, autonomy disabled 1 -> 2, motives frozen 8, at (412.31, 0.00, 380.12), tick 2880",
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0"
+   ]
+  },
+  "^atlas:park (drift|restore-miss|gone-dropped|scope|aging-readd|rehide|refoot|repie|redecay|reaut|save-refused|save-unrefusable|save-flag|wish dropped) ": {
+   "match": [
+    "atlas:park drift sim 1234567890: moved 0.250 m while parked (left where it is)",
+    "atlas:park rehide sim 1234567890: shown past the hook, hidden again",
+    "atlas:park aging-readd sim 1234567890: back on the aging list while parked, taken off again",
+    "atlas:park gone-dropped sim 1234567890: description disposed while parked, park dropped (nothing written)",
+    "atlas:park repie sim 1234567890: pie menu turned on while parked (adopted), off again",
+    "atlas:park reaut sim 1234567890: autonomy disabled count 1 (another writer, adopted: restore 0)",
+    "atlas:park restore-miss sim 1234567890 (save): pie",
+    "atlas:park save-refused sim 1234567890 (save): decay 3; the park cannot be undone exactly, EA's save failed dialog"
+   ],
+   "noMatch": [
+    "atlas:park selected sim 1234567890: parked Sim selected, released",
+    "atlas:park RESULT PASS unpark sim 1234567890 (auto): parked 24.00 h, hidden flags 0x0 (EA writes deferred 0), footprint on, pie menu on, autonomy disabled 1, motives restored 8, drift 0.000 m, guard hits insert 3 lod 4210 aging 0 rehide 0 refoot 0",
+    "atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, want 0, parks 1, unparks 1, refused 0 (wait-timeout 0), errors 0, hook errors 0, guard hits insert 3 lod 4210 aging 0, hidden writes deferred 0, rehide 0, refoot 0, aging re-adds 0, drift 0, selected 0, scope 0"
+   ]
+  },
+  "^atlas:place (off:|write skipped|load key=[0-9a-f-]+ status=(refused|stale|world|save|format|version))": {
+   "match": [
+    "atlas:place write skipped save: save result 14",
+    "atlas:place load key=0123456789abcdef-89abcdef status=stale sims=0 (file ignored)",
+    "atlas:place load key=0123456789abcdef-89abcdef status=save sims=0 (file ignored)",
+    "atlas:place load key=0123456789abcdef-89abcdef status=refused sims=0",
+    "atlas:place off: group 8 internal calls not registered (switch off or no script domain)"
+   ],
+   "noMatch": [
+    "atlas:place load key=0123456789abcdef-89abcdef status=ok sims=1",
+    "atlas:place load key=0123456789abcdef-89abcdef status=none sims=0",
+    "atlas:place write save key=0123456789abcdef-89abcdef sims=1 ticks=5184000 rc=0",
+    "atlas:place swept 1 temp files"
+   ]
+  },
+  "^atlas:freeze ERROR ": {
+   "match": [
+    "atlas:freeze ERROR step release fields sim 1234567890: NullReferenceException: Object reference not set"
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS release sim 1234567890 (auto): H 108000 ticks (48.00 h)"
+   ]
+  },
+  "^atlas:freeze hook-refused ": {
+   "match": [
+    "atlas:freeze hook-refused EventListener.DoesEventApply: already compiled"
+   ],
+   "noMatch": [
+    "atlas:freeze on 0.1.0-fz1 (FreezeLeftBehind=1, Verbose=0), hooks 23/23"
+   ]
+  },
+  "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": {
+   "match": [
+    "atlas:freeze RESULT FAIL atlas:freeze check FAIL sim 1: items 3, segments 1, diffs 1",
+    "atlas:freeze check FAIL sim 1234567890: items 212, segments 1, diffs 2",
+    "atlas:freeze self-check FAIL after 3 checks: tick units of this game build differ"
+   ],
+   "noMatch": [
+    "atlas:freeze check PASS sim 1234567890: items 212, segments 1, diffs 0",
+    "atlas:freeze RESULT PASS control sim 1: diffs 57 (an unheld Sim must differ, else the check cannot see a change)"
+   ]
+  },
+  "^atlas:freeze RESULT REFUSED ": {
+   "match": [
+    "atlas:freeze RESULT REFUSED hold sim 1234567890: nraas-storyprogression"
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS hold sim 1234567890 (Kirk Keaton): alarms 9"
+   ]
+  },
+  "^atlas:freeze field-missing ": {
+   "match": [
+    "atlas:freeze field-missing Sim.LastSipTime"
+   ],
+   "noMatch": [
+    "atlas:freeze v field sim 1 field/Sim.LastSipTime#0"
+   ]
+  },
+  "^atlas:freeze SKIP ": {
+   "match": [
+    "atlas:freeze SKIP not-steam-1.67 (link stamp 0x12345678, image size 0x00E5A000)"
+   ],
+   "noMatch": [
+    "atlas:freeze off (FreezeLeftBehind=0)"
+   ]
+  },
+  "^atlas:freeze aging-readd ": {
+   "match": [
+    "atlas:freeze aging-readd sim 1234567890: back on the aging list while held, taken off again"
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS hold sim 1234567890 (Kirk Keaton): alarms 9 (R1 4 R2 5 R3 0, one-shot R2 2), aging off-list"
+   ]
+  },
+  "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": {
+   "match": [
+    "atlas:freeze unhide-skip 1: the call moved a held Sim out of its household, not put back",
+    "atlas:freeze release-retry sim 12: still pending (x)",
+    "atlas:freeze selected sim 12: held Sim selected, released",
+    "atlas:freeze load-rehold cleared 1: another save or world loaded"
+   ],
+   "noMatch": [
+    "atlas:freeze RESULT PASS release sim 12 (auto): H 108000 ticks (48.00 h)",
+    "atlas:freeze load-rehold sim 12: held"
+   ]
+  },
+  "^atlas:save bracket-error ": {
+   "match": [
+    "atlas:save bracket-error handler freeze pre save: NullReferenceException"
+   ],
+   "noMatch": [
+    "atlas:save bracket handler freeze order 20",
+    "atlas:save bracket SaveGame ok, SaveTravel ok"
+   ]
+  },
+  "^ts3native 0\\.36\\.306-m1126b ": {
+   "match": [
+    "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+    "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+   ]
+  },
+  "^atlas:freeze (unhide-skip|release-retry|load-rehold cleared) ": {
+   "match": [
+    "atlas:freeze release-retry sim 1234567890: 2 timers pending",
+    "atlas:freeze load-rehold cleared 1: another save or world loaded"
+   ],
+   "noMatch": [
+    "atlas:freeze selected sim 1234567890: held Sim selected, released"
+   ]
+  },
+  "^atlas:icalls freeze: 2 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 4 flag set$": {
+   "match": [
+    "atlas:icalls freeze: 2 registered 3 ms after start of wait (domain 0x0A1B2C3D), group 4 flag set"
+   ],
+   "noMatch": [
+    "atlas:icalls place: 4 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 10 flag set",
+    "atlas:icalls freeze SKIP no script domain in 600 s (host 0x00000000): 2 internal calls not registered"
+   ]
+  },
+  "^atlas:icalls \\S+ SKIP ": {
+   "match": [
+    "atlas:icalls place SKIP no script domain in 600 s (host 0x00000000): 4 internal calls not registered"
+   ],
+   "noMatch": [
+    "atlas:icalls freeze waiting 10 s: host [0x011EE514] = 0x1234ABCD, domain [host+0xACC] = 0",
+    "atlas:icalls place: 4 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 10 flag set"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "atlas-frozen-park-roundtrip-sv",
+   "note": "[est 15 min] park one household Sim for 24 sim-hours at ultra, auto release, FZ-1 check with the park items (motives, buffs, age, relationships, position, hidden flags, autonomy counter, decay)",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   },
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main8",
+   "timeoutMin": 70,
+   "pinReason": "Pinned 2026-11-26: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims-3-modernization code change in this lane. Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main, merge 726514d of feature/frozen-park-1126 979186e; atlas 0.3.13 fz=3, freeze 0.2.1-fz2 + park 0.3.0-pk3, placement calls as internal-call group 10 place, docs/031 §15): game-copy/atlas-main8/atlas.asi (sha256 4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4) and its script half as mod set game-copy/mod-sets/atlas-main8 (atlas.package sha256 a067380d7a03b499bbc9d9ac30d5dd5704829b8eee01e85ba838a688692feeea, read back by the versions in the required startup lines).",
+   "run": {
+    "repro": "atlas-frozen-park-roundtrip-sv"
+   },
+   "extraAsi": {
+    "asi": "game-copy/atlas-main8/atlas.asi",
+    "sha256": "4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4",
+    "ini": {
+     "Regions.FreezeLeftBehind": 1,
+     "Regions.FrozenPark": 1,
+     "Regions.ParkWaitMin": 120,
+     "Regions.Placement": 0,
+     "Regions.Verbose": 0,
+     "PagedLots.Probe": 0,
+     "WorldSize.PhysicsRootM": 0
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.13 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=3 rebase=\\d+ oop=\\d+ seed=\\d+ born=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0\\), 2 internal calls registered$": 1,
+     "^atlas:freeze on 0\\.2\\.1-fz2 \\(FreezeLeftBehind=1, Verbose=0\\), hooks (\\d+)/\\1, save bracket ok, self-check PASS \\(\\d+ checks\\), fields \\d+, pair fields \\d+, hour-of-day callbacks \\d+, nraas storyprogression absent$": 1,
+     "^atlas:park on 0\\.3\\.0-pk3 \\(FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0\\), hooks 4/4, save bracket ok \\(gate 5, order 15\\), self-check PASS \\(\\d+ checks\\)$": 1,
+     "^atlas:freeze RESULT PASS hold sim \\d+ \\(.+\\): alarms \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, one-shot R2 \\d+\\), aging off-list, static lists \\d+, tick \\d+, check armed \\(\\d+ items\\)$": 1,
+     "^atlas:park RESULT PASS park sim \\d+ \\(.+\\): hidden flags 0x[0-9A-F]+ -> 0x[0-9A-F]*[13579BDF], footprint (on|off) -> off, pie menu (on|off) -> off, autonomy disabled \\d+ -> [1-9]\\d*, motives frozen [1-9]\\d*, at \\(.+\\), tick \\d+$": 1,
+     "^atlas:park RESULT PASS unpark sim \\d+ \\(auto\\): parked 24\\.\\d\\d h, hidden flags 0x[0-9A-F]+ \\(EA writes deferred \\d+\\), footprint (on|off), pie menu (on|off), autonomy disabled \\d+, motives restored [1-9]\\d*, drift 0\\.000 m, guard hits insert \\d+ lod [1-9]\\d* aging \\d+ rehide 0 refoot 0$": 1,
+     "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): H \\d+ ticks \\(\\d+\\.\\d\\d h\\), alarms back \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, dropped 0\\), stamps moved \\d+ ": 1,
+     "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 1, diffs 0$": 1,
+     "^atlas:freeze status: on True, hooks (\\d+)/\\1, save bracket ok, held 0, release pending 0, ": 1,
+     "^atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, ": 1,
+     "^atlas:icalls freeze: 2 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 4 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:freeze ERROR ": 0,
+     "^atlas:freeze hook-refused ": 0,
+     "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+     "^atlas:freeze RESULT REFUSED ": 0,
+     "^atlas:freeze field-missing ": 0,
+     "^atlas:freeze SKIP ": 0,
+     "^atlas:freeze aging-readd ": 0,
+     "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+     "^atlas:save bracket-error ": 0,
+     "^atlas:park (ERROR|hook-refused|self-check FAIL|off:) ": 0,
+     "^atlas:park (travel-damage|damage-repaired|damage-repair-failed|damage-wait|damage dropped|damage list full) ": 0,
+     "^atlas:park RESULT (FAIL|REFUSED) ": 0,
+     "^atlas:park (drift|restore-miss|gone-dropped|scope|aging-readd|rehide|refoot|repie|redecay|reaut|save-refused|save-unrefusable|save-flag|wish dropped) ": 0,
+     "^atlas:park selected sim ": 0,
+     "^atlas:place (off:|write skipped|load key=[0-9a-f-]+ status=(refused|stale|world|save|format|version))": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   }
+  },
+  {
+   "id": "atlas-frozen-park-control-sv",
+   "note": "[est 15 min] control arm: the same Sim and 24 sim-hours, FZ-1 watch (no hold, no park); diffs must be > 0",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   },
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main8",
+   "timeoutMin": 70,
+   "pinReason": "Pinned 2026-11-26: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims-3-modernization code change in this lane. Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main, merge 726514d of feature/frozen-park-1126 979186e; atlas 0.3.13 fz=3, freeze 0.2.1-fz2 + park 0.3.0-pk3, placement calls as internal-call group 10 place, docs/031 §15): game-copy/atlas-main8/atlas.asi (sha256 4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4) and its script half as mod set game-copy/mod-sets/atlas-main8 (atlas.package sha256 a067380d7a03b499bbc9d9ac30d5dd5704829b8eee01e85ba838a688692feeea, read back by the versions in the required startup lines).",
+   "run": {
+    "repro": "atlas-frozen-park-control-sv"
+   },
+   "extraAsi": {
+    "asi": "game-copy/atlas-main8/atlas.asi",
+    "sha256": "4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4",
+    "ini": {
+     "Regions.FreezeLeftBehind": 1,
+     "Regions.FrozenPark": 1,
+     "Regions.ParkWaitMin": 120,
+     "Regions.Placement": 0,
+     "Regions.Verbose": 0,
+     "PagedLots.Probe": 0,
+     "WorldSize.PhysicsRootM": 0
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.13 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=3 rebase=\\d+ oop=\\d+ seed=\\d+ born=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0\\), 2 internal calls registered$": 1,
+     "^atlas:freeze on 0\\.2\\.1-fz2 \\(FreezeLeftBehind=1, Verbose=0\\), hooks (\\d+)/\\1, save bracket ok, self-check PASS \\(\\d+ checks\\), fields \\d+, pair fields \\d+, hour-of-day callbacks \\d+, nraas storyprogression absent$": 1,
+     "^atlas:park on 0\\.3\\.0-pk3 \\(FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0\\), hooks 4/4, save bracket ok \\(gate 5, order 15\\), self-check PASS \\(\\d+ checks\\)$": 1,
+     "^atlas:freeze RESULT PASS watch sim \\d+ \\(.+\\): control arm, no hold, [1-9]\\d* items$": 1,
+     "^atlas:freeze RESULT PASS control sim \\d+: diffs [1-9]\\d* ": 1,
+     "^atlas:freeze status: on True, hooks (\\d+)/\\1, save bracket ok, held 0, release pending 0, ": 1,
+     "^atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, ": 1,
+     "^atlas:icalls freeze: 2 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 4 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:freeze ERROR ": 0,
+     "^atlas:freeze hook-refused ": 0,
+     "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+     "^atlas:freeze RESULT REFUSED ": 0,
+     "^atlas:freeze field-missing ": 0,
+     "^atlas:freeze SKIP ": 0,
+     "^atlas:freeze aging-readd ": 0,
+     "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+     "^atlas:save bracket-error ": 0,
+     "^atlas:park (ERROR|hook-refused|self-check FAIL|off:) ": 0,
+     "^atlas:park (travel-damage|damage-repaired|damage-repair-failed|damage-wait|damage dropped|damage list full) ": 0,
+     "^atlas:park RESULT (FAIL|REFUSED) ": 0,
+     "^atlas:park (drift|restore-miss|gone-dropped|scope|aging-readd|rehide|refoot|repie|redecay|reaut|save-refused|save-unrefusable|save-flag|wish dropped) ": 0,
+     "^atlas:park selected sim ": 0,
+     "^atlas:place (off:|write skipped|load key=[0-9a-f-]+ status=(refused|stale|world|save|format|version))": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   }
+  },
+  {
+   "id": "atlas-frozen-park-inserts-sv",
+   "note": "[est 18 min] park 24 sim-hours with the other member's autonomy on and an NPC told to chat with the parked Sim: inserts refused (> 0), NPC queue drains, check PASS diffs 0",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   },
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main8",
+   "timeoutMin": 80,
+   "pinReason": "Pinned 2026-11-26: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims-3-modernization code change in this lane. Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main, merge 726514d of feature/frozen-park-1126 979186e; atlas 0.3.13 fz=3, freeze 0.2.1-fz2 + park 0.3.0-pk3, placement calls as internal-call group 10 place, docs/031 §15): game-copy/atlas-main8/atlas.asi (sha256 4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4) and its script half as mod set game-copy/mod-sets/atlas-main8 (atlas.package sha256 a067380d7a03b499bbc9d9ac30d5dd5704829b8eee01e85ba838a688692feeea, read back by the versions in the required startup lines).",
+   "run": {
+    "repro": "atlas-frozen-park-inserts-sv"
+   },
+   "extraAsi": {
+    "asi": "game-copy/atlas-main8/atlas.asi",
+    "sha256": "4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4",
+    "ini": {
+     "Regions.FreezeLeftBehind": 1,
+     "Regions.FrozenPark": 1,
+     "Regions.ParkWaitMin": 120,
+     "Regions.Placement": 0,
+     "Regions.Verbose": 0,
+     "PagedLots.Probe": 0,
+     "WorldSize.PhysicsRootM": 0
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.13 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=3 rebase=\\d+ oop=\\d+ seed=\\d+ born=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0\\), 2 internal calls registered$": 1,
+     "^atlas:freeze on 0\\.2\\.1-fz2 \\(FreezeLeftBehind=1, Verbose=0\\), hooks (\\d+)/\\1, save bracket ok, self-check PASS \\(\\d+ checks\\), fields \\d+, pair fields \\d+, hour-of-day callbacks \\d+, nraas storyprogression absent$": 1,
+     "^atlas:park on 0\\.3\\.0-pk3 \\(FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0\\), hooks 4/4, save bracket ok \\(gate 5, order 15\\), self-check PASS \\(\\d+ checks\\)$": 1,
+     "^atlas:freeze RESULT PASS hold sim \\d+ \\(.+\\): alarms \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, one-shot R2 \\d+\\), aging off-list, static lists \\d+, tick \\d+, check armed \\(\\d+ items\\)$": 1,
+     "^atlas:park RESULT PASS park sim \\d+ \\(.+\\): hidden flags 0x[0-9A-F]+ -> 0x[0-9A-F]*[13579BDF], footprint (on|off) -> off, pie menu (on|off) -> off, autonomy disabled \\d+ -> [1-9]\\d*, motives frozen [1-9]\\d*, at \\(.+\\), tick \\d+$": 1,
+     "^atlas:park probe social Chat npc \\d+ \\(.+, \\d+ m\\) at sim \\d+: queued True$": 1,
+     "^atlas:park RESULT PASS unpark sim \\d+ \\(auto\\): parked 24\\.\\d\\d h, .*, drift 0\\.000 m, guard hits insert [1-9]\\d* lod [1-9]\\d* aging \\d+ rehide 0 refoot 0$": 1,
+     "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): H \\d+ ticks \\(\\d+\\.\\d\\d h\\), alarms back \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, dropped 0\\), stamps moved \\d+ ": 1,
+     "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 1, diffs 0$": 1,
+     "^atlas:freeze status: on True, hooks (\\d+)/\\1, save bracket ok, held 0, release pending 0, ": 1,
+     "^atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, ": 1,
+     "^atlas:icalls freeze: 2 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 4 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:freeze ERROR ": 0,
+     "^atlas:freeze hook-refused ": 0,
+     "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+     "^atlas:freeze RESULT REFUSED ": 0,
+     "^atlas:freeze field-missing ": 0,
+     "^atlas:freeze SKIP ": 0,
+     "^atlas:freeze aging-readd ": 0,
+     "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+     "^atlas:save bracket-error ": 0,
+     "^atlas:park (ERROR|hook-refused|self-check FAIL|off:) ": 0,
+     "^atlas:park (travel-damage|damage-repaired|damage-repair-failed|damage-wait|damage dropped|damage list full) ": 0,
+     "^atlas:park RESULT (FAIL|REFUSED) ": 0,
+     "^atlas:park (drift|restore-miss|gone-dropped|scope|aging-readd|rehide|refoot|repie|redecay|reaut|save-refused|save-unrefusable|save-flag|wish dropped) ": 0,
+     "^atlas:park selected sim ": 0,
+     "^atlas:place (off:|write skipped|load key=[0-9a-f-]+ status=(refused|stale|world|save|format|version))": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   }
+  },
+  {
+   "id": "atlas-frozen-park-selected-sv",
+   "note": "[est 8 min] select the parked Sim (portrait call): released at once with the check, nothing left hidden or blocked",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   },
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main8",
+   "timeoutMin": 30,
+   "pinReason": "Pinned 2026-11-26: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims-3-modernization code change in this lane. Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main, merge 726514d of feature/frozen-park-1126 979186e; atlas 0.3.13 fz=3, freeze 0.2.1-fz2 + park 0.3.0-pk3, placement calls as internal-call group 10 place, docs/031 §15): game-copy/atlas-main8/atlas.asi (sha256 4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4) and its script half as mod set game-copy/mod-sets/atlas-main8 (atlas.package sha256 a067380d7a03b499bbc9d9ac30d5dd5704829b8eee01e85ba838a688692feeea, read back by the versions in the required startup lines).",
+   "run": {
+    "repro": "atlas-frozen-park-selected-sv"
+   },
+   "extraAsi": {
+    "asi": "game-copy/atlas-main8/atlas.asi",
+    "sha256": "4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4",
+    "ini": {
+     "Regions.FreezeLeftBehind": 1,
+     "Regions.FrozenPark": 1,
+     "Regions.ParkWaitMin": 120,
+     "Regions.Placement": 0,
+     "Regions.Verbose": 0,
+     "PagedLots.Probe": 0,
+     "WorldSize.PhysicsRootM": 0
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.13 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=3 rebase=\\d+ oop=\\d+ seed=\\d+ born=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=0\\), 2 internal calls registered$": 1,
+     "^atlas:freeze on 0\\.2\\.1-fz2 \\(FreezeLeftBehind=1, Verbose=0\\), hooks (\\d+)/\\1, save bracket ok, self-check PASS \\(\\d+ checks\\), fields \\d+, pair fields \\d+, hour-of-day callbacks \\d+, nraas storyprogression absent$": 1,
+     "^atlas:park on 0\\.3\\.0-pk3 \\(FrozenPark=1, ParkWaitMin=120, Placement=0, Verbose=0\\), hooks 4/4, save bracket ok \\(gate 5, order 15\\), self-check PASS \\(\\d+ checks\\)$": 1,
+     "^atlas:freeze RESULT PASS hold sim \\d+ \\(.+\\): alarms \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, one-shot R2 \\d+\\), aging off-list, static lists \\d+, tick \\d+, check armed \\(\\d+ items\\)$": 1,
+     "^atlas:park RESULT PASS park sim \\d+ \\(.+\\): hidden flags 0x[0-9A-F]+ -> 0x[0-9A-F]*[13579BDF], footprint (on|off) -> off, pie menu (on|off) -> off, autonomy disabled \\d+ -> [1-9]\\d*, motives frozen [1-9]\\d*, at \\(.+\\), tick \\d+$": 1,
+     "^atlas:park probe select sim \\d+: SelectActor True, parked now (True|False)$": 1,
+     "^atlas:freeze selected sim \\d+: held Sim selected, released$": 1,
+     "^atlas:park RESULT PASS unpark sim \\d+ \\(selected\\): parked \\d+\\.\\d\\d h, .*, drift 0\\.000 m, ": 1,
+     "^atlas:freeze RESULT PASS release sim \\d+ \\(selected\\): ": 1,
+     "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 1, diffs 0$": 1,
+     "^atlas:freeze status: on True, hooks (\\d+)/\\1, save bracket ok, held 0, release pending 0, ": 1,
+     "^atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, ": 1,
+     "^atlas:icalls freeze: 2 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 4 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:freeze ERROR ": 0,
+     "^atlas:freeze hook-refused ": 0,
+     "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+     "^atlas:freeze RESULT REFUSED ": 0,
+     "^atlas:freeze field-missing ": 0,
+     "^atlas:freeze SKIP ": 0,
+     "^atlas:freeze aging-readd ": 0,
+     "^atlas:save bracket-error ": 0,
+     "^atlas:park (ERROR|hook-refused|self-check FAIL|off:) ": 0,
+     "^atlas:park (travel-damage|damage-repaired|damage-repair-failed|damage-wait|damage dropped|damage list full) ": 0,
+     "^atlas:park RESULT (FAIL|REFUSED) ": 0,
+     "^atlas:park (drift|restore-miss|gone-dropped|scope|aging-readd|rehide|refoot|repie|redecay|reaut|save-refused|save-unrefusable|save-flag|wish dropped) ": 0,
+     "^atlas:place (off:|write skipped|load key=[0-9a-f-]+ status=(refused|stale|world|save|format|version))": 0,
+     "^atlas:freeze (unhide-skip|release-retry|load-rehold cleared) ": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   }
+  },
+  {
+   "id": "atlas-frozen-park-save-sv",
+   "note": "[est 25 min] park, save to Repro-AtlasPark-1126 at 24 h, parked again, auto release at 48 hold-hours, check segments 2; placement file written",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   },
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main8",
+   "timeoutMin": 100,
+   "pinReason": "Pinned 2026-11-26: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims-3-modernization code change in this lane. Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main, merge 726514d of feature/frozen-park-1126 979186e; atlas 0.3.13 fz=3, freeze 0.2.1-fz2 + park 0.3.0-pk3, placement calls as internal-call group 10 place, docs/031 §15): game-copy/atlas-main8/atlas.asi (sha256 4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4) and its script half as mod set game-copy/mod-sets/atlas-main8 (atlas.package sha256 a067380d7a03b499bbc9d9ac30d5dd5704829b8eee01e85ba838a688692feeea, read back by the versions in the required startup lines).",
+   "run": {
+    "repro": "atlas-frozen-park-save-sv"
+   },
+   "extraAsi": {
+    "asi": "game-copy/atlas-main8/atlas.asi",
+    "sha256": "4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4",
+    "ini": {
+     "Regions.FreezeLeftBehind": 1,
+     "Regions.FrozenPark": 1,
+     "Regions.ParkWaitMin": 120,
+     "Regions.Placement": 1,
+     "Regions.Verbose": 0,
+     "PagedLots.Probe": 0,
+     "WorldSize.PhysicsRootM": 0
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.13 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=3 rebase=\\d+ oop=\\d+ seed=\\d+ born=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=1\\), 6 internal calls registered, placement folder ok$": 1,
+     "^atlas:freeze on 0\\.2\\.1-fz2 \\(FreezeLeftBehind=1, Verbose=0\\), hooks (\\d+)/\\1, save bracket ok, self-check PASS \\(\\d+ checks\\), fields \\d+, pair fields \\d+, hour-of-day callbacks \\d+, nraas storyprogression absent$": 1,
+     "^atlas:park on 0\\.3\\.0-pk3 \\(FrozenPark=1, ParkWaitMin=120, Placement=1, Verbose=0\\), hooks 4/4, save bracket ok \\(gate 5, order 15\\), self-check PASS \\(\\d+ checks\\)$": 1,
+     "^atlas:icalls place: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 10 flag set$": 1,
+     "^atlas:freeze RESULT PASS hold sim \\d+ \\(.+\\): alarms \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, one-shot R2 \\d+\\), aging off-list, static lists \\d+, tick \\d+, check armed \\(\\d+ items\\)$": 1,
+     "^atlas:park RESULT PASS park sim \\d+ \\(.+\\): hidden flags 0x[0-9A-F]+ -> 0x[0-9A-F]*[13579BDF], footprint (on|off) -> off, pie menu (on|off) -> off, autonomy disabled \\d+ -> [1-9]\\d*, motives frozen [1-9]\\d*, at \\(.+\\), tick \\d+$": 1,
+     "^atlas:park save unparked 1 before the native save$": 1,
+     "^atlas:freeze save released 1 before the native save$": 1,
+     "^atlas:freeze save held again 1/1 after the native save \\(result 0\\)$": 1,
+     "^atlas:park save parked again 1/1 after the native save \\(result 0\\)$": 1,
+     "^atlas:place write save key=[0-9a-f]{16}-[0-9a-f]{8} sims=1 ticks=\\d+ rc=0$": 1,
+     "^atlas:park RESULT PASS unpark sim \\d+ \\(auto\\): parked \\d+\\.\\d\\d h, hidden flags 0x[0-9A-F]+ \\(EA writes deferred \\d+\\), footprint (on|off), pie menu (on|off), autonomy disabled \\d+, motives restored [1-9]\\d*, drift 0\\.000 m, guard hits insert \\d+ lod [1-9]\\d* aging \\d+ rehide 0 refoot 0$": 1,
+     "^atlas:freeze RESULT PASS release sim \\d+ \\(auto\\): H \\d+ ticks \\(\\d+\\.\\d\\d h\\), alarms back \\d+ \\(R1 \\d+ R2 \\d+ R3 \\d+, dropped 0\\), stamps moved \\d+ ": 1,
+     "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 2, diffs 0$": 1,
+     "^atlas:freeze status: on True, hooks (\\d+)/\\1, save bracket ok, held 0, release pending 0, ": 1,
+     "^atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, ": 1,
+     "^atlas:icalls freeze: 2 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 4 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:freeze ERROR ": 0,
+     "^atlas:freeze hook-refused ": 0,
+     "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+     "^atlas:freeze RESULT REFUSED ": 0,
+     "^atlas:freeze field-missing ": 0,
+     "^atlas:freeze SKIP ": 0,
+     "^atlas:freeze aging-readd ": 0,
+     "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+     "^atlas:save bracket-error ": 0,
+     "^atlas:park (ERROR|hook-refused|self-check FAIL|off:) ": 0,
+     "^atlas:park (travel-damage|damage-repaired|damage-repair-failed|damage-wait|damage dropped|damage list full) ": 0,
+     "^atlas:park RESULT (FAIL|REFUSED) ": 0,
+     "^atlas:park (drift|restore-miss|gone-dropped|scope|aging-readd|rehide|refoot|repie|redecay|reaut|save-refused|save-unrefusable|save-flag|wish dropped) ": 0,
+     "^atlas:park selected sim ": 0,
+     "^atlas:place (off:|write skipped|load key=[0-9a-f-]+ status=(refused|stale|world|save|format|version))": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   },
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "atlas-frozen-park-reload-sv",
+   "note": "[est 10 min] cold load of Repro-AtlasPark-1126: placement file read (status ok), re-hold, re-park, unpark and release by command",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   },
+   "save": "Repro-AtlasPark-1126",
+   "modSet": "game-copy/mod-sets/atlas-main8",
+   "timeoutMin": 30,
+   "pinReason": "Pinned 2026-11-26: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims-3-modernization code change in this lane. Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main, merge 726514d of feature/frozen-park-1126 979186e; atlas 0.3.13 fz=3, freeze 0.2.1-fz2 + park 0.3.0-pk3, placement calls as internal-call group 10 place, docs/031 §15): game-copy/atlas-main8/atlas.asi (sha256 4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4) and its script half as mod set game-copy/mod-sets/atlas-main8 (atlas.package sha256 a067380d7a03b499bbc9d9ac30d5dd5704829b8eee01e85ba838a688692feeea, read back by the versions in the required startup lines).",
+   "run": {
+    "repro": "atlas-frozen-park-reload-sv"
+   },
+   "extraAsi": {
+    "asi": "game-copy/atlas-main8/atlas.asi",
+    "sha256": "4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4",
+    "ini": {
+     "Regions.FreezeLeftBehind": 1,
+     "Regions.FrozenPark": 1,
+     "Regions.ParkWaitMin": 120,
+     "Regions.Placement": 1,
+     "Regions.Verbose": 0,
+     "PagedLots.Probe": 0,
+     "WorldSize.PhysicsRootM": 0
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.13 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=3 rebase=\\d+ oop=\\d+ seed=\\d+ born=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=1, Placement=1\\), 6 internal calls registered, placement folder ok$": 1,
+     "^atlas:freeze on 0\\.2\\.1-fz2 \\(FreezeLeftBehind=1, Verbose=0\\), hooks (\\d+)/\\1, save bracket ok, self-check PASS \\(\\d+ checks\\), fields \\d+, pair fields \\d+, hour-of-day callbacks \\d+, nraas storyprogression absent$": 1,
+     "^atlas:park on 0\\.3\\.0-pk3 \\(FrozenPark=1, ParkWaitMin=120, Placement=1, Verbose=0\\), hooks 4/4, save bracket ok \\(gate 5, order 15\\), self-check PASS \\(\\d+ checks\\)$": 1,
+     "^atlas:icalls place: 4 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 10 flag set$": 1,
+     "^atlas:place load key=[0-9a-f]{16}-[0-9a-f]{8} status=ok sims=1$": 1,
+     "^atlas:freeze load-rehold sim \\d+: held$": 1,
+     "^atlas:park RESULT PASS park sim \\d+ \\(.+\\): hidden flags 0x[0-9A-F]+ -> 0x[0-9A-F]*[13579BDF], footprint (on|off) -> off, pie menu (on|off) -> off, autonomy disabled \\d+ -> [1-9]\\d*, motives frozen [1-9]\\d*, at \\(.+\\), tick \\d+$": 1,
+     "^atlas:park RESULT PASS unpark sim \\d+ \\(command\\): parked \\d+\\.\\d\\d h, hidden flags 0x[0-9A-F]+ \\(EA writes deferred \\d+\\), footprint (on|off), pie menu (on|off), autonomy disabled \\d+, motives restored [1-9]\\d*, drift 0\\.000 m, guard hits insert \\d+ lod [1-9]\\d* aging \\d+ rehide 0 refoot 0$": 1,
+     "^atlas:freeze RESULT PASS release sim \\d+ \\(command\\): ": 1,
+     "^atlas:freeze check PASS sim \\d+: items [1-9]\\d*, segments 1, diffs 0$": 1,
+     "^atlas:freeze status: on True, hooks (\\d+)/\\1, save bracket ok, held 0, release pending 0, ": 1,
+     "^atlas:park status: on True, hooks 4/4, save bracket ok, parked 0, pending 0, ": 1,
+     "^atlas:icalls freeze: 2 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 4 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:freeze ERROR ": 0,
+     "^atlas:freeze hook-refused ": 0,
+     "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+     "^atlas:freeze RESULT REFUSED ": 0,
+     "^atlas:freeze field-missing ": 0,
+     "^atlas:freeze SKIP ": 0,
+     "^atlas:freeze aging-readd ": 0,
+     "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+     "^atlas:save bracket-error ": 0,
+     "^atlas:park (ERROR|hook-refused|self-check FAIL|off:) ": 0,
+     "^atlas:park (travel-damage|damage-repaired|damage-repair-failed|damage-wait|damage dropped|damage list full) ": 0,
+     "^atlas:park RESULT (FAIL|REFUSED) ": 0,
+     "^atlas:park (drift|restore-miss|gone-dropped|scope|aging-readd|rehide|refoot|repie|redecay|reaut|save-refused|save-unrefusable|save-flag|wish dropped) ": 0,
+     "^atlas:park selected sim ": 0,
+     "^atlas:place (off:|write skipped|load key=[0-9a-f-]+ status=(refused|stale|world|save|format|version))": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   },
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "atlas-frozen-park-nomod-sv",
+   "note": "[est 8 min] load Repro-AtlasPark-1126 without Atlas (no module, no mod set): a plain EA save, no script error",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   },
+   "save": "Repro-AtlasPark-1126",
+   "timeoutMin": 25,
+   "pinReason": "Pinned 2026-11-26: master set m1126b only; no Atlas module, no Atlas mod set (the no-mod load of docs/042 §5).",
+   "run": {
+    "repro": "atlas-frozen-park-nomod-sv"
+   }
+  },
+  {
+   "id": "atlas-frozen-park-off-sv",
+   "note": "[est 8 min] OFF arm: FrozenPark=0, Placement=0, FZ-1 on: nothing swapped, park command refused",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "rewind": false,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   },
+   "save": "Baseline-SV",
+   "modSet": "game-copy/mod-sets/atlas-main8",
+   "timeoutMin": 25,
+   "pinReason": "Pinned 2026-11-26: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims-3-modernization code change in this lane. Repinned 2026-11-27 to the merged Atlas main build (boundless-atlas main, merge 726514d of feature/frozen-park-1126 979186e; atlas 0.3.13 fz=3, freeze 0.2.1-fz2 + park 0.3.0-pk3, placement calls as internal-call group 10 place, docs/031 §15): game-copy/atlas-main8/atlas.asi (sha256 4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4) and its script half as mod set game-copy/mod-sets/atlas-main8 (atlas.package sha256 a067380d7a03b499bbc9d9ac30d5dd5704829b8eee01e85ba838a688692feeea, read back by the versions in the required startup lines).",
+   "run": {
+    "repro": "atlas-frozen-park-off-sv"
+   },
+   "extraAsi": {
+    "asi": "game-copy/atlas-main8/atlas.asi",
+    "sha256": "4f715d40bb662c65391abf93910502b88a9a716e5e7194dc6ce771b447c81df4",
+    "ini": {
+     "Regions.FreezeLeftBehind": 1,
+     "Regions.FrozenPark": 0,
+     "Regions.ParkWaitMin": 120,
+     "Regions.Placement": 0,
+     "Regions.Verbose": 0,
+     "PagedLots.Probe": 0,
+     "WorldSize.PhysicsRootM": 0
+    },
+    "logRequire": {
+     "^atlas 0\\.3\\.13 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=3 rebase=\\d+ oop=\\d+ seed=\\d+ born=\\d+ built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas:freeze native 3 on \\(FreezeLeftBehind=1, Verbose=0, FrozenPark=0, Placement=0\\), 2 internal calls registered$": 1,
+     "^atlas:freeze on 0\\.2\\.1-fz2 \\(FreezeLeftBehind=1, Verbose=0\\), hooks (\\d+)/\\1, save bracket ok, self-check PASS \\(\\d+ checks\\), fields \\d+, pair fields \\d+, hour-of-day callbacks \\d+, nraas storyprogression absent$": 1,
+     "^atlas:park off \\(FrozenPark=0, Placement=0\\)$": 1,
+     "^atlas:park RESULT REFUSED park sim 0: off$": 1,
+     "^atlas:park status: on False, hooks 0/0, ": 1,
+     "^atlas:icalls freeze: 2 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 4 flag set$": 1
+    },
+    "logForbid": {
+     "^atlas:freeze ERROR ": 0,
+     "^atlas:freeze hook-refused ": 0,
+     "^atlas:freeze (RESULT FAIL|check FAIL|self-check FAIL)": 0,
+     "^atlas:freeze RESULT REFUSED ": 0,
+     "^atlas:freeze field-missing ": 0,
+     "^atlas:freeze SKIP ": 0,
+     "^atlas:freeze aging-readd ": 0,
+     "^atlas:freeze (unhide-skip|release-retry|selected sim|load-rehold cleared) ": 0,
+     "^atlas:save bracket-error ": 0,
+     "^atlas:icalls \\S+ SKIP ": 0
+    }
+   }
+  }
+ ]
+}

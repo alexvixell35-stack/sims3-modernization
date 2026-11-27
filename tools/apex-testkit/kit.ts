@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import { atlasKitProblem } from '../release/atlas-kit.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 type Rx = { regex: string; why?: string; match?: string; nonMatch?: string; id?: string };
@@ -90,6 +91,7 @@ function selfCheck() {
   assert.deepEqual(column(t, 'room_solve_waited', 'apex_moving=1'), { n: 2, nonzero: 1, mean: 1, p99: 2, max: 2 });
   assert.equal(hitch(t).gt25, 1);
   assert.equal(hitch(t).max, 30);
+  assert.equal(atlasKitProblem(readFileSync(fileURLToPath(import.meta.url), 'utf8')), '', 'Atlas staged here needs [Kit] Release=1');
   console.log(`self-check ok: ${n} expect.json regex cases, readers ok`);
 }
 

@@ -1,5 +1,5 @@
 {
- "note": "atlas-born-paged-1126: Boundless Atlas docs/036 born paged on Sunset Valley new games. Never run; pinned to Atlas main 0.3.11 (atlas-main6), dry-run checked 2026-11-26. Order matters: the off arm cleans earlier runs and writes the skip list; the on arm skips, saves Repro-atlas-born-1126 with the lots empty, reloads and pages every lot in against the unskipped off arm (T9); the no-Atlas job loads that save with no Atlas at all; then routing (page-in before arrival), Edit Town before and after the household pick, a travel round trip, and a forced page-in failure, whose last step cleans the skip list, harness manifests and ledger lines. Load time on vs off = the load_world step times of jobs 1 and 2 (warm file cache for job 2, recorded, not gated). REFUSED born mark (no lot passes) is not evidence; rerun.",
+ "note": "atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-born-paged-1126: Boundless Atlas docs/036 born paged on Sunset Valley new games. Never run; pinned to Atlas main 0.3.11 (atlas-main6), dry-run checked 2026-11-26. Order matters: the off arm cleans earlier runs and writes the skip list; the on arm skips, saves Repro-atlas-born-1126 with the lots empty, reloads and pages every lot in against the unskipped off arm (T9); the no-Atlas job loads that save with no Atlas at all; then routing (page-in before arrival), Edit Town before and after the household pick, a travel round trip, and a forced page-in failure, whose last step cleans the skip list, harness manifests and ledger lines. Load time on vs off = the load_world step times of jobs 1 and 2 (warm file cache for job 2, recorded, not gated). REFUSED born mark (no lot passes) is not evidence; rerun.",
  "agentPackage": "game-copy/ts3agent.package.m1126c",
  "stopQueueOnFail": true,
  "regexCases": {
@@ -12,16 +12,19 @@
     "ts3native 0.36.307-m1126 2026-11-27 06:49:13"
    ]
   },
-  "^atlas 0\\.3\\.11 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ born=2 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+  "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
    "match": [
-    "atlas 0.3.11 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 26 2026 23:44:43, TS3W.exe link stamp 0x52DEC247"
+    "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 26 2026 23:44:43, TS3W.exe link stamp 0x52DEC247"
    ],
    "noMatch": [
     "atlas 0.3.10 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 26 2026 23:44:43, TS3W.exe link stamp 0x52DEC247",
     "atlas 0.3.110 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 26 2026 23:44:43, TS3W.exe link stamp 0x52DEC247",
     "atlas 0.3.9 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 built Nov 26 2026 22:20:00, TS3W.exe link stamp 0x52DEC247",
     "atlas 0.3.11 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=1 built Nov 26 2026 23:44:43, TS3W.exe link stamp 0x52DEC247",
-    "atlas 0.3.11 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 26 2026 23:44:43, rundll32.exe link stamp 0xB91766EA"
+    "atlas 0.3.11 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 26 2026 23:44:43, rundll32.exe link stamp 0xB91766EA",
+    "atlas 0.3.11 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=1 seed=1 born=2 built Nov 26 2026 23:44:43, TS3W.exe link stamp 0x52DEC247",
+    "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 26 2026 23:44:43, rundll32.exe link stamp 0xB91766EA",
+    "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 26 2026 23:44:43, TS3W.exe link stamp 0x52DEC247"
    ]
   },
   "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": {
@@ -50,22 +53,27 @@
     "atlas:born self-check: PASS (16 checks, 0 failed)"
    ]
   },
-  "^atlas:born start version 2 BornPaged=0 Verbose=0 self-check PASS: off$": {
+  "^atlas:born start version 4 BornPaged=0 Verbose=0 self-check PASS: off$": {
    "match": [
-    "atlas:born start version 2 BornPaged=0 Verbose=0 self-check PASS: off"
+    "atlas:born start version 4 BornPaged=0 Verbose=0 self-check PASS: off"
    ],
    "noMatch": [
     "atlas:born start version 1 BornPaged=0 Verbose=0 self-check PASS: off",
-    "atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable +0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok"
+    "atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable +0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok",
+    "atlas:born start version 2 BornPaged=0 Verbose=0 self-check PASS: off",
+    "atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable +0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok"
    ]
   },
-  "^atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": {
+  "^atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": {
    "match": [
-    "atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable +0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok"
+    "atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable +0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok"
    ],
    "noMatch": [
     "atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: SKIP slot does not hold the expected function (another module's hook or another build)",
-    "atlas:born start version 2 BornPaged=0 Verbose=0 self-check PASS: off"
+    "atlas:born start version 2 BornPaged=0 Verbose=0 self-check PASS: off",
+    "atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable +0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok",
+    "atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: SKIP slot does not hold the expected function (another module's hook or another build)",
+    "atlas:born start version 4 BornPaged=0 Verbose=0 self-check PASS: off"
    ]
   },
   "^patches: born installed \\(": {
@@ -314,15 +322,15 @@
    "asi": "game-copy/ts3native.asi.m1126c",
    "iniBase": "game-copy/ts3native.ini.m1126c",
    "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-   "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
-   "modSet": "game-copy/mod-sets/atlas-main6",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
    "rewind": false,
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "timeoutMin": 30,
    "extraAsi": {
-    "asi": "game-copy/atlas-main6/atlas.asi",
-    "sha256": "65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6",
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
     "ini": {
      "WorldSize.PhysicsRootM": 0,
      "PagedLots.Probe": 1,
@@ -330,12 +338,12 @@
      "PagedLots.BornPaged": 0
     },
     "logRequire": {
-     "^atlas 0\\.3\\.11 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ born=2 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
      "^atlas:icalls born: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
      "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
      "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
      "^atlas:born self-check: PASS \\(22 checks, 0 failed\\)$": 1,
-     "^atlas:born start version 2 BornPaged=0 Verbose=0 self-check PASS: off$": 1,
+     "^atlas:born start version 4 BornPaged=0 Verbose=0 self-check PASS: off$": 1,
      "^p1: RESULT PASS born clean files \\d+$": 1,
      "^atlas:born mark-written lots=[1-9]\\d* born-skip\\\\Sunset_Valley\\.world\\.txt$": 1,
      "^p1: RESULT PASS born mark lots [1-9]\\d* objects [1-9]\\d* of \\d+ candidates$": 1,
@@ -363,15 +371,15 @@
    "asi": "game-copy/ts3native.asi.m1126c",
    "iniBase": "game-copy/ts3native.ini.m1126c",
    "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-   "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
-   "modSet": "game-copy/mod-sets/atlas-main6",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
    "rewind": false,
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "timeoutMin": 45,
    "extraAsi": {
-    "asi": "game-copy/atlas-main6/atlas.asi",
-    "sha256": "65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6",
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
     "ini": {
      "WorldSize.PhysicsRootM": 0,
      "PagedLots.Probe": 1,
@@ -379,12 +387,12 @@
      "PagedLots.BornPaged": 1
     },
     "logRequire": {
-     "^atlas 0\\.3\\.11 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ born=2 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
      "^atlas:icalls born: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
      "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
      "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
      "^atlas:born self-check: PASS \\(22 checks, 0 failed\\)$": 1,
-     "^atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
+     "^atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
      "^patches: born installed \\(": 1,
      "^atlas:born list world=born-skip\\\\Sunset_Valley\\.world\\.txt lots=[1-9]\\d*$": 1,
      "^atlas:born load-summary lots \\d+, skipped [1-9]\\d*, ": 1,
@@ -436,15 +444,15 @@
    "asi": "game-copy/ts3native.asi.m1126c",
    "iniBase": "game-copy/ts3native.ini.m1126c",
    "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-   "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
-   "modSet": "game-copy/mod-sets/atlas-main6",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
    "rewind": false,
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "timeoutMin": 30,
    "extraAsi": {
-    "asi": "game-copy/atlas-main6/atlas.asi",
-    "sha256": "65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6",
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
     "ini": {
      "WorldSize.PhysicsRootM": 0,
      "PagedLots.Probe": 1,
@@ -452,12 +460,12 @@
      "PagedLots.BornPaged": 1
     },
     "logRequire": {
-     "^atlas 0\\.3\\.11 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ born=2 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
      "^atlas:icalls born: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
      "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
      "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
      "^atlas:born self-check: PASS \\(22 checks, 0 failed\\)$": 1,
-     "^atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
+     "^atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
      "^patches: born installed \\(": 1,
      "^atlas:born list world=born-skip\\\\Sunset_Valley\\.world\\.txt lots=[1-9]\\d*$": 1,
      "^atlas:born load-summary lots \\d+, skipped [1-9]\\d*, ": 1,
@@ -487,15 +495,15 @@
    "asi": "game-copy/ts3native.asi.m1126c",
    "iniBase": "game-copy/ts3native.ini.m1126c",
    "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-   "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
-   "modSet": "game-copy/mod-sets/atlas-main6",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
    "rewind": false,
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "timeoutMin": 25,
    "extraAsi": {
-    "asi": "game-copy/atlas-main6/atlas.asi",
-    "sha256": "65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6",
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
     "ini": {
      "WorldSize.PhysicsRootM": 0,
      "PagedLots.Probe": 1,
@@ -503,12 +511,12 @@
      "PagedLots.BornPaged": 1
     },
     "logRequire": {
-     "^atlas 0\\.3\\.11 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ born=2 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
      "^atlas:icalls born: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
      "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
      "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
      "^atlas:born self-check: PASS \\(22 checks, 0 failed\\)$": 1,
-     "^atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
+     "^atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
      "^patches: born installed \\(": 1,
      "^atlas:born list world=born-skip\\\\Sunset_Valley\\.world\\.txt lots=[1-9]\\d*$": 1,
      "^atlas:born load-summary lots \\d+, skipped [1-9]\\d*, ": 1,
@@ -537,15 +545,15 @@
    "asi": "game-copy/ts3native.asi.m1126c",
    "iniBase": "game-copy/ts3native.ini.m1126c",
    "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-   "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
-   "modSet": "game-copy/mod-sets/atlas-main6",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
    "rewind": false,
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "timeoutMin": 25,
    "extraAsi": {
-    "asi": "game-copy/atlas-main6/atlas.asi",
-    "sha256": "65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6",
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
     "ini": {
      "WorldSize.PhysicsRootM": 0,
      "PagedLots.Probe": 1,
@@ -553,12 +561,12 @@
      "PagedLots.BornPaged": 1
     },
     "logRequire": {
-     "^atlas 0\\.3\\.11 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ born=2 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
      "^atlas:icalls born: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
      "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
      "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
      "^atlas:born self-check: PASS \\(22 checks, 0 failed\\)$": 1,
-     "^atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
+     "^atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
      "^patches: born installed \\(": 1,
      "^atlas:born list world=born-skip\\\\Sunset_Valley\\.world\\.txt lots=[1-9]\\d*$": 1,
      "^atlas:born load-summary lots \\d+, skipped [1-9]\\d*, ": 1,
@@ -587,15 +595,15 @@
    "asi": "game-copy/ts3native.asi.m1126c",
    "iniBase": "game-copy/ts3native.ini.m1126c",
    "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-   "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
-   "modSet": "game-copy/mod-sets/atlas-main6",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
    "rewind": false,
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "timeoutMin": 50,
    "extraAsi": {
-    "asi": "game-copy/atlas-main6/atlas.asi",
-    "sha256": "65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6",
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
     "ini": {
      "WorldSize.PhysicsRootM": 0,
      "PagedLots.Probe": 1,
@@ -603,12 +611,12 @@
      "PagedLots.BornPaged": 1
     },
     "logRequire": {
-     "^atlas 0\\.3\\.11 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ born=2 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
      "^atlas:icalls born: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
      "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
      "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
      "^atlas:born self-check: PASS \\(22 checks, 0 failed\\)$": 1,
-     "^atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
+     "^atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
      "^patches: born installed \\(": 1,
      "^atlas:born list world=born-skip\\\\Sunset_Valley\\.world\\.txt lots=[1-9]\\d*$": 1,
      "^atlas:born load-summary lots \\d+, skipped [1-9]\\d*, ": 1,
@@ -637,15 +645,15 @@
    "asi": "game-copy/ts3native.asi.m1126c",
    "iniBase": "game-copy/ts3native.ini.m1126c",
    "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-   "pinReason": "Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
-   "modSet": "game-copy/mod-sets/atlas-main6",
+   "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas main 88a440c, merge c70cceb of feature/born-paged-1126 22326b2; atlas 0.3.11 born=2, docs/031 §13): game-copy/atlas-main6/atlas.asi (sha256 65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6) and game-copy/mod-sets/atlas-main6 (atlas.package sha256 19490a3927fdf97c16739c45dcda9e42aee2e37d7d3bbae90e7446ba1d27fc5c); the born internal calls are group 8 'born', each Atlas job waits for AtlasNative.Groups p1 and born before its first reflect_call into native code. Older pin (branch build game-copy/atlas-born, 0.3.10) is history. Master set m1126c as atlas-p1-probe-1126-m1126c.",
+   "modSet": "game-copy/mod-sets/atlas-main18-1127",
    "rewind": false,
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "timeoutMin": 30,
    "extraAsi": {
-    "asi": "game-copy/atlas-main6/atlas.asi",
-    "sha256": "65cea354c12a8489a0550da2b9bd0d5901557bdd3b2c24a70d5b97c81c3900d6",
+    "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+    "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
     "ini": {
      "WorldSize.PhysicsRootM": 0,
      "PagedLots.Probe": 1,
@@ -653,12 +661,12 @@
      "PagedLots.BornPaged": 1
     },
     "logRequire": {
-     "^atlas 0\\.3\\.11 p1=\\d+ loadA=\\d+ w8192=\\d+ rings=\\d+ fz=\\d+ rebase=\\d+ oop=\\d+ seed=\\d+ born=2 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+     "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
      "^atlas:icalls born: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
      "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
      "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
      "^atlas:born self-check: PASS \\(22 checks, 0 failed\\)$": 1,
-     "^atlas:born start version 2 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
+     "^atlas:born start version 4 BornPaged=1 Verbose=0 self-check PASS: on, lot vtable \\+0x24 slot 0x0106528C 0x00C70320 -> born thunk, read back ok$": 1,
      "^patches: born installed \\(": 1,
      "^atlas:born list world=born-skip\\\\Sunset_Valley\\.world\\.txt lots=[1-9]\\d*$": 1,
      "^atlas:born load-summary lots \\d+, skipped [1-9]\\d*, ": 1,

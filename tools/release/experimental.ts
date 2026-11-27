@@ -21,6 +21,7 @@ import assert from 'node:assert/strict';
 import { zip, unzip, vet } from '../mts-zip.ts';
 import { holdOwner } from '../harness/hold.ts';
 import { defaultBranch } from '../default-branch.ts';
+import { atlasKitProblem, selfCheck as atlasKitSelfCheck } from './atlas-kit.ts';
 import { leftovers, enabledSections } from '../publish-public.ts';
 import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
 
@@ -360,6 +361,8 @@ function selfCheck() {
   assert.doesNotMatch(n, /\*\*u\*\*/);
   assert.match(n, /- k1\n/);
   assert.deepEqual(readSource(n), { sha: 'c'.repeat(40), sw: 'd'.repeat(16) });
+  atlasKitSelfCheck();
+  assert.equal(atlasKitProblem(readFileSync(import.meta.filename, 'utf8')), '', 'Atlas staged here needs [Kit] Release=1');
   console.log('experimental self-check ok');
 }
 

@@ -1,0 +1,256 @@
+{
+  "note": "atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-seed2-bake-1127: seed-only far Sims P2 looks pool bake (sims-3-modernization docs/361 §3.1, Atlas docs/048 §2) on Sunset Valley: one bake job (42 Sims, scratch save Repro-SeedLooks-1127), then the OFF arm. After it, offline: node tools/looks-pool.ts build (see the job note) into game-copy/mod-sets/atlas-main18-looks-1127/AtlasLooks.looks.package (atlas.package there is the main18 copy), then queue atlas-seed2-p3p4-1127. DRY-RUN ONLY until Rodney's go: never run without it. Runnable only on the Atlas queue line (extraAsi, branch bugfix/atlas-main13-repin-1127 or later); this branch is cut from it. A later Atlas commit needs a rebuild and a repin (asi sha256, mod set).",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 15:00:00, TS3W.exe link stamp 0x4E0D0F4A"
+      ],
+      "noMatch": [
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=6 oop=1 seed=1 born=1 tiles=1 paint=1 heights=1 built Nov 27 2026 15:00:00, TS3W.exe link stamp 0x4E0D0F4A",
+        "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=6 oop=1 seed=2 born=1 tiles=1 paint=1 heights=1 built Nov 27 2026 15:00:00, TS3W.exe link stamp 0x4E0D0F4A",
+        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 15:00:00, TS3W.exe link stamp 0x4E0D0F4A"
+      ]
+    },
+    "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": {
+      "match": [
+        "atlas:seed native 2 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder ok"
+      ],
+      "noMatch": [
+        "atlas:seed native 1 on (SeedSims=1, Verbose=0), 7 internal calls registered, folder ok"
+      ]
+    },
+    "^atlas:seed native switches SeedLooksBake=0 SeedShadow=1 SeedSave=0$": {
+      "match": [
+        "atlas:seed native switches SeedLooksBake=0 SeedShadow=1 SeedSave=0"
+      ],
+      "noMatch": [
+        "atlas:seed native switches SeedLooksBake=0 SeedShadow=0 SeedSave=0"
+      ]
+    },
+    "^atlas:seed on 0\\.2\\.0-seed2 \\(SeedSims=1, Verbose=0\\), native 2, pg newest 1, self-check PASS, save bracket ok, looksBake=0 shadow=1 save=1$": {
+      "match": [
+        "atlas:seed on 0.2.0-seed2 (SeedSims=1, Verbose=0), native 2, pg newest 1, self-check PASS, save bracket ok, looksBake=0 shadow=1 save=1"
+      ],
+      "noMatch": [
+        "atlas:seed on 0.2.0-seed2 (SeedSims=1, Verbose=0), native 2, pg newest 1, self-check PASS, save bracket ok, looksBake=0 shadow=1 save=0"
+      ]
+    },
+    "^atlas:seed looks pool pg=1 ok entries=[1-9]\\d* hash=[0-9a-f]{16}": {
+      "match": [
+        "atlas:seed looks pool pg=1 ok entries=42 hash=0123456789abcdef"
+      ],
+      "noMatch": [
+        "atlas:seed looks pool pg=1 index no index",
+        "atlas:seed looks pool pg=1 ok entries=0 hash=0123456789abcdef"
+      ]
+    },
+    "^atlas:seed looks bake done perSlot=3 sims=42 fail=0: ": {
+      "match": [
+        "atlas:seed looks bake done perSlot=3 sims=42 fail=0: save the game now, then tools/looks-pool.ts"
+      ],
+      "noMatch": [
+        "atlas:seed looks bake done perSlot=3 sims=40 fail=2: save the game now, then tools/looks-pool.ts"
+      ]
+    },
+    "^atlas:seed shadow lot=\\d+ dist=\\d+ members=[1-9] live=[01] created household=\\d+ us=\\d+$": {
+      "match": [
+        "atlas:seed shadow lot=123 dist=812 members=3 live=0 created household=456 us=5300"
+      ],
+      "noMatch": [
+        "atlas:seed shadow lot=123 dist=812 members=3 live=0 FAIL no looks pool (index no index)"
+      ]
+    },
+    "^atlas:seed evict lot=\\d+ members=[1-9]$": {
+      "match": [
+        "atlas:seed evict lot=123 members=3"
+      ],
+      "noMatch": [
+        "atlas:seed promote lot=123 household=456 why=durable"
+      ]
+    },
+    "^atlas:seed promote .* why=(household|selected|unknown)$": {
+      "match": [
+        "atlas:seed promote lot=1 household=2 why=household",
+        "atlas:seed promote lot=1 household=2 why=unknown"
+      ],
+      "noMatch": [
+        "atlas:seed promote lot=1 household=2 why=save",
+        "atlas:seed promote lot=1 household=2 why=durable"
+      ]
+    },
+    "^atlas:seed promote lot=\\d+ household=\\d+ why=save$": {
+      "match": [
+        "atlas:seed promote lot=1 household=2 why=save"
+      ],
+      "noMatch": [
+        "atlas:seed promote lot=1 household=2 why=household"
+      ]
+    },
+    "^atlas:seed leak check evictLeft=0 pending=0$": {
+      "match": [
+        "atlas:seed leak check evictLeft=0 pending=0"
+      ],
+      "noMatch": [
+        "atlas:seed leak check evictLeft=2 pending=0"
+      ]
+    },
+    "^atlas:seed shadow .* FAIL ": {
+      "match": [
+        "atlas:seed shadow lot=1 dist=900 members=2 live=0 FAIL lot taken"
+      ],
+      "noMatch": [
+        "atlas:seed shadow lot=1 dist=900 members=2 live=0 created household=3 us=1"
+      ]
+    },
+    "^atlas:seed shadow refused: SeedShadow=0$": {
+      "match": [
+        "atlas:seed shadow refused: SeedShadow=0"
+      ],
+      "noMatch": [
+        "atlas:seed shadow refused: no world state"
+      ]
+    },
+    "^atlas:seed looks bake refused: SeedLooksBake=0$": {
+      "match": [
+        "atlas:seed looks bake refused: SeedLooksBake=0"
+      ],
+      "noMatch": [
+        "atlas:seed looks bake refused: perSlot 0"
+      ]
+    },
+    "^atlas:seed write save world=\\S+ ticks=\\d+ sims=[1-9]\\d* lots=[1-9]\\d* hash=[0-9a-f]{16} rc=0$": {
+      "match": [
+        "atlas:seed write save world=SunsetValley ticks=1834200 sims=212 lots=14 hash=0123456789abcdef rc=0"
+      ],
+      "noMatch": [
+        "atlas:seed write save world=SunsetValley ticks=1834200 sims=212 lots=14 hash=0123456789abcdef rc=4"
+      ]
+    },
+    "^atlas:seed regen match world=\\S+ lots=[1-9]\\d* hash=[0-9a-f]{16}$": {
+      "match": [
+        "atlas:seed regen match world=SunsetValley lots=13 hash=0123456789abcdef"
+      ],
+      "noMatch": [
+        "atlas:seed regen MISMATCH world=SunsetValley file lots=13 hash=0123456789abcdef, now lots=14 hash=0123456789abcdee"
+      ]
+    },
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-seed2-bake-sv",
+      "note": "[est 12 min] P2 bake: 42 Sims with EA's generator in a homeless household, scratch save",
+      "save": "Baseline-SV",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Atlas branch feature/seed-sims-p2-p4-1127 cf53f63 (atlas 0.3.15 seed=2, SeedSims 0.2.0-seed2), built from a clean tree: game-copy/atlas-seed2/atlas.asi (native/atlas/build.cmd from d956140, native unchanged since; bytes pinned by extraAsi.sha256) and mod set game-copy/mod-sets/atlas-seed2 (tools/build-mod.ts at cf53f63). Master set m1126b as the P1 queue; no sims-3-modernization code change.",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 25,
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "extraAsi": {
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "ini": {
+          "Regions.SeedSims": 1,
+          "Regions.Verbose": 0,
+          "Regions.SeedLooksBake": 1,
+          "Regions.SeedShadow": 0,
+          "Regions.SeedSave": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas:seed native switches SeedLooksBake=1 SeedShadow=0 SeedSave=0$": 1,
+          "^atlas:seed on 0\\.2\\.0-seed2 \\(SeedSims=1, Verbose=0\\), native 2, pg newest 1, self-check PASS, save bracket ok, looksBake=1 shadow=0 save=0$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:seed looks bake done perSlot=3 sims=42 fail=0: ": 1
+        },
+        "logForbid": {
+          "^atlas:seed ERROR ": 0,
+          "^atlas:seed regen MISMATCH ": 0,
+          "^atlas:seed self-check FAIL ": 0,
+          "^atlas:seed SKIP ": 0,
+          "^atlas:save bracket-error ": 0,
+          "^atlas:seed promote .* why=(household|selected|unknown)$": 0,
+          "^atlas:seed shadow .* FAIL ": 0,
+          "^atlas:icalls \\S+ SKIP ": 0,
+          "^atlas:seed looks bake ERROR ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-seed2-bake-sv"
+      }
+    },
+    {
+      "id": "atlas-seed2-off-sv",
+      "note": "[est 10 min] OFF arm: P2-P4 switches 0, Shadow and Bake refuse, nothing created",
+      "save": "Baseline-SV",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Atlas branch feature/seed-sims-p2-p4-1127 cf53f63 (atlas 0.3.15 seed=2, SeedSims 0.2.0-seed2), built from a clean tree: game-copy/atlas-seed2/atlas.asi (native/atlas/build.cmd from d956140, native unchanged since; bytes pinned by extraAsi.sha256) and mod set game-copy/mod-sets/atlas-seed2 (tools/build-mod.ts at cf53f63). Master set m1126b as the P1 queue; no sims-3-modernization code change.",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1
+      },
+      "timeoutMin": 25,
+      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "extraAsi": {
+        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
+        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "ini": {
+          "Regions.SeedSims": 1,
+          "Regions.Verbose": 0,
+          "Regions.SeedLooksBake": 0,
+          "Regions.SeedShadow": 0,
+          "Regions.SeedSave": 0,
+          "PagedLots.Probe": 0,
+          "WorldSize.PhysicsRootM": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:seed native 2 on \\(SeedSims=1, Verbose=0\\), 7 internal calls registered, folder ok$": 1,
+          "^atlas:seed native switches SeedLooksBake=0 SeedShadow=0 SeedSave=0$": 1,
+          "^atlas:seed on 0\\.2\\.0-seed2 \\(SeedSims=1, Verbose=0\\), native 2, pg newest 1, self-check PASS, save bracket ok, looksBake=0 shadow=0 save=0$": 1,
+          "^atlas:save bracket SaveGame ok, SaveTravel ok$": 1,
+          "^atlas:seed shadow refused: SeedShadow=0$": 1,
+          "^atlas:seed looks bake refused: SeedLooksBake=0$": 1
+        },
+        "logForbid": {
+          "^atlas:seed ERROR ": 0,
+          "^atlas:seed regen MISMATCH ": 0,
+          "^atlas:seed self-check FAIL ": 0,
+          "^atlas:seed SKIP ": 0,
+          "^atlas:save bracket-error ": 0,
+          "^atlas:seed promote .* why=(household|selected|unknown)$": 0,
+          "^atlas:seed shadow .* FAIL ": 0,
+          "^atlas:icalls \\S+ SKIP ": 0,
+          "^atlas:seed shadow lot=": 0,
+          "^atlas:seed looks bake b=": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-seed2-off-sv"
+      }
+    }
+  ]
+}

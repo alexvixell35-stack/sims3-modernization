@@ -623,6 +623,16 @@ class Probe:
             return rpc.modules()
         if path == 'read':
             return {'addr': q['addr'], 'hex': rpc.read(q['addr'], int(q.get('len', 64)))}
+        if path == 'squeeze':  # TEST-ONLY address-space reservation to targetMB largest free (docs/51 §635, Atlas docs/040 §8 T1b)
+            if not getattr(self.args, 'test_squeeze', False):
+                raise PermissionError('squeeze is TEST-ONLY: refused unless the probe was started with serve --test-squeeze (queue job key probeTestSqueeze)')
+            r = rpc.squeeze(float(q['targetMB']))
+            self.log({'kind': 'test-squeeze', 'reason': f"TEST-ONLY squeeze to {q['targetMB']} MB: {json.dumps(r)}"})
+            return r
+        if path == 'unsqueeze':  # always allowed; the agent's dispose() also releases on unload / detach / probe exit
+            r = rpc.unsqueeze()
+            self.log({'kind': 'test-squeeze', 'reason': f'unsqueeze: {json.dumps(r)}'})
+            return r
         if path == 'string':
             return {'addr': q['addr'], 'text': rpc.read_string(q['addr'], q.get('kind', 'ascii'))}
         if path == 'symbolize':
@@ -871,6 +881,7 @@ def main():
     s.add_argument('--exception-stacks', action='store_true',
                    help='also log stacks for native exceptions (JS handler; the game raises thousands per second, which can starve the probe)')
     s.add_argument('--port', type=int, default=47891)
+    s.add_argument('--test-squeeze', action='store_true', help='TEST-ONLY: allow /squeeze (address-space reservation, docs/51 §635); harness jobs with probeTestSqueeze only')
     s.add_argument('--memory-interval', type=float, default=10, help='seconds between address-space samples')
     s.add_argument('extra', nargs='*', help=f'extra {GAME_EXE} arguments after --')
     g = sub.add_parser('get')
