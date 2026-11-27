@@ -59,7 +59,8 @@ namespace Ts3Fixes
             int n = 0;
             ulong tid = t.ObjectId.Value;
             SimQueue line = t.SimLine;
-            if (line != null) foreach (Sim s in line.SimsInQueue) if (s != null && s != cleaner) { n++; who = s.FullName + " (in line)"; }
+            List<Sim> inLine = line == null ? null : line.SimsInQueue;  // null when the line is empty
+            if (inLine != null) foreach (Sim s in inLine) if (s != null && s != cleaner) { n++; who = s.FullName + " (in line)"; }
             ulong h = HhHolder(tid);
             if (h != 0 && h != cleaner.ObjectId.Value && HhSim(h) != null) { n++; who = HhSim(h).FullName + " (claimed)"; }
             if (t.LotCurrent == null) return n;
