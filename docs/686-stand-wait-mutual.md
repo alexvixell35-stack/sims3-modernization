@@ -2518,3 +2518,63 @@ moved into "Shotgun Style - 2br, 1ba": 1 toilet, 1 shower/bath, 2 sinks, 1 fridg
 - Proof status: storm A/B on two worlds and an 8-Sim house, 0 errors of its own, no hitch rise; one run per arm, so the
   needs and hitch differences are within noise. Not run: a forced repro of a player's queued order against a pre-pick
   (EA's own rule; counted as "dropped by a higher-priority add" 71-157 per on arm, the storm's pushes).
+
+## 40. Dishes washed at a free kitchen sink, or handed in to the Sim already washing (`sinkfree`, `sinkfreehh`, `sinkfreelog`; 2026-11-27, `post/sinkfree-1127`, built, default off, storm A/B s691-s693)
+
+### 40.1 What the household waits on
+
+The household wait census (s691, 8 Sims in the 2-bedroom, 1-bath "Shotgun Style" lot in Sunset Valley, storm
+seed 156) put the bathroom sink third with the planned fixes on (s691b: 25.5 sim-min per Sim-day, up from
+10.1 with the fixes off), and 17 of those 23 waits were dish cleanup (`ServingContainer_CleanUp`) waiting
+behind a Sim brushing its teeth. EA's `ServingContainer_CleanUp.GetBestObjectToWashDishes` takes the closest sink in
+the Sim's room, else on the lot, whether it is in use or not (`skipObjectsInUse: false`). `CheckInUseAndRoutable`
+only halves an in-use sink's score (`kCleanupScoreModifierForInUse` 0.5, so a busy sink counts as twice as far), so a
+bathroom sink a step away beats the kitchen sink, and a busy kitchen sink beats a free one two rooms away.
+
+### 40.2 The fix (`SinkFree.cs`, rules in `SinkFreeCore.cs`)
+
+1. **Kitchen sinks first.** EA's pick runs as before, then `SinkFreeCore.Pick` keeps it when it is a free kitchen
+   sink, else takes the nearest free kitchen sink, using EA's own tests (not broken, not charred, `CanRouteToSink`) and
+   EA's level factor (`kDifferentLevelScore` 0.25). A bathroom sink (`SinkPedestal`, or a sink in a room with a toilet,
+   shower or bathtub) gets dishes only on a lot with no kitchen sink, and the fix never moves dishes from a kitchen
+   sink to a bathroom one.
+2. **Hand it in.** If the kitchen sink is busy because another Sim is running `Sink.WashDishes` there, and no other
+   kitchen sink is free, the Sim with the dishes walks over for real (`RouteToObjectRadialRange` 0.6-1.6 m) and puts
+   them down with EA's `CarrySystem.PutDownOnFloor`. Each handed-in dish makes the washer's `TimedStage` 1/16 of EA's
+   `WashDishesLengthInMinutes` longer (EA's default is 45 sim-min, so 2.8 sim-min a dish). The wash grows by at most
+   20 % in all (9 sim-min) however many dishes come in, so the washer is not held at the sink for long. At most
+   `kHandCap` = 3 dishes go into one wash, else EA's line.
+3. **Out of sight.** Right after the put-down the dish gets EA's `FadeOut`, a hidden footprint and all interactions
+   off (`DisableInteractions(All)`, EA's `InteractionsDisabledComponent`). It looks washed along with the washer's
+   dishes, and nobody can pick it up or clean it. When the washer's own `Run` ends with its stage done, the dish gets
+   EA's events (`kWashedOneDish` per stack item, `kCleanedObject`) and is destroyed, as EA destroys a washed stack.
+   A wash that ends early (cancel, reset, need) shows the dish again where it lies (`FadeIn`, interactions back on),
+   dirty, for EA's cleanup. A world load does the same for any loose dish still hidden this way, and a reset washer is
+   caught at the next dish trip. Nothing is created, so nothing is lost or duplicated.
+
+The other nearest-sink pick for dishes (`BarTray.CleanUp`) already skips sinks in use. When the switch is off but
+`sinkfreelog` is on, the fix only logs what it would do and counts it. `sinkfreehh` extends it to household and
+selected Sims. `SinkFreeCheck("run|result|reset")` (repro `sinkfree-check`). Selftest:
+`tools/selftest/sinkfree` (pick with every busy mask, the hand-in cap grid and scope, extra time and its cap, end
+of wash).
+
+### 40.3 Storm A/B s693 (same setup as s691: arm a = planned fixes, arm b = planned fixes + sinkfree + sinkfreehh)
+
+| per Sim-day (Northcott, 7.2 Sim-days each) | s693a | s693b |
+|---|---|---|
+| sink, bathroom | 2.0 (n=1) | 0 |
+| sink, kitchen | 3.6 (n=5) | 5.5 (n=5) |
+| all waits | 84.0 | 70.4 |
+
+In s693b the dish-cleanup hook ran on 25 dish trips. EA's sink was busy on 6 of them, none needed a move to a
+kitchen sink (EA never picked the bathroom sink in this run), and none were handed in. One stack of 4 dishes was
+over the cap and went to EA's line, and in one case the washer finished before the Sim with the dishes arrived, so
+it washed its own. There were 0 errors and no "must have a counter" stalls in either arm. The bathroom-sink dish
+waits of s691b (17) did not come back, but s693a had few of them too (n=1), so this run does not show the gain. The
+hand-in and hide path was not reached in a natural storm; it needs a forced repro (two Sims with dishes and one
+kitchen sink) before it can be called proven. The dirty-dish census was not taken (`dish_census` is not in the
+test agent package). The kitchen-sink and total figures come from five waits per arm and do not separate the arms.
+
+Counters 5000-5018 (`kCounterSlots` 5020): dish trips / EA's sink busy / switched / would / no better sink / exempt
+/ errors / EA's sink free / not a sink / lines / to a kitchen sink / dishes handed in / hand-in would / capped /
+handed dishes washed / left down / moved while hidden / washer stopped first / hidden dishes shown again.
