@@ -1,0 +1,77 @@
+{
+ "note": "exit-crash-1127-apexalone (PREPARED, crash repro, correctness only, no timing): third arm of the 11-27 player exit crash (docs/67 §47), after -stock and -fork (6/6 clean quits, no repro). Bin state apex-stock (released Apex 4.1.7) with ourMods false per job: ts3native.asi/.ini/.log and ts3fixes moved to the ourmods stash after the restart and read back (vanilla.ts ourModsSpec; ApexRadiance.asi, the bridge and the community asis stay), the ts3agent package for save/quit; launch direct = the Apex launcher direct-world path (-worldFile). 3 jobs on Sunset Valley, same quit steps as the other arms; quit-cycle judges the exit from fresh ApexRadiance_Crash.txt / xcpt files (no ts3native.log here). quitsGame + crashHunt: a crash does not stop the queue. Not covered: the community asis (S3SS, Sims3Performance, MonoPatcher) stay in Bin (ourMods false keeps them); the player's other mods; the UI-menu quit path.",
+ "binState": "apex-stock",
+ "agentPackage": "game-copy/ts3agent.package.m1126",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "sv-quit-apexalone-1",
+   "note": "[est 9 min] Apex alone: stock 4.1.7, no ts3native, no ts3fixes; launch direct (Apex launcher path, -worldFile) into Baseline-SV-Spring, play 2 min (autopilot), save QuitExit-apexalone-1, quit to desktop (quit_game), wait for exit. PASS = clean exit; FAIL \"game died at quit\" carries the fresh ApexRadiance_Crash.txt / xcpt exception line (player crash: wild call A8EAB8A2 from TriggerService teardown 0x7F0F4E).",
+   "ourMods": false,
+   "launch": "direct",
+   "asi": "none",
+   "save": "Baseline-SV-Spring",
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitExit-apexalone-1",
+     "--exit-s",
+     "120"
+    ]
+   }
+  },
+  {
+   "id": "sv-quit-apexalone-2",
+   "note": "[est 9 min] Apex alone: stock 4.1.7, no ts3native, no ts3fixes; launch direct (Apex launcher path, -worldFile) into Baseline-SV-Spring, play 2 min (autopilot), save QuitExit-apexalone-2, quit to desktop (quit_game), wait for exit. PASS = clean exit; FAIL \"game died at quit\" carries the fresh ApexRadiance_Crash.txt / xcpt exception line (player crash: wild call A8EAB8A2 from TriggerService teardown 0x7F0F4E).",
+   "ourMods": false,
+   "launch": "direct",
+   "asi": "none",
+   "save": "Baseline-SV-Spring",
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitExit-apexalone-2",
+     "--exit-s",
+     "120"
+    ]
+   }
+  },
+  {
+   "id": "sv-quit-apexalone-3",
+   "note": "[est 9 min] Apex alone: stock 4.1.7, no ts3native, no ts3fixes; launch direct (Apex launcher path, -worldFile) into Baseline-SV-Spring, play 2 min (autopilot), save QuitExit-apexalone-3, quit to desktop (quit_game), wait for exit. PASS = clean exit; FAIL \"game died at quit\" carries the fresh ApexRadiance_Crash.txt / xcpt exception line (player crash: wild call A8EAB8A2 from TriggerService teardown 0x7F0F4E).",
+   "ourMods": false,
+   "launch": "direct",
+   "asi": "none",
+   "save": "Baseline-SV-Spring",
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitExit-apexalone-3",
+     "--exit-s",
+     "120"
+    ]
+   }
+  }
+ ]
+}

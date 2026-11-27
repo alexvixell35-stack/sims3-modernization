@@ -444,13 +444,18 @@ export const mdCell = (x: string, max = 400) => {
 };
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 // "ourMods": false: a plain profile window or one repro (queue repros run --no-load, so no restart; its steps must not need ts3fixes); anything
-// that needs ts3native or ts3fixes, or restarts the game inside the job (cycle.ts would reinstall ts3fixes), is refused
+// that needs ts3native or ts3fixes, or restarts the game inside the job (cycle.ts would reinstall ts3fixes), is refused. Also the quit-cycle
+// script (exit-crash arms, docs/67 §47): ts3agent calls only (autopilot, save_game, quit_game), and the game quits, so nothing restarts in the job
+const QUIT_SCRIPT = (j: Job) => Array.isArray((j.run as any).script) && (j.run as any).script[0] === 'quit-cycle.ts';
 export const OURMODS_NA = VANILLA_NA.filter(c => c !== 'ts3fixes activity');
 export function ourModsRefusals(j: Job): string[] {
   const out = vanillaRefusals({ ...j, run: { ...j.run, profile: undefined } });
-  if (!j.run.profile && !j.run.repro) out.push('no run.profile');
   const kinds = Object.keys(j.run);
-  if (kinds.length > 1 || kinds.some(k => k !== 'profile' && k !== 'repro')) out.push('a run kind besides profile');
+  if (QUIT_SCRIPT(j) && kinds.length === 1) { if (!j.quitsGame) out.push('quit-cycle.ts without quitsGame'); }
+  else {
+    if (!j.run.profile && !j.run.repro) out.push('no run.profile');
+    if (kinds.length > 1 || kinds.some(k => k !== 'profile' && k !== 'repro')) out.push('a run kind besides profile');
+  }
   for (const k of ['repro', 'repros', 'ab', 'fixesOn', 'fixesOff', 'fixesReport', 'fixesRequire', 'untilCompares', 'frameLead', 'hitchTasks']) if ((j.run.profile as any)?.[k] !== undefined) out.push(`run.profile.${k}`);
   for (const k of ['reuseSession', 'd3d9Dll', 'iniBase'] as const) if (j[k] !== undefined) out.push(k);
   return out;
@@ -472,18 +477,22 @@ export function launchRefusals(j: Job, launch = LAUNCH): string[] {
 }
 // the proof of a clean baseline: no ts3native in the process, ts3fixes never started (Fixes.Apply sets ts3fixes.applied first), no counter
 // above 0 (the agent reads them from ts3fixes' array; without it a zero array, and -1 for rates). Switches are booleans with defaults: not activity
-export function ourModsFails(x: { logExists: boolean; native: unknown[]; patches: any[] }): string[] {
+// fixesOnDisk: Mods/Packages still holds a ts3fixes*.package. No patches reply is then UNKNOWN; with the package gone from
+// disk it is the expected answer (nothing loads ts3fixes), so it counts as absent (exit-crash-1127-apexalone, 2026-11-27)
+export function ourModsFails(x: { logExists: boolean; native: unknown[]; patches: any[]; fixesOnDisk?: boolean }): string[] {
   const out = new Set<string>();
   if (x.logExists) out.add('Bin/ts3native.log written: ts3native loaded');
   for (const c of x.native) if (c !== null && c !== undefined) out.add(`/native answered (${JSON.stringify(c).slice(0, 80)}): ts3native loaded`);
   for (const p of x.patches) {
-    if (!p) { out.add('UNKNOWN: no patches reply, ts3fixes not proven absent'); continue; }
+    if (!p) { if (x.fixesOnDisk !== false) out.add('UNKNOWN: no patches reply, ts3fixes not proven absent'); continue; }
     if (p.applied !== null && p.applied !== undefined) out.add('ts3fixes.applied set: ts3fixes ran');
     const busy = Object.entries(p).filter(([, v]) => typeof v === 'number' ? v > 0 : Array.isArray(v) ? v.length > 0 : typeof v === 'string' && v !== '').map(([k, v]) => `${k} ${typeof v === 'number' ? v : '[...]'}`);
     if (busy.length) out.add(`ts3fixes activity: ${busy.slice(0, 12).join(', ')}`);
   }
   return [...out];
 }
+// same file rule as vanilla.ts ourModsSpec stashing (Mods/Packages/ts3fixes*.package); an unreadable folder counts as present
+export const fixesPackagesOnDisk = (dir: string): boolean => { try { return readdirSync(dir).some(f => /^ts3fixes.*\.package$/i.test(f)); } catch { return true; } };
 export function vanillaRefusals(j: Job): string[] {
   const out: string[] = [];
   if (j.asi !== 'none') out.push(`asi "${j.asi}" (vanilla jobs say "none")`);
@@ -2601,6 +2610,13 @@ if (values['self-check']) {
     assert.equal(mdCell('a 0->1, b 0->397', 14), 'a 0->1 [cut: full row in the jsonl]', 'md cell cut at an item boundary, not inside 397');
     assert.equal(mdCell('x|y\nz'), 'x/y<br>z', 'md cell: pipes and newlines escaped, short text untouched');
     assert.ok(OURMODS_NA.length === VANILLA_NA.length - 1 && !OURMODS_NA.includes('ts3fixes activity'), 'ts3fixes activity is checked, not N/A');
+    { // ourMods false: the quit-cycle script alone (with quitsGame) passes; any other script, or quit-cycle beside a profile, is refused
+      const qj = (run: any, quitsGame = true) => ({ id: 'q', asi: 'none', ourMods: false, quitsGame, run }) as any as Job;
+      assert.deepEqual(ourModsRefusals(qj({ script: ['quit-cycle.ts', '--minutes', '2'] })), []);
+      assert.deepEqual(ourModsRefusals(qj({ script: ['quit-cycle.ts'] }, false)), ['quit-cycle.ts without quitsGame']);
+      assert.ok(ourModsRefusals(qj({ script: ['other.ts'] })).includes('no run.profile'));
+      assert.ok(ourModsRefusals(qj({ script: ['quit-cycle.ts'], profile: { minutes: 2 } })).includes('a run kind besides profile'));
+    }
     // a reply without ts3fixes (PatchHandlers.cs Patches): applied null, counters 0, rates -1, switches at their defaults
     const clean = { applied: null, gohome: true, gohome_runs: 0, unseenroute_c_hit_pm: -1, recent: null };
     assert.deepEqual(ourModsFails({ logExists: false, native: [null, null], patches: [clean, clean] }), []);
@@ -2610,6 +2626,11 @@ if (values['self-check']) {
     assert.match(ourModsFails({ logExists: false, native: [null], patches: [clean, { ...clean, owchain_alarms: 4 }] })[0], /ts3fixes activity: owchain_alarms 4/); // the bp-baseline-rel row
     assert.match(ourModsFails({ logExists: false, native: [null], patches: [{ ...clean, recent: ['x'] }] })[0], /ts3fixes activity: recent/);
     assert.match(ourModsFails({ logExists: false, native: [null], patches: [clean, undefined] })[0], /^UNKNOWN: no patches reply/);
+    assert.match(ourModsFails({ logExists: false, native: [null], patches: [undefined, undefined], fixesOnDisk: true })[0], /^UNKNOWN: no patches reply/, 'package still on disk: no reply stays UNKNOWN');
+    assert.deepEqual(ourModsFails({ logExists: false, native: [null, null], patches: [undefined, undefined], fixesOnDisk: false }), [], 'package gone from disk: no reply = absent (the apexalone rows)');
+    assert.match(ourModsFails({ logExists: false, native: [null], patches: [undefined, { ...clean, applied: [] }], fixesOnDisk: false })[0], /ts3fixes\.applied set/, 'a reply still counts when the disk says gone');
+    { const d = mkdtempSync(join(tmpdir(), 'fxdisk-')); assert.equal(fixesPackagesOnDisk(d), false); writeFileSync(join(d, 'ts3agent.package'), ''); assert.equal(fixesPackagesOnDisk(d), false, 'other packages do not count');
+      writeFileSync(join(d, 'ts3fixes.package'), ''); assert.equal(fixesPackagesOnDisk(d), true); assert.equal(fixesPackagesOnDisk(join(d, 'none')), true, 'unreadable = present'); rmSync(d, { recursive: true, force: true }); }
     assert.equal(ourModsFails({ logExists: true, native: [{ a: 1 }, { a: 1 }], patches: [{ ...clean, applied: [] }, { ...clean, applied: [] }] }).length, 3, 'one line per cause');
     assert.ok(isFail(`FAIL: our mods present: ${ourModsFails({ logExists: true, native: [], patches: [] })[0]}`));
     assert.ok(!isFail(`N/A (ourMods false): ${OURMODS_NA.join(', ')}`), 'the N/A line is no FAIL'); assert.ok(!naRow({ pass: true, verdict: [`N/A (ourMods false): x`] }), 'not an N/A row');
@@ -4136,8 +4157,9 @@ for (const [n, j] of jobs.entries()) {
       row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f;
     }
     if (j.ourMods === false) { // read while the game is up; a job that threw before this has row.error, and the jobGuard watched the Bin
-      const fails = ourModsFails({ logExists: existsSync(LOG), native: [c0, c1], patches: [fx0?.p, (await fixRead()).p] });
-      row.ourMods.proof = fails.length ? fails : 'clean: no Bin/ts3native.log, /native null, ts3fixes.applied null, no counter above 0';
+      const fixesOnDisk = fixesPackagesOnDisk(join(USER, 'Mods', 'Packages'));
+      const fails = ourModsFails({ logExists: existsSync(LOG), native: [c0, c1], patches: [fx0?.p, (await fixRead()).p], fixesOnDisk });
+      row.ourMods.proof = fails.length ? fails : `clean: no Bin/ts3native.log, /native null, ${fixesOnDisk ? '' : 'no ts3fixes*.package on disk, '}ts3fixes.applied null, no counter above 0`;
       for (const f of fails) { row.verdict.push(`FAIL: our mods present: ${f}`); row.selfCheckFail ||= f; }
       if (!fails.length) row.verdict.push(`PASS: clean baseline: ${row.ourMods.proof}`);
     } else if (fx0) {
