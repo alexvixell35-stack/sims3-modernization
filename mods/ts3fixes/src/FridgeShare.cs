@@ -116,7 +116,7 @@ namespace Ts3Fixes
         // Our copy runs for this Sim (switch on and in scope). Out of scope with the switch on: EA's body, counted.
         static bool FrsWanted(Sim a)
         {
-            if (!ShortcutOn("fridgeshare") || !FrsHumanUser(a) || sFrsQueueF == null || sFrsRecSimF == null) return false;
+            if (!ShortcutOn("fridgeshare") || !FrsHumanUser(a) || sFrsQueueF == null || sFrsRecSimF == null || sFrsLeftAddedF == null || sFrsLeftRegionF == null) return false;
             if (ShlScope(a, ShortcutOn("fridgesharehh"))) return true;
             PatchCounters()[kFrsExempt]++;
             return false;
@@ -150,8 +150,24 @@ namespace Ts3Fixes
                 if (FrsShortUse(u.CurrentInteraction, f)) shortN++; else longN++;
                 if (!FrsScope(u)) inScope = false;
             }
-            if (pending) foreach (KeyValuePair<Sim, Fridge> kv in sFrsPending)
+            if (!pending) return;
+            foreach (KeyValuePair<Sim, Fridge> kv in sFrsPending)
                 if (kv.Key != a && object.ReferenceEquals(kv.Value, f) && !users.Contains(kv.Key)) { shortN++; if (!FrsScope(kv.Key)) inScope = false; }
+            // the line's head on EA's own body (a Sim the switches leave to EA, putting leftovers away): it holds the turn, so a
+            // Sim beside the slot waits for it as EA's line would (our own heads wait beside the slot for that Sim instead)
+            Sim head = f.Line == null ? null : f.Line.FirstSim;
+            if (head != null && head != a && !users.Contains(head) && !sFrsPending.ContainsKey(head) && !sFrsWalk.ContainsKey(head) && !sFrsAsk.ContainsKey(head))
+            {
+                shortN++;
+                if (!FrsScope(head)) inScope = false;
+            }
+        }
+
+        static int FrsUsers(Fridge f, Sim a)
+        {
+            int n = 0;
+            foreach (Sim u in f.ActorsUsingMe) if (u != null && u != a) n++;
+            return n;
         }
 
         // Sims in the line that do not use the fridge yet (other than a).
@@ -347,7 +363,7 @@ namespace Ts3Fixes
             int mode = FridgeShareCore.kNone;
             int sN, lN; bool othersIn;
             FrsOthers(f, a, out sN, out lN, out othersIn);
-            if (sN + lN > 0)
+            if (sN + lN > 0 && FrsUsers(f, a) > 0)  // a share only next to a Sim really at it (a Sim let in that waits beside the slot is no user)
             {
                 int waiting = FrsWaiting(f, a);
                 bool unseen = sN > 0 && lN == 0 && waiting == 0 && FfUnseen(f, a, FrsSlot(f), FrsSide(f, 1));
@@ -385,29 +401,31 @@ namespace Ts3Fixes
                     if (r < 0) return false;
                     if (r == 0) { side = false; atOnce = false; c[kFrsSideFail]++; }
                 }
-                if (!side && !FrsRouteSlot(ii, f, playRouteFail))
+                if (!side && !FrsRouteSlot(ii, f, false))
                 {
                     // the slot is taken (a Sim went first, a user stands on it): wait beside it instead, then step in
                     if (a.HasExitReason(ExitReason.Default) || FrsRouteSide(a, f) != 1)
                     {
-                        if (playRouteFail && !a.HasExitReason(ExitReason.Default)) a.PlayRouteFailure();
+                        if (playRouteFail && !a.HasExitReason(ExitReason.Default)) a.PlayRouteFailure();  // one balloon, as EA's failed walk
                         return false;
                     }
                     side = true; atOnce = false;
                 }
                 float deadline = SimClock.ElapsedTime(TimeUnit.Minutes) + sFrsLineMin;
-                bool waited = false;
+                bool waited = false, ready = false;
                 for (int round = 0; round < 400; round++)
                 {
                     FrsOthers(f, a, side, out sN, out lN, out othersIn);
                     int d = FridgeShareCore.Ready(side, atOnce, sN, lN, FridgeShareCore.SlotClear(FrsNearestAtSlot(f, a)));
-                    if (d == FridgeShareCore.kReady) break;
+                    if (d == FridgeShareCore.kReady) { ready = true; break; }
                     if (d == FridgeShareCore.kStepIn)
                     {
-                        if (!FrsRouteSlot(ii, f, playRouteFail))
+                        if (!FrsRouteSlot(ii, f, false))
                         {
                             if (a.HasExitReason(ExitReason.Default)) return false;
                             if (a.WaitForExitReason(0.25f, ExitReason.Default)) return false;  // somebody stepped on it first: stay beside
+                            if (SimClock.ElapsedTime(TimeUnit.Minutes) > deadline) return FrsTimedOut(a, f, playRouteFail);
+                            FrsRouteSide(a, f);  // back beside the slot if the walk ended elsewhere
                             continue;
                         }
                         side = false;
@@ -416,20 +434,24 @@ namespace Ts3Fixes
                     }
                     if (!waited) { waited = true; c[kFrsWaitAfter]++; if (sFrsGaveWay.ContainsKey(a)) c[kFrsGaveWayWaited]++; a.LoopIdle(); }
                     if (a.WaitForExitReason(0.25f, ExitReason.Default)) return false;
-                    if (SimClock.ElapsedTime(TimeUnit.Minutes) > deadline)
-                    {
-                        c[kFrsTimedOut]++;
-                        a.AddExitReason(ExitReason.ObjectInUse);
-                        a.AddExitReason(ExitReason.TimedOut);
-                        if (playRouteFail && !ShortcutOn(IsPlayerSim(a) ? "fridgelinehh" : "fridgeline")) a.PlayRouteFailure();  // fridgeline: a soft fail stays quiet
-                        FrsLine(a.FullName + " " + ShlWho(a) + " timed out at the " + f.GetType().Name + " (users " + f.ActorsUsingMe.Count + ")");
-                        return false;
-                    }
+                    if (SimClock.ElapsedTime(TimeUnit.Minutes) > deadline) return FrsTimedOut(a, f, playRouteFail);
                 }
+                if (!ready) return FrsTimedOut(a, f, playRouteFail);
                 atSide = side;
                 return true;
             }
             finally { sFrsWalk.Remove(a); sFrsWalkIa.Remove(a); sFrsGrant.Remove(a); }
+        }
+
+        // EA's line time-out at our wait after the walk: ObjectInUse + TimedOut, one balloon (none with fridgeline's quiet fail).
+        static bool FrsTimedOut(Sim a, Fridge f, bool playRouteFail)
+        {
+            PatchCounters()[kFrsTimedOut]++;
+            a.AddExitReason(ExitReason.ObjectInUse);
+            a.AddExitReason(ExitReason.TimedOut);
+            if (playRouteFail && !ShortcutOn(IsPlayerSim(a) ? "fridgelinehh" : "fridgeline")) a.PlayRouteFailure();
+            FrsLine(a.FullName + " " + ShlWho(a) + " timed out at the " + f.GetType().Name + " (users " + f.ActorsUsingMe.Count + ")");
+            return false;
         }
 
         // StandardEntry of our copy: the share is a use now.
@@ -463,7 +485,7 @@ namespace Ts3Fixes
             {
                 int sN, lN; bool inScope;
                 FrsOthers(f, forSim, out sN, out lN, out inScope);
-                return inScope && FridgeShareCore.Room(sN, lN, FrsWaiting(f, forSim));
+                return inScope && FrsUsers(f, forSim) == 1 && FridgeShareCore.Room(sN, lN, FrsWaiting(f, forSim));
             }
             catch (ResetException) { throw; }
             catch (Exception e) { FrsError(e); return false; }
@@ -513,8 +535,7 @@ namespace Ts3Fixes
                             AnimateSim("Remove - " + item.ActorNameForFridge);
                             TriggerWatchCookingReactionBroadcaster();
                         }
-                        catch (ResetException) { throw; }
-                        catch { go.Destroy(); throw; }
+                        catch { go.Destroy(); throw; }  // EA's form: a reset during the grab destroys the prop too
                         CarrySystem.EnterWhileHolding(Actor, item, false);
                         if (CheckForCancelAndCleanup()) return false;
                         if (Actor.HasTrait(TraitNames.NaturalCook))
@@ -588,8 +609,7 @@ namespace Ts3Fixes
                     SetActor(single.ActorNameForFridge, single);
                     AnimateSim("Remove - " + single.ActorNameForFridge);
                 }
-                catch (ResetException) { throw; }
-                catch { single.Destroy(); throw; }
+                catch { single.Destroy(); throw; }  // EA's form
                 (ChosenContainer as ServingContainerGroup).DecrementServings();
                 ChosenContainer.RemoveFromUseList(Actor);
                 if (!ChosenContainer.HasFoodLeft())
@@ -616,8 +636,7 @@ namespace Ts3Fixes
                     SetActor(single.ActorNameForFridge, single);
                     AnimateSim("Remove - " + single.ActorNameForFridge);
                 }
-                catch (ResetException) { throw; }
-                catch { single.Destroy(); throw; }
+                catch { single.Destroy(); throw; }  // EA's form
                 ChosenContainer.RemoveFromUseList(Actor);
                 ChosenContainer = null;
                 CarrySystem.EnterWhileHolding(Actor, single, false);
