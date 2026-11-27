@@ -533,6 +533,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kAlibiWalkLog = false;  // alibiwalklog: count what alibiwalk would cut (and long NPC walks by interaction), behaviour unchanged
         [Tunable] public static float kAlibiWalkMinM = 60f;  // alibiwalk: shortest planned route (m) that is cut
         [Tunable] public static float kAlibiWalkTailM = 10f;  // alibiwalk: metres of the route's last walking path the Sim still walks
+        [Tunable] public static bool kMopClaim = false;  // mopclaim (docs/686 §43): the puddle an NPC mops is held for it; another Sim's own pick of that puddle takes a free one or ends without a walk (MopClaim.cs)
+        [Tunable] public static bool kMopClaimHh = false;  // mopclaimhh: the same for household and selected Sims
+        [Tunable] public static bool kMopClaimLog = false;  // mopclaimlog: one ts3native.log line per pick of a held puddle and per failed mop run
         [Tunable] public static float kCamSafeMarginPct = 25f;  // camsafe: the camera reach (largest of the last kCamSafeHoldS s) grown by this many percent (screen-border margin)
         [Tunable] public static float kCamSafeLeadS = 2f;  // camsafe: plus how far the camera travels in this many seconds at its smoothed speed (prediction)
         [Tunable] public static float kCamSafeSpeedMax = 150f;  // camsafe: speed cap, m/s (a jump is handled by the jump pause, not the speed)

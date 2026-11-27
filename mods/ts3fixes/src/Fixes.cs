@@ -542,6 +542,7 @@ namespace Ts3Fixes
             ApplyUnseenOutfitNoSpin();  // docs/809, ON 2026-11-20, needs unseenoutfitdefer (UnseenOutfitNoSpin.cs)
             ApplyInstProbe();  // docs/325, measurement only, off (InstProbe.cs); last: its Instantiate hooks wrap the others
             ApplyFarSim();  // docs/345 far-Sim shadow (FarSimShadow.cs), off; no hooks, a world-load handler only
+            ApplyMopClaim();           // docs/686 §43 (MopClaim.cs): mopclaim / mopclaimhh / mopclaimlog, off by default (the probe counts either way); swaps Terrain.PuddleInteraction.GetClosestPuddle, Terrain.Mopping.Run
         }
 
         // issue #92 (docs/130 §11): each extra hook on one method is one more interpreter frame on every call through it.
@@ -1787,7 +1788,10 @@ namespace Ts3Fixes
         // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
         // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
-        const int kCounterSlots = 4960;  // 4960 from #752 (nextplan 4940-4959)
+        // [5060-5072] mopclaim (MopClaim.cs, docs/686 §43; 5060-5079 reserved by hand 2026-11-27): mop runs / ended with a failed walk or
+        // shrug / puddle picks / held by another mopping Sim / took another puddle / none left / would / ordered: kept / holds / errors /
+        // lines / household runs / household failed.
+        const int kCounterSlots = 5090;  // 4960 from #752 (nextplan 4940-4959); 5090: doorseat 4980-4999, sinkfree 5000-5019 and 5080-5089, seatclash 5020-5039, fridgeshare 5040-5059, mopclaim 5060-5079 (other branches)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2092,6 +2096,9 @@ namespace Ts3Fixes
                 case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
                 case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
                 case "ufplansplit": return false;  // log only: where a slow unseen-fallback plan's wall time goes (UnseenFallback.cs)
+                case "mopclaim": return Instantiator.kMopClaim;  // MopClaim.cs (docs/686 §43): a puddle being mopped is held, another Sim's own pick takes a free puddle or ends quietly, NPCs, off
+                case "mopclaimhh": return Instantiator.kMopClaimHh;  // MopClaim.cs: the same for household and selected Sims (stands alone), off
+                case "mopclaimlog": return Instantiator.kMopClaimLog;  // MopClaim.cs: one line per pick of a held puddle and per failed mop run
                 case "doorshare": return Instantiator.kDoorShare;  // DoorShare.cs (docs/674): mark Sim-independent door answers for ts3native [RouteSnap] DoorShare, off
                 case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
