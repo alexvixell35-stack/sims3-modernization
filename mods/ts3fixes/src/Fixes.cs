@@ -385,6 +385,7 @@ namespace Ts3Fixes
             ApplyLightningWeights();   // docs/593 L1 B13 §2
             ApplyPlantDormantFlip();   // docs/593 G1 B13 §3
             ApplyPlantDormantTime();   // docs/593 G2 B13 §4
+            ApplyRinkExit();   // RinkExit.cs: rinkexit (2026-11-27)
             ApplyPlantShelter();   // plantroofshelter (2026-11-25)
             ApplyHarvestExtras();   // docs/593 H2, H5 B13 §5
             ApplyShroomSlots();   // docs/593 H3 B13 §6
@@ -1055,6 +1056,7 @@ namespace Ts3Fixes
         // [3199-3201] lightningweights (Batch593Logic.cs, B13 §2, docs/593 L1): weights restored / left zeroed (switch off) / errors.
         // [3202-3204] plantdormantflip (Batch593Logic.cs, B13 §3, docs/593 G1): flips undone / flips seen (switch off) / errors.
         // [3205-3207] plantdormanttime (Batch593Logic.cs, B13 §4, docs/593 G2): times refreshed / spans left to drain (switch off) / errors.
+        // [4006-4008] rinkexit (RinkExit.cs, 2026-11-27): leaving skater removed where EA removed the exit queue head / ghost heads dropped / errors.
         // [4000-4002] plantroofshelter (Batch593Logic.cs, 2026-11-25): roofed outside evaluations sheltered / seen (switch off) / errors.
         // [3208-3210] harvestextras (Batch593Logic.cs, B13 §5, docs/593 H2, H5): extras kept and journals to the harvester / extras lost (switch off) / errors.
         // [3211-3213] shroomslots (Batch593Logic.cs, B13 §6, docs/593 H3): mushroom loops our way / EA's loops (switch off) / errors.
@@ -1346,6 +1348,7 @@ namespace Ts3Fixes
         // [3199-3201] lightningweights (Batch593Logic.cs, B13 §2, docs/593 L1): weights restored / left zeroed (switch off) / errors.
         // [3202-3204] plantdormantflip (Batch593Logic.cs, B13 §3, docs/593 G1): flips undone / flips seen (switch off) / errors.
         // [3205-3207] plantdormanttime (Batch593Logic.cs, B13 §4, docs/593 G2): times refreshed / spans left to drain (switch off) / errors.
+        // [4006-4008] rinkexit (RinkExit.cs, 2026-11-27): leaving skater removed where EA removed the exit queue head / ghost heads dropped / errors.
         // [4000-4002] plantroofshelter (Batch593Logic.cs, 2026-11-25): roofed outside evaluations sheltered / seen (switch off) / errors.
         // [3208-3210] harvestextras (Batch593Logic.cs, B13 §5, docs/593 H2, H5): extras kept and journals to the harvester / extras lost (switch off) / errors.
         // [3211-3213] shroomslots (Batch593Logic.cs, B13 §6, docs/593 H3): mushroom loops our way / EA's loops (switch off) / errors.
@@ -2631,6 +2634,7 @@ namespace Ts3Fixes
                 case "lightningweights": return Instantiator.kLightningWeights;
                 case "plantdormantflip": return Instantiator.kPlantDormantFlip;
                 case "plantdormanttime": return Instantiator.kPlantDormantTime;
+                case "rinkexit": return Instantiator.kRinkExit;  // RinkExit.cs, EA bug fix, off
                 case "plantroofshelter": return Instantiator.kPlantRoofShelter;
                 case "harvestextras": return Instantiator.kHarvestExtras;
                 case "shroomslots": return Instantiator.kShroomSlots;

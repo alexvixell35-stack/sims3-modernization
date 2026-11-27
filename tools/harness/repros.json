@@ -150295,6 +150295,872 @@
     ]
   },
   {
+    "id": "skate-exit-ghost",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {},
+        "show": "rinkexit",
+        "max": 100000,
+        "waitS": 1,
+        "note": "arm (job fixesOn / fixesOff)"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 7,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "SkatingRink",
+          "name": "Ice Skating Rink (Small)",
+          "free": true,
+          "near": "@far",
+          "must_place": true
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4",
+            "picked:5",
+            "picked:6",
+            "picked:7"
+          ],
+          "near": "@type:SkatingRink"
+        },
+        "max": 2000,
+        "waitS": 5
+      },
+      {
+        "cmd": "sim_gone_watch",
+        "args": {
+          "on": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "target": "@type:SkatingRink"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:1",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:2",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:3",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:4",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:5",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:6",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:7",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:1"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:2"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:3"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:4"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:5"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:6"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:7"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "skates on, 6 on the ice"
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "on the ice"
+      },
+      {
+        "cmd": "rink_state",
+        "args": {
+          "sim_a": "picked:6",
+          "sim_b": "picked:7"
+        },
+        "max": 3000,
+        "waitS": 1,
+        "note": "EA's FinishedWaitingAtExit on exit 0 with A then B queued, B leaving (deterministic: no timing)"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:1"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:2"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:3"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:4"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:5"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:6"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "time",
+        "waitS": 2,
+        "note": "route callbacks see the cancel: TryingToExit, JoinExitQueue (exits alternate 0,1,0,1)"
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "exit queues after the cancels (a Sim sent to exit 0 waits behind the ghost)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 5
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "5 s after the cancels: the exit 0 queue"
+      },
+      {
+        "cmd": "time",
+        "waitS": 90
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "90 s after the cancels: Sims behind a ghost still on the ice"
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "max": 4000,
+        "waitS": 1,
+        "note": "90 s after the cancels"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 120,
+        "note": "a fresh skater"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:6"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "fresh skater 60 s after its cancel"
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "max": 4000,
+        "waitS": 1,
+        "note": "fresh skater 60 s after cancel"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        },
+        "waitS": 1,
+        "note": "autonomy back on"
+      },
+      {
+        "cmd": "sim_gone_watch",
+        "args": {},
+        "note": "errors the trap caught"
+      },
+      {
+        "cmd": "leak_census",
+        "show": "fix_counters",
+        "max": 200000,
+        "waitS": 2,
+        "note": "rinkexit counters: 4006 leaving Sim removed (EA would remove the head), 4007 ghost heads dropped, 4008 errors"
+      }
+    ],
+    "note": "2026-11-27 EA bug check (rinkexit): SkatingRink.FinishedWaitingAtExit dequeues the queue HEAD when the leaving Sim is anywhere in that exit queue (Contains, then Dequeue). A Sim reset while 2nd in line removes the head and leaves its own id: the next head is a ghost, CanSimExitNow is false for everyone behind it, and DoSkate keeps them on the ice in TryingToExit (cancel does not help). rink_state shows the queues; a 'ghost' head with Sims still Skate 90 s after cancel = confirmed. v5: the ghost is made by EA's own FinishedWaitingAtExit (rink_state sim_a/sim_b), then real skaters cancel.",
+    "switches": [
+      "rinkexit"
+    ]
+  },
+  {
+    "id": "skate-exit-ghost-roller",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {},
+        "show": "rinkexit",
+        "max": 100000,
+        "waitS": 1,
+        "note": "arm (job fixesOn / fixesOff)"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 7,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "SkatingRink",
+          "name": "Roller Skating Rink (Small)",
+          "free": true,
+          "near": "@far",
+          "must_place": true
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4",
+            "picked:5",
+            "picked:6",
+            "picked:7"
+          ],
+          "near": "@type:SkatingRink"
+        },
+        "max": 2000,
+        "waitS": 5
+      },
+      {
+        "cmd": "sim_gone_watch",
+        "args": {
+          "on": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "target": "@type:SkatingRink"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:1",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:2",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:3",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:4",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:5",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:6",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:7",
+          "enabled": false
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:1"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:2"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:3"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:4"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:5"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:6"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:7"
+        },
+        "max": 600,
+        "waitS": 0,
+        "note": "clear the queue"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "skates on, 6 on the ice"
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "on the ice"
+      },
+      {
+        "cmd": "rink_state",
+        "args": {
+          "sim_a": "picked:6",
+          "sim_b": "picked:7"
+        },
+        "max": 3000,
+        "waitS": 1,
+        "note": "EA's FinishedWaitingAtExit on exit 0 with A then B queued, B leaving (deterministic: no timing)"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:1"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:2"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:3"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:4"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:5"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:6"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "time",
+        "waitS": 2,
+        "note": "route callbacks see the cancel: TryingToExit, JoinExitQueue (exits alternate 0,1,0,1)"
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "exit queues after the cancels (a Sim sent to exit 0 waits behind the ghost)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 5
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "5 s after the cancels: the exit 0 queue"
+      },
+      {
+        "cmd": "time",
+        "waitS": 90
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "90 s after the cancels: Sims behind a ghost still on the ice"
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "max": 4000,
+        "waitS": 1,
+        "note": "90 s after the cancels"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "max": 600,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 120,
+        "note": "a fresh skater"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "picked:6"
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "rink_state",
+        "args": {},
+        "max": 3000,
+        "waitS": 1,
+        "note": "fresh skater 60 s after its cancel"
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "max": 4000,
+        "waitS": 1,
+        "note": "fresh skater 60 s after cancel"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        },
+        "waitS": 1,
+        "note": "autonomy back on"
+      },
+      {
+        "cmd": "sim_gone_watch",
+        "args": {},
+        "note": "errors the trap caught"
+      },
+      {
+        "cmd": "leak_census",
+        "show": "fix_counters",
+        "max": 200000,
+        "waitS": 2,
+        "note": "rinkexit counters: 4006 leaving Sim removed (EA would remove the head), 4007 ghost heads dropped, 4008 errors"
+      }
+    ],
+    "note": "Roller rink copy of skate-exit-ghost (same SkatingRink class: SkatingRinkRollerSmall/Large). 2026-11-27 EA bug check (rinkexit): SkatingRink.FinishedWaitingAtExit dequeues the queue HEAD when the leaving Sim is anywhere in that exit queue (Contains, then Dequeue). A Sim reset while 2nd in line removes the head and leaves its own id: the next head is a ghost, CanSimExitNow is false for everyone behind it, and DoSkate keeps them on the ice in TryingToExit (cancel does not help). rink_state shows the queues; a 'ghost' head with Sims still Skate 90 s after cancel = confirmed. v5: the ghost is made by EA's own FinishedWaitingAtExit (rink_state sim_a/sim_b), then real skaters cancel.",
+    "switches": [
+      "rinkexit"
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

@@ -75,6 +75,7 @@ namespace Ts3Agent
             Dispatcher.Register("quiet_ui", QuietUi);
             Dispatcher.Register("autopilot", Autopilot);
             Dispatcher.Register("dialog_expect", DialogExpect);
+            Dispatcher.Register("rink_state", RinkState);
             RegisterGates(); // docs/179: game-mode gates wrap the handlers registered above
             StartAutopilot();
         }
@@ -824,6 +825,72 @@ namespace Ts3Agent
             sent["precip_fog"] = Math.Round(ws.PrecipitationFogStrength, 3);
             sent["wind"] = Math.Round(ws.WindStrength, 3);
             r["sent"] = sent;
+            return r;
+        }
+
+        // The skating rink nearest the selected Sim (LOCAL 2026-11-27, EA exit-queue bug hunt): skaters with their current interaction,
+        // and each exit queue head first as Sim names; an id whose Sim is not using the rink is shown "ghost <name or id>".
+        // reset_second:true resets the Sim 2nd in each exit queue (read before the reset), the case EA's dequeue gets wrong.
+        // sim_a + sim_b: EA's own call on exit 0 without timing luck: queue A then B, FinishedWaitingAtExit(0, B); EA right = [A],
+        // EA bug = [B] (the head A removed, B's id left behind as a ghost that blocks exit 0).
+        // EA FinishedWaitingAtExit dequeues the head when the leaving Sim is anywhere in the queue, so a ghost can block an exit.
+        static object RinkState(Args a)
+        {
+            RequireLive();
+            Sims3.Gameplay.Objects.SkatingRink rink = NearestOfType("SkatingRink") as Sims3.Gameplay.Objects.SkatingRink;
+            if (rink == null) throw new McpException("no SkatingRink in this world");
+            BindingFlags bf = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            Dictionary<string, object> r = Util.Obj();
+            r["rink"] = rink.GetType().Name + " " + rink.ObjectId.Value;
+            List<object> sk = new List<object>();
+            foreach (Sim s in rink.ActorsUsingMe)
+                sk.Add(s.FullName + ": " + (s.CurrentInteraction != null ? s.CurrentInteraction.GetType().Name : "-"));
+            r["using"] = sk;
+            Array exits = typeof(Sims3.Gameplay.Objects.SkatingRink).GetField("mExits", bf).GetValue(rink) as Array;
+            List<object> ex = new List<object>();
+            List<Sim> second = new List<Sim>();
+            if (a.Has("sim_a") && a.Has("sim_b") && exits != null && exits.Length > 0)
+            {
+                Sim sa = Util.FindSim(a, "sim_a"), sb = Util.FindSim(a, "sim_b");
+                object e0 = exits.GetValue(0);
+                FieldInfo qf = e0.GetType().GetField("SimQueue", bf);
+                Queue<ulong> q0 = qf.GetValue(e0) as Queue<ulong>;
+                if (q0 == null) { q0 = new Queue<ulong>(); qf.SetValue(e0, q0); }
+                q0.Enqueue(sa.SimDescription.SimDescriptionId);
+                q0.Enqueue(sb.SimDescription.SimDescriptionId);
+                r["dequeue_test_before"] = q0.Count + " in exit 0, " + sa.FullName + " then " + sb.FullName;
+                rink.FinishedWaitingAtExit(0, sb, null);
+                Queue<ulong> q1 = qf.GetValue(e0) as Queue<ulong>;
+                List<object> left = new List<object>();
+                if (q1 != null) foreach (ulong id in q1) { SimDescription d = SimDescription.Find(id); left.Add(d != null ? d.FullName : id.ToString()); }
+                r["dequeue_test_after"] = left;
+                r["dequeue_test"] = left.Count == 1 && (string)left[0] == sb.FullName ? "EA bug: the head was removed, the leaving Sim's id stays"
+                    : left.Count == 1 && (string)left[0] == sa.FullName ? "right Sim removed" : "other";
+            }
+            if (exits != null)
+                foreach (object e in exits)
+                {
+                    Queue<ulong> q = e == null ? null : e.GetType().GetField("SimQueue", bf).GetValue(e) as Queue<ulong>;
+                    List<object> names = new List<object>();
+                    int at = 0;
+                    if (q != null)
+                        foreach (ulong id in q)
+                        {
+                            Sims3.Gameplay.CAS.SimDescription d = SimDescription.Find(id);
+                            Sim s = d != null ? d.CreatedSim : null;
+                            if (at++ == 1 && s != null) second.Add(s);
+                            string n = d != null ? d.FullName : id.ToString();
+                            names.Add(s != null && rink.IsActorUsingMe(s) ? n : "ghost " + n);
+                        }
+                    ex.Add(names);
+                }
+            r["exit_queues"] = ex;
+            if (a.Bool("reset_second", false))
+            {
+                List<object> done = new List<object>();
+                foreach (Sim s in second) { s.SetObjectToReset(); done.Add(s.FullName); }
+                r["reset"] = done;
+            }
             return r;
         }
 

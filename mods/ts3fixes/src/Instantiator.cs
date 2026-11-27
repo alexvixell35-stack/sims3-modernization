@@ -710,6 +710,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kPlantDormantFlip = true;    // plantdormantflip (B13 §3, docs/593 G1): a fruit tree with frost and leaf cover disagreeing stays dormant instead of flipping every evaluation
         [Tunable] public static bool kPlantDormantTime = true;    // plantdormanttime (B13 §4, docs/593 G2): a plant coming out of dormancy does not lose a whole dormant span of water at once
         [Tunable] public static bool kPlantRoofShelter = true;     // plantroofshelter (2026-11-25): a plant with a roof or floor above (porch, carport, patio) is sheltered from frost like one indoors
+        [Tunable] public static bool kRinkExit = false;    // rinkexit (2026-11-27): a skater leaving a rink exit line removes its own place, not the head's; ghost heads that block an exit are dropped
         [Tunable] public static bool kHarvestExtras = true;    // harvestextras (B13 §5, docs/593 H2, H5): Gatherer and Science extra harvestables reach the harvester's inventory, and mushroom collecting credits the harvester
         [Tunable] public static bool kShroomSlots = true;    // shroomslots (B13 §6, docs/593 H3): mushrooms fill their slots in order and get their harvest timeout instead of skipping slots and throwing
         [Tunable] public static bool kHarvestRegion = true;    // harvestregion (B13 §7, docs/593 H4): a poorly grown plant's harvest gets no quality bonus (EA's bottom growth region)
