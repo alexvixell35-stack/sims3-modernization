@@ -28,15 +28,15 @@ namespace Ts3Fixes
             Check("share beside seen", FridgeShareCore.Share(true, true, true, 1, 0, 0, false) == FridgeShareCore.kBeside);
 
             // at the fridge
-            Check("ready side at once", FridgeShareCore.Ready(true, true, 1, 0, false) == FridgeShareCore.kReady);
-            Check("ready side at once capped", FridgeShareCore.Ready(true, true, 2, 0, false) == FridgeShareCore.kWait);
-            Check("beside waits for user", FridgeShareCore.Ready(true, false, 1, 0, true) == FridgeShareCore.kWait);
-            Check("beside waits for stander", FridgeShareCore.Ready(true, false, 0, 0, false) == FridgeShareCore.kWait);
-            Check("beside steps in", FridgeShareCore.Ready(true, false, 0, 0, true) == FridgeShareCore.kStepIn);
-            Check("slot free", FridgeShareCore.Ready(false, false, 0, 0, true) == FridgeShareCore.kReady);
-            Check("slot busy seen", FridgeShareCore.Ready(false, false, 1, 0, true) == FridgeShareCore.kWait);
-            Check("slot with unseen sharer", FridgeShareCore.Ready(false, true, 1, 0, true) == FridgeShareCore.kReady);
-            Check("slot long", FridgeShareCore.Ready(false, true, 0, 1, true) == FridgeShareCore.kWait);
+            Check("ready side at once", FridgeShareCore.Ready(true, true, 1, 0) == FridgeShareCore.kReady);
+            Check("ready side at once capped", FridgeShareCore.Ready(true, true, 2, 0) == FridgeShareCore.kWait);
+            Check("beside waits for user", FridgeShareCore.Ready(true, false, 1, 0) == FridgeShareCore.kWait);
+            Check("beside steps in past a stander (EA's walk moves it)", FridgeShareCore.Ready(true, false, 0, 0) == FridgeShareCore.kStepIn);
+            Check("beside steps in", FridgeShareCore.Ready(true, false, 0, 0) == FridgeShareCore.kStepIn);
+            Check("slot free", FridgeShareCore.Ready(false, false, 0, 0) == FridgeShareCore.kReady);
+            Check("slot busy seen", FridgeShareCore.Ready(false, false, 1, 0) == FridgeShareCore.kWait);
+            Check("slot with unseen sharer", FridgeShareCore.Ready(false, true, 1, 0) == FridgeShareCore.kReady);
+            Check("slot long", FridgeShareCore.Ready(false, true, 0, 1) == FridgeShareCore.kWait);
 
             // rule 3: head away
             float g = 2.5f;

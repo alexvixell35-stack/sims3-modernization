@@ -46,10 +46,11 @@ namespace Ts3Fixes
         }
 
         // At the fridge (rule 2): atSide = the Sim stands beside the slot; atOnce = it may use the fridge from there.
-        public static int Ready(bool atSide, bool atOnce, int shortOthers, int longOthers, bool slotClear)
+        public static int Ready(bool atSide, bool atOnce, int shortOthers, int longOthers)
         {
             if (atSide && atOnce) return Admit(shortOthers, longOthers) ? kReady : kWait;
-            if (atSide) return shortOthers + longOthers == 0 && slotClear ? kStepIn : kWait;
+            // beside it: step in once nobody uses it (a Sim that only stands there is EA's walk's job, which asks it to move)
+            if (atSide) return shortOthers + longOthers == 0 ? kStepIn : kWait;
             // on the slot: EA's rule (nobody else uses it), or one Sim that uses it at once from beside
             if (longOthers > 0) return kWait;
             if (shortOthers == 0) return kReady;

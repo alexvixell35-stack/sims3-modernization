@@ -425,7 +425,7 @@ namespace Ts3Fixes
             try
             {
                 bool atOnce = mode == FridgeShareCore.kAtOnce;
-                bool side = mode == FridgeShareCore.kAtOnce || mode == FridgeShareCore.kBeside || !FridgeShareCore.SlotClear(FrsNearestAtSlot(f, a));
+                bool side = mode == FridgeShareCore.kAtOnce || mode == FridgeShareCore.kBeside || (FrsUsers(f, a) > 0 && !FridgeShareCore.SlotClear(FrsNearestAtSlot(f, a)));  // a stander alone is EA's walk's job
                 if (side)
                 {
                     int r = FrsRouteSide(a, f);
@@ -447,13 +447,19 @@ namespace Ts3Fixes
                 for (int round = 0; round < 400; round++)
                 {
                     FrsOthers(f, a, side, out sN, out lN, out othersIn);
-                    int d = FridgeShareCore.Ready(side, atOnce, sN, lN, FridgeShareCore.SlotClear(FrsNearestAtSlot(f, a)));
+                    int d = FridgeShareCore.Ready(side, atOnce, sN, lN);
                     if (d == FridgeShareCore.kReady) { ready = true; break; }
                     if (d == FridgeShareCore.kStepIn)
                     {
                         if (!FrsRouteSlot(ii, f, false))
                         {
                             if (a.HasExitReason(ExitReason.Default)) return false;
+                            if (FrsUsers(f, a) == 0)
+                            {
+                                // nobody uses it and EA's walk to the slot failed: EA's own outcome (one balloon), no wait that holds the line
+                                if (playRouteFail) a.PlayRouteFailure();
+                                return false;
+                            }
                             if (a.WaitForExitReason(0.25f, ExitReason.Default)) return false;  // somebody stepped on it first: stay beside
                             if (SimClock.ElapsedTime(TimeUnit.Minutes) > deadline) return FrsTimedOut(a, f, playRouteFail);
                             FrsRouteSide(a, f);  // back beside the slot if the walk ended elsewhere
@@ -757,7 +763,7 @@ namespace Ts3Fixes
             if (what == "result") return FrsCounters();
             if (what != "run") return "fridgeshare <run|result>";
             bool ok = FridgeShareCore.Share(true, true, true, 1, 0, 0, false) == FridgeShareCore.kBeside
-                && FridgeShareCore.Ready(true, false, 0, 0, true) == FridgeShareCore.kStepIn
+                && FridgeShareCore.Ready(true, false, 0, 0) == FridgeShareCore.kStepIn
                 && FridgeShareCore.Yield(true, true, true, false, false, 6f, 3f, true, 2f, false, 2.5f) == FridgeShareCore.kGo;
             bool members = sFrsQueueF != null && sFrsRecSimF != null && sFrsLeftRegionF != null && sFrsLeftAddedF != null && sFrsCleanRegionF != null;
             return "fridgeshare: rules " + (ok ? "ok" : "FAILED") + ", members found=" + members + ", line timeout " + sFrsLineMin.ToString("0.#") + "; " + FrsCounters();
