@@ -2591,3 +2591,28 @@ restriction plus a portal check for autonomous routes). Audit of the household f
 - standwaitlocked ends a wait at a privacy-locked room earlier; it opens nothing.
 - reachcache sets doors to `Nobody` for a moment and restores them in the same call (its own measurement; docs/688).
 - familybath (§44) changes the privacy situation's rule only and refuses any room the player locked.
+
+## 45. A toilet clean waits while Sims wait for the toilet (`cleandefer`, `cleandeferhh`, `cleandeferlog`; 2026-11-27, `post/cleandefer-1127`, built, default off, storm A/B s703)
+
+[verified, decompiled `Toilet.Clean`; s691 / s693 linewait lines "Clean target ToiletCheap"] Cleaning the toilet is an
+ordinary use of it: the cleaner walks to the toilet's slot, takes the toilet (or stands in its line) and other Sims
+wait behind the cleaning.
+
+Fix (`CleanDefer.cs`, rules in `CleanDeferCore.cs`): when a Sim's **own pick** to clean a toilet starts
+(`Toilet.Clean.Run`, before its walk) and other Sims wait for that toilet, the clean ends at once, quietly: no walk, no
+shrug; the Sim's autonomy picks something else and comes back to the cleaning later. Waiting means: in the toilet's
+line; the toilet as the target of a queued action; a claim or hold on it in nextplan's table (`HhHolder`, §41); or a
+household Sim at home whose bladder is at bathroomwait's level (-20). An ordered clean (the player's click, a maid's
+pushed job) is never deferred. A toilet is not deferred for more than 120 sim-min in a row (it would stay dirty in a
+house where someone always needs it). Ordering only: no autonomy weight, need or duration is changed.
+
+Scope: `cleandefer` = Sims the player does not control, `cleandeferhh` = household and selected Sims. Off = compare
+mode (`would`). Swap: `Toilet.Clean.Run`. Counters 5100-5107. Selftest `tools/selftest/cleandefer` (5 checks).
+
+**Storm s703** (see §44.3 for the set-up; arm b = planned set + familybath + cleandefer): 32 autonomous toilet
+cleans started, 31 deferred, 0 errors, 0 capped; in arm a (off) the one clean of the run hit a NullReferenceException in
+the waiters count (an empty line is null), caught by the hook and fixed before arm b. 31 of 32 is too many: almost
+all waited for "a household Sim with a bladder need at -20", which is nearly always true with 8 Sims and one toilet, so
+the toilet would only be cleaned at the 120 sim-min cap. The need now counts from EA's urgent level (-60); **that
+change is not run in game**. The toilet line was 23.3 sim-min per Sim-day in a and 17.7 in b (inside the run-to-run
+spread, §44.3), so the gain is not proven; what the run shows is that the deferral works and ends quietly.
