@@ -168,6 +168,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/petrelax/run.ts': CSC,
   'tools/selftest/reachuse/run.ts': CSC,
   'tools/selftest/objshare/run.ts': CSC,
+  'tools/selftest/fridgeshare/run.ts': CSC,
   'tools/selftest/woohoosnap/run.ts': CSC,
   'tools/selftest/queuewake/run.ts': CSC,
   'tools/selftest/partnerpull/run.ts': CSC,

@@ -582,6 +582,7 @@ namespace Ts3Fixes
             ApplyFacilityPlan();       // docs/686 §36 (FacilityPlan.cs): facilityplan / facilityquick / facilitychain and their household switches, off by default (counts either way); swaps GameObject.GetInUseAutonomyMultiplier, InteractionInstance.Begin/EndCommodityUpdates; its wait step is in ApplyLineSwitch's hook
             ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
             ApplyFridgeFf();           // docs/686 §36.11 (FridgeFf.cs): fridgeff / fridgeffunseen, off; swaps Fridge_Have.Run, Fridge_EatLeftovers.Run
+            ApplyFridgeShare();        // docs/686 §41 (FridgeShare.cs): fridgeshare / fridgesharehh / fridgesharelog, off by default (counts either way); swaps Fridge_CleanOutBadFood.Run, rides FridgeFf's Fridge_Have / Fridge_EatLeftovers swaps and LineSwitch's waiter check
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
             ApplyPartnerPull();        // docs/686 §21 (PartnerPull.cs): partnerpull, off by default (counts either way); a 0.5 sim-minute alarm started at world load, no swap
             ApplyLineSwitch();         // docs/686 §25 (LineSwitch.cs): lineswitch / lineswitchhh, off by default (counts either way); swaps SimQueue.WaitForExitReasonOnSim, the line hook is ApplyShareLanes's
@@ -1787,7 +1788,11 @@ namespace Ts3Fixes
         // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
         // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
-        const int kCounterSlots = 4960;  // 4960 from #752 (nextplan 4940-4959)
+        // [5040-5058] fridgeshare (FridgeShare.cs, docs/686 §41; 5040-5059 reserved by hand 2026-11-27, 5020-5039 and 5060-5079 left to
+        // other branches): uses / shared at once / beside / heads gave way / would give way / would share / exempt / no spot beside /
+        // waited at the fridge / timed out / clean-outs released / errors / overlapping uses / stepped in / capped / kept for a
+        // player's order / shared from the line / dish wait / gave way then waited; 5059 spare.
+        const int kCounterSlots = 5060;  // 5060 for fridgeshare 5040-5059 (docs/686 §41); 4960 was #752 (nextplan 4940-4959)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2773,6 +2778,9 @@ namespace Ts3Fixes
                 case "showerpeeplanhh": return Instantiator.kShowerPeePlanHh;  // ShowerShare.cs: household and selected Sims too, off
                 case "showerdirty": return Instantiator.kShowerDirty;  // ShowerShare.cs (docs/686 §36.6): shower-pee and shared showers leave Hygiene at 88 % / 90 %, off  // LineSwitch.cs (docs/686 §25): one line per case, off
                 case "fridgeff": return Instantiator.kFridgeFf;  // FridgeFf.cs (docs/686 §36.11): an unseen NPC at a busy fridge takes its food at once, ON (#743)
+                case "fridgeshare": return Instantiator.kFridgeShare;  // FridgeShare.cs (docs/686 §41): two short fridge uses at once, a waiter at the fridge before a head still walking over (NPCs), off
+                case "fridgesharehh": return Instantiator.kFridgeShareHh;  // FridgeShare.cs: the same for household and selected Sims, off
+                case "fridgesharelog": return Instantiator.kFridgeShareLog;  // FridgeShare.cs: one line per share / give-way / release
                 case "fridgeffunseen": return Instantiator.kFridgeFfUnseen;  // FridgeFf.cs: the same for unseen household Sims (not the selected Sim), the player's opt-in, off
                 case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
                 case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
