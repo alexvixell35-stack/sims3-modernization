@@ -245,6 +245,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenBoatStart value="True" />
     <kBoatTaxiMemo value="True" />
     <kBoatTaxiMemoHours value="4" />
+    <kSeatClash value="False" />
+    <kSeatClashHh value="False" />
+    <kSeatClashLog value="False" />
     <kWildLotSkip value="False" />
     <kWildLotSkipHours value="6" />
     <kWildLotSkipWalkHours value="8" />

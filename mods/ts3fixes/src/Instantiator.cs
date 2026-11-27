@@ -533,6 +533,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kAlibiWalkLog = false;  // alibiwalklog: count what alibiwalk would cut (and long NPC walks by interaction), behaviour unchanged
         [Tunable] public static float kAlibiWalkMinM = 60f;  // alibiwalk: shortest planned route (m) that is cut
         [Tunable] public static float kAlibiWalkTailM = 10f;  // alibiwalk: metres of the route's last walking path the Sim still walks
+        [Tunable] public static bool kSeatClash = false;  // seatclash (docs/686 §42): an NPC's chair at a table is held from pick to seat, a pick of a held chair is made again, the push wait behind the chair ends after the shared grace (SeatClash.cs)
+        [Tunable] public static bool kSeatClashHh = false;  // seatclashhh: the same for household and selected Sims
+        [Tunable] public static bool kSeatClashLog = false;  // seatclashlog: one ts3native.log line per failed seat approach, push wait and changed pick
         [Tunable] public static float kCamSafeMarginPct = 25f;  // camsafe: the camera reach (largest of the last kCamSafeHoldS s) grown by this many percent (screen-border margin)
         [Tunable] public static float kCamSafeLeadS = 2f;  // camsafe: plus how far the camera travels in this many seconds at its smoothed speed (prediction)
         [Tunable] public static float kCamSafeSpeedMax = 150f;  // camsafe: speed cap, m/s (a jump is handled by the jump pause, not the speed)

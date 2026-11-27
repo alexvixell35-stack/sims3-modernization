@@ -235,6 +235,9 @@ export const EXEMPT: Record<string, string> = {
   iafailmemo: 'Dalexlol unseen route cost PR: default off (his own advice: until a watchdog A/B), route-cost memo for townies, judged by natural games (no off arm); no forced repro',
   // contributor PR post/fglinbound-1121 (docs/682 §9)
   fglinboundhh: 'contributor: default off, household variant of fglinbound (same code path, the household gate lifted); its repro is fglinbound-check, whose live / live:big compares call the path directly; turned on only after fglinbound shadow runs (docs/682 §9.8 step 3)',
+  seatclash: 'the forced repros seatclash-force / seatclash-force6 (docs/686 §42) need the forced-repro agent tools (add_platter) and the doorseat furnish helper of the combo branch (feat/taskserve-1117); exempt here until those land upstream',
+  seatclashhh: 'the forced repros seatclash-force / seatclash-force6 (docs/686 §42) need the forced-repro agent tools (add_platter) and the doorseat furnish helper of the combo branch (feat/taskserve-1117); exempt here until those land upstream',
+  seatclashlog: 'the forced repros seatclash-force / seatclash-force6 (docs/686 §42) need the forced-repro agent tools (add_platter) and the doorseat furnish helper of the combo branch (feat/taskserve-1117); exempt here until those land upstream',
 };
 
 // Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,

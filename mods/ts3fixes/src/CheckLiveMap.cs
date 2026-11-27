@@ -440,6 +440,9 @@ namespace Ts3Fixes
                 case "seasonimpostercold": return EpLive(typeof(SeasonImposterHook), 1);
                 case "seasonlistener": return EpJoin(EpLive(typeof(SllAutHook), 2, "sSllMotivesListener", sSllMotivesListener, null), EpLive(typeof(SllMotHook), 1));
                 case "seasonmarkercache": return EpLive(typeof(SeasonMarkerHook), 0);
+                case "seatclash": return EpJoin(EpJoin(EpJoin(EpLive(typeof(ScChairHook), 2), EpLive(typeof(ScPickHook), 1)), EpLive(typeof(ScPushHook), 1)), EpLive(typeof(ScStoolHook), 1));
+                case "seatclashhh": return EpJoin(EpJoin(EpJoin(EpLive(typeof(ScChairHook), 2), EpLive(typeof(ScPickHook), 1)), EpLive(typeof(ScPushHook), 1)), EpLive(typeof(ScStoolHook), 1));
+                case "seatclashlog": return EpJoin(EpJoin(EpJoin(EpLive(typeof(ScChairHook), 2), EpLive(typeof(ScPickHook), 1)), EpLive(typeof(ScPushHook), 1)), EpLive(typeof(ScStoolHook), 1));
                 case "sellcursorleak": return EpLive(typeof(SclHook), 2, "sBilDict", sBilDict, null, "sBilDict", sBilDict, "static", "sBilHandle", sBilHandle, "get");
                 case "sentiencename": return EpLive(typeof(SentienceNameHook), 0, "sScName", sScName, null);
                 case "serviceassignexit": return EpLive(typeof(BSeHook), 1);
