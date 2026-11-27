@@ -45,7 +45,8 @@ namespace Ts3Fixes
     //   b. In DoRoute: a failed plan or walk of either Sim: onto its jig slot when the route leads to a jig, else onto
     //      such a ring place; while the other still walks the Sim only turns.
     //   c. SocialJigTwoPerson.PlanRouteToJigA / RouteToJigB answered a failed plan: planned again through objects (walls
-    //      count); a plan of at most kBuClipMax metres is kept and walked.
+    //      count); a plan of at most kBuClipMax metres is kept and walked. Its reach is the Sim's distance to the jig
+    //      (at most kBuClipMax), not to the partner: Pillow Fight places its jig by the nearest bed (run r4-rp1).
     //
     // Scope: woohoosnap / pairsnap = pairs without a Sim the player controls, ...hh = pairs with one; each stands alone.
     // Off = compare mode: counted, nothing done. woohoosnaplog / pairsnaplog write one line per act.
@@ -538,13 +539,15 @@ namespace Ts3Fixes
                 Vector3 at = from ? fromPoint : sim.Position, to = other.Position;
                 string head = BuWho(sim) + " " + sim.FullName + " -> " + jig.GetType().Name + " with " + other.FullName + " (" + pr.mType + ", jig plan)";
                 int why;
-                if (WooHooSnapCore.PairStep(BuFlat(at, to), at.y - to.y, sim.Level == other.Level, RuInPosture(sim), false, false, out why) == WooHooSnapCore.kPairKeep)
-                { PrsKeep(why, head + ", " + BuFlat(at, to).ToString("0.0") + " m"); return; }
+                float toJig = BuFlat(at, jig.Position);  // the jig may stand away from the pair (Pillow Fight: by the nearest bed)
+                if (WooHooSnapCore.JigStep(toJig, at.y - to.y, sim.Level == other.Level, RuInPosture(sim), kBuClipMax, out why) == WooHooSnapCore.kPairKeep)
+                { PrsKeep(why, head + ", " + toJig.ToString("0.0") + " m to the jig"); return; }
                 bool o1 = r.GetOption(Route.RouteOption.PassThroughObjects), o2 = r.GetOption(Route.RouteOption.UserOverrideSlotObstruction), o3 = r.GetOption(Route.RouteOption.DoSlotObstructionChecksUserOverride);
                 r.SetOption(Route.RouteOption.PassThroughObjects, true);
                 r.SetOption(Route.RouteOption.UserOverrideSlotObstruction, true);
                 r.SetOption(Route.RouteOption.DoSlotObstructionChecksUserOverride, false);
-                RoutePlanResult clip = from ? r.ReplanFromPoint(fromPoint) : r.Replan();
+                // a fresh plan: Replan re-plans the failed plan (run r4-rp2: it failed again); Plan / PlanFromPoint start anew
+                RoutePlanResult clip = from ? r.PlanFromPoint(fromPoint) : r.Plan();
                 float len = clip.Succeeded() ? (clip.mDistanceTotal > 0f ? clip.mDistanceTotal : r.GetRouteLength()) : 0f;
                 if (WooHooSnapCore.ClipWalk(clip.Succeeded(), len, kBuClipMax))
                 {
@@ -555,8 +558,8 @@ namespace Ts3Fixes
                 r.SetOption(Route.RouteOption.PassThroughObjects, o1);
                 r.SetOption(Route.RouteOption.UserOverrideSlotObstruction, o2);
                 r.SetOption(Route.RouteOption.DoSlotObstructionChecksUserOverride, o3);
-                if (clip.Succeeded()) { if (from) r.ReplanFromPoint(fromPoint); else r.Replan(); }  // too long: the failed plan again
-                PrsKeep(WooHooSnapCore.kPairWhySpot, head + ", no short plan through objects");
+                if (clip.Succeeded()) { if (from) r.PlanFromPoint(fromPoint); else r.Plan(); }  // too long: the failed plan again
+                PrsKeep(WooHooSnapCore.kPairWhySpot, head + ", no short plan through objects (" + clip.mType + (clip.Succeeded() ? ", " + len.ToString("0.0") + " m" : "") + ")");
             }
             catch (ResetException) { throw; }
             catch (Exception e) { WhsError(true, 3, e); }

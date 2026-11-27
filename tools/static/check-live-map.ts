@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const SRC = join(ROOT, 'mods', 'ts3fixes', 'src');
 const OUT = join(SRC, 'CheckLiveMap.cs');
+const lf = (t: string) => t.replace(/\r\n/g, '\n');
 // Check files of batches 3-12 (docs/574-592): the scope of the constant-gap gate.
 const BATCH_CHECKS = /^(Batch5\d\d[a-z]?Checks|Batch1\dChecks)\.cs$/;
 const SKIP = /^(Ep|Store)|^CheckLiveMap\.cs$|^EpLiveCheck\.cs$/;
@@ -248,12 +249,14 @@ else {
   const text = emit(scan(files));
   const g = gaps(files);
   if (process.argv.includes('--check')) {
-    const stale = !existsSync(OUT) || readFileSync(OUT, 'utf8') !== text;
+    const stale = !existsSync(OUT) || lf(readFileSync(OUT, 'utf8')) !== lf(text);
     if (stale) console.log('check-live-map: CheckLiveMap.cs is stale (run without --check)');
     for (const x of g) console.log('GAP ' + x);
     process.exit(stale || g.length ? 1 : 0);
   }
-  writeFileSync(OUT, text);
+  // unchanged content: leave the file alone. A rewrite with LF over the CRLF checkout (core.autocrlf) showed it as
+  // modified in every checkout that built ts3fixes (2026-11-27: it blocked agent-merge finish)
+  if (!existsSync(OUT) || lf(readFileSync(OUT, 'utf8')) !== lf(text)) writeFileSync(OUT, text);
   for (const x of g) console.log('GAP ' + x);
   console.log(`check-live-map: ${scan(files).size} hooks, ${g.length} batch checks with the constant gap`);
 }

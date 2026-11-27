@@ -310,7 +310,33 @@ namespace Ts3Fixes
                 foreach (Fire f in home.GetObjects<Fire>()) { f.ExtinguishFireNow(true); n++; }
                 return "petfire: put out " + n;
             }
-            if (what != "start") return "petfire <start|stop|result>";
+            if (what == "startin")
+            {
+                // docs/546 §10.1: a fire inside the house next to the front door (as in s550a: the pets outside, a horse can
+                // not go in), so the pets' fire reactions run against an indoor fire
+                Door door = home.FindFrontDoor();
+                if (door == null) return "petfire check: no front door";
+                Vector3 inPos = Vector3.Invalid;
+                foreach (Slot slot in door.GetRoutingSlots())
+                {
+                    Vector3 p = door.GetPositionOfSlot(slot);
+                    LotLocation loc = LotLocation.Invalid;
+                    if (World.GetLotLocation(p, ref loc) == home.LotId && !LotManager.RoomIdIsOutside(loc.mRoom)) { inPos = p; break; }
+                }
+                if (inPos == Vector3.Invalid) return "petfire check: front door has no inside slot";
+                Fire fin = null;
+                for (int k = 1; k <= 3 && fin == null; k++)
+                {
+                    Vector3 d = inPos - door.Position;
+                    float len = d.Length();
+                    Vector3 q = len > 0.01f ? inPos + d * (k / len) : inPos;
+                    fin = FireManager.AddFire(q);
+                }
+                int pets = 0;
+                foreach (Sim s in sim.Household.Sims) if (s.SimDescription.IsPet) pets++;
+                return fin == null ? "petfire check: AddFire inside refused" : "petfire: fire lit inside near the front door at " + fin.Position + ", household pets " + pets;
+            }
+            if (what != "start") return "petfire <start|startin|stop|result>";
             Sim near = sim;
             foreach (Sim s in sim.Household.Sims)
                 if (s.SimDescription.IsPet && s.LotCurrent == home) { near = s; break; }

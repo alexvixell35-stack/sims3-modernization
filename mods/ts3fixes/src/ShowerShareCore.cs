@@ -9,6 +9,11 @@ namespace Ts3Fixes
         public const float kExitCapMinutes = 10f;    // a partner's exit that takes longer no longer holds the other Sim
         public const float kPeeGiveUpMinutes = 30f;  // a pushed shower that has not begun by then: the game's own failure
         public const float kPeeFillMinutes = 5f;     // the all-in-one bathroom's own time to fill the bladder
+        // showerdirty (docs/686 §36.6): a shower that also filled the bladder, or one shared with a partner, leaves the Sim
+        // a bit less clean. Hygiene is capped at the shower's end (Motives.SetValue, EA's API); -100..100 bar.
+        public const float kPeeHygieneCap = 76f;     // 88 % of the bar: no SqueakyClean (EA's buff from 81), far from Grungy (-61)
+        public const float kShareHygieneCap = 80f;   // 90 % of the bar: a shared shower is a little less thorough
+        public const float kPeeSoonMinutes = 120f;   // showerpeeplan: the bladder reaches EA's urgent level (-60) within 2 sim-hours
 
         // ---- showertogether ----
 
@@ -66,6 +71,30 @@ namespace Ts3Fixes
             if (!showerUsable) return kNoShower;
             if (!on) return kWould;
             return simScope ? kGo : kExempt;
+        }
+
+        // Does a shower that starts now fill the bladder?
+        //   showerpee (base): the Sim has to pee (HasToPee / ReallyHasToPee) and no toilet is usable now;
+        //   showerpeeplan: the Sim has to pee or will within kPeeSoonMinutes, whatever the toilets (it needs both: it is
+        //   in the shower already, the facility planner's preferred way when the toilets are busy or far).
+        //   kGo = base path, kWould = plan path off but it would, kExempt = out of scope; plan = the plan path fired.
+        public static int PeeAtShower(bool baseOn, bool baseScope, bool planOn, bool planScope, bool simOk, bool low, float minutesToUrgent, bool toiletUsable, out bool plan)
+        {
+            plan = false;
+            if (!simOk) return kNone;
+            if (baseOn && baseScope && low && !toiletUsable) return kGo;
+            bool soon = low || minutesToUrgent <= kPeeSoonMinutes;
+            if (!soon) return kNone;
+            if (!planOn) return low && toiletUsable ? kWould : kNone;
+            if (!planScope) return kExempt;
+            plan = true;
+            return kGo;
+        }
+
+        // showerdirty: the Hygiene value a shower ends with (cap = kPeeHygieneCap or kShareHygieneCap).
+        public static float DirtyCap(bool on, float hygiene, float cap)
+        {
+            return on && hygiene > cap ? cap : hygiene;
         }
 
         // The shower we pushed still stands for the failure while it is queued or running and young enough, or once the

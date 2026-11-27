@@ -77,7 +77,10 @@ namespace Ts3Fixes
             try { DoorGenWorldLoad(); } catch (Exception) { }  // DoorGen.cs: arm ts3native DoorMemoX=3 when switch doorgen is on
             try { DoorShareWorldLoad(); } catch (Exception) { }  // DoorShare.cs (docs/674): after doorgen, which it needs
             try { LaneAWorldLoad(); } catch (Exception) { }  // LaneA.cs (docs/321 §10, CP-3/CP-4): lot hub consumers, all switches off by default
+            sFglWaits.Clear();  // FridgeBusy.cs: fridgeline's open waits of the world just left
+            sFglFills.Clear();  // FridgeBusy.cs: fridgelinefill's per-Sim fill counts
             // settings in effect: every tunable of Instantiator (the player's tuning), then any runtime test switch
+            try { BathroomWaitWorldLoad(); } catch (Exception) { }  // BathroomWait.cs: toilet retrigger when switch bathroomwait is on
             List<string> on = new List<string>(), off = new List<string>();
             foreach (FieldInfo f in typeof(Instantiator).GetFields(BindingFlags.Public | BindingFlags.Static))
             {

@@ -172,6 +172,8 @@ namespace Ts3Fixes
         {
             public bool SeasonHook()
             {
+                bool roofed;
+                if (PrSheltered((Plant)(object)this, out roofed)) return roofed;
                 bool r = SeasonOrig();
                 try
                 {
@@ -192,6 +194,45 @@ namespace Ts3Fixes
             }
 
             public bool SeasonOrig() { return false; }
+        }
+
+        // ---- plantroofshelter (player question 2026-11-25) ---------------------------------------------------------------
+        // [verified, decompiled; in game 2026-11-25, contributor repro plant-shelter-probe, kept in his harness tree, not in this repo] Plant.UpdateSeasonalState shelters a plant only
+        // in a greenhouse or when !IsOutside && IsShelteredFromPrecipitation (roof or floor above). A plant under the roof of a
+        // porch, carport, patio or balcony reads outside, so it goes dormant at the first frost although no rain reaches it
+        // (EA's rain watering, Plant line `!IsShelteredFromPrecipitation`, already treats it as covered). plantroofshelter: a
+        // roof or floor above shelters. It runs in the plantdormantflip hook (B13PfHook) before EA's body, so EA never marks
+        // the plant dormant and never deletes its fruit (CheckForDeleteHarvestables). Counters: [4000] roofed outside
+        // evaluations sheltered, [4001] seen (switch off), [4002] errors.
+        // EA re-checks the state only at load and in the daily EvaluatePlantGrowth alarm (5:00 + random), so a plant
+        // brought under a roof wakes at its next morning check: kept as EA has it (a frozen plant thaws overnight).
+        static readonly FieldInfo sPrLeafless = B12F(typeof(Plant), "mLeaflessState");
+        static readonly FieldInfo sPrFall = B12F(typeof(Plant), "mFallColorState");
+
+        static void ApplyPlantShelter()
+        {
+            string m = SpNames("Plant.mLeaflessState", sPrLeafless, "Plant.mFallColorState", sPrFall, "Plant.mDormant", sPfDormant);
+            if (m.Length > 0) AppliedLog().Add("plantroofshelter: not found: " + m);
+        }
+
+        // True when plantroofshelter took this evaluation; changed is then UpdateSeasonalState's result (EA's sheltered branch).
+        static bool PrSheltered(Plant p, out bool changed)
+        {
+            changed = false;
+            try
+            {
+                if (sPrLeafless == null || sPrFall == null || sPfDormant == null || !SeasonsManager.Enabled || !p.IsOutside
+                    || World.IsPosInsideGreenhouse(p.Position) || !SeasonsManager.IsShelteredFromPrecipitation(p)) return false;
+                if (!ShortcutOn("plantroofshelter")) { PatchCounters()[4001]++; return false; }
+                PatchCounters()[4000]++;
+                if ((bool)sPrLeafless.GetValue(p) || (bool)sPrFall.GetValue(p) || (bool)sPfDormant.GetValue(p))
+                {
+                    sPrLeafless.SetValue(p, false); sPrFall.SetValue(p, false); sPfDormant.SetValue(p, false);
+                    changed = true;
+                }
+                return true;
+            }
+            catch (Exception) { PatchCounters()[4002]++; return false; }
         }
 
         // ---- B13 §4 plantdormanttime (docs/593 G2) -------------------------------------------------------------------
@@ -308,7 +349,7 @@ namespace Ts3Fixes
                     }
                     Sim was = sHeActor;
                     sHeActor = actor;
-                    try { sHeJournal.Invoke(hp, new object[] { skill, hp.PlantDef, list }); }  // virtual: OmniPlant / MoneyTree keep theirs
+                    try { HeJournal(hp, skill, list); }
                     finally { sHeActor = was; }
                 }
                 if (!hasHarvested)
@@ -321,10 +362,31 @@ namespace Ts3Fixes
                 return true;
             }
 
+            // UpdateGardeningSkillJournal is virtual (OmniPlant and MoneyTree override it), and its HarvestPlant body is our
+            // JournalHook. Mono refuses MethodInfo.Invoke of a swapped instance method ("TargetException: Unable to invoke an
+            // invalid target": the target is checked against the hook class), so v0.3.2's sHeJournal.Invoke threw on every
+            // harvest by a Sim with the Gardening skill: the fruit was taken, the plant stayed ripe and EA reset the Sim
+            // (player report 2026-11-25, repro garden-tend-reset). Now an override runs through a bound delegate and the
+            // HarvestPlant body runs as a direct call. The swapped method carries our hook's header (klass included), so its
+            // DeclaringType reads as the hook class: an override is told apart by its handle, not by DeclaringType.
+            delegate void HeJournalFn(Sims3.Gameplay.Skills.Gardening gardeningSkill, PlantDefinition def, List<GameObject> harvested);
+            static void HeJournal(HarvestPlant hp, Sims3.Gameplay.Skills.Gardening skill, List<GameObject> list)
+            {
+                MethodInfo m = hp.GetType().GetMethod("UpdateGardeningSkillJournal", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+                    new Type[] { typeof(Sims3.Gameplay.Skills.Gardening), typeof(PlantDefinition), typeof(List<GameObject>) }, null);
+                if (m != null && sHeJournal != null && m.MethodHandle.Value != sHeJournal.MethodHandle.Value) ((HeJournalFn)Fixes.Bind(typeof(HeJournalFn), hp, m))(skill, hp.PlantDef, list);
+                else HeJournalFixed(hp, skill, hp.PlantDef, list);
+            }
+
             public void JournalHook(Sims3.Gameplay.Skills.Gardening gardeningSkill, PlantDefinition def, List<GameObject> harvested)
             {
                 if (!ShortcutOn("harvestextras")) { JournalOrig(gardeningSkill, def, harvested); return; }
-                HarvestPlant hp = (HarvestPlant)(object)this;
+                HeJournalFixed((HarvestPlant)(object)this, gardeningSkill, def, harvested);
+            }
+
+            // The fixed journal body (harvestextras on): mushroom collecting credits the harvester.
+            static void HeJournalFixed(HarvestPlant hp, Sims3.Gameplay.Skills.Gardening gardeningSkill, PlantDefinition def, List<GameObject> harvested)
+            {
                 Sim credit = HeCredit(true, sHeActor, PlumbBob.SelectedActor);
                 foreach (GameObject item in harvested)
                 {

@@ -1,0 +1,54 @@
+{
+  "note": "Dalexlol import batch (#739 harvestextras/chessdefeated, #731 petfireplan), 2026-11-27. WRITTEN, DRY-RUN ONLY, NOT RUN: game chains were running. fixesPackage ts3fixes.package.master-dalexlol-abc-1127 does not exist yet: the merger builds it from master + import/dalexlol-739-1127 + 731 + 740 and repins asi/ini/ts3fixes to the current master set. Three short repro jobs on release defaults (harvestextras, chessdefeated, petfireplan all ON). His own garden-tend-reset / chessdefeated-live / plant-shelter repros are in his local harness tree, not in the PRs: the *-check repros here are the in-repo ones. Run: node tools/harness/queue.ts tools/harness/queues/dalexlol-fixes-1127.json --dry-run",
+  "agentPackage": "game-copy/ts3agent.package.master-dalexlol-abc-1127",
+  "rewind": "off",
+  "stopQueueOnFail": false,
+  "regexCases": {},
+  "jobs": [
+    {
+      "id": "hx-check",
+      "note": "[est 5 min] harvestextras on: counters read back, 0 errors",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-abc-1127",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "save": "any world (pure check)",
+      "timeoutMin": 25,
+      "run": {
+        "repro": "harvestextras-check"
+      }
+    },
+    {
+      "id": "cd-check",
+      "note": "[est 5 min] chessdefeated on",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-abc-1127",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "save": "any world (pure check)",
+      "timeoutMin": 25,
+      "run": {
+        "repro": "chessdefeated-check"
+      }
+    },
+    {
+      "id": "pf-plan",
+      "note": "[est 10 min] petfireplan off/on in one load: on arm skips >= 1, errors 0, pet still reacts",
+      "asi": "game-copy/ts3native.asi.m1126c",
+      "iniBase": "game-copy/ts3native.ini.m1126c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-abc-1127",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 25,
+      "run": {
+        "repro": "pet-fire-plan"
+      }
+    }
+  ]
+}

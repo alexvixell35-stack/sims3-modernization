@@ -32,3 +32,8 @@ Not built, with reason:
 - B2a: inside BlackjackTable's long Run loop: IL patch candidate.
 - V4, V5, V7, V10, V11, V12, V15: inferred. V6: no household effect, the child state has no CleanUp of its own. V13: EA does not define when eating "has started". V14: Init restores autonomy on purpose; the CleanUp intent is unclear.
 - Minor list and §4 speedup candidates: not built.
+
+## plantroofshelter (2026-11-25, Dalexlol PR #740, ON since import 2026-11-27)
+- Player question: does the game get dormancy wrong for plants indoors or under a roof? `Plant.UpdateSeasonalState` shelters a plant only in a greenhouse or when it is not outside and a roof or floor is above. A plant on a covered porch, carport, roofed patio or balcony reads outside and goes dormant at the first frost, although EA's own rain watering already treats it as covered. [verified in game by his probe; the decompile reading is ours]
+- Fix: `plantroofshelter` (Batch593Logic.cs, runs in the `plantdormantflip` hook before EA's body): a roof or floor above shelters. Counters 4000-4002. Plants only, no Sim is touched. A plant brought under a roof wakes at its next daily check, as EA has it.
+- Evidence (his ABBA on Sunset Valley, forced frost for one re-check): off, roofed outside plants dormant; on, awake; open and room plants unchanged; errors 0; natural 45-minute runs pass. His repros `plant-shelter-probe` and `plant-shelter-fix` are in his harness tree, not in this repo.

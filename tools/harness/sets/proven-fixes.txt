@@ -32,7 +32,7 @@
 #   simresetalarms
 #   firegreet
 #   fglinbound fglinboundhh
-#   standwaitfix standwaitfixhh standwaitlog reactoverlayhh reactoverlaylog
+#   standwaitfix standwaitfixhh standwaitlog standwaitsocial standwaitsocialhh reactoverlayhh reactoverlaylog
 #   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
 #   blockedusehh
 #   makebedbothhh makebedbothlog
@@ -45,11 +45,12 @@
 #   socialreachhh socialreachlog
 #   unstuckhh unstucklog
 #   lineswitchhh lineswitchlog
+#   fridgelinehh fridgelinefill
 #   woohoosnap woohoosnaphh pairsnap pairsnaphh woohoosnaplog pairsnaplog
 #   crowdporthh crowdportlog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
-#   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
+#   overwatchspread overwatchstucknotice posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
 #   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
 # docs/656 pets: petlonghome / petlongvisit ran in s134 / s136, no off/on verdict; the others never exercised:
 #   petstartleskip petarrivepoint strayleave wildlotskip
@@ -97,7 +98,27 @@
 # docs/183 §9 (ladder foot 2026-11-21): ladderfootshoo is ON by default since the 2026-11-22 import (forced case in game, retry ok, errors 0). Household and selected Sims as planner / asked Sim stay opt-in, no household run:
 #   ladderfootshoohh
 # EA bug fixes firenre (docs/867) and firecount (docs/868) are ON by default since the 2026-11-23 Dalexlol 645-653 import, so no longer listed
+# termlenguard (docs/692, EA IndexOutOfRange on every Sims University class change) is ON by default since the 2026-11-27 Dalexlol #751 import, so no longer listed
+# docs/686 §38 nextplan (Dalexlol #752, import 2026-11-27): next action picked as soon as the queue empties; changes household timing and picks, not proven exact, default off:
+#   nextplan nextplanhh nextplanlog
 # perf: viewer push ride set from hooks (docs/335 LC-4, 2026-11-23) and its diagnostic shadow, default off, NOT RUN:
 #   viewerridehooks viewerridehookshadow
 # far features (docs/358, 2026-11-26), default off, NOT RUN: FarHold parked-lot hook, FarLight pulse skip, their shadows and the pulse probe:
 #   farhold farholdshadow farobj farobjlight farobjshadow farobjpulseprobe
+# elevator waits (docs/686 33-34): elevskip and elevparked are ON by default since the 2026-11-27 Dalexlol #742 import; the household variants stay opt-in:
+#   elevskiphh elevparkedhh
+# elevator / pool, default off, NOT RUN or not proven (docs/686 33-35): household-unseen opt-in, trip log, pool ladder sharing (no pool wait came up in his run):
+#   elevskiphhunseen elevtriplog poolshare poolsharehh
+# camsafe (docs/690) is ON by default since the 2026-11-27 Dalexlol #748 import; its diagnostic stays off:
+#   camsafelog
+# alibiwalk (docs/691, default off: safe in game, v3 not run, no gain shown): unseen off-lot NPC walks cut to the last 10 m:
+#   alibiwalk alibiwalklog
+# unseenskip (docs/686 37): rhskipunseen, bookskipunseen and gymtwin are ON by default since the 2026-11-27 Dalexlol #744 import; household opt-ins, no-gain and not-proven parts stay off:
+#   rhskiphhunseen bookskiphhunseen servingsharehhunseen lineswitchpc slidehang slidehanghh
+# Dalexlol PR #743 / #741 (import 2026-11-27), default off, partly tested / no measured gain yet (docs/686 §36; fridgeff is ON, only its household opt-in and log are listed):
+#   privacyroom bathroomwait facilityplan facilityplanhh facilityplanlog facilityquick facilityquickhh facilitychain facilitychainhh
+#   showerpeeplan showerpeeplanhh showerdirty fridgeffunseen fridgefflog
+# Dalexlol PR #711 (import 2026-11-27), default off by choice: household-only timing change (a new action of an idle household or selected Sim starts up to 10-20 ticks sooner), storm A/B only, no forced repro (docs/686 §23):
+#   queuewake queuewakelog
+# Dalexlol PR #712 (import 2026-11-27), default off by choice: partnerpull ends a partner's autonomous action (household included) so a waiting linked half starts; storm A/B only, known side effect (a seated partner pulled at a computer can freeze ~21 sim-min near its spot, 4 of 6 Bridgeport storms), repro pending (docs/686 §21):
+#   partnerpull partnerpulllog

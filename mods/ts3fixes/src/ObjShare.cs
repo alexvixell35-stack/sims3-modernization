@@ -60,7 +60,7 @@ namespace Ts3Fixes
             kLwLineFull = 4492, kLwShort = 4493;
         const int kOjsArmed = 0, kOjsReserved = 1, kOjsTaking = 2, kOjsDone = 3;  // a serving run's steps
 
-        sealed class OjsRhWait { public long Start; public int Length, Decision; public ObjectGuid Holder; public bool CpOpen; }  // CpOpen: crowdport off, held, not counted at the first look
+        sealed class OjsRhWait { public long Start; public int Length, Decision; public ObjectGuid Holder; public bool CpOpen, Unseen; public string View; }  // Unseen / View: docs/686 §37 (UnseenSkip.cs), the view at the start  // CpOpen: crowdport off, held, not counted at the first look
         sealed class OjsServe { public Sim Sim; public ServingContainerGroup Target; public ulong Task; public int State; }
 
         static readonly Dictionary<ulong, OjsServe> sOjsServe = new Dictionary<ulong, OjsServe>();  // serving runs in scope, by Sim
@@ -100,7 +100,7 @@ namespace Ts3Fixes
         // ---- linewaitlog ------------------------------------------------------------------------------------------------
 
         // One finished wait. rhdoor: every wait counts; line: from ObjShareCore.kLogMinutes.
-        static void OjsWaitDone(Sim s, string targetType, bool rhDoor, float min, int length, int outcome)
+        static void OjsWaitDone(Sim s, string targetType, bool rhDoor, float min, int length, int outcome, string view = null)
         {
             int[] c = PatchCounters();
             c[rhDoor ? kLwRhWaits : kLwWaits]++;
@@ -108,12 +108,14 @@ namespace Ts3Fixes
             if (outcome == ObjShareCore.kTimedOut) c[rhDoor ? kLwRhTimeouts : kLwTimeouts]++;
             else if (outcome == ObjShareCore.kCancelled) c[rhDoor ? kLwRhCancelled : kLwCancelled]++;
             sOjsLast = "linewait: " + s.FullName + " " + ShlWho(s) + ", " + SwfIa(s) + ": " + targetType + (rhDoor ? " rhdoor" : " line") + ", waited " + min.ToString("0.0")
-                + " sim-min, line length " + length + ", outcome " + ObjShareCore.kOutcomeNames[outcome] + ", at " + V(s.Position);
+                + " sim-min, line length " + length + ", outcome " + ObjShareCore.kOutcomeNames[outcome] + ", at " + V(s.Position) + (view == null ? "" : ", view " + view);
             if (ShortcutOn("linewaitlog") && sOjsCap.Take(System.Environment.TickCount)) DiagLine(sOjsLast);
+            UnsDumpMaybe();  // docs/686 §37: the counters every 2 real minutes (linewaitlog)
         }
 
         // After SimQueue.WaitForTurn's own body (LdsQueueHook.WaitHook). lengthBefore: Sims in the line when this one asked.
-        static void OjsLineWaitEnd(InteractionInstance interaction, IGameObject target, long startTicks, int lengthBefore, bool got, float timeoutInMinutes)
+        // unseenAtStart / viewStart: docs/686 §37 (UnseenSkip.cs), the view when the Sim asked (viewStart null while linewaitlog is off).
+        static void OjsLineWaitEnd(InteractionInstance interaction, IGameObject target, long startTicks, int lengthBefore, bool got, float timeoutInMinutes, bool unseenAtStart = false, string viewStart = null)
         {
             try
             {
@@ -125,7 +127,9 @@ namespace Ts3Fixes
                 }
                 Sim s = interaction == null ? null : interaction.InstanceActor;
                 if (s == null) return;
-                OjsWaitDone(s, target == null ? "?" : target.GetType().Name, false, min, lengthBefore, ObjShareCore.LineOutcome(got, min, timeoutInMinutes));
+                if (unseenAtStart) UnsCountUnseenWait(false, min);
+                string view = viewStart == null ? null : viewStart + ">" + UnsViewNow(s, target as IHasScriptProxy);
+                OjsWaitDone(s, target == null ? "?" : target.GetType().Name, false, min, lengthBefore, ObjShareCore.LineOutcome(got, min, timeoutInMinutes), view);
             }
             catch (ResetException) { throw; }
             catch (Exception e) { OjsError(0, e); }
@@ -181,6 +185,16 @@ namespace Ts3Fixes
             w.Holder = holder;
             List<ObjectGuid> list;
             w.Length = rh.WaitingToEnterSims.TryGetValue(slot, out list) && list != null ? list.Count : 0;
+            // docs/686 §37 (UnseenSkip.cs): the view at the start (counters 4802-4803, linewaitlog), and rhskipunseen /
+            // rhskiphhunseen: a held slot rhshare does not walk to is walked to by a Sim nobody sees
+            w.Unseen = UnsUnseenRaw(s, rh);
+            if (ShortcutOn("linewaitlog")) w.View = UnseenSkipCore.View(w.Unseen);
+            if (UnsRhSkip(rh, slot, s, d, w.Length))
+            {
+                w.Decision = ObjShareCore.kGo;
+                OjsRhList(rh, slot);  // the caller's cleanup reads the slot's list
+                return w;
+            }
             if (d == ObjShareCore.kWould) c[kRhsWould]++;
             else if (d == ObjShareCore.kExempt) c[kRhsExempt]++;
             else if (d == ObjShareCore.kGo) OjsRhShare(rh, slot, s, w);
@@ -246,7 +260,8 @@ namespace Ts3Fixes
                 float min = OjsMinutes(w.Start);
                 if (outcome == ObjShareCore.kCancelled) PatchCounters()[kRhsCancelLeft]++;
                 else if (outcome == ObjShareCore.kGotTurn) outcome = ObjShareCore.RhOutcome(min);
-                OjsWaitDone(s, rh.GetType().Name, true, min, w.Length, outcome);
+                if (w.Unseen) UnsCountUnseenWait(true, min);
+                OjsWaitDone(s, rh.GetType().Name, true, min, w.Length, outcome, w.View == null ? null : w.View + ">" + UnsViewNow(s, rh));
             }
             catch (ResetException) { throw; }
             catch (Exception e) { OjsError(2, e); }
@@ -278,13 +293,14 @@ namespace Ts3Fixes
 
         // ---- servingshare -----------------------------------------------------------------------------------------------
 
-        static bool OjsServeOthersInScope(Sim a, SimQueue line, List<Sim> users, bool hhOn)
+        // hhUnseenOn: docs/686 §37 servingsharehhunseen, unseen household Sims count as in scope (UnsServeScope).
+        static bool OjsServeOthersInScope(Sim a, SimQueue line, List<Sim> users, bool hhOn, bool hhUnseenOn, IHasScriptProxy platter)
         {
             List<Sim> inLine = line == null ? null : line.SimsInQueue;  // null while nobody is in the line
             if (inLine != null)
-                foreach (Sim o in inLine) if (o != null && o != a && !ShlScope(o, hhOn)) return false;
+                foreach (Sim o in inLine) if (o != null && o != a && !UnsServeScope(o, hhOn, hhUnseenOn, platter)) return false;
             if (users != null)
-                foreach (Sim o in users) if (o != null && o != a && !ShlScope(o, hhOn)) return false;
+                foreach (Sim o in users) if (o != null && o != a && !UnsServeScope(o, hhOn, hhUnseenOn, platter)) return false;
             return true;
         }
 
@@ -296,7 +312,14 @@ namespace Ts3Fixes
             bool busy = target.UseCount > 0 || (target.SimLine != null && target.SimLine.MemberCount() > 0);
             if (busy) c[kSvsRuns]++;
             bool hhOn = ShortcutOn("servingsharehh");
-            int d = ObjShareCore.Serve(ShortcutOn("servingshare"), false, ShlScope(a, hhOn), OjsServeOthersInScope(a, target.SimLine, target.ActorsUsingMe, hhOn));
+            // docs/686 §37 servingsharehhunseen (default off): the player's opt-in that lifts the household rule (household
+            // Sims never count as unseen, CLAUDE.md) for this serving grab only: an unseen household Sim that is not the
+            // selected Sim, at a platter off screen, counts as in scope, decided once here.
+            bool hhUnseenOn = !hhOn && ShortcutOn("servingshare") && ShortcutOn("servingsharehhunseen");
+            bool selfScope = ShlScope(a, hhOn), viaUnseen = false;
+            if (!selfScope && hhUnseenOn && busy && UnsServeScope(a, false, true, target)) { selfScope = true; viaUnseen = true; }
+            int d = ObjShareCore.Serve(ShortcutOn("servingshare"), false, selfScope, OjsServeOthersInScope(a, target.SimLine, target.ActorsUsingMe, hhOn, hhUnseenOn, target));
+            if (d == ObjShareCore.kGo && viaUnseen) c[kUnsServeHh]++;
             if (d != ObjShareCore.kGo)
             {
                 if (busy) c[d == ObjShareCore.kWould ? kSvsWould : d == ObjShareCore.kExempt ? kSvsExempt : kSvsKept]++;
@@ -334,7 +357,8 @@ namespace Ts3Fixes
             {
                 OjsServe k;
                 if (!sOjsServe.TryGetValue(a.ObjectId.Value, out k) || k.State != kOjsArmed || k.Task != Simulator.CurrentTask.Value) return false;
-                if (!OjsServeOthersInScope(a, line, null, ShortcutOn("servingsharehh"))) { PatchCounters()[kSvsKept]++; return false; }
+                bool hhOn = ShortcutOn("servingsharehh");
+                if (!OjsServeOthersInScope(a, line, null, hhOn, !hhOn && ShortcutOn("servingsharehhunseen"), k.Target)) { PatchCounters()[kSvsKept]++; return false; }
                 if (line.MemberCount() > 0 || OjsServeTaking(k.Target, k) > 0) PatchCounters()[kSvsLineSkips]++;
                 return true;
             }

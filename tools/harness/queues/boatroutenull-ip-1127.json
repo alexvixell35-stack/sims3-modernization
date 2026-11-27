@@ -1,5 +1,5 @@
 {
-  "note": "Repinned 2026-11-27 to atlas-main20j (asi 67e214a2) + atlas-main20e-1127 script half. boatroutenull-ip-1127 (written 2026-11-27, not run): natural repro of the GetOutOfBoat NRE (docs/51 §636). Arm off = ts3fixes brn-det-1127 (release tuning + detector), arm on = brn-on-1127 (kBoatRouteNull on). Natural hit rate: 1 in 1 run so far; a miss is no data, not a pass. node tools/harness/queue.ts tools/harness/queues/boatroutenull-ip-1127.json",
+  "note": "atlas-main20k repin (2026-11-27): boundless-atlas b6251aa, asi 8a797610, script half atlas-main20k-1127 (pkg=fbfb9c46). Repinned 2026-11-27 to atlas-main20j (asi 67e214a2) + atlas-main20e-1127 script half. boatroutenull-ip-1127 (written 2026-11-27, not run): natural repro of the GetOutOfBoat NRE (docs/51 §636). Arm off = ts3fixes brn-det-1127 (release tuning + detector), arm on = brn-on-1127 (kBoatRouteNull on). Natural hit rate: 1 in 1 run so far; a miss is no data, not a pass. node tools/harness/queue.ts tools/harness/queues/boatroutenull-ip-1127.json",
   "agentPackage": "game-copy/ts3agent.package.m1126",
   "stopQueueOnFail": false,
   "regexCases": {
@@ -21,9 +21,9 @@
         "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
       ]
     },
-    "^atlas:script pkg=6ca205e2 ": {
+    "^atlas:script pkg=fbfb9c46 ": {
       "match": [
-        "atlas:script pkg=6ca205e2 (script half loadA-4)"
+        "atlas:script pkg=fbfb9c46 (script half loadA-4)"
       ],
       "noMatch": [
         "atlas:script pkg=273b675c (script half loadA-4)",
@@ -55,7 +55,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.brn-det-1127",
-      "modSet": "game-copy/mod-sets/atlas-main20e-1127",
+      "modSet": "game-copy/mod-sets/atlas-main20k-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 1,
@@ -64,12 +64,12 @@
         "IlPatch.Enabled": 1,
         "IlPatch.ilp_tuneisolate": 1
       },
-      "pinReason": "Repinned 2026-11-27 to the current Atlas build (repin rule): game-copy/atlas-main20j-1127/atlas.asi (sha256 67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297, atlas-main20j, boundless-atlas 184c776, 0.3.21), script half game-copy/mod-sets/atlas-main20e-1127 (pkg=6ca205e2), with IlPatch.ilp_tuneisolate=1 like atlas-houseboat-ip-1127 (the AtlasMod tunables load only with it). Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053); master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126) as atlas-rebase-terrain-slide-1127. No oop plugin (Oop stays 0).",
+      "pinReason": "Repinned 2026-11-27 to atlas-main20k (boundless-atlas main b6251aa = 184c776 + bugfix/rebase-p1-guard-1127 13fb99f (slidecheck asks Has(kP1), icall guard audit) + bugfix/atlas-log-one-writer-1127 ef7435c (one atlas.log writer)): game-copy/atlas-main20k-1127/atlas.asi (sha256 8a797610f0323c48da625fbb0689873018cf77ca5aba35399aefe105deb1ec91, 0.3.21), script half game-copy/mod-sets/atlas-main20k-1127 (pkg=fbfb9c46). Repinned 2026-11-27 to the current Atlas build (repin rule): game-copy/atlas-main20j-1127/atlas.asi (sha256 67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297, atlas-main20j, boundless-atlas 184c776, 0.3.21), script half game-copy/mod-sets/atlas-main20e-1127 (pkg=6ca205e2), with IlPatch.ilp_tuneisolate=1 like atlas-houseboat-ip-1127 (the AtlasMod tunables load only with it). Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053); master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126) as atlas-rebase-terrain-slide-1127. No oop plugin (Oop stays 0).",
       "save": "Baseline-IP-Spring",
       "timeoutMin": 45,
       "extraAsi": {
-        "asi": "game-copy/atlas-main20j-1127/atlas.asi",
-        "sha256": "67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297",
+        "asi": "game-copy/atlas-main20k-1127/atlas.asi",
+        "sha256": "8a797610f0323c48da625fbb0689873018cf77ca5aba35399aefe105deb1ec91",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -84,7 +84,7 @@
           "Houseboat.Verbose": 1
         },
         "logRequire": {
-          "^atlas:script pkg=6ca205e2 ": 1
+          "^atlas:script pkg=fbfb9c46 ": 1
         },
         "logForbid": {
           "^atlas:script init failed: ": 0
@@ -111,7 +111,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.brn-on-1127",
-      "modSet": "game-copy/mod-sets/atlas-main20e-1127",
+      "modSet": "game-copy/mod-sets/atlas-main20k-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -120,12 +120,12 @@
         "IlPatch.Enabled": 1,
         "IlPatch.ilp_tuneisolate": 1
       },
-      "pinReason": "Repinned 2026-11-27 to the current Atlas build (repin rule): game-copy/atlas-main20j-1127/atlas.asi (sha256 67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297, atlas-main20j, boundless-atlas 184c776, 0.3.21), script half game-copy/mod-sets/atlas-main20e-1127 (pkg=6ca205e2), with IlPatch.ilp_tuneisolate=1 like atlas-houseboat-ip-1127 (the AtlasMod tunables load only with it). Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053); master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126) as atlas-rebase-terrain-slide-1127. No oop plugin (Oop stays 0).",
+      "pinReason": "Repinned 2026-11-27 to atlas-main20k (boundless-atlas main b6251aa = 184c776 + bugfix/rebase-p1-guard-1127 13fb99f (slidecheck asks Has(kP1), icall guard audit) + bugfix/atlas-log-one-writer-1127 ef7435c (one atlas.log writer)): game-copy/atlas-main20k-1127/atlas.asi (sha256 8a797610f0323c48da625fbb0689873018cf77ca5aba35399aefe105deb1ec91, 0.3.21), script half game-copy/mod-sets/atlas-main20k-1127 (pkg=fbfb9c46). Repinned 2026-11-27 to the current Atlas build (repin rule): game-copy/atlas-main20j-1127/atlas.asi (sha256 67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297, atlas-main20j, boundless-atlas 184c776, 0.3.21), script half game-copy/mod-sets/atlas-main20e-1127 (pkg=6ca205e2), with IlPatch.ilp_tuneisolate=1 like atlas-houseboat-ip-1127 (the AtlasMod tunables load only with it). Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053); master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126) as atlas-rebase-terrain-slide-1127. No oop plugin (Oop stays 0).",
       "save": "Baseline-IP-Spring",
       "timeoutMin": 45,
       "extraAsi": {
-        "asi": "game-copy/atlas-main20j-1127/atlas.asi",
-        "sha256": "67e214a2c3dbf21286847ec0f721167bbd98765814c5f8e3713ff3ac7374b297",
+        "asi": "game-copy/atlas-main20k-1127/atlas.asi",
+        "sha256": "8a797610f0323c48da625fbb0689873018cf77ca5aba35399aefe105deb1ec91",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -140,7 +140,7 @@
           "Houseboat.Verbose": 1
         },
         "logRequire": {
-          "^atlas:script pkg=6ca205e2 ": 1
+          "^atlas:script pkg=fbfb9c46 ": 1
         },
         "logForbid": {
           "^atlas:script init failed: ": 0

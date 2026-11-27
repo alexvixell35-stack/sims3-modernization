@@ -9,6 +9,7 @@ using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.ObjectComponents;
+using Sims3.Gameplay.Pools;
 using Sims3.Gameplay.Objects;
 using Sims3.Gameplay.Routing;
 using Sims3.Gameplay.Utilities;
@@ -116,7 +117,7 @@ namespace Ts3Fixes
             return r.Length > 0 ? " (" + r + "; last: " + sShlLastError + ")" : "";
         }
 
-        class ShlWait { public long Start; public string Holders; public int Kind; }
+        class ShlWait { public long Start; public string Holders; public int Kind; public string View; }  // View: docs/686 §37, seen / unseen at the refusal (lanewaitlog)
         static readonly Dictionary<ulong, ShlWait> sShlWaitOf = new Dictionary<ulong, ShlWait>();
 
         static void ApplyShareLanes()
@@ -164,6 +165,7 @@ namespace Ts3Fixes
             if (t == typeof(NonAnimatedDoor.NonAnimatedDoorPortalComponent)) return ShareLanesCore.kGate;
             if (t == typeof(Ladder.LadderPortalComponent)) return ShareLanesCore.kLadder;
             if (t == typeof(StaircaseSpiral.StaircaseSpiralPortalComponent)) return ShareLanesCore.kSpiral;
+            if (t == typeof(PoolPortalComponent) && pc.Owner != null && pc.Owner.GetType() == typeof(PoolLadder)) return ShareLanesCore.kPoolLadder;  // poolshare (docs/686 §35)
             return ShareLanesCore.kOther;
         }
 
@@ -200,9 +202,12 @@ namespace Ts3Fixes
                 {
                     int kind = s == null || sShlLocked == null ? ShareLanesCore.kOther : ShlKind(this);
                     if (kind == ShareLanesCore.kOther) return false;
-                    bool spiral = kind == ShareLanesCore.kSpiral;  // own switch pair and counters, same search
-                    c[spiral ? kSpiFails : kShlFails]++;
-                    bool on = ShortcutOn(spiral ? "spiralshare" : "sharelanes"), hhOn = ShortcutOn(spiral ? "spiralsharehh" : "sharelaneshh");
+                    bool spiral = kind == ShareLanesCore.kSpiral, pool = kind == ShareLanesCore.kPoolLadder;  // own switch pairs and counters, same search
+                    int iFails = pool ? kPlsFails : spiral ? kSpiFails : kShlFails, iSharable = pool ? kPlsSharable : spiral ? kSpiSharable : kShlSharable,
+                        iShared = pool ? kPlsShared : spiral ? kSpiShared : kShlShared, iWould = pool ? kPlsWould : spiral ? kSpiWould : kShlWould,
+                        iExempt = pool ? kPlsExempt : spiral ? kSpiExempt : kShlExempt;
+                    c[iFails]++;
+                    bool on = ShortcutOn(pool ? "poolshare" : spiral ? "spiralshare" : "sharelanes"), hhOn = ShortcutOn(pool ? "poolsharehh" : spiral ? "spiralsharehh" : "sharelaneshh");
                     int n; string names;
                     ShareLanesCore.Holder[] h = ShlHolders(this, hhOn || !on, out n, out names);  // off: count what both switches would do
                     bool pref = true;
@@ -213,9 +218,9 @@ namespace Ts3Fixes
                             if (st != Slot.None && ShareLanesCore.Lane(h, n, GetLaneIndexFromSlot(st), (uint)st) == ShareLanesCore.kLaneOpposite) { sharable = true; break; }
                     int d = ShareLanesCore.Decide(on, ShlScope(s, hhOn), true, sharable);
                     if (d == ShareLanesCore.kNone) return false;  // refused for another reason (the portal's extra checks, an elevator lane)
-                    c[spiral ? kSpiSharable : kShlSharable]++;
-                    if (d == ShareLanesCore.kWould) { c[spiral ? kSpiWould : kShlWould]++; return false; }
-                    if (d == ShareLanesCore.kExempt) { c[spiral ? kSpiExempt : kShlExempt]++; return false; }
+                    c[iSharable]++;
+                    if (d == ShareLanesCore.kWould) { c[iWould]++; return false; }
+                    if (d == ShareLanesCore.kExempt) { c[iExempt]++; return false; }
 
                     List<Slot> list = new List<Slot>(starts.Count);
                     foreach (Slot st in starts) if (st != Slot.None) list.Add(st);
@@ -236,7 +241,7 @@ namespace Ts3Fixes
                         if (ShareLanesCore.Take(extraOk, free, li.NoLanesAvailableSkipsAdditionalLaneChecks, ref haveFallback, out isFallback))
                         {
                             laneInfo = li; preferredLaneSelected = pref;
-                            c[spiral ? kSpiShared : kShlShared]++;
+                            c[iShared]++;
                             return true;
                         }
                         if (isFallback) fallback = li;
@@ -245,7 +250,7 @@ namespace Ts3Fixes
                     if (haveFallback)
                     {
                         laneInfo = fallback; preferredLaneSelected = false;
-                        c[spiral ? kSpiShared : kShlShared]++;
+                        c[iShared]++;
                         return true;
                     }
                 }
@@ -293,6 +298,7 @@ namespace Ts3Fixes
                 w.Kind = ShlKind(pc);
                 int n;
                 ShlHolders(pc, true, out n, out w.Holders);
+                if (ShortcutOn("lanewaitlog")) w.View = UnsViewNow(s, pc.Owner as IHasScriptProxy);  // docs/686 §37
                 sShlWaitOf[s.ObjectId.Value] = w;
             }
             catch (ResetException) { throw; }
@@ -315,7 +321,8 @@ namespace Ts3Fixes
                 if (!got) c[kShlWaitGaveUp]++;
                 sShlLast = "lanewait: " + s.FullName + " " + ShlWho(s) + ", " + SwfIa(s) + ": " + (portal == null ? "?" : portal.GetType().Name + " 0x" + portal.ObjectId.Value.ToString("X"))
                     + " (" + ShareLanesCore.kKindNames[w.Kind] + "), " + min.ToString("0.0") + " sim-min from the refusal, " + (got ? "got a lane" : "gave up")
-                    + ", held then by: " + (w.Holders.Length > 0 ? w.Holders : "nobody") + ", at " + V(s.Position);
+                    + ", held then by: " + (w.Holders.Length > 0 ? w.Holders : "nobody") + ", at " + V(s.Position)
+                    + (w.View == null ? "" : ", view " + w.View + ">" + UnsViewNow(s, portal));
                 if (ShortcutOn("lanewaitlog") && sShlCap.Take(System.Environment.TickCount)) DiagLine(sShlLast);
             }
             catch (ResetException) { throw; }
@@ -382,13 +389,27 @@ namespace Ts3Fixes
                 if (sOjsArmed > 0 && interaction != null && interaction.InstanceActor != null && OjsServeLine(interaction.InstanceActor, this)) return true;
                 // docs/686 §19 (CrowdPort.cs): a crowded elevator's line is answered "timed out" (the game's teleport skip follows) or gets a short timeout
                 if (interaction != null && CpLineHook(interaction, target, this, behavior, ref timeoutInMinutes)) return false;
+                FglBegin(interaction, this);
                 long start = SimClock.CurrentTicks;
                 int length = MemberCount();
+                // docs/686 §37 (UnseenSkip.cs): the view when the Sim asks a line with somebody in it (counters 4800-4801, linewaitlog)
+                bool unsStart = length > 0 && interaction != null && UnsUnseenRaw(interaction.InstanceActor, target as IHasScriptProxy);
+                string viewStart = ShortcutOn("linewaitlog") ? UnseenSkipCore.View(unsStart) : null;
                 LswWait lsw = LswBegin(this, interaction, target);  // docs/686 §25 (LineSwitch.cs): a free twin object is used after a while
                 bool got;
                 try { got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes); }
                 finally { if (lsw != null) LswEnd(interaction.InstanceActor, lsw); }
-                OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes);
+                OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes, unsStart, viewStart);
+                // fridgeline (FridgeBusy.cs): after a soft fail made quiet, a clicked action pauses and asks the line again
+                while (!got && FglRetry(interaction, exitReasons))
+                {
+                    start = SimClock.CurrentTicks;
+                    length = MemberCount();
+                    got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
+                    OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes, unsStart, viewStart);
+                }
+                FglEnd(interaction, got);
+                if (got && target is Sims3.Gameplay.Objects.Environment.JungleGym) UnsSlideGranted(this, interaction, target);  // docs/686 §37 (UnseenSkip.cs): slidehang
                 return got;
             }
             public bool WaitOrig(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes) { return false; }  // receives WaitForTurn's original body

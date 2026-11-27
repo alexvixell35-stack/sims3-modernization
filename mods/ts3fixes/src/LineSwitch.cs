@@ -6,6 +6,9 @@ using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Interfaces;
+using Sims3.Gameplay.Objects;
+using Sims3.Gameplay.Objects.Electronics;
+using Sims3.Gameplay.Objects.HobbiesSkills;
 using Sims3.Gameplay.Objects.Plumbing;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
@@ -32,6 +35,10 @@ namespace Ts3Fixes
     // household and selected Sims also with lineswitchhh. Off = compare mode: counted, nothing changed. lineswitchlog
     // writes one line per case. Counters 4615-4619. Check: LineSwitchCheck. Swap: SimQueue.WaitForExitReasonOnSim
     // (stub); the line hook is ShareLanes.cs's LdsQueueHook.
+    // docs/686 §37 (UnseenSkip.cs): the same rule for computers, laptops and bookshelves (lineswitchpc; household with
+    // lineswitchhh) and for workout benches and treadmills (gymtwin, NPCs only: at the first check when the NPC was unseen as
+    // its wait began, after kLineSwitchMinutes otherwise). Only the waiter moves; a running use or workout is never ended.
+    // The slide line's hang-out cap (slidehang) is checked from the same per-minute hook.
     public static partial class Fixes
     {
         const int kLswSwitched = 4615, kLswWould = 4616, kLswKept = 4617, kLswPlans = 4618, kLswErrors = 4619;
@@ -44,6 +51,10 @@ namespace Ts3Fixes
             public long Start;
             public bool Due, Would, Done;
             public int Why;
+            public int Group;    // docs/686 §37: UnseenSkipCore.kGroup*
+            public bool Unseen;  // docs/686 §37 gymtwin: an NPC unseen when its wait began
+            public bool FpSeen, FpWould, FpKept;  // docs/686 §36 (FacilityPlan.cs): the planner's own once-per-wait flags
+            public List<GameObject> FpBad;     // docs/686 §36: objects this wait could not plan to (left out of its later checks)
         }
 
         static readonly Dictionary<Sim, LswWait> sLswWaits = new Dictionary<Sim, LswWait>();
@@ -83,7 +94,21 @@ namespace Ts3Fixes
             bool shower = t is IShowerable;
             if (shower && ia.GetType().Name.IndexOf("Shower", StringComparison.Ordinal) >= 0) return typeof(IShowerable);
             if (t is Bathtub) return typeof(Bathtub);
-            return shower ? typeof(IShowerable) : null;
+            if (shower) return typeof(IShowerable);
+            // docs/686 §37: lineswitchpc, gymtwin
+            if (t is Computer) return typeof(Computer);
+            if (t is Bookshelf) return typeof(Bookshelf);
+            if (t is WorkoutBench) return typeof(WorkoutBench);
+            if (t is Treadmill) return typeof(Treadmill);
+            return null;
+        }
+
+        static int LswGroup(Type kind)
+        {
+            if (kind == null) return UnseenSkipCore.kGroupNone;
+            if (kind == typeof(Computer) || kind == typeof(Bookshelf)) return UnseenSkipCore.kGroupPc;
+            if (kind == typeof(WorkoutBench) || kind == typeof(Treadmill)) return UnseenSkipCore.kGroupGym;
+            return UnseenSkipCore.kGroupBath;
         }
 
         static GameObject[] LswObjects(Lot lot, Type kind)
@@ -91,6 +116,10 @@ namespace Ts3Fixes
             if (kind == typeof(Toilet)) return lot.GetObjects<Toilet>();
             if (kind == typeof(Sink)) return lot.GetObjects<Sink>();
             if (kind == typeof(Bathtub)) return lot.GetObjects<Bathtub>();
+            if (kind == typeof(Computer)) return lot.GetObjects<Computer>();
+            if (kind == typeof(Bookshelf)) return lot.GetObjects<Bookshelf>();
+            if (kind == typeof(WorkoutBench)) return lot.GetObjects<WorkoutBench>();
+            if (kind == typeof(Treadmill)) return lot.GetObjects<Treadmill>();
             IShowerable[] s = lot.GetObjects<IShowerable>();
             if (s == null) return null;
             GameObject[] g = new GameObject[s.Length];
@@ -105,10 +134,14 @@ namespace Ts3Fixes
             {
                 Sim s = ia == null ? null : ia.InstanceActor;
                 GameObject t = target as GameObject;
-                if (s == null || t == null || !object.ReferenceEquals(ia.Target, t) || LswKind(t, ia) == null) return null;
+                Type kind = s == null || t == null || !object.ReferenceEquals(ia.Target, t) ? null : LswKind(t, ia);
+                if (kind == null) return null;
                 if (sLswWaits.Count >= 64) sLswWaits.Clear();  // Sims destroyed mid-wait leave entries behind
                 LswWait w = new LswWait();
                 w.Queue = q; w.Ia = ia; w.Target = t; w.Start = SimClock.CurrentTicks;
+                w.Group = LswGroup(kind);
+                // gymtwin decides the view once, at the start of the wait (an NPC that somebody sees waits first)
+                if (w.Group == UnseenSkipCore.kGroupGym && q.MemberCount() > 0 && !IsPlayerSim(s)) w.Unseen = UnsScopeUnseen(s, t, Vector3.Invalid, true);
                 sLswWaits[s] = w;
                 return w;
             }
@@ -123,6 +156,7 @@ namespace Ts3Fixes
             {
                 LswWait cur;
                 if (s != null && sLswWaits.TryGetValue(s, out cur) && object.ReferenceEquals(cur, w)) sLswWaits.Remove(s);
+                FpWaitEnd(w);  // docs/686 §36: the line wait's length
                 if (w.Due && !w.Done && !w.Would)
                 {
                     PatchCounters()[kLswKept]++;
@@ -203,22 +237,27 @@ namespace Ts3Fixes
             LswWait w;
             if (sim == null || !sLswWaits.TryGetValue(sim, out w) || !object.ReferenceEquals(w.Queue, queue) || w.Done) return false;
             float waited = OjsMinutes(w.Start);
-            if (!LineSwitchCore.Due(waited, Instantiator.kLineSwitchMinutes)) return false;
+            if (!(waited >= UnseenSkipCore.SwitchAfter(w.Group, w.Unseen, Instantiator.kLineSwitchMinutes))) return false;
             w.Due = true;
             if (w.Target.HasBeenDestroyed || sim.HasExitReason()) return false;  // the game's own exit comes first
-            bool on = ShortcutOn("lineswitch");
+            bool on = ShortcutOn(w.Group == UnseenSkipCore.kGroupPc ? "lineswitchpc" : w.Group == UnseenSkipCore.kGroupGym ? "gymtwin" : "lineswitch");
             bool human = LswHuman(sim), auto = w.Ia.Autonomous;
             InteractionInstance repl = null;
             bool refused = false;
             GameObject to = human && auto ? LswFind(sim, w, out repl, out refused) : null;
             int why;
-            int d = LineSwitchCore.Decide(on, human, auto, to != null, ShlScope(sim, ShortcutOn("lineswitchhh")), out why);
+            int d = LineSwitchCore.Decide(on, human, auto, to != null, UnseenSkipCore.InScope(w.Group, !IsPlayerSim(sim), ShortcutOn("lineswitchhh")), out why);
             if (why == LineSwitchCore.kWhyNoFree && refused) why = LineSwitchCore.kWhyRefused;
             w.Why = why;
             string where = to == null ? "" : " (" + (to.RoomId == w.Target.RoomId ? "same room" : "other room") + ", " + (to.Position - sim.Position).Length().ToString("0.0") + " m, waited " + waited.ToString("0.0") + " sim-min)";
             if (d == LineSwitchCore.kWould)
             {
-                if (!w.Would) { w.Would = true; PatchCounters()[kLswWould]++; LswLine("would switch: " + LswHead(sim, w, to) + where); }
+                if (!w.Would)
+                {
+                    w.Would = true;
+                    PatchCounters()[w.Group == UnseenSkipCore.kGroupPc ? kUnsPcWould : w.Group == UnseenSkipCore.kGroupGym ? kUnsGymWould : kLswWould]++;
+                    LswLine("would switch: " + LswHead(sim, w, to) + where);
+                }
                 return false;
             }
             if (d != LineSwitchCore.kGo) return false;
@@ -227,8 +266,10 @@ namespace Ts3Fixes
             sim.AddExitReason(ExitReason.FailedToStart);
             w.Done = true;
             sLswSim = sim; sLswTick = SimClock.CurrentTicks;
-            PatchCounters()[kLswSwitched]++;
-            LswLine("switched: " + LswHead(sim, w, to) + where);
+            int[] c = PatchCounters();
+            c[w.Group == UnseenSkipCore.kGroupPc ? kUnsPcSwitched : w.Group == UnseenSkipCore.kGroupGym ? kUnsGymSwitched : kLswSwitched]++;
+            if (w.Group == UnseenSkipCore.kGroupGym && w.Unseen) c[kUnsGymUnseen]++;
+            LswLine("switched" + (w.Unseen ? " (unseen)" : "") + ": " + LswHead(sim, w, to) + where);
             return true;
         }
 
@@ -247,9 +288,24 @@ namespace Ts3Fixes
             {
                 if (sLswWaits.Count > 0)
                 {
+                    // docs/686 §36 (FacilityPlan.cs): the facility planner first (a sooner object, or something else first);
+                    // lineswitch's free-twin rule after it
+                    try
+                    {
+                        LswWait fw;
+                        if (sim != null && sLswWaits.TryGetValue(sim, out fw) && object.ReferenceEquals(fw.Queue, this) && FpWait(this, sim, fw)) return true;
+                    }
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { FpError(e); }
                     try { if (LswCheck(this, sim)) return true; }
                     catch (ResetException) { throw; }
                     catch (Exception e) { LswError(e); }
+                }
+                if (sUnsSlideHeads.Count > 0)  // docs/686 §37 (UnseenSkip.cs): a slide hang-out past EA's HangOutTimeMax ends
+                {
+                    try { UnsSlideCheck(this, sim); }
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { UnsError(e); }
                 }
                 return ExitOrig(sim, minutesToWait, exitReasons);
             }

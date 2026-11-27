@@ -70002,9 +70002,9 @@
   {
     "id": "pet-fire-plan",
     "bug": "FireSource.ReactToFire.Run plans a route to the nearest fire for every actor, but only DoHumanReactions uses it: for a pet the one or two route plans (19-112 ms each, often failing) are thrown away; a long fire re-pushes ReactToFire ~40 times a sim hour (1,358 failed plans in phase-20261114-1113, docs/546 §10)",
-    "fix": "ts3fixes PetFirePlan.cs: petfireplan (default off), docs/546 §10",
+    "fix": "ts3fixes PetFirePlan.cs: petfireplan (default on since import 2026-11-27), docs/546 §10",
     "save": "Baseline-BP-Spring",
-    "note": "The agent check (PetFireCheck, EventChecks.cs) lights one fire 3 m from a household pet on the home lot (the active Sim when no pet is home: then the on arm cannot show the skip, so use a save whose household has a pet at home), 'result' reads counters 2320/2321 and the fires burning, 'stop' puts every fire on the lot out. Route plans per arm: ts3native.log routefail lines naming the pet (ReactToFire). Waits are a first guess (not run yet).",
+    "note": "2026-11-25: `PetFireCheck startin` lights the fire inside the house at the front door instead (horses outside cannot reach it: every pet plan fails, and NRaas Overwatch's Stuck Check V2 then resets the pets; docs/546 §10.1, storm s552). The agent check (PetFireCheck, EventChecks.cs) lights one fire 3 m from a household pet on the home lot (the active Sim when no pet is home: then the on arm cannot show the skip, so use a save whose household has a pet at home), 'result' reads counters 2320/2321 and the fires burning, 'stop' puts every fire on the lot out. Route plans per arm: ts3native.log routefail lines naming the pet (ReactToFire). Waits are a first guess (not run yet).",
     "expect": "off: plans skipped 2320 +0; the pet's ReactToFire routefail lines present. on: 2320 >= 1, errors 2321 +0, no ReactToFire routefail lines for the pet; the pet still reacts (same nearest-fire choice); no script errors.",
     "steps": [
       {
@@ -112684,6 +112684,7 @@
       }
     ]
   },
+  {"id": "nextplan-check", "bug": "A Sim whose queue ran empty stands while it waits for the autonomy manager (one search per frame, alternating high/low LOD queues) and, for a selectable Sim after a player's action, EA's 5 sim-min kAutonomyDelayNormal before its next autonomous action (docs/686 §38)", "fix": "ts3fixes NextPlan.cs / NextPlanCore.cs: nextplan (NPCs, high LOD, per-tick budget) / nextplanhh (household; the active Sim keeps EA's delay): EA's own autonomy pass (Autonomy.TryFindBestAction) runs on the Sim's task at the start of LoopIdle; single-use targets of autonomous picks are claimed so another Sim's search scores them with EA's route-pending factor; nextplanlog one line per pass; default off, docs/686 §38", "save": "any world with an active household (a new game)", "note": "NextPlanCheck 'run' evaluates NextPlanCore (read-only); 'result' shows counters 4940-4959, the gap histograms and household needs. Let the game run 3 sim-hours per arm.", "expect": "off: 'verdict BROKEN', would > 0. on: 'verdict FIXED', passes > 0, queued > 0, errors 0; household pick gap p50 lower than off.", "cleanup": [{"cmd": "patches", "args": {"nextplan": false, "nextplanhh": false, "nextplanlog": false}}], "steps": [{"cmd": "patches", "args": {"nextplan": false, "nextplanhh": false, "nextplanlog": false}, "note": "off first", "waitS": 1}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.NextPlanCheck", "args": ["reset"]}, "waitS": 180, "note": "off: 180 s of play"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.NextPlanCheck", "args": ["result"]}, "max": 4000, "waitS": 1}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.NextPlanCheck", "args": ["run"]}, "max": 2500, "waitS": 1}, {"cmd": "patches", "args": {"nextplan": true, "nextplanhh": true, "nextplanlog": true}, "note": "on", "waitS": 1}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.NextPlanCheck", "args": ["reset"]}, "waitS": 180, "note": "on: 180 s of play"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.NextPlanCheck", "args": ["result"]}, "max": 4000, "waitS": 1}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.NextPlanCheck", "args": ["run"]}, "max": 2500, "waitS": 1}]},
   {"id": "outfitmissing-check", "bug": "Sim.SwitchOutfitHelper.Init(Sim, OutfitCategories, int) dereferences a missing outfit (GetOutfit null): pregnant Sims' special outfits go to the maternity list but are read from the normal one (6/6 pregnant snorkelers, Bella Vista Beach, 2026-11-17/18)", "fix": "ts3fixes OutfitMissing.cs: outfitmissing (default off)", "save": "Baseline-BP", "note": "3 rounds off/on in one load, active Sim, a Special index past its outfit count. Off: EA's NullReferenceException (3986). On: no throw, no change (3985).", "expect": "every result step passes", "steps": [{"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 1 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 1 on: no change, no throw"}, {"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 2 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 2 on: no change, no throw"}, {"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 3 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 3 on: no change, no throw"}]},
   {"id": "ageupdupinst-check", "bug": "Two SimDescription.Instantiate calls during one deferred age-up (#553): the second reads the age-up's SimBuilderTask after the first nulled it; NullReferenceException out of AgingState.PreInstantiateSim", "fix": "ts3fixes AgeUpDupInst.cs: ageupdupinst (default off)", "save": "Baseline-BP", "note": "3 rounds off/on in one load, a new townie each time (it ages up once and stays instantiated). Off: one call throws (3989). On: both get the same Sim (3988).", "expect": "every result step passes", "steps": [{"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 1 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 1 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 2 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 2 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 3 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 3 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}]},
   {
@@ -122002,6 +122003,7 @@
       }
     ]
   },
+
   {
     "id": "lineswitch-force",
     "bug": "A Sim waiting in a toilet's line keeps waiting while a second toilet on the lot is free: EA's substitution (SimQueue.TryReplacementInteraction) looks only once, on the first pass of the wait loop (docs/686 §25.1)",
@@ -146647,6 +146649,3648 @@
           "stop": true
         },
         "optional": true
+      }
+    ]
+  },
+  {
+    "id": "elevskip-check",
+    "bug": "Sims stand at elevator doors while the column's one car is in use on another floor: the doors give no lane, the Sim loops in the doors' line (a quarter sim-minute per ask, up to 30 sim-minutes); EA's teleport skip needs the car free with open doors on the Sim's floor. Storm logs s532-s560: 1,462 elevator lane waits, 9,730 sim-min, mostly NPCs in Bridgeport towers (docs/686 §33)",
+    "fix": "ts3fixes ElevSkip.cs: elevskip (unseen NPCs at once), elevskiphh (household, selected and NPCs in view after kElevSkipHhWait, with fade), elevskiphhunseen (with both: off-screen household Sims other than the selected Sim at once, no fade), elevtriplog; line step in CrowdPort.cs CpLineHook; default off, docs/686 §33",
+    "save": "any world (pure check); the storm proof is Bridgeport seed 156 (s562, docs/686 §33.5)",
+    "note": "ElevSkipCheck 'run' evaluates the rules with controls (read-only); 'result' shows counters 4700-4710 and 4721 (set through, kept, car launches with their riders) and the last elevskip: line.",
+    "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls ok=True' in both. No 'elevskip: error' line.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevskip": false,
+          "elevskiphh": false,
+          "elevskiphhunseen": false,
+          "elevtriplog": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevskip": false,
+          "elevskiphh": false,
+          "elevskiphhunseen": false,
+          "elevtriplog": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "elevskip": true,
+          "elevskiphh": true,
+          "elevskiphhunseen": true,
+          "elevtriplog": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevSkipCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ]
+  },
+  {"id": "camsafe-check", "bug": "Every off-screen shortcut tests 'off screen now and farther than the camera reach' on its own; the camera moves fast (portrait click, lot jump, map view, quick pans), so a spot judged unseen can be on screen a moment later (docs/690)", "fix": "ts3fixes CamSafe.cs / CamSafeCore.cs: camsafe (one camera-safe rule inside TownieUnseen, FarFromViewers, FarFromCamera, UnsFar and UcOnScreen: predictive reach margin, recently-seen hold, camera-jump pause; CsDecide / CsSnap for callers); camsafelog counts what camsafe would say with it off; default off, docs/690", "save": "any world (pure check)", "note": "CamSafeCheck 'run' evaluates CamSafeCore with a scripted camera (read-only); 'result' shows counters 4880-4899 and the camera state.", "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'rules ok' in both. errors 0.", "cleanup": [{"cmd": "patches", "args": {"camsafe": false, "camsafelog": false}}], "steps": [{"cmd": "patches", "args": {"camsafe": false, "camsafelog": false}, "note": "off first", "waitS": 1}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.CamSafeCheck", "args": ["run"]}, "note": "off: the old tests", "max": 2500, "waitS": 2}, {"cmd": "patches", "args": {"camsafe": true}, "note": "on", "waitS": 1}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.CamSafeCheck", "args": ["run"]}, "note": "on: the shared rule", "max": 2500, "waitS": 2}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.CamSafeCheck", "args": ["result"]}, "note": "on: counters", "max": 2500, "waitS": 2}]},
+{"id": "alibiwalk-check", "bug": "An NPC nobody can see, off the active lot, still walks every metre of a long route (across town, a park, a big community lot): plan, locomotion, pose and route script for the whole walk (docs/691)", "fix": "ts3fixes AlibiWalk.cs / AlibiWalkCore.cs: alibiwalk (at SimRoutingComponent.DoRoute with a successful plan of >= kAlibiWalkMinM m of walking paths and portals: the NPC is set at the start of the route's last kAlibiWalkTailM m, decided through camsafe CsDecide, the route replanned from there, EA walks the tail); alibiwalklog counts what it would cut; default off, docs/691", "save": "any world (pure check); the storm proof is s640 (Sunset Valley + Bridgeport)", "note": "AlibiWalkCheck 'run' evaluates AlibiWalkCore (read-only); 'result' shows counters 4920-4939 and the long NPC walks by interaction.", "expect": "'rules ok' in both arms; errors 0.", "cleanup": [{"cmd": "patches", "args": {"alibiwalk": false, "alibiwalklog": false}}], "steps": [{"cmd": "patches", "args": {"alibiwalk": false, "alibiwalklog": true}, "note": "compare mode", "waitS": 60}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AlibiWalkCheck", "args": ["run"]}, "note": "rules", "max": 2500, "waitS": 2}, {"cmd": "patches", "args": {"alibiwalk": true}, "note": "on", "waitS": 120}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AlibiWalkCheck", "args": ["result"]}, "note": "on: counters", "max": 2500, "waitS": 2}]},
+{"id": "camsafe-camera", "bug": "A shortcut decided unseen while the camera sweeps or jumps across town can act in view (docs/690)", "fix": "ts3fixes camsafe (docs/690)", "save": "a busy world: Sunset Valley or Sims University, speed fast", "note": "Forced repro: the off-screen shortcuts on; camera jumps between the most populated lots (3 s dwell) and pans, first with camsafelog (old rule, counted), then with camsafe. Compare 'on screen soon after unseen' (late-seen audit, 3 s) per arm, and snaps.", "expect": "camsafelog arm: 'old unseen but camsafe seen' > 0 while the camera moves. camsafe arm: 'on screen soon after unseen' clearly below the camsafelog arm's (per watched verdict), errors 0.", "cleanup": [{"cmd": "camera_jumps", "args": {"stop": true}}, {"cmd": "patches", "args": {"camsafe": false, "camsafelog": false}}], "steps": [{"cmd": "set_speed", "args": {"speed": "fast"}, "waitS": 1}, {"cmd": "patches", "args": {"elevskip": true, "elevskiphh": true, "elevskiphhunseen": true, "camsafe": false, "camsafelog": true}, "note": "old rule, counted", "waitS": 1}, {"cmd": "camera_jumps", "args": {"order": "populated", "lots": 8, "dwellS": 3}, "note": "jumps", "waitS": 120}, {"cmd": "camera_jumps", "args": {"stop": true}, "waitS": 1}, {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 20, "passes": 2}, "note": "sweeps", "waitS": 85}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.CamSafeCheck", "args": ["result"]}, "note": "old rule: counters", "max": 2500, "waitS": 2}, {"cmd": "patches", "args": {"camsafe": true}, "note": "camsafe", "waitS": 1}, {"cmd": "camera_jumps", "args": {"order": "populated", "lots": 8, "dwellS": 3}, "note": "jumps", "waitS": 120}, {"cmd": "camera_jumps", "args": {"stop": true}, "waitS": 1}, {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 20, "passes": 2}, "note": "sweeps", "waitS": 85}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.CamSafeCheck", "args": ["result"]}, "note": "camsafe: counters (cumulative: subtract the first read)", "max": 2500, "waitS": 2}]},
+  {
+    "id": "elevparked-check",
+    "bug": "A Sim boarding at closed elevator doors waits 7 sim-minutes of 'the car arrives' effects (ElevatorDoors.kLongEffectsTime) even when the column's car stands on its floor (the doors close when the last rider steps out); the whole column waits with it (docs/686 §34)",
+    "fix": "ts3fixes ElevParked.cs: elevparked (NPCs), elevparkedhh (household and selected Sims), default off, docs/686 §34",
+    "save": "any world (pure check); the storm proof is Bridgeport seed 156 (s562, docs/686 §34)",
+    "note": "ElevParkedCheck 'run' evaluates the rules with controls (read-only); 'result' shows counters 4711-4715 and the last elevparked: line.",
+    "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls ok=True' in both. No 'elevparked: error' line.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevparked": false,
+          "elevparkedhh": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevparked": false,
+          "elevparkedhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevParkedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "elevparked": true,
+          "elevparkedhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevParkedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevParkedCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ]
+  },
+  {
+    "id": "poolshare-check",
+    "bug": "A swimmer refused at a pool ladder held from the other end (one lane per ladder; the game shares it only for Sims entering at the same end) waits at a spot until it gives up: 7 NPC waits, 14 sim-min in storms s550f, s558g, s560b (docs/686 §35)",
+    "fix": "ts3fixes PoolShare.cs + ShareLanes.cs (sharelanes' search, pool ladder kind): poolshare (NPCs), poolsharehh, default off, docs/686 §35",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot with a pool",
+    "note": "PoolShareCheck 'run' evaluates the table rule with controls (read-only); 'lot' lists the pool ladders of the selected Sim's lot with their lane holders; 'result' shows counters 4716-4720.",
+    "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls ok=True' in both.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "poolshare": false,
+          "poolsharehh": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "poolshare": false,
+          "poolsharehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PoolShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PoolShareCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "the selected Sim's lot now",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "poolshare": true,
+          "poolsharehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PoolShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PoolShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ]
+  },
+  {
+    "id": "unseenskip-check",
+    "bug": "Sims wait for things nobody sees: a held rabbit hole enter slot (s532-s562: 780 NPC waits / 3,489 sim-min, College of Business 1,101), computers and bookshelves with a free twin on the lot, workout benches and treadmills, serving platters; and an EA bug: JungleGymSlide's HangOutOn never reads HangOutTimeMin/Max, so its head holds the ladder line 70-92 sim-min while the children behind time out (docs/686 §37)",
+    "fix": "ts3fixes UnseenSkip.cs (+ ObjShare.cs, LineSwitch.cs, ShareLanes.cs): rhskipunseen / rhskiphhunseen, bookskipunseen / bookskiphhunseen, lineswitchpc, gymtwin, servingsharehhunseen, slidehang / slidehanghh; the hhunseen switches are explicit opt-ins that lift the household-never-unseen rule for their own case; default off, docs/686 §37",
+    "save": "any world (pure check); storm proof: Sims University and Sunset Valley (docs/686 §37)",
+    "note": "UnseenSkipCheck 'run' evaluates the rules with controls (read-only); 'result' shows counters 4780-4803 (skips, twins, slide hang-outs ended, waits begun unseen) and the last line.",
+    "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls' true in both. No 'unseenskip: error' line.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhskipunseen": false,
+          "rhskiphhunseen": false,
+          "lineswitchpc": false,
+          "bookskipunseen": false,
+          "bookskiphhunseen": false,
+          "gymtwin": false,
+          "servingsharehhunseen": false,
+          "slidehang": false,
+          "slidehanghh": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhskipunseen": false,
+          "rhskiphhunseen": false,
+          "lineswitchpc": false,
+          "bookskipunseen": false,
+          "bookskiphhunseen": false,
+          "gymtwin": false,
+          "servingsharehhunseen": false,
+          "slidehang": false,
+          "slidehanghh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhskipunseen": true,
+          "rhskiphhunseen": true,
+          "lineswitchpc": true,
+          "bookskipunseen": true,
+          "bookskiphhunseen": true,
+          "gymtwin": true,
+          "servingsharehhunseen": true,
+          "slidehang": true,
+          "slidehanghh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenSkipCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ]
+  },
+  {
+    "id": "termlenguard-invalid-term",
+    "bug": "Motive.UpdateMotiveWithDecay, AcademicCourse.AdjustAcademicPerformanceForTest and GiveAcademicPerformanceAsIfSimDidThisInteraction index EA's academic multiplier tables with (uint)(AcademicCareer.sTermLengthEx - 1) and NumberOfCoursesPerDay - 1 unchecked: term length kInvalid (a new game from the Sims University world file), a 3- or 4-week term or 0 courses throw IndexOutOfRange and the Sim is reset (docs/692 §1-§2)",
+    "fix": "ts3fixes TermLenGuard.cs: termlenguard (default off), docs/692 §2",
+    "save": "a new game from Sims University.world (students with an AcademicCareer)",
+    "note": "TermLenGuardCheck 'run' calls EA's AdjustAcademicPerformanceForTest(true) on a throwaway course of the first Sim with an AcademicCareer, with the term length set to kInvalid for the call; the Sim's academic performance and the term length are put back. Nothing in the world stays changed.",
+    "expect": "off: threw IndexOutOfRangeException, 'verdict: BROKEN', 4907 +1. on: threw no, academic performance moved by 120 x the course-load factor, 'verdict: FIXED', 4905 +1, 4908 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "termlenguard": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TermLenGuardCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TermLenGuardCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "termlenguard": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TermLenGuardCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the guard",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TermLenGuardCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "termlenguard": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "termlenguard": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "facilityplan-rush",
+    "bug": "Household Sims wait for each other at the toilet and shower in a morning rush: EA's autonomy sees 'in use' but not for how long, prefers an empty line once at the pick, then waits up to 15 sim-min in place (docs/686 §36.1)",
+    "fix": "ts3fixes FacilityPlan.cs + ShowerShare.cs: facilityplan, facilityplanhh, facilityquick(hh), facilitychain(hh), showerpeeplan(hh), showerdirty, facilityplanlog (default off), docs/686 §36",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap, ToiletModerate, ToiletExpensive in two rooms, BathtubShowerModern)",
+    "note": "Rush after school (16:00; s590a at 07:00 lost the Sims to work and school): Lisa, Jack and Judy with low Bladder and Hygiene, household autonomy on for 150 sim-min per arm. Off arm first (all planner switches off, log on), then on. FacilityPlanCheck household gives per-Sim line wait, trips per kind, accidents and the final Bladder/Hygiene.",
+    "expect": "on vs off: less total line wait, no more accidents, final motives as high; facilityplan lines (pick / switched / something else first / came back), facilityquick and facilitychain lines when they apply; errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 16
+        },
+        "note": "everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "note": "who lives here (names for the log)",
+        "waitS": 2,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "facilityplan: swaps applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm off: the planner switches off, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "off: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fprush-off"
+        },
+        "note": "log marker fprush-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -55
+        },
+        "note": "off: Lisa Bunch Bladder -55",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hygiene",
+          "value": -50
+        },
+        "note": "off: Lisa Bunch Hygiene -50",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -45
+        },
+        "note": "off: Jack Bunch Bladder -45",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hygiene",
+          "value": -70
+        },
+        "note": "off: Jack Bunch Hygiene -70",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -65
+        },
+        "note": "off: Judy Bunch Bladder -65",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hygiene",
+          "value": -30
+        },
+        "note": "off: Judy Bunch Hygiene -30",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "off: the rush: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 30 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 60 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 90 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 120 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 150 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "off: rush over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "off: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "showerdirty": true,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm on: the planner switches on, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "on: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fprush-on"
+        },
+        "note": "log marker fprush-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -55
+        },
+        "note": "on: Lisa Bunch Bladder -55",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hygiene",
+          "value": -50
+        },
+        "note": "on: Lisa Bunch Hygiene -50",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -45
+        },
+        "note": "on: Jack Bunch Bladder -45",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hygiene",
+          "value": -70
+        },
+        "note": "on: Jack Bunch Hygiene -70",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -65
+        },
+        "note": "on: Judy Bunch Bladder -65",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hygiene",
+          "value": -30
+        },
+        "note": "on: Judy Bunch Hygiene -30",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "on: the rush: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 30 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 60 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 90 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 120 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 150 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "on: rush over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "on: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "facilityplanlog": false
+        },
+        "note": "default off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
+  },
+  {
+    "id": "facilityplan-defer",
+    "bug": "A Sim that is not urgent stands in a long shower line instead of doing something useful first (docs/686 §36.1)",
+    "fix": "ts3fixes FacilityPlan.cs + ShowerShare.cs: facilityplan, facilityplanhh, facilityquick(hh), facilitychain(hh), showerpeeplan(hh), showerdirty, facilityplanlog (default off), docs/686 §36",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap, ToiletModerate, ToiletExpensive in two rooms, BathtubShowerModern)",
+    "note": "Lisa takes a long shower (Hygiene -80, an order); Judy (Hygiene -20, not urgent) picks the same shower herself and waits in Lisa's line. On: the planner sees the wait (EA's GetShowerTime) and that Judy is not urgent, she leaves the line, autonomy gives her another action (the pick factor keeps the shower out while it is busy), and she comes back once it is predicted free.",
+    "expect": "off: 'would do something else first', Judy waits in line; on: 'something else first' then 'came back', Judy's line wait shorter; errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 17
+        },
+        "note": "everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "note": "who lives here (names for the log)",
+        "waitS": 2,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "facilityplan: swaps applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm off: the planner switches off, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "off: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fpdefer-off"
+        },
+        "note": "log marker fpdefer-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hygiene",
+          "value": -80
+        },
+        "note": "off: Lisa Bunch Hygiene -80",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hygiene",
+          "value": -20
+        },
+        "note": "off: Judy Bunch Hygiene -20",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": 60
+        },
+        "note": "off: Judy Bunch Bladder 60",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -30
+        },
+        "note": "off: Judy Bunch Hunger -30",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:BathtubShowerModern",
+          "interaction": "def:TakeShower"
+        },
+        "note": "off: Lisa showers (a long shower from -80)",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:BathtubShowerModern",
+          "interaction": "def:TakeShower",
+          "autonomous": true
+        },
+        "note": "off: Judy's own pick: the same shower; not urgent (Hygiene -20)",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Judy in Lisa's line (off) or left it (on)",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Judy Bunch",
+          "enabled": true
+        },
+        "note": "off: Judy's autonomy on: she picks her next action",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "off: Judy (30 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Judy's action",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Lisa done? Judy back at the shower (on)",
+        "waitS": 60,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: end",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Judy Bunch",
+          "enabled": false
+        },
+        "note": "off: Judy's autonomy off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "off: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "showerdirty": true,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm on: the planner switches on, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "on: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fpdefer-on"
+        },
+        "note": "log marker fpdefer-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hygiene",
+          "value": -80
+        },
+        "note": "on: Lisa Bunch Hygiene -80",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hygiene",
+          "value": -20
+        },
+        "note": "on: Judy Bunch Hygiene -20",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": 60
+        },
+        "note": "on: Judy Bunch Bladder 60",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -30
+        },
+        "note": "on: Judy Bunch Hunger -30",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:BathtubShowerModern",
+          "interaction": "def:TakeShower"
+        },
+        "note": "on: Lisa showers (a long shower from -80)",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:BathtubShowerModern",
+          "interaction": "def:TakeShower",
+          "autonomous": true
+        },
+        "note": "on: Judy's own pick: the same shower; not urgent (Hygiene -20)",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Judy in Lisa's line (off) or left it (on)",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Judy Bunch",
+          "enabled": true
+        },
+        "note": "on: Judy's autonomy on: she picks her next action",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "on: Judy (30 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Judy's action",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Lisa done? Judy back at the shower (on)",
+        "waitS": 60,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: end",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Judy Bunch",
+          "enabled": false
+        },
+        "note": "on: Judy's autonomy off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "on: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 1,
+        "max": 1500
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "facilityplanlog": false
+        },
+        "note": "default off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
+  },
+  {
+    "id": "facilityplan-urgent",
+    "bug": "An urgent Sim waits in the line of the toilet it picked while another frees sooner or is free (docs/686 §36.1)",
+    "fix": "ts3fixes FacilityPlan.cs + ShowerShare.cs: facilityplan, facilityplanhh, facilityquick(hh), facilitychain(hh), showerpeeplan(hh), showerdirty, facilityplanlog (default off), docs/686 §36",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap, ToiletModerate, ToiletExpensive in two rooms, BathtubShowerModern)",
+    "note": "Jack and Lisa on two toilets (orders, Jack first), Judy (Bladder -88) picks Lisa's toilet herself. On: from the first check the planner sends her to the toilet with the soonest start including the walk (ToiletExpensive in the other room is free; else Jack's); facilityquick may end Lisa's use early for her (Lisa at 70 after 5 sim-min).",
+    "expect": "off: 'would switch', Judy waits; on: 'switched' within 1-2 sim-min, no accident; errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 20
+        },
+        "note": "everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "note": "who lives here (names for the log)",
+        "waitS": 2,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "facilityplan: swaps applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm off: the planner switches off, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "off: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fpurgent-off"
+        },
+        "note": "log marker fpurgent-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -40
+        },
+        "note": "off: Jack Bunch Bladder -40",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "off: Lisa Bunch Bladder -80",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -88
+        },
+        "note": "off: Judy Bunch Bladder -88",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "off: Jack uses the moderate toilet first (frees first)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "off: Lisa uses the cheap toilet",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "off: Judy's own pick: the cheap toilet (Lisa's); Bladder -88: urgent",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Judy in line (off) or on her way to the soonest-free toilet (on)",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "off: Judy (30 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: which toilet Judy uses",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: end",
+        "waitS": 40,
+        "max": 800
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "off: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "showerdirty": true,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm on: the planner switches on, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "on: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fpurgent-on"
+        },
+        "note": "log marker fpurgent-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -40
+        },
+        "note": "on: Jack Bunch Bladder -40",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "on: Lisa Bunch Bladder -80",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -88
+        },
+        "note": "on: Judy Bunch Bladder -88",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "on: Jack uses the moderate toilet first (frees first)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "on: Lisa uses the cheap toilet",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "on: Judy's own pick: the cheap toilet (Lisa's); Bladder -88: urgent",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Judy in line (off) or on her way to the soonest-free toilet (on)",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "on: Judy (30 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: which toilet Judy uses",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: end",
+        "waitS": 40,
+        "max": 800
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "on: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 1,
+        "max": 1500
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "facilityplanlog": false
+        },
+        "note": "default off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
+  },
+  {
+    "id": "fridge-line-full",
+    "bug": "After Fridge_Have the last user stays on the fridge's routing slot; the next Sim's route stands and waits until EA pushes the blocker 1-3 sim-min later (#738)",
+    "fix": "ts3fixes FacilitySlot.cs probe (docs/686 §36.10); clipwait / clipwaithh walk into the slot after the grace; slotleave (default off): the done user steps off at once",
+    "save": "Sunset Valley new game: the Bunch house (one fridge, kitchen sink)",
+    "note": "Three hungry Sims click Have on the one fridge at once, twice per arm, household autonomy on 40 sim-min per round. Off arm first, then on. Third arm ff: camera far away, fridgeff + fridgeffunseen (the selected Sim stays on EA's line).",
+    "expect": "off vs on (clipwait): stall sim-min about equal (the post-use stand is 1 sim-min, under the 2.5 grace); ff: the second and third Sim take their food at once (fridgeff lines, errors 0), fridge stalls and line waits lower, each still eats (Hunger up).",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 12
+        },
+        "note": "lunch, everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "note": "names",
+        "waitS": 2,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots start"
+          ]
+        },
+        "note": "facilityslot probe on the home lot",
+        "waitS": 1,
+        "max": 300,
+        "mustMatch": "probe started"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false,
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "fridgeline": false,
+          "fridgelinehh": false,
+          "facilityplanlog": true,
+          "clipwaitlog": true,
+          "routefaillog": true,
+          "standwaitlog": true
+        },
+        "note": "off: clip and slot switches off; fridgeline off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots reset"
+          ]
+        },
+        "note": "off: totals from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fslot-off"
+        },
+        "note": "log marker fslot-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "off round 1: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "off round 1: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "off round 1: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "off: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off round 1: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off round 1: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "off: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "off round 2: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "off round 2: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "off round 2: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "off: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off round 2: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off round 2: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "off: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots"
+          ]
+        },
+        "note": "off: post-use stands and stalls",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: clipwait counters",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": true,
+          "clipwaithh": true,
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "fridgeline": false,
+          "fridgelinehh": false,
+          "facilityplanlog": true,
+          "clipwaitlog": true,
+          "routefaillog": true,
+          "standwaitlog": true
+        },
+        "note": "on: clipwait, clipwaithh",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots reset"
+          ]
+        },
+        "note": "on: totals from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fslot-on"
+        },
+        "note": "log marker fslot-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "on round 1: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "on round 1: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "on round 1: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "on: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on round 1: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on round 1: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "on: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "on round 2: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "on round 2: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "on round 2: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "on: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on round 2: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on round 2: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "on: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots"
+          ]
+        },
+        "note": "on: post-use stands and stalls",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: clipwait counters",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false,
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "fridgeline": false,
+          "fridgelinehh": false,
+          "fridgeff": true,
+          "fridgeffunseen": true,
+          "fridgefflog": true,
+          "facilityplanlog": true,
+          "clipwaitlog": true,
+          "routefaillog": true,
+          "standwaitlog": true
+        },
+        "note": "ff: fridgeff + fridgeffunseen on, clip switches off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "far"
+        },
+        "note": "ff: camera on the farthest community lot (s593: a pose off the world kept the target on the house)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots reset"
+          ]
+        },
+        "note": "ff: totals from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fslot-ff"
+        },
+        "note": "log marker fslot-ff",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "far"
+        },
+        "note": "ff: camera away again before the round",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "ff round 1: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "ff round 1: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "ff round 1: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "ff: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "ff round 1: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "ff round 1: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "ff: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "far"
+        },
+        "note": "ff: camera away again before the round",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "ff round 2: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "ff round 2: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "ff round 2: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "ff: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "ff round 2: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "ff round 2: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "ff: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots"
+          ]
+        },
+        "note": "ff: post-use stands and stalls",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "ff: clipwait counters",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "fridgeff"
+          ]
+        },
+        "note": "ff: fast grabs, seen, exempt, errors",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "errors 0"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false,
+          "facilityplanlog": false,
+          "clipwaitlog": false,
+          "standwaitlog": false,
+          "fridgeff": false,
+          "fridgeffunseen": false,
+          "fridgefflog": false
+        },
+        "note": "cleanup",
+        "waitS": 1,
+        "max": 300,
+        "cleanup": true
+      }
+    ]
+  },
+  {
+    "id": "pairsnapjig-force",
+    "bug": "Pillow Fight by a bed: the jig is placed by the bed and the boxed-in partner's plan to its jig slot fails (PlanRouteToJigA / RouteToJigB); the social ends with a route-fail balloon (docs/686 §20.1, storms: PillowFight 27 route fails in s496-s529)",
+    "fix": "ts3fixes WooHooSnap.cs pairsnap rule c (pairsnap, pairsnaphh, pairsnaplog), docs/686 §20.7",
+    "save": "Sunset Valley new game: 18 Maywood Lane (the places are that lot's, as pairsnap-force)",
+    "note": "RUN 2026-11-24 (Deck, Sunset Valley new game), as part of the combined entry readwalk-pairjig-force (runs r4-rp1..r4-rp4, docs/686 §20.7); r4-rp4 passed: off would 1 and no fight, on 'planned through objects, 2.8 m' and both Sims run Pillow Fighting.",
+    "expect": "pairjig-off: PairSnapCheck would 1, no pillow fight. pairjig-on: 'pairsnap: household Bo Jig -> SocialJigTwoPerson with Bea Jig (FailedBecauseNoPathToDestination, jig plan): planned through objects, N m', walk through objects 1, both run Pillow Fighting, errors 0.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Jig",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Kit",
+              "last": "Jig",
+              "age": "Child",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults and a child on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Jig"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 19
+        },
+        "note": "evening: after school, before bedtime",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig",
+            "Bo Jig",
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "all three at the mailbox, queues empty",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BedSingle",
+          "name": "bed",
+          "x": 1193.6,
+          "y": 49.1,
+          "z": 1182.8
+        },
+        "note": "a single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Bookshelf",
+          "name": "shelf",
+          "x": 1197.5,
+          "y": 49.1,
+          "z": 1192.5
+        },
+        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedSingle"
+        },
+        "note": "the bed's part and routing slots (where sit and entry slots lie)",
+        "waitS": 1,
+        "max": 900,
+        "optional": true
+      },
+      {
+        "cmd": "modify_relationship",
+        "args": {
+          "sim": "Bea Jig",
+          "other": "Bo Jig",
+          "state": "Partner",
+          "liking": 100
+        },
+        "note": "Bea and Bo are partners",
+        "waitS": 1,
+        "max": 200
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Jig"
+          ],
+          "x": 1190.8,
+          "z": 1183.6,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bo on a lawn tile of the back yard",
+        "waitS": 10,
+        "max": 300
+      },
+      {
+        "cmd": "box_in",
+        "args": {
+          "sim": "Bo Jig",
+          "x": 1190.8,
+          "z": 1183.6
+        },
+        "note": "eight fridges round Bo: his plan to the pillow fight's jig fails",
+        "waitS": 2,
+        "max": 900,
+        "mustMatch": "\"boxed\":true"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Bea Jig",
+          "x": 1190.8,
+          "z": 1185.9
+        },
+        "note": "Bea on the tile beyond the ring, 2.3 m from Bo",
+        "waitS": 3,
+        "max": 200
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1191.5,
+            "y": 61,
+            "z": 1192
+          },
+          "target": {
+            "x": 1192.5,
+            "y": 49,
+            "z": 1185.5
+          }
+        },
+        "note": "camera over the ring and the bed",
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnaplog": true,
+          "routefaillog": true,
+          "socialreach": false,
+          "socialreachhh": false,
+          "unstuck": false,
+          "unstuckhh": false,
+          "blockeduse": false,
+          "blockedusehh": false,
+          "pairsnap": false,
+          "pairsnaphh": false
+        },
+        "note": "log lines on, arms off",
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "query": "pillow"
+        },
+        "note": "Pillow Fight is on Bea's menu for Bo",
+        "waitS": 1,
+        "max": 600,
+        "optional": true
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairjig-off"
+        },
+        "note": "log marker pairjig-off",
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "interaction": "pillow fight"
+        },
+        "note": "off order: Bea, Pillow Fight with Bo (a jig by the bed)",
+        "waitS": 25,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "pairjig-off at 25 s (expect tries and would up, jig plan): pairsnap counters",
+        "waitS": 1,
+        "max": 1800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: no pillow fight runs",
+        "waitS": 1,
+        "max": 600
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "Bea's queue empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "Bo's queue empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": true,
+          "pairsnaphh": true
+        },
+        "note": "arm on: pairsnap + pairsnaphh",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairjig-on"
+        },
+        "note": "log marker pairjig-on",
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "interaction": "pillow fight"
+        },
+        "note": "on order: the same pillow fight",
+        "waitS": 30,
+        "max": 300
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "on: Bo at the jig (out of the ring)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: both sides of the pillow fight",
+        "waitS": 15,
+        "max": 600
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "pairjig-on (expect walk through objects 1, kept 0, errors 0): pairsnap counters",
+        "waitS": 1,
+        "max": 1800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea after the fight",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the fight",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "end the fight",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: placed by a walk through objects, errors 0",
+        "waitS": 1,
+        "max": 1800,
+        "mustMatch": "walk through objects [1-9].*errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": false,
+          "pairsnaphh": false
+        },
+        "note": "default off again",
+        "waitS": 1
       }
     ]
   },

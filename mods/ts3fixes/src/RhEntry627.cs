@@ -67,11 +67,29 @@ namespace Ts3Fixes
                 c[3580]++;
                 if (ShortcutOn("routefaillog") && sim.IsInActiveHousehold)
                     RflLine(false, sim, "spot probe at " + V(spot) + " (stand-in for a placed NPC, not this Sim's route), PlanFromPoint sync "
-                        + res.mType + " blocker " + res.mBlockerType, r.GetApproximateOriginalDestination(), t0, r.Handle, null);
+                        + res.mType + " blocker " + res.mBlockerType + ", from " + RfpCaller(), r.GetApproximateOriginalDestination(), t0, r.Handle, null);
                 return true;
             }
             catch (ResetException) { throw; }
             catch (Exception) { PatchCounters()[3582]++; return false; }
+        }
+
+        // The game frames that asked for the probe (Ts3Fixes frames left out), 6 at most, innermost first: which EA code checks
+        // spots with this Sim's door rights (docs/546 §10.1).
+        static string RfpCaller()
+        {
+            System.Text.StringBuilder b = new System.Text.StringBuilder();
+            System.Diagnostics.StackTrace st = new System.Diagnostics.StackTrace(1, false);
+            for (int i = 0, n = 0; i < st.FrameCount && n < 6; i++)
+            {
+                System.Reflection.MethodBase m = st.GetFrame(i).GetMethod();
+                Type t = m != null ? m.DeclaringType : null;
+                if (m == null || (t != null && t.Namespace == "Ts3Fixes")) continue;
+                if (b.Length > 0) b.Append(" < ");
+                b.Append((t != null ? t.Name : "?") + "." + m.Name);
+                n++;
+            }
+            return b.Length > 0 ? b.ToString() : "?";
         }
 
         public static object RouteFailProbeCheck(string what)

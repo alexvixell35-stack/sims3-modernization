@@ -11,9 +11,11 @@ namespace Ts3Fixes
     public static class ShareLanesCore
     {
         // portal kinds the lane sharing covers; anything else keeps the game's table (elevators, turnstiles, velvet ropes,
-        // pools: their lane hooks keep per-Sim state or play one animation at a time). Spiral stairs: switch spiralshare.
-        public const int kOther = 0, kStairs = 1, kDoor = 2, kGate = 3, kLadder = 4, kSpiral = 5;
-        public static readonly string[] kKindNames = { "other", "stairs", "door", "gate", "ladder", "spiral" };
+        // the pool's own edge portal: their lane hooks keep per-Sim state or play one animation at a time). Spiral stairs:
+        // switch spiralshare. Pool ladders: switch poolshare (docs/686 §35; the climb is one state machine per Sim, EA already
+        // lets two Sims on the ladder from the same end).
+        public const int kOther = 0, kStairs = 1, kDoor = 2, kGate = 3, kLadder = 4, kSpiral = 5, kPoolLadder = 6;
+        public static readonly string[] kKindNames = { "other", "stairs", "door", "gate", "ladder", "spiral", "pool ladder" };
 
         public const int kNone = 0, kWould = 1, kExempt = 2, kGo = 3;
 

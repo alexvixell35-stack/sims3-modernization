@@ -97,7 +97,8 @@ namespace Ts3Fixes
 
         // interop calls of the unseen checks (counted while the probe is on)
         static void UcCount(int slot) { if (sUcOn) PatchCounters()[slot]++; }
-        static bool UcOnScreen(IHasScriptProxy o) { UcCount(kUcOnScreen); return World.IsObjectOnScreen(o); }
-        static bool UcOnScreen(ObjectGuid id) { UcCount(kUcOnScreen); return World.IsObjectOnScreen(id); }
+        // camsafe / camsafelog (CamSafe.cs): plus the recently-seen hold (an object on screen in the last kCamSafeHoldS s)
+        static bool UcOnScreen(IHasScriptProxy o) { UcCount(kUcOnScreen); bool r = World.IsObjectOnScreen(o); return sCsShadow ? CsScreen(o, r) : r; }
+        static bool UcOnScreen(ObjectGuid id) { UcCount(kUcOnScreen); bool r = World.IsObjectOnScreen(id); return sCsShadow ? CsScreen(id, r) : r; }
     }
 }

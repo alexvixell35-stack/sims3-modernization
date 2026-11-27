@@ -45,6 +45,7 @@ namespace Ts3Fixes
             public bool FrontDoorHook(Lot lot, out IGameObject reservedTile)
             {
                 Sim sim = (Sim)(object)this;
+                FrontDoorTrace(sim);  // docs/546 §10.1: which game code searches the front door for this Sim (routefaillog)
                 Sim.IsPointSafelyRoutable cur = Sim.sIsPointSafelyRoutable;
                 // shortcut: a call that starts while one of ours is in flight is capped even with the switch just turned
                 // off, since the game would otherwise read our checker (bound to another lot); runtime toggles only
@@ -64,6 +65,19 @@ namespace Ts3Fixes
                     if (sCount == null) sCount = typeof(Sim.IsPointSafelyRoutable).GetField("mCount", BindingFlags.Instance | BindingFlags.NonPublic);
                     if (sCount != null && (int)sCount.GetValue(t) > kLimit) c[138]++;
                 }
+            }
+            static int sTraceLines;
+            static void FrontDoorTrace(Sim sim)
+            {
+                try
+                {
+                    if (sim == null || !sim.IsInActiveHousehold || sTraceLines >= 200 || !ShortcutOn("routefaillog")) return;
+                    sTraceLines++;
+                    DiagLine("frontdoor search: " + sim.FullName + (sim.SimDescription.IsPet ? " (pet)" : "") + " in "
+                        + (sim.CurrentInteraction != null ? sim.CurrentInteraction.GetType().Name : "none") + ", from " + RfpCaller());
+                }
+                catch (ResetException) { throw; }
+                catch (Exception) { }
             }
             public bool FrontDoorOrig(Lot lot, out IGameObject reservedTile) { reservedTile = null; return false; } // receives Sim.FindRoutablePointInsideNearFrontDoor's original header
         }

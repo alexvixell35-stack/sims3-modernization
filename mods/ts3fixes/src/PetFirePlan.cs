@@ -10,7 +10,7 @@ using Sims3.SimIFace.CAS;
 
 namespace Ts3Fixes
 {
-    // petfireplan (tuning kPetFirePlan, off by default; docs/546 §10). Exact speedup, every Sim.
+    // petfireplan (tuning kPetFirePlan, on by default since 2026-11-27, proven in game 2026-11-25; docs/546 §10, §10.1). Exact speedup, every Sim.
     //
     // FireSource.ReactToFire.Run makes a route and calls PlanToNearestFire(route) for every actor, then switches on the
     // species: only DoHumanReactions takes the route. The dog, cat, horse, unicorn, deer and raccoon reactions use only the

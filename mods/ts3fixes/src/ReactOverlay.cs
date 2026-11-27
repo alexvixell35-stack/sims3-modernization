@@ -57,7 +57,7 @@ namespace Ts3Fixes
         static readonly List<Sim> sRovGone = new List<Sim>();
         static readonly LineCapCore sRovCap = new LineCapCore(30, 60000, 300);
         static readonly string[] kRovWhy = { "", "not a human", "routing", "posture", "posture transition", "carrying", "toilet, bath, bed or pool",
-            "conversation", "arms or head busy", "no overlay clip", "household without reactoverlayhh", "asleep or no reactions" };
+            "conversation", "arms or head busy", "no overlay clip", "household without reactoverlayhh", "asleep or no reactions", "age transition" };
         static readonly int[] sRovWhy = new int[ReactOverlayCore.kWhyCount];
         static AlarmHandle sRovAlarm = AlarmHandle.kInvalidHandle;
         static string sRovLast = "", sRovLastError = "", sRovMissing = "";
@@ -118,6 +118,7 @@ namespace Ts3Fixes
             if (s.IsSleeping || Sims3.SimIFace.Environment.HasEditInGameModeSwitch) return ReactOverlayCore.kWhyAsleep;
             InteractionInstance cur = s.CurrentInteraction;
             if (cur is IInteractionDoesntAllowReactions) return ReactOverlayCore.kWhyAsleep;
+            if (cur is Sims3.Gameplay.ActorSystems.AgeUp) return ReactOverlayCore.kWhyAgeUp;  // s542: Wave over the age-up spin (NRaas AgeUpEx too); the rig and model swap mid-way
             if (s.Conversation != null || cur is Sims3.Gameplay.Socializing.SocialInteraction) return ReactOverlayCore.kWhyConversation;  // s538: Wave over a social's start; its own clips come next
             if (s.IsRouting) return ReactOverlayCore.kWhyRouting;
             Posture p = s.Posture;

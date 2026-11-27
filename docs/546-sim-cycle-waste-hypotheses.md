@@ -283,6 +283,42 @@ after the route (`routefail job: route 25ABCDEF, ReactToFire target FireSource, 
 variant shares the same `<interaction> target <type>` text, so NPC failures rank by cause the same way. Format and transport:
 docs/226 "Logging".
 
+### 10.1 `petfireplan` proven: the thrown-away pet plans also set off Overwatch resets (2026-11-25, Deck, storms s550a-s553a) [PROVEN]
+
+Seen first in storm s550a (Appaloosa Plains, new game, seed 152, all routing fixes on, `petfireplan` not in the list): a
+house fire on the active Fox lot gave 2078 routefail lines in 5 minutes (other worlds 17-58) and 12 hitches >= 150 ms
+(8 >= 500 ms: "slow plan: pet" 635 and 633 ms, "other (routefail)" 602 ms). 832 lines were the two horses'
+`ReactToFire` plans (§10, the plans only the human reaction uses), 1605 were "spot probe" lines.
+
+What the probes are [verified, caller stacks in the log]: NRaas Overwatch's Stuck Check V2 (`StuckCheck.OnPostPlan`, on
+`Route.PostPlanCallback`) counts every failed plan of a Sim that has not moved; past `mMinimumRouteFail` fails over
+`mRouteFailTestMinutesV2` sim-minutes it resets the Sim (`ResetTask`, "Unroutable"). A horse that stands outside and
+reacts to an indoor fire fails both `ReactToFire` plans every time the fire's broadcaster re-pushes the reaction
+(`FailedBecauseDestinationPortalLocked`: a horse cannot go through the house doors), so Overwatch resets it again and
+again. Each reset runs `Instantiation.AttemptToPutInSafeLocation` -> `Sim.AttemptToFindSafeLocation` ->
+`FindPositionNearFrontDoor`: a `FindGoodLocation` over indoor spots near the front door, each spot one
+`IsPointInLotSafelyRoutable` plan with the horse's door rights, all failing (about 200 failed plans per reset), and then
+the horse is put at the lot position. So it is not a replan-every-tick loop in EA's reaction; it is EA's wasted plan
+multiplied by a third-party stuck check. (The "spot probe" tag of `routefailprobe` was written for NPC placement on the
+selected Sim; here the probe Sim is the reset Sim itself. The probe line now names its caller frames, `from ...`.)
+
+Forced repro: `PetFireCheck startin` (EventChecks.cs) lights a fire inside the house next to the front door's inside
+routing slot; storm `s552-run.sh` (5 min, seed 152, same switch list, Overwatch as installed), one arm without and one
+with `petfireplan`:
+
+| Appaloosa, indoor fire, 5 min | off (s552a) | on (s552b) |
+|---|---|---|
+| routefail lines | 11,498 | 12 |
+| pet `ReactToFire` plan fails | 2,805 | 0 (519 plans skipped, [2320]; errors [2321] 0) |
+| front-door "spot probe" fails | 9,666 | 0 |
+| hitches >= 150 ms | 49 (23.9 s; 40 >= 500 ms) | 3 (1.1 s; none from routing) |
+| Overwatch resets of the pets (s553a trace, off) | 33 front-door searches from `ResetTask` | - |
+
+Both arms "Bin pair restored", no crash. The pets still react on the on arm (same nearest-fire choice). No new switch:
+`petfireplan` (PetFirePlan.cs, default on since import 2026-11-27) is the fix; it should be in every all-on storm list.
+`routefaillog` also writes one `frontdoor search: <Sim> in <interaction>, from <frames>` line per
+`FindRoutablePointInsideNearFrontDoor` call of an active-household Sim (200 per session at most).
+
 ## 11. Events lost to one failed route (2026-11-14, reported in play)
 
 **awardkeep [verified in the decompiled code; harness check].** A career great success (the firefighter's hero award and

@@ -153,6 +153,13 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/venuememo/run.ts': CSC,
   'tools/selftest/wakepark/run.ts': CSC,
   'tools/selftest/standwait/run.ts': CSC,
+  'tools/selftest/camsafe/run.ts': CSC,
+  'tools/selftest/alibiwalk/run.ts': CSC,
+  'tools/selftest/termlenguard/run.ts': CSC,
+  'tools/selftest/elevskip/run.ts': CSC,
+  'tools/selftest/elevparked/run.ts': CSC,
+  'tools/selftest/poolshare/run.ts': CSC,
+  'tools/selftest/standwaitsocial/run.ts': CSC,
   'tools/selftest/reactoverlay/run.ts': CSC,
   'tools/selftest/sharelanes/run.ts': CSC,
   'tools/selftest/blockeduse/run.ts': CSC,
@@ -162,6 +169,8 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/reachuse/run.ts': CSC,
   'tools/selftest/objshare/run.ts': CSC,
   'tools/selftest/woohoosnap/run.ts': CSC,
+  'tools/selftest/queuewake/run.ts': CSC,
+  'tools/selftest/partnerpull/run.ts': CSC,
   'tools/selftest/showershare/run.ts': CSC,
   'tools/selftest/viewlenient/run.ts': CSC,
   'tools/selftest/socialreach/run.ts': CSC,
@@ -175,6 +184,9 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/strayleave/run.ts': CSC,
   'tools/selftest/wildlotskip/run.ts': CSC,
   'tools/selftest/lineswitch/run.ts': CSC,
+  'tools/selftest/unseenskip/run.ts': CSC,
+  'tools/selftest/facilityplan/run.ts': CSC,
+  'tools/selftest/nextplan/run.ts': CSC,
 };
 
 // No self-check, on purpose (the gap stays visible here). A new script needs a self-check or an entry with its reason.

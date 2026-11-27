@@ -3,8 +3,9 @@
 // an invalid target" (RefTable.cs; repros bp-eafixes-check prefdup and bp-deadrefs-check aging, 2026-10-30). Call such a
 // method compiled, or through Delegate.CreateDelegate(type, target, method) (EaFixes.cs PrefRemoveFn).
 // Matched by method name, whatever the lookup type: an interface MethodInfo (IAlarmOption.PerformAlarm) dispatches to the
-// swapped class method too (OverwatchSpread.cs sOwPerform). Scope: MethodInfos looked up as `<expr>.GetMethod("M"` and
-// invoked by the same variable name; Invoke(null, ...) passes.
+// swapped class method too (OverwatchSpread.cs sOwPerform). Scope: MethodInfos looked up as `<expr>.GetMethod("M"` or
+// through the B12M(type, "M", ...) helper (Batch590Logic.cs; v0.3.2's harvestextras reset was Batch593 sHeJournal, a
+// B12M lookup) and invoked by the same variable name; Invoke(null, ...) passes.
 //   node tools/selftest/swapinvoke/run.ts
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -15,7 +16,7 @@ export function findSwapInvokes(files: Record<string, string>): string[] {
   for (const m of all.matchAll(/Patch\(\s*[^,"()]+(?:\([^()]*\))?,\s*"(\w+)"/g)) patched.add(m[1]);
   const hits: string[] = [];
   for (const [name, text] of Object.entries(files)) {
-    for (const m of text.matchAll(/(\w+)\s*=\s*(?:[^;=]|==)*?\.GetMethod\("(\w+)"/g)) {
+    for (const m of text.matchAll(/(\w+)\s*=\s*(?:[^;=]|==)*?(?:\.GetMethod\(|\bB12M\([^,;]+,\s*)"(\w+)"/g)) {
       if (!patched.has(m[2])) continue;
       const call = new RegExp(`\\b${m[1]}\\.Invoke\\((?!\\s*null\\b)`, 'g');
       for (const c of text.matchAll(call))
@@ -32,8 +33,10 @@ const fx = findSwapInvokes({
   'B.cs': 'MethodInfo r = typeof(Svc).GetMethod("Remove", f);\nr.Invoke(s, args);\nMethodInfo t = typeof(Svc).GetMethod("Stat");\n'
     + 't.Invoke(null, args);\nMethodInfo u = typeof(Svc).GetMethod("Other"); u.Invoke(s, null);\n'
     + 'sP = alarm == null ? null : alarm.GetMethod("Perform", Type.EmptyTypes);\nelse sP.Invoke(option, null);',
+  'C.cs': 'static readonly MethodInfo sJ = B12M(typeof(Svc), "Remove", typeof(int));\nsJ.Invoke(p, args);\n'
+    + 'static readonly MethodInfo sK = B12M(typeof(Svc), "Other");\nsK.Invoke(p, null);',
 });
-const ok = fx.length === 2 && fx[0].startsWith('B.cs:2:') && fx[1].startsWith('B.cs:7:');
+const ok = fx.length === 3 && fx[0].startsWith('B.cs:2:') && fx[1].startsWith('B.cs:7:') && fx[2].startsWith('C.cs:2:');
 console.assert(ok, 'fixture: ' + JSON.stringify(fx));
 if (!ok) process.exit(1);
 

@@ -311,6 +311,7 @@ namespace Ts3Fixes
             ApplyPetPoolGhost();   // docs/588 B10 §19
             ApplyEatPostOnce();   // docs/589 B11 §1
             ApplyMotiveMultOnce();   // docs/589 B11 §2
+            ApplyTermLenGuard();     // docs/692 §2 (TermLenGuard.cs): termlenguard, ON by default since the 2026-11-27 import; its decay step is in ApplyMotiveMultOnce's hook
             ApplyFightBroadcastEnd();   // docs/589 B11 §3
             ApplyReactionCopy();   // docs/589 B11 §4
             ApplyCarpoolSchoolSkip();   // docs/589 B11 §5
@@ -384,6 +385,7 @@ namespace Ts3Fixes
             ApplyLightningWeights();   // docs/593 L1 B13 §2
             ApplyPlantDormantFlip();   // docs/593 G1 B13 §3
             ApplyPlantDormantTime();   // docs/593 G2 B13 §4
+            ApplyPlantShelter();   // plantroofshelter (2026-11-25)
             ApplyHarvestExtras();   // docs/593 H2, H5 B13 §5
             ApplyShroomSlots();   // docs/593 H3 B13 §6
             ApplyHarvestRegion();   // docs/593 H4 B13 §7
@@ -411,6 +413,7 @@ namespace Ts3Fixes
             ApplyFireplaceHerb();   // docs/611 §3 (LotCallbacks80.cs)
             ApplyRummageBcast();   // docs/611 §4 (LotCallbacks80.cs)
             ApplyStairWaitEnd();   // docs/612 §2 (StairDup82.cs)
+            ApplyPrivacyRoom();   // PrivacyRoom.cs
             ApplyCompatPrecedence();   // docs/328 §7 (CompatResolve.cs): our cleanupvfx / lifeguardquit / stairwaitend on mod overrides that skip the game's method
             ApplySimDisposeLink();   // docs/612 §3 (StairDup82.cs)
             ApplyRhExitUnseen();   // docs/613 §2 (StuckJobs83.cs)
@@ -576,11 +579,19 @@ namespace Ts3Fixes
             ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
             ApplySocialReach();        // docs/686 §17 (SocialReach.cs): socialreach / socialreachhh, off by default (counts either way); its DoRoute step is in ApplyBlockedUse's hook, as unstuck's (§18, Unstuck.cs)
             ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
+            ApplyFacilityPlan();       // docs/686 §36 (FacilityPlan.cs): facilityplan / facilityquick / facilitychain and their household switches, off by default (counts either way); swaps GameObject.GetInUseAutonomyMultiplier, InteractionInstance.Begin/EndCommodityUpdates; its wait step is in ApplyLineSwitch's hook
+            ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
+            ApplyFridgeFf();           // docs/686 §36.11 (FridgeFf.cs): fridgeff / fridgeffunseen, off; swaps Fridge_Have.Run, Fridge_EatLeftovers.Run
+            ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
+            ApplyPartnerPull();        // docs/686 §21 (PartnerPull.cs): partnerpull, off by default (counts either way); a 0.5 sim-minute alarm started at world load, no swap
             ApplyLineSwitch();         // docs/686 §25 (LineSwitch.cs): lineswitch / lineswitchhh, off by default (counts either way); swaps SimQueue.WaitForExitReasonOnSim, the line hook is ApplyShareLanes's
+            ApplyUnseenSkip();         // docs/686 §37 (UnseenSkip.cs): rhskipunseen, bookskipunseen, gymtwin, lineswitchpc, slidehang and their household opt-ins; rhskipunseen, bookskipunseen, gymtwin ON by default since the 2026-11-27 import, the rest off (counts either way); swaps Bookshelf_ReadSomething.Run; the rest rides ObjShare's, ShareLanes' and LineSwitch's hooks
             ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplySmcSetActor();        // SmcSetActor.cs: StateMachineClient.SetActor for servingshare (docs/686 §14), a one-int test while nothing is armed
+            ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh / elevskiphhunseen, elevtriplog; elevskip ON by default since the 2026-11-27 import, the rest off (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
+            ApplyElevParked();         // docs/686 §34 (ElevParked.cs): elevparked / elevparkedhh; elevparked ON by default since the 2026-11-27 import, elevparkedhh off (counts either way); swaps ElevatorDoorsPortalComponent.OnApproachingPortalObject
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyPetStartleSkip();     // docs/656 §8.1 (PetStartleSkip.cs), off by default
             ApplyPetArrivePoint();     // docs/656 §4.1 (PetArrivePoint.cs), off by default
@@ -1044,6 +1055,7 @@ namespace Ts3Fixes
         // [3199-3201] lightningweights (Batch593Logic.cs, B13 §2, docs/593 L1): weights restored / left zeroed (switch off) / errors.
         // [3202-3204] plantdormantflip (Batch593Logic.cs, B13 §3, docs/593 G1): flips undone / flips seen (switch off) / errors.
         // [3205-3207] plantdormanttime (Batch593Logic.cs, B13 §4, docs/593 G2): times refreshed / spans left to drain (switch off) / errors.
+        // [4000-4002] plantroofshelter (Batch593Logic.cs, 2026-11-25): roofed outside evaluations sheltered / seen (switch off) / errors.
         // [3208-3210] harvestextras (Batch593Logic.cs, B13 §5, docs/593 H2, H5): extras kept and journals to the harvester / extras lost (switch off) / errors.
         // [3211-3213] shroomslots (Batch593Logic.cs, B13 §6, docs/593 H3): mushroom loops our way / EA's loops (switch off) / errors.
         // [3214-3216] harvestregion (Batch593Logic.cs, B13 §7, docs/593 H4): regions our way / Average answered as Good (switch off) / errors.
@@ -1334,6 +1346,7 @@ namespace Ts3Fixes
         // [3199-3201] lightningweights (Batch593Logic.cs, B13 §2, docs/593 L1): weights restored / left zeroed (switch off) / errors.
         // [3202-3204] plantdormantflip (Batch593Logic.cs, B13 §3, docs/593 G1): flips undone / flips seen (switch off) / errors.
         // [3205-3207] plantdormanttime (Batch593Logic.cs, B13 §4, docs/593 G2): times refreshed / spans left to drain (switch off) / errors.
+        // [4000-4002] plantroofshelter (Batch593Logic.cs, 2026-11-25): roofed outside evaluations sheltered / seen (switch off) / errors.
         // [3208-3210] harvestextras (Batch593Logic.cs, B13 §5, docs/593 H2, H5): extras kept and journals to the harvester / extras lost (switch off) / errors.
         // [3211-3213] shroomslots (Batch593Logic.cs, B13 §6, docs/593 H3): mushroom loops our way / EA's loops (switch off) / errors.
         // [3214-3216] harvestregion (Batch593Logic.cs, B13 §7, docs/593 H4): regions our way / Average answered as Good (switch off) / errors.
@@ -1727,6 +1740,10 @@ namespace Ts3Fixes
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
+        // [4596-4601] queuewake (QueueWake.cs, docs/686 §23): idle loops woken / would, off / loop ticks saved (on and off) / left: past the deadline /
+        // left: not the first entry / errors.
+        // [4582-4589] partnerpull (PartnerPull.cs, docs/686 §21): waits past the grace / pulled: read to sleep / socials / would, off / kept: player's
+        // action or queue / kept: busy or outranking head / errors / refused by the game (timed interaction about to finish).
         // [1727] deadrefsweep (DeadRefs.cs DrWaitWhileFrozen, docs/205 §2.3b): frames a pass waited while paused or with the clock stopped.
         // [1728-1733] spread-pass pause gate (SpreadGate.cs WaitWhileFrozen, docs/205 §2.3d): frames waited while paused, clock stopped or (own
         // tasks) out of live mode, by easpreadlots / easpreadpets / easpreaddecay / Overwatch (task starts, chain, StuckCheck, inventory) /
@@ -1740,7 +1757,37 @@ namespace Ts3Fixes
         // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
         // would drop, off / queued that ran / their summed ms / max ms / errors.
-        const int kCounterSlots = 4680;
+        // [4700-4710] elevskip / elevtriplog (ElevSkip.cs, docs/686 §33): set through, unseen NPCs / with fade / would, off / NPC in view kept /
+        // household exempt / repeat kept / no exit spot / errors / car launches / riders at launch / one-rider launches.
+        // [4721] elevskiphhunseen (ElevSkip.cs, docs/686 §33): set through, household, unseen.
+        // [4711-4715] elevparked (ElevParked.cs, docs/686 §34): doors opened at once / would, off / household exempt / car stops seen / errors.
+        // [4716-4720] poolshare (PoolShare.cs + ShareLanes.cs, docs/686 §35): pool ladder refusals / held from the other end / shared /
+        // would, off / household exempt.
+        // [4880-4899] camsafe / camsafelog (CamSafe.cs, docs/690): TownieUnseen asks / old unseen / camsafe unseen / old unseen
+        // but camsafe seen, of which jump / hold / margin; spot vetoes; object holds; jumps; snaps; CsDecide calls / unseen;
+        // watched verdicts / on screen soon after unseen / after a camsafe veto; speed max m/s; reach max m; samples; errors.
+        // 4722-4739 left to other branches; 4804-4879 see below.
+        // [4920-4939] alibiwalk / alibiwalklog (AlibiWalk.cs, docs/691): NPC routes followed / long / refused by path kind, scope,
+        // seen, portal end, little to cut, active lot; would cut / cut / undone / undo failed; metres skipped / tails / long; errors.
+        // [4780-4803] unseenskip (UnseenSkip.cs, docs/686 §37): rhskipunseen NPC / household / seen kept / would; lineswitchpc switched /
+        // would; bookskip NPC / household / seen kept / would / no spot; gymtwin switched / would / unseen at once; servingsharehhunseen runs;
+        // slidehang ended NPC / household / would / kept; errors; line waits begun unseen / their sim-min x10; rhdoor waits begun unseen /
+        // their sim-min x10; 4804-4819 spare.
+        // [4904-4908] termlenguard (TermLenGuard.cs, docs/692 §2): decay updates / test adjustments / skipped-class grants
+        // guarded / would guard (off) / errors; 4900-4903 dnpcostlog on the combo branch; 4909-4919 spare.
+        // [4740-4779] facility planner (FacilityPlan.cs, docs/686 §36): switched / would switch / something else first / would / kept EA
+        // (urgent, nothing better) / exempt / picks lowered / picks all late / picks would / uses timed / errors / came back after a defer /
+        // facilityquick ended / would / exempt / facilitychain chained / would / exempt / wait checks / quick ends for privacy waiters /
+        // showerpeeplan fills (ShowerShare.cs) / showerpeeplan would / showerdirty after shower-pee / partner shower offers / bladder
+        // failures seen / line wait sim-min x10 / facility waits / toilet line to a shower (showerpeeplan) / showerdirty shared /
+        // showerdirty would; [4770-4776] fridgeff (FridgeFf.cs, §36.11): food taken at once / leftovers taken at once / would, off /
+        // seen, EA's line / selected Sim exempt / errors / busy starts; 4777-4779 spare.
+        // [4687-4691] standwaitsocial (StandWaitSocial.cs, docs/686 §30): social waits with a failed people-free pass / gave up / would, off /
+        // exempt (household without standwaitsocialhh) / errors.
+        // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
+        // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
+        // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
+        const int kCounterSlots = 4960;  // 4960 from #752 (nextplan 4940-4959)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2226,6 +2273,8 @@ namespace Ts3Fixes
                 case "firedoorkeep": return Instantiator.kFireDoorKeep;
                 case "standwaitfix": return Instantiator.kStandWaitFix;  // StandWait.cs (docs/686): a blocked obstacle stand-and-wait yields to pushes, pushes its blockers, passes when only people block, off
                 case "standwaitfixhh": return Instantiator.kStandWaitFixHousehold;  // StandWait.cs (docs/686): standwaitfix for household and selected Sims too, off
+                case "standwaitsocial": return Instantiator.kStandWaitSocial;  // StandWaitSocial.cs (docs/686 §30): a social half whose spot cannot be reached without people either ends its stand-and-wait after 2 failed passes, NPCs, off
+                case "standwaitsocialhh": return Instantiator.kStandWaitSocialHh;  // StandWaitSocial.cs (docs/686 §30): household and selected Sims too, off
                 case "sharelanes": return Instantiator.kShareLanes;  // ShareLanes.cs (docs/686 §8): a stair, door, gate or ladder lane held from the other end is shared; a portal closed by standing Sims is tried without people at once, off
                 case "sharelaneshh": return Instantiator.kShareLanesHousehold;  // ShareLanes.cs: sharelanes for household and selected Sims too (as the arriving Sim and as a lane holder), off
                 case "laddershare": return Instantiator.kLadderShare;  // ShareLanes.cs (docs/686 §8): a ladder climb does not wait for its turn in the ladder's line, off
@@ -2253,6 +2302,18 @@ namespace Ts3Fixes
                 case "showerpee": return Instantiator.kShowerPee;  // ShowerShare.cs (docs/686 §15): an NPC that has to pee with no usable toilet on the lot takes a shower that refills its bladder, off
                 case "showerpeehh": return Instantiator.kShowerPeeHousehold;  // ShowerShare.cs: the same for household and selected Sims, off
                 case "showersharelog": return Instantiator.kShowerShareLog;  // ShowerShare.cs: one line per showertogether / showerpee act, off
+                case "elevskip": return Instantiator.kElevSkip;  // ElevSkip.cs (docs/686 §33): an unseen NPC the elevator doors refused is set at the doors its ride ends at, and the game replans, ON by default (import 2026-11-27)
+                case "elevskiphh": return Instantiator.kElevSkipHousehold;  // ElevSkip.cs (docs/686 §33): household and selected Sims and NPCs in view too, after kElevSkipHhWait sim-minutes, with EA's fade, off
+                case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off
+                case "camsafelog": return Instantiator.kCamSafeLog;  // CamSafe.cs: sample the camera and count what camsafe would say with camsafe off (the A/B off arm), off
+                case "alibiwalk": return Instantiator.kAlibiWalk;  // AlibiWalk.cs (docs/691): an unseen NPC's long walk off the active lot cut to its tail, off
+                case "alibiwalklog": return Instantiator.kAlibiWalkLog;  // AlibiWalk.cs: count what alibiwalk would cut, off
+                case "elevskiphhunseen": return Instantiator.kElevSkipHhUnseen;  // ElevSkip.cs (docs/686 §33): with elevskip + elevskiphh, unseen household Sims (not the selected Sim) go at once with no fade; explicit opt-in lifting the household-never-unseen rule for elevator skips only, off
+                case "elevtriplog": return Instantiator.kElevTripLog;  // ElevSkip.cs (docs/686 §33): one line per car launch (riders, wait in the car), per Sim set through and per parked-car boarding, off
+                case "elevparked": return Instantiator.kElevParked;  // ElevParked.cs (docs/686 §34): an NPC boarding at closed doors where the column's car stands gets the doors opened at once instead of EA's 7 sim-minute call, ON by default (import 2026-11-27)
+                case "elevparkedhh": return Instantiator.kElevParkedHousehold;  // ElevParked.cs (docs/686 §34): household and selected Sims too, off
+                case "poolshare": return Instantiator.kPoolShare;  // PoolShare.cs (docs/686 §35): a pool ladder lane held from the other end is shared (sharelanes' search), NPCs, off
+                case "poolsharehh": return Instantiator.kPoolShareHousehold;  // PoolShare.cs (docs/686 §35): household and selected Sims too, off
                 case "crowdport": return Instantiator.kCrowdPort;  // CrowdPort.cs (docs/686 §19): an NPC at a crowded elevator, rabbit hole door or station skips the queue by the game's own teleport paths; NPC exits leave together, off
                 case "crowdporthh": return Instantiator.kCrowdPortHousehold;  // CrowdPort.cs: the same for household and selected Sims, off
                 case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off
@@ -2357,6 +2418,11 @@ namespace Ts3Fixes
                 case "fireplaceherb": return Instantiator.kFireplaceHerb;  // docs/611 §3 (LotCallbacks80.cs), EA bug fix, off
                 case "rummagebcast": return Instantiator.kRummageBcast;  // docs/611 §4 (LotCallbacks80.cs), EA bug fix, off
                 case "stairwaitend": return Instantiator.kStairWaitEnd;  // docs/612 §2 (StairDup82.cs), EA bug fix, off
+                case "privacyroom": return Instantiator.kPrivacyRoom;  // PrivacyRoom.cs, EA bug fix, off
+                case "bathroomwait": return Instantiator.kBathroomWait;  // BathroomWait.cs, off
+                case "fridgeline": return Instantiator.kFridgeLine;  // FridgeBusy.cs, NPCs, ON (#738)
+                case "fridgelinehh": return Instantiator.kFridgeLineHousehold;  // FridgeBusy.cs, household and selected Sims, off
+                case "fridgelinefill": return Instantiator.kFridgeLineFill;  // FridgeBusy.cs, wash hands while the line is full, off
                 case "simdisposelink": return Instantiator.kSimDisposeLink;  // docs/612 §3 (StairDup82.cs), EA bug fix, off
                 case "rhexitunseen": return Instantiator.kRhExitUnseen;  // docs/613 §2 (StuckJobs83.cs), EA bug fix, off
                 case "routefailprobe": return Instantiator.kRouteFailProbe;  // docs/627 §2 (RhEntry627.cs), log attribution fix, off
@@ -2492,6 +2558,7 @@ namespace Ts3Fixes
                 case "petpoolghost": return Instantiator.kPetPoolGhost;
                 case "eatpostonce": return Instantiator.kEatPostOnce;
                 case "motivemultonce": return Instantiator.kMotiveMultOnce;
+                case "termlenguard": return Instantiator.kTermLenGuard;  // TermLenGuard.cs (docs/692 §2): academic multipliers with an out-of-range term length / course load count as 1 instead of throwing (Sim reset), every Sim, off
                 case "fightbroadcastend": return Instantiator.kFightBroadcastEnd;
                 case "reactioncopy": return Instantiator.kReactionCopy;
                 case "carpoolschoolskip": return Instantiator.kCarpoolSchoolSkip;
@@ -2564,6 +2631,7 @@ namespace Ts3Fixes
                 case "lightningweights": return Instantiator.kLightningWeights;
                 case "plantdormantflip": return Instantiator.kPlantDormantFlip;
                 case "plantdormanttime": return Instantiator.kPlantDormantTime;
+                case "plantroofshelter": return Instantiator.kPlantRoofShelter;
                 case "harvestextras": return Instantiator.kHarvestExtras;
                 case "shroomslots": return Instantiator.kShroomSlots;
                 case "harvestregion": return Instantiator.kHarvestRegion;
@@ -2682,7 +2750,36 @@ namespace Ts3Fixes
                 case "lineswitch": return Instantiator.kLineSwitch;  // LineSwitch.cs (docs/686 §25): a Sim waiting in a toilet, sink, shower or bath line takes a free twin object of the lot after 2 sim-min, NPCs, off
                 case "lineswitchhh": return Instantiator.kLineSwitchHh;  // LineSwitch.cs (docs/686 §25): household and selected Sims too (their own autonomous actions only), off
                 case "lineswitchlog": return Instantiator.kLineSwitchLog;  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "rhskipunseen": return Instantiator.kRhSkipUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "rhskiphhunseen": return Instantiator.kRhSkipHhUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "lineswitchpc": return Instantiator.kLineSwitchPc;  // UnseenSkip.cs (docs/686 §37), off
+                case "bookskipunseen": return Instantiator.kBookSkipUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "bookskiphhunseen": return Instantiator.kBookSkipHhUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "gymtwin": return Instantiator.kGymTwin;  // UnseenSkip.cs (docs/686 §37), off
+                case "servingsharehhunseen": return Instantiator.kServingShareHhUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "slidehang": return Instantiator.kSlideHang;  // UnseenSkip.cs (docs/686 §37), off
+                case "slidehanghh": return Instantiator.kSlideHangHh;  // UnseenSkip.cs (docs/686 §37), off
+                case "nextplan": return Instantiator.kNextPlan;  // NextPlan.cs (docs/686 §38): a Sim whose queue ran empty runs EA's autonomy pass at once (NPCs, high LOD, per-tick budget), off
+                case "nextplanhh": return Instantiator.kNextPlanHh;  // NextPlan.cs: household and selected Sims too (the active Sim keeps EA's delay), off
+                case "nextplanlog": return Instantiator.kNextPlanLog;  // NextPlan.cs: one line per pass (capped), off
+                case "facilityplan": return Instantiator.kFacilityPlan;  // FacilityPlan.cs (docs/686 §36): NPCs pick and wait for the toilet, shower, bath or sink that frees soonest, or do something else first, off
+                case "facilityplanhh": return Instantiator.kFacilityPlanHh;  // FacilityPlan.cs (docs/686 §36): household and selected Sims too, off
+                case "facilityplanlog": return Instantiator.kFacilityPlanLog;  // FacilityPlan.cs (docs/686 §36): one line per case, off
+                case "facilityquick": return Instantiator.kFacilityQuick;  // FacilityPlan.cs (docs/686 §36.5): an NPC's shower, bath or toilet use ends at 85 % for an urgent waiter, off
+                case "facilityquickhh": return Instantiator.kFacilityQuickHh;  // FacilityPlan.cs: household and selected users too, off
+                case "facilitychain": return Instantiator.kFacilityChain;  // FacilityPlan.cs (docs/686 §36.4): toilet and shower or bath in one visit, NPCs, off
+                case "facilitychainhh": return Instantiator.kFacilityChainHh;  // FacilityPlan.cs: household and selected Sims too, off
+                case "showerpeeplan": return Instantiator.kShowerPeePlan;  // ShowerShare.cs (docs/686 §36.6): a shower fills the bladder of an NPC that has to pee soon, toilets or not, off
+                case "showerpeeplanhh": return Instantiator.kShowerPeePlanHh;  // ShowerShare.cs: household and selected Sims too, off
+                case "showerdirty": return Instantiator.kShowerDirty;  // ShowerShare.cs (docs/686 §36.6): shower-pee and shared showers leave Hygiene at 88 % / 90 %, off  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "fridgeff": return Instantiator.kFridgeFf;  // FridgeFf.cs (docs/686 §36.11): an unseen NPC at a busy fridge takes its food at once, ON (#743)
+                case "fridgeffunseen": return Instantiator.kFridgeFfUnseen;  // FridgeFf.cs: the same for unseen household Sims (not the selected Sim), the player's opt-in, off
+                case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
                 case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
+                case "queuewake": return Instantiator.kQueueWake;  // QueueWake.cs (docs/686 §23): the first entry of an idle household or selected Sim wakes its loop at once, off
+                case "queuewakelog": return Instantiator.kQueueWakeLog;  // QueueWake.cs (docs/686 §23): one line per wake, off
+                case "partnerpull": return Instantiator.kPartnerPull;  // PartnerPull.cs (docs/686 §21): a Sim waiting on a partner whose linked half is queued behind an autonomous action gets the half moved up and the action ended (EA's prioritize), every Sim, off
+                case "partnerpulllog": return Instantiator.kPartnerPullLog;  // PartnerPull.cs (docs/686 §21): one line per pull or kept case, off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -3129,16 +3226,18 @@ namespace Ts3Fixes
         static bool FarCompute(float x, float y, float z)
         {
             float dx = x - sCamTarget.x, dy = y - sCamTarget.y, dz = z - sCamTarget.z;
-            if (dx * dx + dy * dy + dz * dz < sReach2) return false;
+            float m2 = dx * dx + dy * dy + dz * dz;
+            if (m2 < sOldReach2) return false;
             dx = x - sCamPos.x; dy = y - sCamPos.y; dz = z - sCamPos.z;
-            if (dx * dx + dy * dy + dz * dz < sReach2) return false;
+            float p2 = dx * dx + dy * dy + dz * dz;
+            if (p2 < sOldReach2) return false;
             const float kMin2 = kShortcutMinDistance * kShortcutMinDistance;
             for (int i = 0; i < sViewerCount; i++)
             {
                 dx = x - sViewers[i].x; dy = y - sViewers[i].y; dz = z - sViewers[i].z;
                 if (dx * dx + dy * dy + dz * dz < kMin2) return false;
             }
-            return true;
+            return CsFarSpot(Math.Min(m2, p2));  // camsafe (CamSafe.cs): the camera-safe reach, or only counted (camsafelog)
         }
         static readonly UcPosCache sFarCache = new UcPosCache();
 
@@ -3164,6 +3263,7 @@ namespace Ts3Fixes
             sCamPos = CameraController.GetPosition();
             sReach = Math.Max(kShortcutMinDistance, 2f * Math.Abs(sCamPos.y - sCamTarget.y));
             sReach2 = sReach * sReach;
+            CsRefresh();  // camsafe (CamSafe.cs, docs/690): the camera sample; with camsafe on, sReach2 grows to its safe reach
             sViewerCount = 0;
             if (Household.ActiveHousehold == null) return;
             foreach (Sims3.Gameplay.Actors.Sim s in Household.ActiveHousehold.AllActors)
@@ -3657,10 +3757,9 @@ namespace Ts3Fixes
             // docs/267 F2: Late Night hidden rooms too (allowHidden), same EA lookup as the tomb-only one
             if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombOrHiddenRoom(sim, !hiddenOk)) return false;
             if (ShortcutOn("unseenhouseboatview")) { int hv = UfHbvTownie(sim); if (hv >= 0) return hv == 1; }  // docs/202 §3.10: a Sim on a foreign houseboat is judged where its boat shows
-            int b = UtbBits(sim);  // docs/227 §6 central table
-            if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(sim) && FarFromViewers(sim.Position)) : UtbUnseen(b);
-            if (UcOnScreen(sim)) return false;
-            return FarFromViewers(sim.Position);
+            // docs/227 §6 central table (b >= 0), else on screen / FarFromViewers; camsafe (CamSafe.cs, docs/690) judges both
+            // rules there and returns the one in force (camsafe off: the old test, unchanged)
+            return CsTownieCamera(sim, UtbBits(sim));
         }
 
         static void ShortcutLog(string line)

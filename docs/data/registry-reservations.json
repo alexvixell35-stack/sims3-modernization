@@ -11141,6 +11141,33 @@
       "what": "ts3probe test-only squeeze exception (Atlas HS-1 T1b)",
       "at": "2026-11-26T14:35:46.221Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-atlas-hs1-measure-1126"
+    },
+    {
+      "id": "fixes-4000",
+      "kind": "fixes",
+      "from": 4000,
+      "to": 4002,
+      "by": "dalexlol-740",
+      "what": "plantroofshelter (PR #740, contributor block 4000-4089)",
+      "at": "2026-11-27T11:14:35.357Z"
+    },
+    {
+      "id": "fixes-4740",
+      "kind": "fixes",
+      "from": 4740,
+      "to": 4779,
+      "by": "dalexlol-743",
+      "what": "facility planner + showerpeeplan/showerdirty + fridgeff (PR #743, docs/686 §36)",
+      "at": "2026-11-27T11:38:28.336Z"
+    },
+    {
+      "id": "fixes-4940",
+      "kind": "fixes",
+      "from": 4940,
+      "to": 4959,
+      "by": "dalexlol-752",
+      "what": "nextplan (PR #752, docs/686 §38)",
+      "at": "2026-11-27T11:49:24.498Z"
     }
   ]
 }

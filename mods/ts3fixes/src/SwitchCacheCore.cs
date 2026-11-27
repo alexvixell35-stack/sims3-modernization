@@ -11,7 +11,7 @@ namespace Ts3Fixes
     // slow way again), never pair a key with another key's answer. No locks (the game's Mono has no MonoThread on workers).
     public sealed class SwitchCache
     {
-        public const int Size = 2048;           // power of two, about 3x the ~690 switch names
+        public const int Size = 4096;           // power of two, about 4x the ~1010 switch names (2048 was half full at 1012: probe 16)
         const int kMask = Size - 1;
 
         public const int Off = 0, On = 1, Live = 2;  // Live: the name has a switch-table entry, read it on every call

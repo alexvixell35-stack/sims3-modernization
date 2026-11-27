@@ -1719,6 +1719,149 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
 
+### 20.7 Rule c in the game: Pillow Fight by a bed (2026-11-24, Deck, Sunset Valley new game, repro `readwalk-pairjig-force`, runs r4-rp1 to r4-rp4) [verified]
+- Layout: Bo of the active household ringed by eight fridges (`box_in`), Bea 2.3 m away, a single bed by the ring.
+  `Sim.PillowFight.CreateAndPlaceJig` puts its two-person jig by the bed nearest the target (`FindGoodLocationNearby`
+  from the bed's position), so the jig stands away from the pair.
+- Two bugs of rule c, fixed: (1) its reach was the 3 m pair rule, measured to the partner, so a jig by a bed 4.9 m
+  away was "too far" (r4-rp1); now the reach is the Sim's distance to the jig, at most the 6 m clip walk
+  (`WooHooSnapCore.JigStep`). (2) It planned again with `Route.Replan`, which re-plans the last plan (its
+  decompiled body hands `PlanResult.mDestination`, which a failed plan lacks, to the plan callback) [inferred]; in
+  r4-rp2 that plan failed, now a fresh `Plan` / `PlanFromPoint`, which succeeded in r4-rp3 and r4-rp4. The keep line names the plan result and length.
+- r4-rp3: the plan through objects was 6.9 m (the jig 5.1 m away, kept by the 6 m cap). r4-rp4 (bed by the ring):
+
+| | off (`pairsnap` + `pairsnaphh` off) | on |
+|---|---|---|
+| Ask To Pillow Fight, Bo boxed in | `routefail: Bo Jig ..., SocialInteractionB target Sim, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeCheap`; would 1; no fight | `pairsnap: household Bo Jig -> SocialJigTwoPerson with Bea Jig (FailedBecauseNoPathToDestination, jig plan): planned through objects, 2.8 m`; walk through objects 1, kept 0, errors 0; Bo walks out through a fridge and both run `Pillow Fighting` (`Sim+PillowFight` / `SocialInteractionB`) |
+
+- The look: the fight plays on the jig's own slots (the game's slot routes end on them), so no 2 mm alignment step is
+  involved; Bo stands outside the ring afterwards. Not run: an NPC pair (`pairsnap` alone), rule b.
+
+## 21. A partner busy with an autonomous action is pulled to the waiting half (`partnerpull`; 2026-11-24, `post/partnerpull-1124`, built, default off, run §21.4)
+
+### 21.1 The wait [verified, decompiled `Sims3GameplayObjects` `Bed.cs`, `Sims3GameplaySystems` `Sim.cs`, `SocialInteraction.cs`, `InteractionInstance.cs`, `InteractionQueue.cs`]
+- Bedtime story: `Sim.ReadToSleep.Run` adds the child's `Bed_BeReadToSleep` with `InteractionQueue.Add` (end of the
+  queue, the parent's priority). `Bed.Bed_ReadToSleep.Run` (parent) then loops `Simulator.Sleep(0)` until the child's
+  head is that half and the child moves into a bed. A child busy with a long autonomous action keeps the parent
+  standing until it ends.
+- Socials: `SocialInteraction.PushSocialB` adds the `SocialInteractionB` half at the end of the partner's queue and
+  cancels only other queued linked interactions of lower priority (`CancelNonBSocialInteractionsFromQueue`). The
+  starter then waits in `InteractionInstance.StartSync` (pre-sync loop, `kNumMinToWaitOnPreSync` 15 sim-min) and
+  `Sim.WaitForSynchronizationLevelWithSim` (`kNumMinToWaitOnSyncStart` 30 sim-min). `npcbusypartner` (docs/577 §4)
+  ends the NPC-only case after the pre-sync. It does not pull the partner.
+- `InteractionQueue.PrioritizeInteraction(ii)` is the game's own "do this next" path. It moves `ii` behind the current
+  interaction and adds `InterruptionRequested` to the Sim (part of `ExitReason.Default`), so the current interaction
+  ends through its own exit. A timed stage with 10 sim-min or less left is refused
+  (`kMaxMinutesRemainingNotToAutosolve`). Interruptible tradeoffs get `ShouldReenque`.
+
+### 21.2 What is built
+- `partnerpull` (`PartnerPull.cs`, `PartnerPullCore.cs`, counters 4582-4589, `PartnerPullCheck`, selftest
+  `tools/selftest/partnerpull`). No swap: a repeating 0.5 sim-minute alarm, started at world load on the
+  `UfTpCleanupWorldLoad` ride, looks at every Sim whose current interaction is `Bed_ReadToSleep` or a
+  `SocialInteractionA` while the linked half is still queued, not running, on the partner. Past a 1 sim-minute grace
+  (about 1 s at speed 1; quicker hand-offs are never touched) it calls `PrioritizeInteraction(half)` on the partner
+  and clears `ShouldReenque` on the interrupted head, so the head is cancelled through the game's exit path, not
+  queued again.
+- Kept, as the game has it: a head the player queued; any player-queued entry between the head and the half (never
+  jumped); a head that is not cancellable by the player, must run, is linked to the waiter, or runs while the partner
+  is in a posture transition; a head that outranks the half; a refusal by the game (about to finish). Since
+  2026-11-24 (after §21.4) these are kept too: a lot trip (any head on a `Lot`, `ITakeSimToWorkLocation`, or a type
+  named GoToLot / Visit / Arrive / Travel / GoHome), and a partner in a conversation (any `SocialInteraction` head,
+  e.g. Be Chatted To). Both are counted as "busy" (4587).
+- One switch for every Sim, household included (user-approved). Off = compare mode (would). `partnerpulllog`: one
+  line per pull or kept case. The waits are measured in both modes (count, sim-minutes, longest) for the A/B.
+
+### 21.3 Limits [inferred]
+- The alarm sees waits of 0.5 sim-min or more. A pull lands 1-1.5 sim-min after the wait began.
+- `SocialInteractionA` subclasses (pillow fight, tag) are covered as well: they wait the same way.
+
+### 21.4 Run in the game (2026-11-24, Deck, Sunset Valley new game, storm A/B s532 off / s533 on, 5 min each, seed 152) [verified]
+- Off (compare mode): 20-22 waits past the grace, of which 11-12 would be pulled, 7-8 were kept because of a player's
+  action or queue, and 2 were kept with a busy head. Waits measured: socials 39, 238.3 sim-min in total (max 45.0,
+  the 15 + 30 sim-min timeouts); read to sleep 1, 286.6 sim-min.
+- On: 11 socials pulled 1.1-1.3 sim-min after their wait began, 0 refused, 0 errors. Socials 45, 140.7 sim-min in
+  total (mean 3.1 against 6.1 off; max 30.1); read to sleep 0 (in this arm the story's waits ended in the
+  "Ask for Bedtime Story" social, pulled twice). 7 kept (6 for the player, 1 outranking head).
+- What was ended: Do Homework, Browse Web, Read, Play Video Game, Preside Over Royal Court, Wash all dishes, Be
+  Chatted To (the partner's other conversation), and Go to Lot twice (an NPC's trip, for a Chat and a Refuse
+  Entrance). No player-queued action was ended. Errors, resets and stuck lines are the same as off (stuck 21 vs 26).
+- Changed after this run: a partner's lot trip and a partner's running conversation are now kept as busy (§21.2).
+  Of the 11 pulls above, 3 (Go to Lot twice, Be Chatted To) would now be kept. Not re-run.
+
+## 23. An idle household Sim starts a new action at once (`queuewake`; 2026-11-24, `post/queuewake-1124`, built, default off, run §23.4)
+
+### 23.1 The sleep [verified, decompiled `Sim.DoInteraction`, `Sim.LoopIdle`; docs/684 E1]
+With an empty queue, `Sim.DoInteraction` runs `LoopIdle()` and then, with no yield in between, one of three sleeps:
+`Sleep(kSimLoopSleepTicksWhenAutonomyDisabled = 20)`, `Sleep(kSimLoopSleepTicksWhenInAutonomyQueue = 10)`, or 2
+ticks after adding itself to the autonomy manager's queue. An entry added from another task (the player's click, or
+autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `PostureIdle` reaches
+`StateMachineClient.RequestState` (swap-stack audit).
+
+### 23.2 What is built
+- `queuewake` (`QueueWake.cs`, `QueueWakeCore.cs`, counters 4596-4601, `QueueWakeCheck`, selftest
+  `tools/selftest/queuewake`). Swaps: `Sim.LoopIdle` and `InteractionInstance.OnAddedToQueue` (both stacked, with a
+  stub). At the end of `LoopIdle` (after the posture idle) a household or selected Sim with an empty queue, nothing
+  running and no transition, on its own task, gets a mark: now + the sleep it is about to take (10 or 20 ticks;
+  2-tick sleeps are left alone).
+- When the Sim's first entry is added from another task before that deadline, `Simulator.Wake(sim, false)` wakes it.
+  Any add drops the mark. After the deadline the Sim is never woken, because the loop may by then sleep somewhere
+  else (an animation). NPCs are never marked.
+- Off = compare mode, with the ticks it would save. `queuewakelog` writes one line per wake.
+
+### 23.3 Long "wake" means in the actdelay lines (s496-s529, 405 lines) [verified from the lines + decompiled]
+- Toilet `UseToilet` (16 lines, mean 345 ms), `FutureSkill+Inspect` (7, 635), `PillowFight` (6, 386): the mean comes
+  from 2-4 s outliers (2490, 2295, 4242, 2219 ms). All of them are a Sim that carries a child:
+  `InteractionQueue.ProcessOneInteraction` calls `InsertInteractionsToHandleBabiesAndToddlers`, and
+  `InsertBabyOrToddlerTransition` inserts a `PostureTransitionProxyInteraction` (put the child down, `MustRun`,
+  synced with the child, "sync waits 3") at index 0, ahead of the head. actdelay's "wake" (head to first transition
+  or Run) therefore holds the whole put-down. This is EA's childcare rule, not a loop sleep and not a bug. Without
+  those lines, wakes on an empty queue are under 60 ms in 100 of 113 lines.
+- `Sim+MotiveFail` (6, 585-657 ms, household, "queue" 770-1500 ms first): it queues behind a running
+  `ReactionInteraction` and becomes head when that is removed. The ~600 ms that follow fit the removed interaction's
+  own exit running on the Sim's task before the loop comes back [inferred, not traced]. That is not the idle sleep
+  either.
+- Neither is a confirmed bug, so no fix. queuewake only removes the 10/20-tick idle sleep.
+
+### 23.4 Run in the game (2026-11-24, s532 off / s533 on) [verified]
+- Off: 40-42 would, 10 ticks each (all in the autonomy-queue sleep), 62-85 adds after the deadline (left alone).
+- On: 42 idle loops woken, 420 ticks in all (10 each, about 0.27 s at speed 1 per action), for BedSleep, socials,
+  baths, homework, toilets and chores; 113 adds after the deadline, 0 errors. No odd starts were seen.
+## 30. A social's stand-and-wait for a spot that cannot be reached without people either (`standwaitsocial`; 2026-11-24, `post/standwaitsocial-1124`, built, default off, PROVEN by storm s549a)
+- Numbered as on the combo branch (§21-§29 there: partnerpull, readwalk, queuewake, slotretry, lineswitch, reactoverlay,
+  linestale, their PRs pending).
+- Lead (s543a, Bridgeport, upper floor, lot 0xF5900033BA9E8C10, room 8): Indie Girl and later Kirby Wise
+  (`SocialInteractionB`) stood at 501.9,34.1,1535.5 with their jig goal 0.4 m away; every replan failed in ~27 ms (no
+  path, 0 plans), blocker = the starter (Matty Crewe, Katelyn Missoni) 0.1 m away; standwaitfix's people-free passes
+  failed too (4 plans); standwait ended by timeout after 20.8 / 21.6 sim-min, then socialreach let them talk.
+- Our switches ruled out first: s544a = Bridgeport, seed 152, every managed fix and every native route key off (the
+  read-only keys too), log switches only. No social receiver froze (household zero-plan route fails 4 vs 34 in s543a),
+  but no receiver was pulled either. The on-arm replays: s545a Kirby Wise froze again (21.6 sim-min, same spot, same
+  goal); s546a, s548a: no freeze.
+- Mechanism [verified from the logs]: every freeze follows a `partnerpull` pull of a receiver sitting at the computer
+  at 502.5,34.1,1535.2 (`Make Inappropriate Forum Post`, `Work Indefinitely`); the starters were 2.6-20 m away at the
+  pull (s546a pulled lines now name the partner's posture and the distance), so the starter arrives at its spot by the
+  chair while the receiver stands up. The receiver lands 0.2-0.3 m from the starter and its jig spot (placed while it
+  sat) is out of reach with or without people. EA's code: the same happens whenever the computer user ends its action
+  inside the starter's 15-minute wait; partnerpull makes it frequent. A seat rule in partnerpull (keep a seated partner
+  with the starter within 1.2 m) was tried and dropped: the starter is never that close at the pull.
+- Fix `standwaitsocial` (`StandWaitSocial.cs`, `StandWaitSocialCore.cs`, counters 4687-4691, `StandWaitSocialCheck`, no
+  swap): in standwaitfix's blocked cycle, after `kStandWaitSocialPasses` (2) failed people-free passes of a waiter whose
+  running interaction is `SocialInteractionA` / `B`, the cycle handler answers "not elected to exit" and the route fails
+  as at the timeout (standwaitlocked's exit). Waits that people alone block (the pass works) are not touched. Needs
+  standwaitfix (the passes are its plans). `standwaitsocial` NPCs, `standwaitsocialhh` household and selected Sims.
+  standwait lines get a ", social: N failed people-free passes, gave up cycle C" tail. Selftest
+  `tools/selftest/standwaitsocial` (7 checks).
+- How often: Bridgeport storms with partnerpull: s543a 2 frozen receivers, s545a 1, s546a 0, s548a 0 (Matty Crewe's
+  receiver wait at 492.6,34.1,1537.8 ended by standwaitfix's yield after 7.7 sim-min), s549a 1; 0 in s541 / s542 /
+  s543b / s543c; 0 long SocialInteractionB stand-waits in ~150 storms without partnerpull (SocialInteractionA waits of
+  11-22 sim-min there are EA's starter waits, not this).
+- Run s549a (Deck, Bridgeport new game, seed 152, 5 min, build r9d, s541 all-on list + standwaitsocial(+hh)): Kirby
+  Wise (selected, `SocialInteractionB`, at 492.6,34.1,1537.8, the second computer of the lot, starter Indie Girl)
+  "blocked 5 of 7 cycles, 11.4 sim-min ... social: 2 failed people-free passes, gave up cycle 5"; socialreach then let
+  him talk from where he stood (0.1 m). Off (s543a, s545a): the same waits ran 20.8-21.6 sim-min to the timeout. Saved
+  about 10 sim-min a case (the passes come every few cycles, so the second failed pass lands at cycle 5). Errors 0.
+  Status: built, default off, PROVEN by storm (one case on, three off).
+
 ## 25. A Sim in a toilet, sink, shower or bath line takes a free twin object (`lineswitch`; 2026-11-24, `post/lineswitch-1124`, built, default off, run §25.4-§25.5)
 
 ### 25.1 The line [verified, decompiled `SimQueue.cs`, `Toilet.cs`, `Sink.cs`, `Shower.cs`, `Bathtub.cs`]
@@ -1843,3 +1986,535 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
 - r6-rp1 found one bug, fixed in r6c: a queued reaction that became safe after the stale time was still played (Startled
   `overlaid from the queue after 9151 ms`); the stale test now comes first.
 - PROVEN by forced repro and storm (household and NPCs). Seated overlays seen in s538 only.
+
+### 26.6 Age-up kept out (2026-11-24, s542 all-on storm on Isla Paradiso, build r8b) [verified in the lines; fix built, not run in the game]
+- s542: `overlaid now: selected Omar Collins, Wave during AgeUpEx (StandingPosture)` twice during his birthday (the
+  family's waves). `AgeUpEx` is NRaas Overwatch's `AgeUp`; EA's `AgeUp` swaps the rig and the model mid-way
+  (`AnimationUtil.SetRig`, `SimBuilderTask.SwapModel`, decompiled `AgeUp.cs`), so a wave over the spin looked wrong.
+- Fix: a Sim whose current action is an `AgeUp` keeps EA's way (new reason "age transition"). The guests' waves during
+  `ParticipateInBirthdayCelebration` stay overlays.
+
+## 36. The facility planner: who is in which bathroom until when (`facilityplan`, `facilityquick`, `facilitychain`, `showerpeeplan`, `showerdirty`; 2026-11-25, `post/facilityplan-1125`, built, default off, forced repros s590a-c, storms s590d/e)
+
+User (2026-11-25): "not only checking when the bathroom will be free but when the sims really needs it, or having both
+or sending to other bathroom, maybe be more holistic"; "if sims are needy they know what rooms are with sims until when
+and go do something else or somewhere else". Kept from the earlier rules: first-come order in a line, no walking
+reaction that interrupts the current action, no wait filler or idle animation, no walk-and-talk, EA's childcare carry
+walk, and no cut of another Sim's private use except by `facilityquick` (user, same day: "make sims be quicker at
+showering when someone is in a rush").
+
+### 36.1 What EA does [verified, decompiled; Motives XML from GameplayData.package]
+- Pick: `Autonomy` multiplies each candidate's score by `GameObject.GetInUseAutonomyMultiplier(actor)`: 0.2
+  (`kAutonomyMultiplierForObjectSelectionWhenInUse`) while `InUse`, else a route-pending factor, else 1. No object of the
+  plumbing namespace overrides it. Autonomy knows "busy now", never "busy until".
+- Wait: `SimQueue.WaitForTurn` (docs/686 §25.1): one substitution on the first pass (toilets only), then 1 sim-min
+  checks up to the timeout (15 sim-min and more). `privacyroom` (#741) found that `GenericPrivacySituation.
+  SimIsInPrivacySituation` counts every OtherSim as in the situation, so autonomy picks objects in a locked room.
+- Use lengths: `Toilet.UseToilet`: `Motives.LerpToFill(Bladder, kMaxLengthUseToilet = 30)`: the bladder fills in
+  30 sim-min from any start (`AddMotiveDelta((max - value) / 30 * 60)`), the loop ends on EA's exit reasons, then flush,
+  seat, `WashHands` pushed as a continuation. `Shower.TakeShower`: `GetShowerTime() = (max - Hygiene) / gain * 60`
+  sim-min (public: the planner reads EA's own number), `DuringShower` adds `ExitReason.Finished` at full Hygiene, then
+  `EndCommodityUpdates`, `WaitToLeaveShower`, post-shower effects, `StandardExit`. `TakeBath` the same loop shape
+  (`DoLoop(ExitReason.Default, DuringBath)`). Sinks: fixed animations, no motive fill to time.
+- No shorter-shower variant or duration parameter exists: the `TimedStage` is display only; the length is the motive.
+- Privacy: `ToiletSituation`, `ShowerPrivacySituation`, the bath's and the sponge bath's lock the room. `WashHands` and
+  `BrushTeeth` start no privacy situation: **a sink-only use does not lock the room** [verified, Sink.cs]; a sink in a
+  room someone holds for the toilet or shower is locked by that use.
+- Pass-through: `Portal_LockState 0x64F2C0` asks script for every portal the portal search tries (docs/105 §2), and
+  `PrivacySituation.OnPortalPathPlan` locks any portal whose `RoomTo` is the private room for an autonomous (or
+  below-UserDirected) Sim that may not ignore privacy. So a route **through** a private bathroom is locked too, not only
+  one into it: an en-suite or Jack-and-Jill bedroom whose only door is the bathroom's is unreachable (and cannot be left)
+  while somebody else uses the toilet or shower. Not changed: opening the lock for a passer makes the user react
+  (`ReactToPrivacyIntrusion` -> `TurnToFaceAndAskToLeave`), which ends the private use: a cut the user ruled out. The
+  planner counts a locked room's objects as busy until its user is done (36.3), and `facilityquick` ends the use early
+  for an urgent Sim held at that door where StandWaitLocked runs (combo branch; not on this branch).
+- Pee elsewhere: Island Paradise's `BuffWarmWetsuit.PeeInWetsuit` (`Motives.SetMax(Bladder)` in the sea) is EA's only
+  "pee without a toilet" interaction; there is none for showers. Toilet training is the toddler's `PottyChair`; children
+  and older use the toilet without a skill, so a child's shower-pee breaks nothing.
+
+### 36.2 EA's motive numbers (base game Motives XML; nothing here is changed)
+| Motive | Decay | Bands (buffs) | Urgent / end |
+|---|---|---|---|
+| Bladder, adult/teen/child (`VariableDecayByMoodlet`) | 13.33 pts/sim-h above -60, 14.5 in -61..-90, 9 in -91..-100 (elder, toddler: 16 above -60; baby 17.8) | HasToPee -61..-90, ReallyHasToPee -91..-100 | Intensity knee at -60 (0.25 -> 0.995): autonomy's "must"; `MotiveDistress` at -100: `Sim.BladderFailure` |
+| Hygiene, human (`FixedDecay` 42 h for the bar): 4.76 pts/sim-h; pets 84 h | Grungy -61..-80, Smelly -81..-100, SqueakyClean 81..100 | no accident |
+From -60 a bladder accident is 2.1 + 1.1 = 3.2 sim-hours away, so most lines (2-20 sim-min) are not urgent at all; a
+Sim at -91 has 1.1 sim-h. The planner reads the live `Motive.Decay` for the current band (it includes EA's trait and
+buff multipliers) and EA's band rates below it.
+
+### 36.3 The planner (FacilityPlan.cs, FacilityPlanCore.cs)
+State per facility object (toilet, shower, bath, sink; fridge for the pick only): the current use (user, interaction,
+start, motive at start: `InteractionInstance.Begin/EndCommodityUpdates`), its busy-until (`GetShowerTime` for a shower,
+else `(max - value) / gain-so-far`, else the learned mean length of the kind, prior toilet 30, shower 15, bath 30, sink
+2, fridge 2 sim-min), the line ahead (one mean use each), Sims that have the object queued behind their current action
+(a chained hand-off), and for a room another Sim holds with privacy, that user's rest. A romantic partner's running
+shower counts as free when `showertogether` would let the Sim join. Per Sim: minutes to its urgent level (Bladder -60,
+Hygiene -60, Hunger -60) and to a bladder accident, walk time = distance / 1.5 m per sim-min + 1.5 sim-min per floor.
+ETA of an object = max(walk, busy + line).
+- Pick (`GameObject.GetInUseAutonomyMultiplier`, cached per Sim, kind and tick): an object whose ETA is clearly worse
+  than the best of its kind on the lot (3 sim-min and 25 %) scores x0.1; when every one is 8 sim-min or more away and
+  the Sim is not urgent, x0.02: autonomy picks another real action now and the facility again once it is predicted free
+  (the factor goes back to 1 by itself). An accident that comes before the best ETA anyway: EA's score.
+- Wait (each sim-minute of a toilet, shower, bath or sink line, LineSwitch.cs's hook, before lineswitch's rule): move to
+  the object with the clearly best ETA (busy or free, other room, other floor; for a toilet line also a free shower with
+  `showerpeeplan` when Hygiene is below 70), through EA's own continuation + `FailedToStart` as lineswitch does; else, not
+  urgent and 8 sim-min or more to wait: leave the line (something else first, logged "came back" when it returns); else
+  wait. An accident before the turn with nothing better: EA's way (the accident stays). Per-Sim cooldown 20 sim-min
+  after a move; a failed plan or test leaves that object out of the wait's later checks. Player's orders: kept, unless
+  10 sim-min of wait and an identical free object (lineswitch's rule); never deferred.
+- `facilityquick` (36.5) and `facilitychain` (36.4) run on the same records.
+Scope: `facilityplan` NPCs, `facilityplanhh` household and selected Sims (a visible change: own switch, docs/271).
+Off: the waits are compare mode (`would` lines and counters); the pick hook runs only with `facilityplan` or
+`facilityplanlog` on (or `showertogether`, for the partner offer).
+
+### 36.4 `facilitychain` / `facilitychainhh`
+After a finished toilet use, a Sim whose Hygiene is below 0 or reaches -60 within 2 sim-hours takes a free shower (else
+bath) of the same room and level next; after a shower or bath, a due Bladder the same room's free toilet (not when
+`showerpee` filled it). EA's `PushAsContinuation` with EA's definitions (UseToilet's own, seen at the first toilet use;
+`Shower.TakeShower`, `Bathtub.TakeBath`); EA's `WashHands` continuation, pushed after ours, runs first. Only when nothing
+else is queued. The queued use counts in that object's busy-until for the others (36.3), so nobody is sent into the gap.
+Which comes first is EA's own pick (the more urgent need wins its score); the chain adds the other one.
+
+### 36.5 `facilityquick` / `facilityquickhh`
+A waiter (line check, or StandWaitLocked's privacy-locked cycle) whose need is urgent within 30 sim-min asks the current
+user of a shower, bath or toilet to end through EA's own `ExitReason.Finished` (the normal tail: rinse, step out, towel /
+flush, seat, wash hands) once the user's motive is at 70 (85 % of the bar, top of EA's neutral band; Hygiene stays far
+from Grungy) and the use is 5 sim-min old. Never without an urgent waiter, so a player's shower with nobody in a rush
+stays whole. The toilet qualifies: its loop end is the same tail as a full use (the bladder ends at 70 instead of 100).
+Scope is the user's (household users need `facilityquickhh`). Logged with the waiter, both motives and the time saved.
+
+### 36.6 Shower-pee and shared showers (`showerpeeplan`, `showerdirty`; ShowerShare.cs)
+- `showerpeeplan` / `showerpeeplanhh`: a shower that starts while the Sim has to pee, or will within 2 sim-hours, fills
+  the bladder whatever the toilets (base `showerpee` needs no usable toilet). The planner may send a long toilet line's
+  Sim to a free shower (36.3). User-approved behaviour change ("if they really need to piss").
+- `showerdirty`: a shower that filled the bladder ends at Hygiene 76 (`kPeeHygieneCap`, 88 %), a shared shower at 80
+  (`kShareHygieneCap`, 90 %) for both partners: `Motives.SetValue` as the Sim steps out (EA's commodity updates are over
+  by then). One switch for both; base `showerpee` and `showertogether` keep their old result with it off.
+- Tidy-ups found while there: a shower-pee entry that failed to begin stayed in `sShp` until the next bladder failure and
+  blocked every later shower of that Sim (the cool-down had no time check); `ShpToiletOnLot` walked every object of the
+  lot per call (now the typed toilet, all-in-one and shower lists).
+- Why `showertogether` rarely fires [verified]: it decides only when the second Sim's own Take Shower asks the line
+  while the partner showers, and autonomy almost never picks a shower that is in use (score x0.2). The planner's pick
+  hook now scores a partner's running shower as free for a Sim showertogether would let in (romantic, both young adult
+  or older, not disliked, nobody else in the line): the existing rules, more chances.
+
+### 36.7 Overlap with #738 (`fridgeline`) and #741 (`privacyroom`, `bathroomwait`)
+`bathroomwait` sends a waiting household Sim (Bladder at or below -20, all toilets busy) to the nearest toilet that
+frees; with `facilityplan` on it uses the planner: waiting starts at -20 or when the urgent level is within 2 sim-hours,
+Sims are served most urgent first, the target is the toilet (or with `showerpeeplan` the shower) with the best ETA
+including the walk and other floors, and a toilet that some Sim already has queued (not only one bathroomwait sent) is
+not free. `fridgeline` stays as it is; the pick hook covers the fridge (a 3-Sim line makes a needy Sim eat or cook
+elsewhere first). Details and bugs per branch: §36.9.
+
+### 36.8 Counters, checks, tests
+Counters 4740-4779 (registry), `FacilityPlanCheck run|result|reset|household`, selftests `facilityplan` (45) and
+`showershare` (+12), repros `facilityplan-rush`, `facilityplan-defer`, `facilityplan-urgent` (Sunset Valley, Bunch house:
+three toilets in two rooms, BathtubShowerModern). Swaps: `GameObject.GetInUseAutonomyMultiplier`,
+`InteractionInstance.BeginCommodityUpdates`, `InteractionInstance.EndCommodityUpdates` (stubs, swap-stack-audit).
+Limits [inferred]: walk speed is a constant, not a route plan (a plan is made before a move only); the fridge has no use
+record (busy = users and line); a route through a private room is not costed.
+
+### 36.9 Per branch (#738, #741) [verified by reading and building; not run yet]
+- `post/bathroomwait-1125` (#741), fixed on that branch: a toilet with Sims in its line counted as free (the push only
+  joined that line); each world load started one more `while (true)` loop beside the old one (loops now end when a
+  newer load starts); the switch was read only at world load (now every pass, off clears the waits); errors were
+  swallowed (the first three are logged); `privacyroom` / `bathroomwait` were missing from the agent's switch names, so
+  `fix-repro-check` failed on the branch. Kept as found: the -20 start, nearest-free choice and household order with the
+  planner off.
+- `post/fridgeline-1125` (#738): no behaviour change; the three switches were missing from the agent's names
+  (`fix-repro-check` failed). The planner's pick hook covers the fridge's busy-until; `fridgelinefill` stays the
+  "something useful first" case of a full fridge line.
+- `post/facilityplan-1125`: both branches merged plus the planner; with `facilityplan` + `facilityplanhh` on, bathroomwait
+  takes the planner's start, order and target (36.7, FacilityPlanBathroomWait.cs). Every PR switch keeps its meaning.
+
+### 36.10 Who stands on a fridge's or sink's slot, and for how long (FacilitySlot.cs probe; s591, s592d) [verified by logs + decompiled]
+Probe: `FacilityPlanCheck("slots start|slots|slots reset")` (starts by itself with `facilityplanlog`): every 3 ticks per fridge
+and sink of the home lot, the use length, the stand on the routing slot after the use (what the Sim does), and stalls
+(a Sim that does not use the object on its slot while another wants it).
+- After `Fridge_Have` the user stands on the slot **1.0-1.2 sim-min** (forced repro s591, 11 uses) and **1.6-2.4 sim-min**
+  under storm load (s592d, Sunset Valley 20 min: 33 fridge stands, 90 sim-min), "doing nothing, holding" and then
+  `FoodTray_Prepare` routing to a counter. No ReactionInteraction, no extra autonomy think and no seat wait: the gap is
+  EA's own start of the pushed continuation (queue hand-off, carry posture, `Food.RouteToFreeSurface` with
+  `GetClosestObject` + `GetNearestEmptySurfaceSlot` + the route plan), the general queued-to-moving delay of docs/684
+  (`actdelay` lines 650-1060 ms) that `queuewake` (§23) shortens for idle Sims. Not a fridge bug; nothing built for it.
+- It costs little: stalls s591 off 9 / 8.6 sim-min (max 1.1), clipwait on 8 / 7.8; s592d 6 stalls, 8 sim-min (max 2.4).
+  The stand is shorter than the user's clip grace (`kClipGraceMinutes` 2.5), so `clipwait` / `clipwaithh` (which already walk
+  into an object's slot through a non-user, `kClipWaitObjectDest` true) never act there, and an earlier clip would break
+  the 2-3 s rule. Kept as EA's; `fridgeff` (36.11) removes the wait for unseen Sims instead.
+- Sinks: after `WashHands` at a pedestal sink the user stands 5-7.5 sim-min "doing nothing" on the slot before EA's
+  `RouteAway` (s592d, 7 stands, 37 sim-min); nobody waited there in the run. WashDishes uses are 8.5-16 sim-min.
+- The 10-34 sim-min fridge line heads of the s532-s562 audit (linestale "kept ... counts as coming") were not reproduced:
+  forced uses 1-3.4 sim-min, storm `Fridge_Have` 5-6 sim-min (`Fridge_CleanOutBadFood` 10.4). In the one traced case
+  (s532-s562 Best household) the head ran other actions (a social, a toilet) during the hold and its `Fridge_Have`
+  instance was running when linestale looked, so linestale counted it as coming. EA releases a head's line record at
+  `StandardExit` (`RemoveFromUseList`) or at `Cleanup` (`RemoveFromLine`), also for an interrupted action
+  (`DeQueue` cleans it up unless `SuspensionRequested`, which only hobby objects set): no EA path that keeps the record
+  while another action runs was found [inferred]. Not fixed; the 19 sim-min mean wait of that audit is the line itself
+  (EatLeftovers behind EatLeftovers, 5-6 sim-min uses under load plus the walk), which `fridgeff` takes for unseen Sims.
+- Also seen in EA's `SimQueue.FindNewPlaceInLine`: the `OrderByProximity` branch compares a distance with a squared
+  distance (no fridge, toilet or sink line uses that flag; not fixed).
+
+### 36.11 `fridgeff` / `fridgeffunseen` / `fridgefflog` (FridgeFf.cs; counters 4770-4776)
+A Sim whose `Fridge_Have` or `Fridge_EatLeftovers` starts while the fridge is busy (another Sim uses it or heads its line)
+and that nobody sees takes its food at once: EA's own steps of the two Run bodies (ingredients used, the item created and
+initialised for the recipe, the cooking process to its next step, the item in hand through
+`CarrySystem.EnterWhileHolding`, the follow-up pushed as EA pushes it, the cooking skill element, the "Has Made Food" topic,
+the leftovers grab's commodity updates), without the walk to the slot, the line and the animations. The Sim stays where it
+stands, so it never steps onto a slot in use. Camera: decided once at the start (seen = EA's line); the grab takes no
+time, so a camera that arrives later finds the end state. NPCs: `fridgeff`, `TownieUnseen` + the fridge off screen and its
+slot away from viewers. Household: `fridgeffunseen` (the player's opt-in, CLAUDE.md household rule lifted for this case
+only), not the selected Sim, the Sim and the fridge off screen and both away from the **camera** (target and eye).
+Elevskip's household test uses `FarFromViewers`, which counts every active-household Sim as a viewer within 80 m, so for a
+household Sim at home it is never true (the Sim is a viewer of itself); FridgeFf uses the camera half only.
+Swaps `Fridge_Have.Run`, `Fridge_EatLeftovers.Run` (internal type, by name). Check `FacilityPlanCheck("fridgeff")`;
+repro `fridge-line-full` third arm (camera far away).
+Results, forced repro `fridge-line-full` s594 (Sunset Valley, Bunch house, 3 Sims click Have at once, 2 rounds per arm,
+40 sim-min each) [verified, one run]:
+
+| arm | fridge use sim-min (uses) | post-use stands (sim-min) | stalls on the slot (sim-min, max) | fast grabs | errors |
+|---|---|---|---|---|---|
+| off | 18.3 (5) | 5 (5.4) | 8 (7.9, 1.1) | - | 0 |
+| clipwait + clipwaithh | 20.5 (6) | 6 (6.6) | 8 (7.6, 1.1) | - | 0 |
+| fridgeff + fridgeffunseen, camera on a far lot | 10.2 (6) | 2 (0.9) | 0 (0.0) | 4 (Jack, Judy x2), the selected Sim on EA's line | 0 |
+
+The fast-grab Sims went on with EA's `FoodTray_Prepare` -> `CuttingBoard_Prepare` -> clean-up as after a normal grab
+(queue snapshots). Side effect: the three Sims now reach the counters together; Judy's `FoodTray_Prepare` replanned 7
+times for a counter spot ("FailedBecauseNoDestinationSpecified") in the ff arm. s593 (camera pose off the world) gave 0
+fast grabs: the target stayed on the house, so every start was "seen" (the camera rule works as meant).
+
+### 36.12 Planner runs and proof status (s590, s592; one run each)
+- s590 (Twinbrook storm 10 min, Sunset Valley repros at 07:00/10:00): no `facilityplan: error`, no script error, Bin pair
+  restored every load. Found: the pick's "all late" counted the walk as lateness and lowered free toilets 10 sim-min away
+  (x0.02); fixed (36.3: the wait after the walk decides). The 07:00/10:00 repros lost the Sims to work and school.
+- s592 (repros at 16:00/17:00/20:00, Sunset Valley storm 20 min, planner all on): errors 0. Rush: off total line wait 0,
+  on 4.1 sim-min (one wait), accidents 0 / 0, final Bladder and Hygiene alike; defer and urgent: no planner move was
+  needed (one 3.1 sim-min wait). Storm: 372 pick factors, 4 chains, no switch, no defer, 4 bathroom line waits, 61 sim-min.
+- Proof status: runs clean, decisions logged; no measured wait gain yet. The Bunch house (three toilets, two
+  bath/shower rooms) rarely makes a line; a house with one shared bathroom per floor is the next repro.
+
+## 37. Skip when nobody sees it: rabbit hole slots, bookshelves, twin computers and gym machines, platters; the slide hang-out (`rhskipunseen`, `bookskipunseen`, `lineswitchpc`, `gymtwin`, `servingsharehhunseen`, `slidehang`; 2026-11-25, `post/unseenskip-1125`, built; since the 2026-11-27 import `rhskipunseen`, `bookskipunseen`, `gymtwin` are ON (NPC only; each acted in game s570 with 0 errors), the household opt-ins, `lineswitchpc` (no switch seen) and `slidehang` (fix not proven) stay off; rabbit hole doors PROVEN s570 with rhshare)
+
+`UnseenSkip.cs`, rules in `UnseenSkipCore.cs`, counters 4780-4803 (`kCounterSlots` 4820), check `UnseenSkipCheck result | run`,
+selftest `tools/selftest/unseenskip`. The log audit of s532-s562 (`linewait:` lines) ranked the waits: rabbit hole enter slots
+780 NPC waits / 3,489 sim-min (College of Business 1,101) and 78 / 303 household; computers and laptops 177 / 806 household
+(mostly cancelled long uses), 36 / 139 NPC; bookshelves ~225 household; workout bench and treadmill 20 / 452 NPC; serving
+platters and bowls 41 / 220 household.
+
+Camera rule for every part: the view is decided once, at the start of the wait (the Sim and its object off screen, the Sim
+away from the camera and from viewers). Seen then: EA's wait, unchanged. No walk is skipped or teleported; the second Sim
+never stands on a slot in use; nothing touches motives, skills or saves.
+
+Household rule (CLAUDE.md: household Sims never count as unseen). Each `...hhunseen` switch (`rhskiphhunseen`,
+`bookskiphhunseen`, `servingsharehhunseen`) is an explicit player opt-in, default off, that lifts that rule for its own case
+only: a household Sim that is not the selected Sim, off screen, with its object off screen and no other household Sim near.
+The selected Sim never counts as unseen.
+
+| Switch | Scope | What it does |
+| --- | --- | --- |
+| `rhskipunseen` / `rhskiphhunseen` | NPC / household opt-in | A Sim whose rabbit hole enter slot is held (any holder; rhshare only walks when the holder is in scope), unseen when it asks, walks to the slot now and goes in: rhshare's walk (§14), no reservation taken. A door portal: the two may clip at the door. |
+| `lineswitchpc` | NPC; household with `lineswitchhh` | lineswitch's free-twin rule (§25) for `Computer` (laptops too) and `Bookshelf`: a free, unclaimed, reachable object of the same kind on the lot, same room first. A running use is never shortened. |
+| `gymtwin` | NPC only | The same for `WorkoutBench` and `Treadmill`: an NPC that was unseen when its wait began takes the twin at the first check, others after `kLineSwitchMinutes`. A workout is never ended. |
+| `bookskipunseen` / `bookskiphhunseen` | NPC / household opt-in | `Bookshelf_ReadSomething.Run` for a Sim that would wait (line or other users): a walk to a free spot 0.6-1.3 m from the shelf's `Route` slot, facing it, then EA's own pick-up (`ChooseBook`, `Read_GetBook`: StandardEntry, take animation, carry, `ReadBook` pushed). No spot: EA's run. |
+| `servingsharehhunseen` | household opt-in, with `servingshare` | servingshare (§14) counts an unseen household Sim at an off-screen platter (and unseen household Sims in its line) as in scope. |
+| `slidehang` / `slidehanghh` | NPC heads / household heads on an autonomous hang-out | EA bug, below. |
+
+### 37.1 The slide hang-out [verified, decompiled `JungleGym`, `JungleGymSlide`, `SimQueue`, `InteractionInstance`]
+
+`JungleGymSlide.RouteToJungleGymLadder` waits in `mLineToGoUpTheLadder` (`SimQueueBehindSlot`, 4 long, `TimeToWaitInQueue` 20
+sim-min). The head keeps its place for the whole interaction: `SimQueue` removes a Sim only in `RemoveFromQueue`, and the
+interaction's own call is `InteractionInstance.Cleanup` -> `RemoveFromLine`. `PlayOn` ends its hang-around loop after
+`RandomUtil.GetFloat(HangOutTimeMin 10, HangOutTimeMax 20)` sim-min (`PlayOnLoopDelegate` adds `ExitReason.Finished`).
+`HangOutOn` runs the same `DoLoop(ExitReason.Default, ...)` with a delegate that only calls `TryGroupTalk`: it never reads
+the `HangOut*` tuning that names it, so a child on HangOutOn holds the ladder until something else ends it. Storm logs: Lisa
+Bunch (HangOutOn) held the Bunch slide 70-92 sim-min four times while Arlo and Darlene (PlayOn) timed out behind her.
+Fix (`slidehang`): the line hook records who took a jungle gym line's turn and when; a waiter's per-minute check (LineSwitch.cs `LswExitHook`) sees a head on
+`HangOutOn` that took the turn `HangOutTimeMax` sim-min ago and adds `ExitReason.Finished`, PlayOn's own exit: the head slides
+down and leaves through EA's code. Only with a Sim waiting behind it; the selected Sim and player orders keep theirs.
+
+### 37.2 Logging
+
+`linewaitlog` and `lanewaitlog` lines get `view <start>><end>` (seen / unseen, for the Sim and its object). Counters
+4800-4803 split line and rhdoor waits by the view at their start (with the log off too, and not capped like the log).
+
+### 37.3 Storm s570 (2026-11-25, Deck, new games from the world file, 30 min, seed 156, s562 setup, pkg r9f-unseen-1125) [verified in logs]
+
+a/d = off (logs only), b/e = NPC (`rhshare servingshare rhskipunseen lineswitchpc gymtwin bookskipunseen slidehang`),
+c/f = b + `rhskiphhunseen bookskiphhunseen servingsharehhunseen slidehanghh`. The s562 base list already has `lineswitch`,
+`lineswitchhh` and `petfireplan` on in every arm. Totals from the last `unscount:` line (uncapped counters). Bin pair
+restored after all six.
+
+| | SU a off | SU b NPC | SU c +hh | SV d off | SV e NPC | SV f +hh |
+| --- | --- | --- | --- | --- | --- | --- |
+| rhdoor waits / sim-min | 200 / 768.4 | 176 / 0.0 | 261 / 0.0 | 49 / 196.6 | 29 / 0.0 | 39 / 0.0 |
+| rhshare walked / rhskipunseen walked | would 200 / would 21 | 176 / 0 | 261 / 0 | would 49 / would 42 | 28 / 1 | 39 / 0 |
+| rhdoor waits begun unseen (NPC, logged) | 55 of 150 (228 of 521 sim-min) | | | 48 of 49 | | |
+| lineswitchpc switched | would 1 | 0 | 0 | 0 | 0 | 0 |
+| gymtwin switched | 0 | 0 | 0 | would 1 | 0 | 2 |
+| bookskip acts | seen kept 1 | 0 | 0 | 0 | 0 | 1 (NPC) |
+| servingshare lines skipped | would 2 | 2 | 1 | 0 | 1 | 0 |
+| slidehang | - | - | - | - | kept 1 (selected head) | - |
+| unseenskip / objshare / lineswitch errors | 0 | 0 | 0 | 0 | 0 | 0 |
+
+- Rabbit hole doors: **PROVEN**, every held-slot wait gone (768 and 197 sim-min to 0). rhshare does nearly all of it:
+  in these storms every holder was an NPC in scope, so `rhskipunseen` (which adds holders out of scope) acted once.
+- `lineswitchpc`: no gain measured (one would in 6 runs; the computer waits left are household Sims in view, no free twin).
+- `gymtwin`: acts (2 switches in f, 1 would in d); gym waits are few (10-28 sim-min a run), gain not measurable here.
+- `bookskipunseen`: acts (1 in f, EA's pick-up beside the slot, no error); too rare to measure.
+- `servingsharehhunseen`: 0 runs (no unseen household Sim at a busy platter); `servingshare` skipped 1-2 lines per run.
+- `slidehang`: the Bunch slide case came back in e (Lisa Bunch, HangOutOn, 138 sim-min, Darlene waiting); Lisa was the
+  selected Sim, so the rule kept it, as designed. Not proven. Note: the game's tuning has `HangOutTimeMax` = 2 for the
+  slide (the C# default 20 is overridden), so PlayOn ends its hang-around after 1-2 sim-min and slidehang ends a
+  HangOutOn after 2 sim-min with someone waiting.
+- Other line waits (fridge, dishwasher, toilets) differ run to run by up to 2x with the same seed; no switch here acts on
+  them. The `C0000005` lines in a, d (off) and the on arms are the known autshadow worker fault, also in s562.
+
+## 33. Elevator waits: the car is elsewhere (`elevskip`, `elevskiphh`, `elevtriplog`; 2026-11-25, `post/elevator-1125`, built, default ON for `elevskip` (NPC only; `elevskiphh`, `elevskiphhunseen` off), PROVEN s562)
+
+`ElevSkip.cs`, rules in `ElevSkipCore.cs`, counters 4700-4710 (`kCounterSlots` 4721), check `ElevSkipCheck result | run`,
+selftest `tools/selftest/elevskip`, repro `elevskip-check`. The line step is in `CrowdPort.cs` `CpLineHook`, before
+crowdport's own.
+
+### 33.1 Why Sims wait at elevators [verified, decompiled `ElevatorDoors`, `ElevatorInterior`, `PortalComponent.AcquireLaneRouteAction`; storm logs]
+
+Storm logs s532-s560 (48 logs, `lanewait` / `linewait` lines) give these totals, ranked:
+
+| Cause | Waits | Sim-min | Kind |
+| --- | --- | --- | --- |
+| Car in use on another floor: the doors give no lane (`GetStartSlotsForApproachingSim` answers no slots while `InUseIgnoringWooHoo`), the Sim loops in `WaitInLine` (a quarter sim-minute per ask, 30 sim-min `kElevatorGiveupTime`); lane waits with no holder | 667 NPC (341 gave up, mean 13.4) | 6,647 | capacity: one car per column |
+| The same behind a Sim that holds the doors lane (boarding at closed doors sleeps 7 sim-min `kLongEffectsTime` holding it) | 885 NPC | 3,747 | capacity + the parked-car flaw (§34) |
+| Line waits (`SimQueue`, crowdport's short timeout) | 783 NPC | 901 | queue around the above |
+| Household and selected | 117 | 712 | same causes |
+
+One trip keeps the whole column busy: a boarder joins the use list of every other floor's car object
+(`AddElevatorColumnToUseList`), then 7 sim-min of arrive effects when the doors are closed, a 5 sim-min hold for more
+riders (`kMinutesToHoldElevator`, renewed by each rider), 7 of leave effects and 7 more on the far floor.
+`elevtriplog` in s562a (Bridgeport, off): **400 logged launches (the log cap, §34), 1.08 riders per launch** (368 with one rider, 30 with two,
+2 with three), 6.1 sim-min in the car before launch. So the car's 6 slots are almost never used: the riders of one
+column rarely board on the same floor within the hold. Not found: a re-queue loop that loses time (`WaitInLine`'s
+remove and re-add each quarter minute is EA design and cheap), a long way round (the car hops one floor per portal, ticks
+each). EA's own skip (`TryTeleportSkip`) helps only when the car on the Sim's floor is free with open doors.
+
+Real limits: one car, many Sims. Poor logic: the parked-car call (§34), and a hold that waits for riders who are
+on other floors and cannot join.
+
+### 33.2 Fix
+
+A Sim the doors refused, whose route rides this column, is set at the outer slot of the doors its ride ends at (EA's
+exit spot: `FindGoodLocation` routable, empty tiles first, that room) and the game replans from there: the line answers
+"timed out", EA's `WaitInLine` calls `TryTeleportSkip`, our hook places the Sim and answers true, so EA's own
+after-skip path runs (`ContinueAndPopPathAndReplan`). The car, its use lists, riders and doors are untouched. An
+elevator is a portal: a player's rule allows clipping at portals, no teleport on ordinary walks.
+
+- `elevskip`: unseen NPCs (the Sim and the far doors off screen and away from viewers), at once, no fade.
+- `elevskiphh`: household and selected Sims and NPCs in view too, after `kElevSkipHhWait` (1) sim-minutes, with EA's fade.
+- `elevskiphhunseen` (default off, acts only with `elevskip` + `elevskiphh`; counter 4721, logged "household, unseen";
+  built 2026-11-25, NOT RUN): a household Sim that is not the selected Sim goes at once with no fade, like an unseen
+  NPC, when the Sim itself is off screen and away from viewers and the far doors are off screen and away from viewers.
+  The project rule is that household Sims never count as unseen; this switch is an explicit player opt-in that lifts
+  that rule for elevator skips only (asked for as a performance option). The selected Sim never counts as unseen, and
+  a household Sim on screen keeps `elevskiphh`'s wait and fade.
+- A Sim set through in the last `kElevSkipRepeatMin` (5) sim-minutes keeps the game's wait; horses, pets, carriers,
+  toddlers, WooHoo and the elevator's own interactions keep EA's code.
+- `elevtriplog`: one line per car launch (riders, wait in the car) and per Sim set through.
+
+### 33.3 Proof (storm s562, Bridgeport seed 156, s560 setup, 30 min, new game from the world file)
+
+s562a all off, s562b NPC switches on (`elevskip`, `elevparked`, `poolshare`, `elevtriplog`), s562c NPC and household
+switches on. Waits in sim-minutes (count / summed wait).
+
+| | s562a off | s562b NPC on | s562c NPC + hh on |
+|---|---|---|---|
+| elevator waits | 284 / 1338.3 | 205 / 374.8 | 196 / 328.6 |
+| NPC lane waits | 193 / 1204.4 | 191 / 307.0 | 188 / 297.6 |
+| NPC line waits | 84 / 94.4 | 5 / 5.7 | 0 |
+| household lane waits | 6 / 37.4 | 6 / 47.2 | 7 / 28.9 |
+| household max wait | 11.5 | 16.5 | 9.3 |
+| `elevskip` set through | 0 | 58 (unseen) | 62 (52 unseen, 10 with fade) |
+| `elevparked` boardings (log lines, capped, see §34) | 0 | 400 | 400 |
+| riders per launch (`elevtriplog`, first logged launches) | 1.08 | 1.05 | 1.03 |
+| fix errors | 0 | 0 | 0 |
+
+Elevator wait time down 72% (b) and 75% (c), NPC line waits gone with `elevskip`; household waits stay small (6-7 waits; max 9.3-16.5
+sim-min). Riders per launch stay near 1: the fixes cut the wait,
+not the column's one-car limit. PROVEN for `elevskip` / `elevskiphh` / `elevparked` (one storm per state, errors 0).
+
+## 34. A car parked on the Sim's floor is called for 7 sim-minutes (`elevparked`, `elevparkedhh`; 2026-11-25, `post/elevator-1125`, built, default ON for `elevparked` (NPC only; `elevparkedhh` off), proven with elevskip s562)
+
+`ElevParked.cs`, rules in `ElevParkedCore.cs`, counters 4711-4715, check `ElevParkedCheck`, selftest
+`tools/selftest/elevparked`, repro `elevparked-check`.
+
+[verified, decompiled `ElevatorDoorsPortalComponent.OnApproachingPortalObject`] A boarder at closed doors sleeps
+`kLongEffectsTime` (7 sim-min) with the arrive effects, so the car may come from another floor. EA keeps no car
+position, and the doors close when the last rider steps out (`IsElevatorEmpty && !IsElevatorRequested`) and 30
+sim-min after an empty call. So the next Sim boarding where the car stands waits 7 minutes for it, and every other floor
+of the column waits too (crowdport's "doors closed, car free" lines).
+
+Fix: the column (its lowest car) remembers the doors of the car's last stop (a ride ended there, or a boarding there
+was its last call). A boarder there at closed doors with the car empty gets EA's own `OpenElevatorDoors` first (door
+animation and muzak), so EA's open-doors branch runs: no arrive sleep, the hold as always. A car on another floor, or
+any car after a load until its next stop, keeps EA's 7 minutes. `elevparkedhh`: household and selected Sims too.
+
+Proof: see §33.3 (s562b/c).
+
+The 400 in s562b and s562c is not a count of boardings. Counter 4711 (`opened at once`) counts one per boarder whose
+doors `elevparked` opened, and `EpkCounters` / `ElevParkedCheck result` report it uncapped; the table row was counted
+from `elevparked:` lines in `ts3native.log`, and the native log keeps at most 400 lines per prefix
+(`[UserDiag] LinesPerPrefix`, `userdiag.cpp`), then logs `elevparked lines capped at 400`. So s562b and s562c had at
+least 400 parked boardings; the counter, not the log, holds the number. The same cap explains s562a's "400 launches"
+(§33.1): car launches log under the `elevskip:` prefix, so the riders-per-launch figures come from the first logged
+launches only (in b and c the set-through lines share that prefix). The counter code is right; no fix needed. Next
+storm: read counters 4708-4711 from `ElevSkipCheck` / `ElevParkedCheck` rather than counting log lines.
+
+## 35. Pool ladders shared in both directions (`poolshare`, `poolsharehh`; 2026-11-25, `post/elevator-1125`, built, default off)
+
+`PoolShare.cs` plus the pool ladder kind in `ShareLanes.cs` / `ShareLanesCore.cs` (sharelanes' search), counters
+4716-4720, check `PoolShareCheck result | run | lot`, selftest `tools/selftest/poolshare`, repro `poolshare-check`.
+
+[verified, decompiled `PoolPortalComponent`, `PoolLadder`, `PortalComponent.GetFreeRoutingLane`] A pool ladder has one
+lane (outside and inside slot). EA's table shares it with a Sim entering at the same end and refuses one coming the
+other way, which waits at a spot. The climb is one state machine per Sim (`PoolLadder.GetStateMachine` acquires it on
+the Sim, the ladder is only an actor; EA already runs two at once from the same end), and each climb turns on the
+footprint of its own lane end. Storm logs: 7 NPC waits that gave up, 14 sim-min (s550f, s558g, s560b: NPCs routing home
+across a pool, a follower behind its leader).
+
+Fix: a pool ladder lane refused only because it is held from the other end is searched again with the game's own steps
+(nearest start slot, the pool's extra checks and obstruction test, its fallback lane), as sharelanes does for stairs
+and doors; the two Sims may clip at the ladder. The pool's own edge portal and fountains keep EA's table.
+`poolsharehh`: household and selected Sims too.
+
+Proof: none. No Sim waited at a pool ladder in s562a-c, so `poolshare`
+never ran. NOT PROVEN: needs a forced repro (`poolshare-check`) or a storm on a lot with a busy pool.
+
+### 35.1 Checks (§33-35)
+
+- `node tools/selftest/elevskip/run.ts` (17), `elevparked` (7), `poolshare` (9), `sharelanes` (kind names updated);
+  `build-fixes.ts`; `swap-stack-audit.ts` (three new swaps, all yield, stub remap: `TryTeleportSkip`,
+  `ElevatorPortalComponent.OnPortalStart`, `ElevatorDoorsPortalComponent.OnApproachingPortalObject`); `fix-repro-check.ts`.
+## 38. The next action is picked at once when the queue runs empty (`nextplan`, `nextplanhh`, `nextplanlog`; 2026-11-26, `post/nextplan-1126`, built, default off, storm A/B s660)
+
+User (2026-11-26): "we shouldn't notice the sims stopped waiting"; the next plan should be one "that would make more sense
+combining with others".
+
+### 38.1 The gap, from earlier runs [measured: actdelay `ActDelayCheck("result")` of s538-s558, 25 storm arms]
+actdelay's `pick` bucket is the time a Sim stood with an empty queue until an autonomous pick was in it; its other buckets
+run from the queue to the first step. Household Sims (n = 109-829 picks per arm; bins are x2 wide, so values are upper
+edges):
+
+| part | p50 ms | p90 ms | notes |
+|---|---|---|---|
+| queue empty -> autonomous pick queued (`pick`) | 288-480 (one arm 704) | 704-1408 | max 1.2-24 s |
+| pick -> loop wakes (`wake`) | 26-36 | 44-72 | queuewake already on |
+| posture transitions before Run (`preroute`) | 0-1 | 36-416 | stand up, put a child down |
+| route plan (`plan-job`) | 18-44 | 44-120 | worker job; `plan-cpu` 0-1 |
+
+Selected Sim: `pick` p50 208-704, p90 576-3840 ms. Storms run at ~296 sim ticks per real second (37.5 ticks a sim-minute):
+288 ms is ~2.3 sim-min, 832 ms ~6.6 sim-min. At game speed 1 (one sim-minute a second) the sim-time parts of the gap last
+that many seconds. So the gap is not tiny, and the pick step is 80-90 % of it; route plan and start-up are small.
+
+### 38.2 Why the pick waits [verified, decompiled `Sim.DoInteraction`, `Sim.CanRunAutonomyImmediately`, `AutonomyManager.Simulate`, `Autonomy.RunAutonomy`, `InteractionQueue.InsertInteraction` / `RemoveLowerPriorityInteractions`]
+1. Empty queue: `DistressIdle` / `PlayNonDistressIdleIfNecessary` (only queued idles), then `LoopIdle` (posture idle; can yield).
+2. The Sim adds itself to `AutonomyManager` at once only if `CanRunAutonomyImmediately` (last action autonomous and
+   succeeded; a non-selectable NPC also after a failure), its Service or an active role; else only after
+   `kAutonomyDelayNormal` = 5 sim-min since the queue ran empty (2 after a player's cancel, 7 while talking with the active
+   Sim, mounted its own). Every household Sim is selectable, so after any player-given action it stands 5 sim-min.
+3. `AutonomyManager.Simulate` runs **one** `TryFindBestAction` per frame, alternating the high-LOD and low-LOD queues: a
+   household Sim waits behind every high-LOD Sim queued before it, and every other frame goes to a low-LOD NPC.
+4. The search (`ScoreInteractionsOnObjects`) can yield; the pick is added (`ConsiderPerformingAutonomousAction` adds only to
+   an empty queue) and the Sim's 10-tick loop sleep ends (queuewake, §23).
+5. A user-directed add cancels lower-priority autonomous entries in front (`RemoveLowerPriorityInteractions`,
+   `HigherPriorityNext`): EA's own rule for "the player's order wins".
+EA exposes no "about to end" point for interactions in general (exit animations are inside `Run`), and `RunAutonomy`
+returns at once while a head exists unless `OverrideCurrentInteraction` (which means: replace the running one). So the pass
+cannot run inside the old action's exit without replacing it; it runs right after it, before any idle.
+
+### 38.3 What is built (NextPlan.cs, NextPlanCore.cs; counters 4940-4959, `kCounterSlots` 4960)
+- Once per "queue ran empty" (head removed, `OnRemovedFromQueue` hook), at the start of `LoopIdle` (hook, stacked over
+  queuewake's): a Sim that `NextPlanCore.Decide` lets go runs EA's own pass, `Autonomy.TryFindBestAction`, on its own task.
+  Same scoring, same probabilities, same `InteractionQueue.Add`; only the moment changes. With a pick in the queue the
+  posture idle is skipped (EA's loop never idles with a head). Nothing picked: EA's path (idle, manager queue). No retry.
+- Decide: household Sims always (switch `nextplanhh`); NPCs (switch `nextplan`) only in high LOD and at most
+  `kNextPlanNpcPerTick` (1) passes per sim tick, so the manager's one-a-frame throttle still bounds NPC search cost. EA's
+  delay is kept for the active Sim (the player's window), a Sim talking with it, after a player's cancel, while mounted,
+  and for every NPC; a non-active household Sim whose last action was the player's starts its next action at once.
+- Household-aware pick: every autonomous add of a Sim claims its target when that is a single-use object (its type keeps
+  `GameObject.GetInUseAutonomyMultiplier`: no seat, viewer or group logic of its own). While the claim lives (until the
+  entry leaves the queue, or `kNextPlanClaimMinutes` = 5 sim-min), another Sim's search scores the object with EA's own
+  route-pending factor (`GetRoutePendingAutonomyMultiplier`, what EA gives an object someone walks to). This closes the
+  window between one Sim's pick and its first step, in which EA sees the object free. The facility planner (§36,
+  `facilityplan`) scores inside the same search (its own hook on the same method), so busy-until, lines and booked
+  hand-offs count there too. Claims: one per Sim, two dictionaries, O(1) per call, a sweep of at most 256 entries at most
+  every 40 ticks, cleared at world load.
+- No weights change: EA's candidates and scores, plus EA's route-pending factor for a claimed object.
+- Scaled by how crowded the house is (user 2026-11-26: "different based on how many sims, utilities etc, so like a more
+  relaxed routing on a 8 sim household"; `NextPlanCore.Ratio` / `Level` / `ClaimMinutes` / `ClaimFactor`): per lot, Sims
+  (residents, or more when guests are there) per object of the scarcest kind (toilets, showers + baths, sinks, fridges,
+  beds at two a bed, fridges at three a fridge (a 2 sim-min grab; with one a fridge every family home read high in s660-s662); a kind with none counts as one), recounted once a sim-hour or when the residents change. Below 2 =
+  low (1-2 Sims, or plenty of facilities): claims live 2 sim-min (the pick -> first step window only). Below 4 = mid:
+  `kNextPlanClaimMinutes` (5). From 4 = high (8 Sims and 1-2 bathrooms): claims live 10 sim-min and a claimed object gets
+  EA's in-use factor (0.2) instead of the route-pending one, so the search takes a second-choice object or one in another
+  room or on another floor (the facility planner's ETA rule adds the walk). Both factors are EA's own constants; nothing
+  rises above EA's value. Not built: picking earlier than the queue-empty moment (38.2: EA's pass cannot run while a head
+  exists without replacing it) and a lookahead window. Clipping and timing rules (§9 and others) are unchanged.
+- Player's orders: never overridden (EA's add rules, 38.2 point 5); a pick cancelled that way is counted ("dropped by a
+  higher-priority add"). Walks stay walks: the route is the picked interaction's own plan in `Run`. No route pre-plan:
+  EA plans from the Sim's position after its exit, and a plan made earlier would start from the wrong spot.
+- Probe (both arms): gap "queue empty -> autonomous pick queued" per scope in ms and sim-min, split into the wait before the
+  search (EA "at once" class / EA delay class) and the search (`Autonomy.RunAutonomy(bool)` hook); same-target picks
+  (claimed by / in use by another Sim); household autonomous actions done per sim-hour and household motive mean/min.
+  `NextPlanCheck("run" | "result" | "reset")`, repro `nextplan-check`, selftest `tools/selftest/nextplan`.
+- Off = compare mode (`would`; claims tracked, never applied). Swaps (all stacked, with a stub, swap-stack table rows):
+  `Sim.LoopIdle`, `GameObject.GetInUseAutonomyMultiplier`, `InteractionInstance.OnAddedToQueue` / `OnRemovedFromQueue`,
+  `Autonomy.RunAutonomy(bool)`.
+
+### 38.4 Storm A/B (2026-11-26, Deck, s660 / s661 / s662; s606 setup: merged asi ci-45754579321 + its ini, heap 512, 30 min route storm, seed 156, new game from the world file, camsafe on, camera still) [measured]
+Off = nextplan off (compare mode), on = `nextplan nextplanhh nextplanlog`. Household rows (the active household; NextPlanCheck
+histograms are x2 bins, values are bin upper edges; actdelay `pick` has finer bins). 30 real minutes = ~240 sim-hours at
+storm speed (~8 sim-min per real second). s660a is left out (claims were never made: the single-use test read
+`DeclaringType`, which a swap rewrites; fixed and rerun as s661a). In these arms a single fridge made every family home
+"high" contention; fridges now count three Sims each (38.3).
+
+| arm | world, household | pick gap ms p50/p90 | sim-min p50/p90 | actdelay pick p50/p90 ms | wait before search ms p50/p90 (EA at once) | delay class sim-min p50 | search ms p50/p90 |
+|---|---|---|---|---|---|---|---|
+| s661a off | SV, Bunch (6) | 1024 / 2048 | 6.4 / 25.6 | 288 / 832 | 512 / 1024 | 12.8 | 1 / 113 |
+| s660b on | SV, Bunch | 256 / 2048 | 1.6 / 12.8 | 72 / 416 | 128 / 128 | 1.6 | 1 / 128 |
+| s662b on | SV, Bunch (8-Sim make failed, 38.5) | 256 / 1024 | 1.6 / 12.8 | 72 / 144 | 128 / 256 | 1.6 | 1 / 1 |
+| s660c off | SU, Malan Hall (7) | 1024 / 4096 | 6.4 / 25.6 | 416 / 1152 | 1024 / 2048 | 25.6 | 1 / 1 |
+| s660d on | SU, Malan Hall | 256 / 2048 | 1.6 / 12.8 | 104 / 704 | 128 / 1024 | 3.2 | 1 / 1 |
+
+- The gap falls about 4x at the median (household p50 6.4 -> 1.6 sim-min; actdelay pick 288-416 -> 72-104 ms) and the
+  delay class (after a player's action) from 12.8-25.6 to 1.6-3.2 sim-min. The search itself is ~1 ms at the median; the
+  wait was the manager queue and EA's delay. Passes: 1030-1310 per arm, 761-971 queued, 159-220 of them in EA's delay,
+  226-339 found nothing (EA's path then), 78-157 dropped by a higher-priority add (EA's rule, mostly the storm's own pushes).
+- Pick -> first step (actdelay household): wake 30/44-72, preroute 0-1/176-288, plan-job 26-30/72-104 ms in both arms.
+- Same target, household Sims (split counter, SV): off 71 claimed by another Sim + 22 in use (s661a), on 13 + 27 (s662b).
+  All Sims (NPC-dominated): SU 1372 + 240 off vs 1316 + 247 on; claimed objects scored down 1250-1860 per on arm.
+- Household autonomous actions done per sim-hour: SV 6.9 off vs 6.8 / 7.0 on; SU 7.3 off vs 7.8 on. Household motive mean
+  at the end: SV 27.2 vs 23.3 / 24.9, SU 26.7 vs 28.9 (one sample each: noise). No worse needs.
+- Errors: nextplan 0 in every arm; ErrorTrap 6-7 and 19 script exception lines in every arm (baseline). Hitch lines
+  (`hitchwatch` >= 100 ms): SV 8 off vs 11 / 6 on, SU 19 off vs 25 on: within run-to-run spread, no nextplan frame in them
+  [not traced per hitch].
+
+### 38.5 8-Sim household A/B (2026-11-27, Deck, s664a off / s664b on) [measured]
+Same storm setup (38.4); at storm start the story household `full-house` (8 Sims: two elders, two adults, a toddler, four
+children) is made with the agent's `make_household` (funds 32000, the familyfunds cheat: at CAS funds no affordable lot
+fit the crib and beds in s662b / s663b, which then ran on the old household and are left out) and switched to. Both arms
+moved into "Shotgun Style - 2br, 1ba": 1 toilet, 1 shower/bath, 2 sinks, 1 fridge, 2 beds, contention ratio 8 (high).
+
+| | off (s664a) | on (s664b) |
+|---|---|---|
+| household pick gap ms p50 / p90 | 1024 / 2048 | 128 / 2048 |
+| sim-min p50 / p90 | 6.4 / 25.6 | 0.8 / 12.8 |
+| actdelay household pick p50 / p90 ms (n) | 352 / 960 (2033) | 60 / 480 (2068) |
+| delay class (after a player's action) sim-min p50 | 12.8 | 0.8 |
+| household same-target picks: claimed by another Sim / in use by another Sim | 110 / 107 | 78 / 101 |
+| claimed objects scored down (high level) | would 1410 | 1673 (854) |
+| household autonomous actions done per sim-hour | 12.4 | 13.3 |
+| household motive mean / min at the end | -0.9 / -100 | 2.7 / -100 |
+| errors (nextplan / ErrorTrap / script exception lines) | 0 / 6 / 19 | 0 / 6 / 18 |
+| hitch lines >= 100 ms | 9 | 8 |
+
+- The gap falls 8x at the median in the crowded house; two household Sims heading for one claimed object fall by 29 %
+  (in-use picks, EA's own 0.2 factor already, stay). The house stays overloaded either way (one toilet for eight: motive
+  min -100 in both arms); the on arm finishes 7 % more actions per sim-hour.
+- Proof status: storm A/B on two worlds and an 8-Sim house, 0 errors of its own, no hitch rise; one run per arm, so the
+  needs and hitch differences are within noise. Not run: a forced repro of a player's queued order against a pre-pick
+  (EA's own rule; counted as "dropped by a higher-priority add" 71-157 per on arm, the storm's pushes).
