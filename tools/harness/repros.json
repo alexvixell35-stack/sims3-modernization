@@ -152620,7 +152620,28 @@
           "motives": true
         },
         "max": 300,
-        "waitS": 8
+        "waitS": 20
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 15,
+        "note": "again: the selected Sim must stand on the home lot before the furnish step reads its lot"
       },
       {
         "cmd": "reflect_call",
@@ -152632,6 +152653,7 @@
         },
         "max": 4000,
         "waitS": 3,
+        "mustMatch": "slotted 4",
         "note": "every chair slot of the table gets a chair (DoorSeat.cs helper)"
       },
       {
@@ -154551,7 +154573,28 @@
           "motives": true
         },
         "max": 300,
-        "waitS": 8
+        "waitS": 20
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 15,
+        "note": "again: the selected Sim must stand on the home lot before the furnish step reads its lot"
       },
       {
         "cmd": "reflect_call",
@@ -154563,6 +154606,7 @@
         },
         "max": 4000,
         "waitS": 3,
+        "mustMatch": "slotted 6",
         "note": "every chair slot of the table gets a chair (DoorSeat.cs helper)"
       },
       {
@@ -156422,7 +156466,23 @@
           "motives": true
         },
         "max": 300,
-        "waitS": 8
+        "waitS": 20
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Mopclaim",
+            "Ben Mopclaim",
+            "Cia Mopclaim",
+            "Dov Mopclaim"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 15
       },
       {
         "cmd": "reflect_call",
