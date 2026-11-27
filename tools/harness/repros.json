@@ -152395,5 +152395,3675 @@
         "waitS": 2
       }
     ]
+  },
+  {
+    "id": "seatclash-force",
+    "bug": "Sims clash at the dining table: two Sims pick the same chair (the pick is not held during the walk), and a Sim standing behind a chair makes the game's push fail or the pull-out test refuse; the walk ends in the route-fail shrug (docs/686 §42)",
+    "fix": "ts3fixes SeatClash.cs: seatclash (NPCs) / seatclashhh (household and selected Sims), default off, docs/686 §42",
+    "save": "Sunset Valley new game (the household and the room are made by the repro)",
+    "note": "8 household Sims, one 4-seat table (TableDiningBistro), a group meal on the floor by the counters; all 8 are ordered to grab a serving at once, three rounds per arm. Both arms run the planned-on household set; arm on adds seatclash + seatclashhh. 'SeatClashCheck result' gives the approaches by exit (seated / taken on arrival / push failed / pull-out refused / other), shrugs, push waits and pick-to-seated times; 'seats' the chairs in use. The furnish step is DoorSeat.cs's (docs/686 §39).",
+    "expect": "off: shrugs > 0 (taken on arrival or push failed), 'would' counts > 0. on: shrugs lower, 'picked again' or 'no chair left' > 0 where the off arm had 'taken on arrival', push grace ends where the off arm had 'push failed', snaps 0, errors 0, the same number of Sims seated.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "seatclash": false,
+          "seatclashhh": false,
+          "seatclashlog": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Seatclash",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Ada",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Ben",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Cia",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "d",
+              "first": "Dov",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "e",
+              "first": "Eva",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "f",
+              "first": "Fox",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "g",
+              "first": "Gia",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "h",
+              "first": "Hal",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "8-Sim household on a vacant lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Seatclash"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "setup": true,
+        "waitS": 1,
+        "note": "only the orders move the Sims"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E E E",
+            "E E E E E E E E E",
+            "E E E E t E E E E",
+            "E E E E E E E E E",
+            "E E E E E E E E E",
+            "E a E E E E E c c"
+          ],
+          "house": true,
+          "margin": 0,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "sim_timeout_s": 120,
+          "legend": {
+            "t": {
+              "name": "",
+              "class": "TableDiningBistro",
+              "first": true
+            },
+            "a": {
+              "name": "",
+              "class": "ChairDiningMission",
+              "facing": "N",
+              "loose": true
+            },
+            "c": {
+              "name": "",
+              "class": "Counter",
+              "facing": "N"
+            }
+          }
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 420
+        },
+        "note": "one room 9x6, a 4-seat dining table in the middle, a loose chair for the furnish step to copy, two counters"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "furnish"
+          ]
+        },
+        "max": 4000,
+        "waitS": 3,
+        "note": "every chair slot of the table gets a chair (DoorSeat.cs helper)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "mustMatch": "controls ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "mustMatch": "chairs 4 of 4"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "fast"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "nextplan": true,
+          "nextplanhh": true,
+          "clipwait": true,
+          "clipwaithh": true,
+          "seatclash": false,
+          "seatclashhh": false,
+          "seatclashlog": true,
+          "routefaillog": true,
+          "linewaitlog": true
+        },
+        "waitS": 1,
+        "note": "arm off: the planned-on set, seatclash off (probe only)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fridgeline": true,
+          "fridgelinehh": true,
+          "bathroomwait": true,
+          "privacyroom": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "the rest of the planned-on set, where the branch has it"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorseat": true,
+          "doorseathh": true,
+          "seatreach": true,
+          "seatreachhh": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "doorseat / seatreach, where the branch has them"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-off-1"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-1 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-1 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-off-1 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-off-2"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-2 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-2 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-off-2 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-off-3"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-3 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-3 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-off-3 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NextPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "nextplan": true,
+          "nextplanhh": true,
+          "clipwait": true,
+          "clipwaithh": true,
+          "seatclash": true,
+          "seatclashhh": true,
+          "seatclashlog": true,
+          "routefaillog": true,
+          "linewaitlog": true
+        },
+        "waitS": 1,
+        "note": "arm on: the planned-on set plus seatclash + seatclashhh"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fridgeline": true,
+          "fridgelinehh": true,
+          "bathroomwait": true,
+          "privacyroom": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "the rest of the planned-on set, where the branch has it"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorseat": true,
+          "doorseathh": true,
+          "seatreach": true,
+          "seatreachhh": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "doorseat / seatreach, where the branch has them"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-on-1"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-1 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-1 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-on-1 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-on-2"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-2 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-2 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-on-2 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-on-3"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-3 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-3 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-on-3 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NextPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "optional": true
+      }
+    ]
+  },
+  {
+    "id": "seatclash-force6",
+    "bug": "Sims clash at the dining table: two Sims pick the same chair (the pick is not held during the walk), and a Sim standing behind a chair makes the game's push fail or the pull-out test refuse; the walk ends in the route-fail shrug (docs/686 §42)",
+    "fix": "ts3fixes SeatClash.cs: seatclash (NPCs) / seatclashhh (household and selected Sims), default off, docs/686 §42",
+    "save": "Sunset Valley new game (the household and the room are made by the repro)",
+    "note": "8 household Sims, one 6-seat table (TableDiningMission), a group meal on the floor by the counters; all 8 are ordered to grab a serving at once, three rounds per arm. Both arms run the planned-on household set; arm on adds seatclash + seatclashhh. 'SeatClashCheck result' gives the approaches by exit (seated / taken on arrival / push failed / pull-out refused / other), shrugs, push waits and pick-to-seated times; 'seats' the chairs in use. The furnish step is DoorSeat.cs's (docs/686 §39).",
+    "expect": "off: shrugs > 0 (taken on arrival or push failed), 'would' counts > 0. on: shrugs lower, 'picked again' or 'no chair left' > 0 where the off arm had 'taken on arrival', push grace ends where the off arm had 'push failed', snaps 0, errors 0, the same number of Sims seated.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "seatclash": false,
+          "seatclashhh": false,
+          "seatclashlog": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Seatclash",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Ada",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Ben",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Cia",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "d",
+              "first": "Dov",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "e",
+              "first": "Eva",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "f",
+              "first": "Fox",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "g",
+              "first": "Gia",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "h",
+              "first": "Hal",
+              "last": "Seatclash",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "8-Sim household on a vacant lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Seatclash"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "setup": true,
+        "waitS": 1,
+        "note": "only the orders move the Sims"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E E E",
+            "E E E E E E E E E",
+            "E E E E t E E E E",
+            "E E E E E E E E E",
+            "E E E E E E E E E",
+            "E a E E E E E c c"
+          ],
+          "house": true,
+          "margin": 0,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "sim_timeout_s": 120,
+          "legend": {
+            "t": {
+              "name": "",
+              "class": "TableDiningMission",
+              "first": true
+            },
+            "a": {
+              "name": "",
+              "class": "ChairDiningMission",
+              "facing": "N",
+              "loose": true
+            },
+            "c": {
+              "name": "",
+              "class": "Counter",
+              "facing": "N"
+            }
+          }
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 420
+        },
+        "note": "one room 9x6, a 6-seat dining table in the middle, a loose chair for the furnish step to copy, two counters"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "furnish"
+          ]
+        },
+        "max": 4000,
+        "waitS": 3,
+        "note": "every chair slot of the table gets a chair (DoorSeat.cs helper)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "mustMatch": "controls ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "mustMatch": "chairs 6 of 6"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "fast"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "nextplan": true,
+          "nextplanhh": true,
+          "clipwait": true,
+          "clipwaithh": true,
+          "seatclash": false,
+          "seatclashhh": false,
+          "seatclashlog": true,
+          "routefaillog": true,
+          "linewaitlog": true
+        },
+        "waitS": 1,
+        "note": "arm off: the planned-on set, seatclash off (probe only)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fridgeline": true,
+          "fridgelinehh": true,
+          "bathroomwait": true,
+          "privacyroom": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "the rest of the planned-on set, where the branch has it"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorseat": true,
+          "doorseathh": true,
+          "seatreach": true,
+          "seatreachhh": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "doorseat / seatreach, where the branch has them"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-off-1"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-1: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-1 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-1 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-off-1 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-off-2"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-2: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-2 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-2 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-off-2 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-off-3"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-off-3: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-3 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-off-3 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-off-3 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NextPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "nextplan": true,
+          "nextplanhh": true,
+          "clipwait": true,
+          "clipwaithh": true,
+          "seatclash": true,
+          "seatclashhh": true,
+          "seatclashlog": true,
+          "routefaillog": true,
+          "linewaitlog": true
+        },
+        "waitS": 1,
+        "note": "arm on: the planned-on set plus seatclash + seatclashhh"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fridgeline": true,
+          "fridgelinehh": true,
+          "bathroomwait": true,
+          "privacyroom": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "the rest of the planned-on set, where the branch has it"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorseat": true,
+          "doorseathh": true,
+          "seatreach": true,
+          "seatreachhh": true
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "doorseat / seatreach, where the branch has them"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-on-1"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-1: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-1 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-1 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-on-1 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-on-2"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-2: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-2 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-2 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-on-2 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ada Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Ben Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Dov Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Eva Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Fox Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Gia Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Hal Seatclash"
+        },
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household",
+          "motive": "all",
+          "value": 90
+        },
+        "waitS": 6,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ada Seatclash",
+            "Ben Seatclash",
+            "Cia Seatclash",
+            "Dov Seatclash",
+            "Eva Seatclash",
+            "Fox Seatclash",
+            "Gia Seatclash",
+            "Hal Seatclash"
+          ],
+          "near": "@type:Counter",
+          "autonomy": false,
+          "motives": true
+        },
+        "max": 300,
+        "waitS": 5,
+        "optional": true,
+        "note": "every round starts with the Sims by the counters"
+      },
+      {
+        "cmd": "add_platter",
+        "args": {
+          "near": "@type:Counter",
+          "forward": 1.6,
+          "right": 0,
+          "recipe": "MacAndCheese"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "seatclash-on-3"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ada Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Ada Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ben Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Ben Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Cia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Dov Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Dov Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Eva Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Eva Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Fox Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Fox Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Gia Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Gia Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Hal Seatclash",
+          "target": "@type:ServingContainerGroup",
+          "interaction": "def:ServingContainerGroup_GrabAServing"
+        },
+        "note": "seatclash-on-3: Hal Seatclash ordered to grab a serving"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-3 seats at +45 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "seats"
+          ]
+        },
+        "max": 4000,
+        "waitS": 45,
+        "note": "seatclash-on-3 seats at +90 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "note": "seatclash-on-3 counters"
+      },
+      {
+        "cmd": "sim_health",
+        "args": {},
+        "max": 3000,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NextPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000,
+        "waitS": 1,
+        "optional": true
+      }
+    ]
   }
 ]

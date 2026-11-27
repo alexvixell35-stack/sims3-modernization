@@ -110,3 +110,5 @@
 #   nextplan nextplanhh nextplanlog
 # docs/686 §39 doorseat (2026-11-27): door / arch chair pull-out test allowed, seat out of reach clipped or snapped; forced repro only (off 26/36 seated, on 36/36), default off:
 #   doorseat doorseathh seatreach seatreachhh seatsnap
+# docs/686 §42 seatclash (2026-11-27): chairs held from pick to seat, push wait ends after the shared grace; forced repro seatclash-force only, default off:
+#   seatclash seatclashhh
