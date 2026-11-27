@@ -5,7 +5,10 @@
 // it set (owner=<checkout>), else --force-hold (2026-11-23: `stop` from a worktree released the main checkout's build window).
 //   node tools/harness/track.ts status                       hold, job, game, chains, queues, main.lock, watchers; flags stale
 //   node tools/harness/track.ts stop [--after-job] [--force-hold] [--all]  stop this checkout's chains + queue.ts (+ job tree + TS3W.exe unless --after-job), clean
-//   (--all: every checkout's and unknown-owner ones; without it those are listed, not killed)
+//   (--all: every checkout's and unknown-owner ones; without it those are listed, not killed). Everything under a stopped chain (by
+//   Windows or MSYS parent: its queue.ts from a worktree too) goes with it. --after-job: hold, wait for the job and for the chain's
+//   queue.ts to sit idle on the hold, kill what runs under the chain, then TERM the chain bash so its EXIT trap runs (Bin restore,
+//   chain lock), and check the trap's markers (2026-11-27: taskkill /F of the chain skipped the trap, its worktree queue.ts ran on)
 //   node tools/harness/track.ts switch <script.sh> [--after-job]   stop, then start the script detached (out: probe-out/queue/<name>.out)
 //   node tools/harness/track.ts wait-chain <script.sh>         block until that chain, every queue.ts and the job are gone (use in the next chain)
 //   node tools/harness/track.ts marker [--chain <name>] <text>  in a chain: prints "marker: <time> <text>" (the .out) and appends it to
@@ -27,7 +30,8 @@ import { pending as modsPending, restoreMods, snapshotMods } from './mods-restor
 export type Proc = { pid: number; ppid: number; name: string; cmd: string; start?: string; mppid?: number };
 // me/main: this checkout and the main one, for hold ownership (default CHECKOUT / MAIN_ROOT of hold.ts); roots: every checkout
 // (git worktree list), for process owners (default [] = owners only from the hold.ts registry)
-type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; sleepMs: number; log: (m: string) => void; me?: string; main?: string; roots?: string[] };
+// term: a signal bash can trap (its EXIT trap runs); kill: taskkill /T /F (no trap)
+type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; term: (pid: number) => boolean; sleepMs: number; log: (m: string) => void; me?: string; main?: string; roots?: string[] };
 
 const read = (f: string) => { try { return readFileSync(f, 'utf8').trim(); } catch { return null; } };
 // max(0): clock skew on a fresh dir gave < 0, read as "absent"
@@ -52,6 +56,17 @@ function msysParents() {
   try { return parseMsysPs(execFileSync('ps', [], { timeout: 15000 }).toString()); } catch { return new Map<number, number>(); }   // no Git Bash ps: Windows links only
 }
 const realKill = (pid: number) => { try { execFileSync('taskkill', ['/T', '/F', '/PID', String(pid)], { stdio: 'ignore', timeout: 15000 }); } catch { /* gone */ } };
+// Git Bash kill -W: SIGTERM to an MSYS bash by Windows pid; bash runs its EXIT trap at once, also while it waits on a pipeline [verified 11-27]
+const realTerm = (pid: number) => { try { execFileSync('kill', ['-W', '-s', 'TERM', String(pid)], { stdio: 'ignore', timeout: 15000 }); return true; } catch { return false; } };
+const isQueue = (p: Proc) => /^node(\.exe)?$/i.test(p.name) && /harness[\\/]queue\.ts/.test(p.cmd) && !/--self-check|--dry-run/.test(p.cmd);
+// pids under root by Windows or MSYS parent (a subshell's exec breaks the Windows link); a "child" started before its parent is a reused pid
+export function descendants(all: Proc[], root: number) {
+  const by = new Map(all.map(p => [p.pid, p])), out = new Set([root]);
+  const under = (p: Proc, a?: number) => !!a && out.has(a) && !(p.start && by.get(a)?.start && p.start < by.get(a)!.start!);
+  for (let grew = true; grew;) { grew = false; for (const p of all) if (!out.has(p.pid) && (under(p, p.ppid) || under(p, p.mppid))) { out.add(p.pid); grew = true; } }
+  out.delete(root);
+  return out;
+}
 
 // classification (exported for the self-check)
 const CHAIN = /([\w.-]*(?:chain-[\w.-]*|mono-loop[\w.-]*|probe-out[\\/]queue[\\/][\w.-]+)\.sh)\b/;
@@ -63,15 +78,15 @@ export function classify(all: Proc[], self = process.pid) {
   const pids = new Set(all.map(p => p.pid));
   // a shell that only waits on a chain (an agent's `... track.ts wait-chain <chain>.sh`) is not that chain: counting it made waiters wait on each other forever
   const bashes = ps.filter(p => /^(bash|sh)(\.exe)?$/i.test(p.name) && CHAIN.test(p.cmd) && !/\bwait-chain\b/.test(p.cmd));
-  // nohup'd scripts show as a bash with a bash parent running the same script: keep the outermost
-  const chains = bashes.filter(p => !bashes.some(q => q.pid === p.ppid)).map(p => ({ ...p, script: basename(CHAIN.exec(p.cmd)![1].replace(/\\/g, '/')) }));
-  const queues = ps.filter(p => /^node(\.exe)?$/i.test(p.name) && p.pid !== self && /harness[\\/]queue\.ts/.test(p.cmd) && !/--self-check|--dry-run/.test(p.cmd))
+  // nohup'd scripts show as a bash with a bash parent running the same script: keep the outermost; an exec'd subshell has only an MSYS parent link
+  const chains = bashes.filter(p => !bashes.some(q => q.pid === p.ppid || (!!p.mppid && q.pid === p.mppid))).map(p => ({ ...p, script: basename(CHAIN.exec(p.cmd)![1].replace(/\\/g, '/')) }));
+  const queues = ps.filter(p => p.pid !== self && isQueue(p))
     .map(p => ({ ...p, queue: /--queue[ =]"?([^\s"]+)/.exec(p.cmd)?.[1] ?? /([^\s"\\/]+\.json)/.exec(p.cmd)?.[1] ?? '?' }));
   const tails = ps.filter(p => /^tail(\.exe)?$/i.test(p.name) && /-F/.test(p.cmd) && /probe-out[\\/]queue/.test(p.cmd))
     .map(p => ({ ...p, orphan: !pids.has(p.ppid) || !ps.some(q => q.pid === p.ppid && /bash|sh|node/i.test(q.name)) }));
   const game = ps.filter(p => p.name.toLowerCase() === GAME_EXE.toLowerCase());
   const builds = ps.filter(p => /^(cl|link|csc|msbuild)\.exe$/i.test(p.name));
-  return { chains, queues, tails, game, builds, alive: (pid: number) => pids.has(pid) };
+  return { chains, queues, tails, game, builds, self: mine, alive: (pid: number) => pids.has(pid) };
 }
 
 function jobState(e: Env, alive: (pid: number) => boolean) {
@@ -183,23 +198,60 @@ export async function waitMarker(e: Env, chain: string, text: string): Promise<{
 }
 
 // everything (--all): every checkout's and unknown-owner chains, queues, job and game; default only this checkout's (2026-11-23)
+// --after-job: the job has ended and the hold is set, so a chain's queue.ts waits on it before its next job. Idle = everything under
+// the chains is a shell, timeout, sleep or tail, or a queue.ts with no child, for IDLE_POLLS polls in a row (a queue.ts end report,
+// a chain's Bin state / agent copy / triage step finish first). shortcut: queue.ts in-process report work looks idle too; 30 s of quiet
+// covers it, a hold-wait line in its .out would be exact
+const IDLE_POLLS = 6, IDLE_CAP = 360;
+async function waitIdle(e: Env, chainPids: number[]) {
+  for (let t = 1, quiet = 0; ; t++) {
+    const ps = e.procs(), by = new Map(ps.map(p => [p.pid, p])), live = chainPids.filter(pid => by.has(pid));
+    if (!live.length) return 'chains ended on their own';
+    const kids = live.flatMap(pid => [...descendants(ps, pid)]).map(pid => by.get(pid)!);
+    const busy = kids.filter(p => !/^(bash|sh|timeout|sleep|tail)(\.exe)?$/i.test(p.name) && !(isQueue(p) && !kids.some(k => k.ppid === p.pid || k.mppid === p.pid)));
+    quiet = busy.length ? 0 : quiet + 1;
+    if (quiet >= IDLE_POLLS) return `chain children idle (${kids.filter(isQueue).map(p => `queue.ts ${p.pid}`).join(', ') || 'no queue.ts'})`;
+    if (t >= IDLE_CAP) return `WARN: still busy after ${IDLE_CAP} polls (${busy.map(p => `${p.name} ${p.pid}`).join(', ')}): stopping anyway`;
+    if (t % 60 === 0) e.log(`waiting for the chain children to go idle: ${busy.map(p => `${p.name} ${p.pid}`).join(', ')}`);
+    await sleep(e.sleepMs);
+  }
+}
+// TERM a chain bash (its children are already gone), wait for it to exit, then check what its EXIT trap left: night-plan chains
+// write "Bin restored" / "CHAIN END" markers and release probe-out/queue/night-chain.lock
+async function termChain(e: Env, ch: Proc & { script: string }) {
+  const n = chainName(ch.script), mf = join(e.dir, `${n}.markers`), before = (read(mf) ?? '').split(/\r?\n/).filter(Boolean).length;
+  if (!e.term(ch.pid)) return `${ch.script}(${ch.pid}): TERM failed (no Git Bash kill?), chain left running: its children are stopped`;
+  let t = 0;
+  for (; t < IDLE_CAP && e.procs().some(p => p.pid === ch.pid); t++) await sleep(e.sleepMs);
+  if (t >= IDLE_CAP) return `${ch.script}(${ch.pid}): TERM sent, still running its EXIT trap (waits for ${GAME_EXE}?): check again with status`;
+  const ms = (read(mf) ?? '').split(/\r?\n/).filter(Boolean).slice(before).join(' | ');
+  let lock = 'lock free'; try { const o = JSON.parse(readFileSync(join(e.dir, 'night-chain.lock'), 'utf8')); if (o.night === n.replace(/^chain-/, '')) lock = `LOCK STILL HELD (${o.night}): node tools/harness/night-plan.ts --unlock ${o.night}`; } catch { /* no lock */ }
+  const bin = /Bin restored/.test(ms) ? 'Bin restored' : /Bin restore failed/.test(ms) ? `BIN RESTORE FAILED: node tools/turbo-compat.ts restore probe-out/${n}` : `no "Bin restored" marker (not a night-plan chain?): check probe-out/${n}`;
+  return `${ch.script}(${ch.pid}) stopped by TERM, EXIT trap ran: ${bin}; ${lock}; the stopped queue's agent package was not put back (agentout runs after its queue)`;
+}
+
 export async function stop(e: Env, afterJob: boolean, forceHold = false, everything = false) {
   const did: string[] = [];
   if (afterJob) { setHold(e, 'track stop'); did.push(`hold "track stop"; ${await waitJobEnd(e)}`); }
-  const ps0 = e.procs();
-  let c = classify(ps0);
-  const f = stopFilter(e, ps0, everything), left: string[] = [];
-  const pick = <T extends Proc>(xs: T[], name: (p: T) => string) => xs.filter(p => f.mine(p) || (left.push(`${name(p)}(${p.pid}) ${f.owner(p) ?? 'owner unknown'}`), false));
-  const chains = pick(c.chains, p => p.script), queues = pick(c.queues, p => `queue ${p.queue}`);
-  for (const p of chains) e.kill(p.pid);
+  let ps0 = e.procs(), c = classify(ps0), f = stopFilter(e, ps0, everything);
+  if (afterJob && c.chains.some(f.mine)) { did.push(await waitIdle(e, c.chains.filter(f.mine).map(p => p.pid))); ps0 = e.procs(); c = classify(ps0); f = stopFilter(e, ps0, everything); }
+  const left: string[] = [];
+  const pick = <T extends Proc>(xs: T[], name: (p: T) => string, kids = new Set<number>()) => xs.filter(p => f.mine(p) || kids.has(p.pid) || (left.push(`${name(p)}(${p.pid}) ${f.owner(p) ?? 'owner unknown'}`), false));
+  const chains = pick(c.chains, p => p.script);
+  // under a stopped chain = ours, whatever checkout it runs from (a worktree queue.ts of a main-checkout chain)
+  const kids = new Set(chains.flatMap(ch => [...descendants(ps0, ch.pid)]).filter(pid => !c.self.has(pid)));
+  const queues = pick(c.queues, p => `queue ${p.queue}`, kids);
+  if (!afterJob) for (const p of chains) e.kill(p.pid);   // --after-job: TERM below, once the children are gone (no next chain step)
+  for (const pid of kids) e.kill(pid);
   for (const p of queues) e.kill(p.pid);
-  if (chains.length || queues.length) did.push(`killed ${chains.map(p => `${p.script}(${p.pid})`).concat(queues.map(p => `queue ${p.queue}(${p.pid})`)).join(', ')}`);
+  if (chains.length || queues.length) did.push(`${afterJob ? 'stopped' : 'killed'} ${chains.map(p => `${p.script}(${p.pid})`).concat(queues.map(p => `queue ${p.queue}(${p.pid})`)).join(', ')}${kids.size ? ` (${kids.size} process(es) under the chains)` : ''}`);
+  if (afterJob) for (const ch of chains) did.push(await termChain(e, ch));
   if (!afterJob) {
     const j = jobState(e, c.alive), jp = j ? ps0.find(p => p.pid === j.pid) : undefined;
     const jOwner = j?.owner ?? (jp ? f.owner(jp) : null);
-    if (j?.alive && (everything || (jOwner !== null && samePath(jOwner, e.me ?? CHECKOUT)))) { e.kill(j.pid); did.push(`killed job ${j.id} tree (pid ${j.pid})`); }
+    if (j?.alive && (everything || kids.has(j.pid) || (jOwner !== null && samePath(jOwner, e.me ?? CHECKOUT)))) { e.kill(j.pid); did.push(`killed job ${j.id} tree (pid ${j.pid})`); }
     else if (j?.alive) left.push(`job ${j.id}(${j.pid}) ${jOwner ?? 'owner unknown'}`);
-    const game = pick(c.game, () => GAME_EXE);
+    const game = pick(c.game, () => GAME_EXE, kids);
     for (const g of game) e.kill(g.pid);
     if (game.length) did.push(`killed ${GAME_EXE} (${game.map(g => g.pid).join(', ')}): check Game\\Bin pair before the next run`);
   }
@@ -239,7 +291,7 @@ function worktreeRoots() {
   catch { return [MAIN_ROOT]; }
 }
 function env(): Env {
-  return { dir: QUEUE_DIR, roots: worktreeRoots(), procs: realProcs, kill: realKill, sleepMs: 5000, log: m => console.log(`${new Date().toISOString().slice(11, 19)} track: ${m}`) };
+  return { dir: QUEUE_DIR, roots: worktreeRoots(), procs: realProcs, kill: realKill, term: realTerm, sleepMs: 5000, log: m => console.log(`${new Date().toISOString().slice(11, 19)} track: ${m}`) };
 }
 
 if (import.meta.main) {
@@ -261,7 +313,7 @@ if (import.meta.main) {
         { pid: 16, ppid: 1, name: 'bash.exe', cmd: 'bash -c ls' },
       ];
       const killed: number[] = [];
-      const e: Env = { dir: d, procs: () => ps, kill: pid => { killed.push(pid); ps = ps.filter(p => p.pid !== pid && p.ppid !== pid); }, sleepMs: 1, log: () => {} };
+      const e: Env = { dir: d, procs: () => ps, kill: pid => { killed.push(pid); ps = ps.filter(p => p.pid !== pid && p.ppid !== pid); }, term: () => true, sleepMs: 1, log: () => {} };
       const c = classify(ps, 0);
       assert.deepEqual(c.chains.map(p => [p.pid, p.script]), [[10, 'chain-mono.sh']], 'outermost chain bash only');
       assert.deepEqual(c.queues.map(p => p.queue), ['mono-x']);
@@ -360,6 +412,36 @@ if (import.meta.main) {
       assert.deepEqual(await waitMarker(e2, 'chain-m.sh', 'rest done'), { ok: true, line: 'marker: 2026-11-16T05:00:01Z mono-1115 rest done (rc 0)' });
       let polls = 0; const gone = waitMarker({ ...e2, procs: () => (++polls === 3 ? (ps = []) : ps) }, 'chain-m', 'rebaseline done');
       assert.deepEqual(await gone, { ok: false, line: 'chain-m is not running and wrote no marker "rebaseline done"' }); assert.equal(polls, 3);
+      // 2026-11-27: a main-checkout chain whose queue.ts (owner: a worktree) runs under exec'd subshells (MSYS parent only): stop
+      // from the main checkout takes the queue.ts too; --after-job kills only the children, TERMs the chain and checks its trap's work
+      const wtQ = join(oMain, '.claude', 'worktrees', 'atlas');
+      const chainTable = (): Proc[] => [
+        { pid: 100, ppid: 1, name: 'bash.exe', cmd: 'bash probe-out/queue/chain-main20c-x.sh', start: '2026-11-27T08:00:00' },
+        { pid: 101, ppid: 100, name: 'bash.exe', cmd: 'bash probe-out/queue/chain-main20c-x.sh', start: '2026-11-27T08:00:01' },
+        { pid: 102, ppid: 999, mppid: 101, name: 'bash.exe', cmd: 'bash probe-out/queue/chain-main20c-x.sh', start: '2026-11-27T08:00:02' },
+        { pid: 103, ppid: 102, name: 'timeout.exe', cmd: 'timeout 48m node --no-warnings tools/harness/queue.ts x.json', start: '2026-11-27T08:00:02' },
+        { pid: 104, ppid: 103, name: 'node.exe', cmd: `node --no-warnings tools/harness/queue.ts ${wtQ.replace(/\\/g, '/')}/tools/harness/queues/x.json`, start: '2026-11-27T08:00:03' },
+        { pid: 105, ppid: 100, name: 'node.exe', cmd: 'node old', start: '2026-11-26T01:00:00' }];   // reused pid: older than its "parent"
+      const chainEnv = (k: number[], t: number[]): Env => ({ ...e, me: oMain, roots: oRoots, procs: () => ps, kill: pid => { k.push(pid); ps = ps.filter(p => p.pid !== pid); },
+        term: pid => { t.push(pid); ps = ps.filter(p => p.pid !== pid); appendFileSync(join(d, 'chain-main20c-x.markers'), 'x 08:30 chain-main20c-x: Bin restored\nx 08:30 chain-main20c-x: CHAIN END\n'); rmSync(join(d, 'night-chain.lock'), { force: true }); return true; } });
+      assert.deepEqual([...descendants(chainTable(), 100)].sort(), [101, 102, 103, 104], 'MSYS-parent subshell and its queue.ts are under the chain; reused pid is not');
+      rmSync(join(d, 'owners'), { recursive: true, force: true }); mkdirSync(join(d, 'owners')); rmSync(join(d, 'job-running'), { force: true }); rmSync(holdFile(e), { force: true });
+      ps = chainTable(); writeFileSync(join(d, 'owners', '100'), oMain); writeFileSync(join(d, 'owners', '104'), wtQ);
+      assert.equal(procOwner(ps[4], new Map(ps.map(p => [p.pid, p])), readOwners(d), [...oRoots, wtQ]), wtQ, 'queue.ts owner is the worktree');
+      const k3: number[] = [], t3: number[] = [];
+      const hard = await stop(chainEnv(k3, t3), false);
+      assert.ok(k3.includes(100) && k3.includes(104) && !k3.includes(105) && !t3.length, `no --after-job: chain and its worktree queue.ts killed (${k3})`);
+      assert.ok(!hard.some(l => /not killed/.test(l)), hard.join(' | '));
+      const chainOwners = () => { writeFileSync(join(d, 'owners', '100'), oMain); writeFileSync(join(d, 'owners', '104'), wtQ); };
+      ps = chainTable(); chainOwners(); writeFileSync(join(d, 'night-chain.lock'), JSON.stringify({ night: 'main20c-x', pid: 100 }));
+      const k4: number[] = [], t4: number[] = [];
+      const soft = await stop(chainEnv(k4, t4), true);
+      assert.ok(!k4.includes(100) && k4.includes(104) && k4.includes(102) && !k4.includes(105) && t4.join() === '100', `--after-job: children killed, chain TERMed not killed (kill ${k4}, term ${t4})`);
+      assert.ok(soft.some(l => /chain children idle \(queue\.ts 104\)/.test(l)) && soft.some(l => /^chain-main20c-x\.sh\(100\) stopped by TERM, EXIT trap ran: Bin restored; lock free/.test(l)), soft.join(' | '));
+      ps = chainTable(); chainOwners(); writeFileSync(join(d, 'night-chain.lock'), JSON.stringify({ night: 'main20c-x', pid: 100 }));
+      const left = await stop({ ...chainEnv([], []), term: pid => { ps = ps.filter(p => p.pid !== pid); return true; } }, true);
+      assert.ok(left.some(l => /no "Bin restored" marker .*; LOCK STILL HELD \(main20c-x\)/.test(l)), `trap work missing is reported: ${left.join(' | ')}`);
+      rmSync(join(d, 'night-chain.lock'), { force: true });
       // the real start path: echo, tee and node lines of the chain all land in the .out (2026-11-16: echo and tee lines were lost)
       const sh = join(d, 'chain-echo.sh'), chOut = join(d, 'chain-echo.out');
       writeFileSync(sh, ['echo "06:44 mono-1115 rest start"', 'echo "tee line" | tee /dev/null', 'node -e "console.log(\'node line\')"',

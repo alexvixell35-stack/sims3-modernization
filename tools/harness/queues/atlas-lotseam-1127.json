@@ -1,0 +1,386 @@
+{
+  "note": "atlas-lotseam-1127: Boundless Atlas docs/058 §8 lot seam jobs (footprint audit, G-661 / G-662, I-058-1 / I-058-5 / I-058-6) on Atlas main 0.3.20. Both are dry runs (rebase slidecheck 0 512, oneWay = 2: lists, gates and precheck, nothing written, no lot paged) on Sunset Valley. Verdict beyond the regexes (job 1): the script leaving count equals the native window count, and each of the first 3 script boxes holds the native int bounds. A household-scope Sim in the dropped column makes the hub refuse first (no script line): VOID, rerun with the household away from the north 512 m.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=6 oop=0 seed=0",
+        "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=7 oop=0 seed=0",
+        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^atlas:icalls rebase: 11 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": {
+      "match": [
+        "atlas:icalls rebase: 11 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ],
+      "noMatch": [
+        "atlas:icalls rebase: 5 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set",
+        "atlas:icalls rebase SKIP no script domain in 600 s (host 0x00000000): 9 internal calls not registered",
+        "atlas:icalls rebase: 9 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ]
+    },
+    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 13, shape 92/92, 11 internal calls registered$": {
+      "match": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 13, shape 92/92, 11 internal calls registered"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 6, shape 92/92, 9 internal calls registered",
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 7, shape 92/92, 9 internal calls registered",
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 12, shape 92/92, 11 internal calls registered"
+      ]
+    },
+    "^atlas:rebase script half ready \\(rebase-4\\), native version 13$": {
+      "match": [
+        "atlas:rebase script half ready (rebase-4), native version 13"
+      ],
+      "noMatch": [
+        "atlas:rebase script half ready (rebase-4), native version 6",
+        "atlas:rebase script half ready (rebase-4), native version 7",
+        "atlas:rebase script half ready (rebase-4), native version 12"
+      ]
+    },
+    "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
+      "match": [
+        "atlas:icalls ready 3: groups 0x03FE"
+      ],
+      "noMatch": [
+        "atlas:icalls ready 1: groups 0x03FE",
+        "atlas:icalls ready 3: groups 0x3FE"
+      ]
+    },
+    "^atlas:icalls p1: 25 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 2 flag set$": {
+      "match": [
+        "atlas:icalls p1: 25 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set"
+      ],
+      "noMatch": [
+        "atlas:icalls p1: 24 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set"
+      ]
+    },
+    "^paged lots: probe on \\(Probe=1, FarM=250\\), 25 internal calls registered, ": {
+      "match": [
+        "paged lots: probe on (Probe=1, FarM=250), 25 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ],
+      "noMatch": [
+        "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
+      ]
+    },
+    "^paged lots: LotRect=0 \\(docs/058 G-666: distance to the lot rectangle\\)$": {
+      "match": [
+        "paged lots: LotRect=0 (docs/058 G-666: distance to the lot rectangle)"
+      ],
+      "noMatch": [
+        "paged lots: LotRect=1 (docs/058 G-666: distance to the lot rectangle)"
+      ]
+    },
+    "^atlas:script pkg=8cda3053 ": {
+      "match": [
+        "atlas:script pkg=8cda3053 (script half loadA-4)"
+      ],
+      "noMatch": [
+        "atlas:script pkg=f10b8c76 (script half loadA-4)",
+        "atlas:script pkg=b9dd663e (script half loadA-4)"
+      ]
+    },
+    "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:rebase self-check: PASS (307 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:rebase self-check: FAIL (307 checks, 4 failed)"
+      ]
+    },
+    "^atlas:rebase LotCells=1 ": {
+      "match": [
+        "atlas:rebase LotCells=1 (docs/058: script R-9 pre-page by the lot footprint; the one-way test always tests it)"
+      ],
+      "noMatch": [
+        "atlas:rebase LotCells=0 (docs/058: script R-9 pre-page by the lot footprint; the one-way test always tests it)"
+      ]
+    },
+    "^atlas:rebase R-8: TerrainSlide=1 ": {
+      "match": [
+        "atlas:rebase R-8: TerrainSlide=1 (terrain tables move on whole-cell steps; one-way slides stay refused: entered strip)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-8: TerrainSlide=0 (terrain tables move on whole-cell steps; one-way slides stay refused: entered strip)"
+      ]
+    },
+    "^atlas:rebase lot footprint script: leaving [1-9]\\d*, corner-only \\d+, over a 256 m line \\d+; first 3: 0x[0-9A-F]{16} \\[": {
+      "match": [
+        "atlas:rebase lot footprint script: leaving 4, corner-only 1, over a 256 m line 2; first 3: 0x0000000000A1B2C3 [780 1470 840 1530], 0x0000000000A1B2C4 [100 1900 160 1960]"
+      ],
+      "noMatch": [
+        "atlas:rebase lot footprint script: leaving 0, corner-only 0, over a 256 m line 0; first 3: "
+      ]
+    },
+    "^atlas:rebase lot footprint native: leaving ([1-9]\\d*) \\(window\\), \\1 \\(R-9 cells\\), origin test misses \\d+, int bounds inside the corner box (\\d+)/\\2; ": {
+      "match": [
+        "atlas:rebase lot footprint native: leaving 4 (window), 4 (R-9 cells), origin test misses 1, int bounds inside the corner box 4/4; world lot listed, in the R-9 strip; first 3: 0x0000000000A1B2C3 int [781 1471 839 1529] corner box [780 1470 840 1530]"
+      ],
+      "noMatch": [
+        "atlas:rebase lot footprint native: leaving 4 (window), 3 (R-9 cells), origin test misses 1, int bounds inside the corner box 4/4; world lot listed, in the R-9 strip; first 3: 0x0000000000A1B2C3",
+        "atlas:rebase lot footprint native: leaving 4 (window), 4 (R-9 cells), origin test misses 1, int bounds inside the corner box 3/4; world lot listed, in the R-9 strip; first 3: 0x0000000000A1B2C3"
+      ]
+    },
+    "^atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 512: native code -\\d+ \\(refused\\)": {
+      "match": [
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 512: native code -10 (refused)"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck 256 0: native code -10 (refused)"
+      ]
+    },
+    "^atlas:rebase MISMATCH ": {
+      "match": [
+        "atlas:rebase MISMATCH holder object id 0x1"
+      ],
+      "noMatch": [
+        "atlas:rebase verify: slots 10, mismatches 0, physics drops 0"
+      ]
+    },
+    "^atlas:rebase (FAULT|ERROR|DAMAGED) ": {
+      "match": [
+        "atlas:rebase FAULT in pass O"
+      ],
+      "noMatch": [
+        "atlas:rebase gate out: 1.00 ms, frames 2, slices 1"
+      ]
+    },
+    "^atlas:rebase (hub: )?RESULT FAIL ": {
+      "match": [
+        "atlas:rebase RESULT FAIL roundtrip step (-32, 0)",
+        "atlas:rebase hub: RESULT FAIL fault (damaged)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 9"
+      ]
+    },
+    "^atlas:rebase (SKIP|off) ": {
+      "match": [
+        "atlas:rebase SKIP shape 0x66CE10",
+        "atlas:rebase off (Enable=0)"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 4, shape 77/77, 9 internal calls registered"
+      ]
+    },
+    "^atlas:rebase RESULT (PASS slide|CHECKED slide step)": {
+      "match": [
+        "atlas:rebase RESULT CHECKED slide step 0 512"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED dropped-column-occupied: x"
+      ]
+    },
+    "^atlas:icalls (rebase|p1) SKIP ": {
+      "match": [
+        "atlas:icalls p1 SKIP no script domain in 600 s (host 0x00000000): 25 internal calls not registered"
+      ],
+      "noMatch": [
+        "atlas:icalls p1: 25 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 2 flag set"
+      ]
+    },
+    "^atlas:rebase hub: R-9 leaving strip: lot 0x[0-9A-F]{16} paged out": {
+      "match": [
+        "atlas:rebase hub: R-9 leaving strip: lot 0x0000000000A1B2C3 paged out"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: R-9 leaving strip: lot 0x0000000000A1B2C3 kept"
+      ]
+    },
+    "^atlas:rebase LotCells=0 ": {
+      "match": [
+        "atlas:rebase LotCells=0 (docs/058: script R-9 pre-page by the lot footprint; the one-way test always tests it)"
+      ],
+      "noMatch": [
+        "atlas:rebase LotCells=1 (docs/058: script R-9 pre-page by the lot footprint; the one-way test always tests it)"
+      ]
+    },
+    "^atlas:rebase R-8: TerrainSlide=0 ": {
+      "match": [
+        "atlas:rebase R-8: TerrainSlide=0 (terrain tables move on whole-cell steps; one-way slides stay refused: entered strip)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-8: TerrainSlide=1 (terrain tables move on whole-cell steps; one-way slides stay refused: entered strip)"
+      ]
+    },
+    "^atlas:rebase lot footprint native: leaving [1-9]\\d* \\(window\\), 0 \\(R-9 cells, R-8 off\\), origin test misses [1-9]\\d*, int bounds inside the corner box (\\d+)/\\1; ": {
+      "match": [
+        "atlas:rebase lot footprint native: leaving 4 (window), 0 (R-9 cells, R-8 off), origin test misses 1, int bounds inside the corner box 4/4; world lot listed, not in the strip; first 3: 0x0000000000A1B2C3"
+      ],
+      "noMatch": [
+        "atlas:rebase lot footprint native: leaving 4 (window), 0 (R-9 cells, R-8 off), origin test misses 0, int bounds inside the corner box 4/4; world lot listed, not in the strip; first 3: 0x0000000000A1B2C3"
+      ]
+    },
+    "^atlas:rebase precheck slide: dropped column items [1-9]\\d*, ": {
+      "match": [
+        "atlas:rebase precheck slide: dropped column items 3, lots 1"
+      ],
+      "noMatch": [
+        "atlas:rebase precheck slide: dropped column items 0, lots 0"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED dropped-column-occupied: ": {
+      "match": [
+        "atlas:rebase RESULT REFUSED dropped-column-occupied: 3 items in the dropped column"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: 2 entries"
+      ]
+    },
+    "^atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 512: native code -9 \\(refused\\)": {
+      "match": [
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 512: native code -9 (refused)"
+      ],
+      "noMatch": [
+        "atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 512: native code -10 (refused)"
+      ]
+    },
+    "^atlas:rebase lot footprint script: ": {
+      "match": [
+        "atlas:rebase lot footprint script: leaving 4, corner-only 1"
+      ],
+      "noMatch": [
+        "atlas:rebase lot footprint native: leaving 4 (window)"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-lotseam-r9-cells-sv",
+      "note": "[est 12 min] R-9 on, [Rebase] LotCells=1: script and native footprint lines for step 0 512; dry run. Pass: native line: window count = R-9 cell count (I-058-6) and every leaving lot's int bounds inside its corner box (I-058-5, native half); script line: leaving = the native window count, corner-only >= 1 (the G-662 miss, MountainPond expected), the first 3 ids match the native ones and each script box holds the native int bounds (I-058-5, script half; read by the verdict). The native refusal is expected (R-9 sources absent or a live lot in the strip). Note the world lot field (open question).",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1; lot seams docs/058 §8): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053); master set m1126b as atlas-rebase-terrain-slide-1127.",
+      "save": "Baseline-SV",
+      "timeoutMin": 30,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "PagedLots.LotRect": 0,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.InferredSlots": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 1,
+          "Rebase.StripBuild": 1,
+          "Rebase.LotCells": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:icalls rebase: 11 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 13, shape 92/92, 11 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 13$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:icalls p1: 25 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 2 flag set$": 1,
+          "^paged lots: probe on \\(Probe=1, FarM=250\\), 25 internal calls registered, ": 1,
+          "^paged lots: LotRect=0 \\(docs/058 G-666: distance to the lot rectangle\\)$": 1,
+          "^atlas:script pkg=8cda3053 ": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:rebase LotCells=1 ": 1,
+          "^atlas:rebase R-8: TerrainSlide=1 ": 1,
+          "^atlas:rebase lot footprint script: leaving [1-9]\\d*, corner-only \\d+, over a 256 m line \\d+; first 3: 0x[0-9A-F]{16} \\[": 1,
+          "^atlas:rebase lot footprint native: leaving ([1-9]\\d*) \\(window\\), \\1 \\(R-9 cells\\), origin test misses \\d+, int bounds inside the corner box (\\d+)/\\2; ": 1,
+          "^atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 512: native code -\\d+ \\(refused\\)": 1
+        },
+        "logForbid": {
+          "^atlas:rebase MISMATCH ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase RESULT (PASS slide|CHECKED slide step)": 0,
+          "^atlas:icalls (rebase|p1) SKIP ": 0,
+          "^atlas:rebase hub: R-9 leaving strip: lot 0x[0-9A-F]{16} paged out": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-lotseam-check-sv"
+      }
+    },
+    {
+      "id": "atlas-lotseam-oneway-sv",
+      "note": "[est 12 min] R-9 off (TerrainSlide=0, StripBuild=0): one-way dry run 0 512 over the same lots; expect dropped-column-occupied. Pass: I-058-1 closed the safe way: the lot whose origin stays (origin test misses >= 1, MountainPond expected) counts as dropped, so the one-way slide refuses dropped-column-occupied (native code -9) before any write; no script footprint line (LotCells=0, R-9 off).",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1; lot seams docs/058 §8): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053); master set m1126b as atlas-rebase-terrain-slide-1127.",
+      "save": "Baseline-SV",
+      "timeoutMin": 30,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "PagedLots.LotRect": 0,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.InferredSlots": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 0,
+          "Rebase.StripBuild": 0,
+          "Rebase.LotCells": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:icalls rebase: 11 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 13, shape 92/92, 11 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 13$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:icalls p1: 25 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 2 flag set$": 1,
+          "^paged lots: probe on \\(Probe=1, FarM=250\\), 25 internal calls registered, ": 1,
+          "^paged lots: LotRect=0 \\(docs/058 G-666: distance to the lot rectangle\\)$": 1,
+          "^atlas:script pkg=8cda3053 ": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:rebase LotCells=0 ": 1,
+          "^atlas:rebase R-8: TerrainSlide=0 ": 1,
+          "^atlas:rebase lot footprint native: leaving [1-9]\\d* \\(window\\), 0 \\(R-9 cells, R-8 off\\), origin test misses [1-9]\\d*, int bounds inside the corner box (\\d+)/\\1; ": 1,
+          "^atlas:rebase precheck slide: dropped column items [1-9]\\d*, ": 1,
+          "^atlas:rebase RESULT REFUSED dropped-column-occupied: ": 1,
+          "^atlas:rebase hub: RESULT CHECKED rebase slidecheck 0 512: native code -9 \\(refused\\)": 1
+        },
+        "logForbid": {
+          "^atlas:rebase MISMATCH ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase RESULT (PASS slide|CHECKED slide step)": 0,
+          "^atlas:icalls (rebase|p1) SKIP ": 0,
+          "^atlas:rebase lot footprint script: ": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-lotseam-check-sv"
+      }
+    }
+  ]
+}

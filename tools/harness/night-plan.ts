@@ -352,7 +352,7 @@ runq() { # worktree queue agent est timeout tag [--only ids]
   agentin $w $a $name || { mk "SKIPPED $name$tag: agent install failed ($a)"; return 1; }
   mk "queue $name$tag start ($(basename $w), agent $(basename $a), est \${e}m, timeout \${to}m, Bin $st)"
   local t0=$(date +%s)
-  (cd $w && timeout \${to}m node --no-warnings tools/harness/queue.ts $q "$@" >> $O/$C-$name$tag.out 2>&1 < /dev/null)
+  (cd $w && timeout \${to}m node --no-warnings tools/harness/queue.ts $q "$@" > $O/$C-$name$tag.out 2>&1 < /dev/null)
   local rc=$? min=$(( ($(date +%s) - t0) / 60 ))
   [ $rc -ne 0 ] && { taskkill //F //T //IM TS3W.exe < /dev/null > /dev/null 2>&1; nogame; }
   agentout $w $name
@@ -477,7 +477,7 @@ function selfCheck() {
   assert.match(sh, /st=\$\(\$NP --bin-state \$q --wt \$w --stage < \/dev\/null 2>&1\) \|\| \{ mk "SKIPPED/, 'state from night-plan, refused = skipped');
   assert.ok(!/case "\$st"/.test(sh), 'no apex|apex-rewind whitelist forcing apex');
   assert.ok(sh.indexOf('$TC state $D $st') < sh.indexOf('queue.ts $q "$@"') && sh.indexOf('queue.ts $q "$@"') < sh.indexOf('$TC state $D apex >'), 'state before the queue, apex after');
-  assert.match(sh, /RUNS=".*\|20\|40\|off\|0"/); assert.match(sh, /setall=0,0,0 setdim=0/); assert.match(sh, /trap restore EXIT/); assert.match(sh, /--rerun-ids "\$xf"/);
+  assert.match(sh, /RUNS=".*\|20\|40\|off\|0"/); assert.match(sh, /setall=0,0,0 setdim=0/); assert.match(sh, /trap restore EXIT/); assert.match(sh, /--rerun-ids "\$xf"/); assert.ok(sh.includes('queue.ts $q "$@" > $O/$C-$name$tag.out 2>'), 'fresh .out per run: a rerun chain of the same night must not rerun old FAIL ids');
   // chain lock: taken before nogame / wait-job-end, released by the EXIT traps
   assert.ok(sh.indexOf('$NP --lock $N') > 0 && sh.indexOf('$NP --lock $N') < sh.indexOf('\nnogame;'), 'lock before the nogame wait');
   assert.match(sh, /restore\(\) \{[^}]*\$NP --unlock \$N/);

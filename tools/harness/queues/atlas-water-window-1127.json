@@ -1,0 +1,672 @@
+{
+  "note": "atlas-water-window-1127 (2026-11-27, Atlas docs/059 D-039 gap sweep): sea follows the window on Atlas main 0.3.20, Boundless Atlas docs/030 G-680 (SeaWindow: the sea tiles rebuilt in the R-9 step, never a rollback) and G-681 (SeaRange: tiles clamped to [-8192, 8191] m), plus G-656 / G-682 (SeaLocal boot read-back), arm on (SeaWindow=1 SeaRange=1 SeaLocal=1) against arm off (all 0). NOT COVERED here, with why: (1) G-625 / G-626 pond surface and routing water grid in the moved window: no generated strip set has a pond (AtlasStripSet, AtlasStrip_8192 and the AtlasP0thin* 8192 m worlds hold 0 pond records, read 2026-11-27 with the world-gen reader; Isla Paradiso has 1 pond at x 1183..1263, inside 2048 m), so a pond test world past 2048 m needs a new strip set from the Atlas world tools first; Frame compare (2026-11-27): atlas-water-frames-off / -on load the world inside their profile window (run.profile.loadWorld, bugfix/frames-after-load-1127), so the p50 / p99 / p99.9 / max comparison of SeaWindow=0 against 1 runs over the same slide and camera minutes.",
+  "agentPackage": "game-copy/ts3agent.package.m1126",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+      "match": [
+        "atlas 0.3.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
+      ],
+      "noMatch": [
+        "atlas 0.3.16 (built Nov 26 2026) rebase=9 pagedlots=12",
+        "atlas 0.3.15 (built Nov 27 2026) rebase=10",
+        "atlas 0.3.16 (built Nov 27 2026 10:00:00) world8192=6 rebase=10 pagedlots=12",
+        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
+      ]
+    },
+    "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
+      "match": [
+        "atlas:rebase self-check: PASS (307 checks, 0 failed)"
+      ],
+      "noMatch": [
+        "atlas:rebase self-check: FAIL (307 checks, 4 failed)"
+      ]
+    },
+    "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
+      "match": [
+        "atlas:icalls ready 3: groups 0x03FE"
+      ],
+      "noMatch": [
+        "atlas:icalls ready 1: groups 0x03FE",
+        "atlas:icalls ready 3: groups 0x3FE"
+      ]
+    },
+    "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": {
+      "match": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack D:\\g\\ts3native\\atlas\\sets\\AtlasStripSet\\AtlasStripSet.strip.package; StripProve=1 (test only: one-way slides with a ready strip pack pass the unmapped list)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 11/12 match, first mismatch: cell dtor; strip pack D:\\g\\x.strip.package; StripProve=1 (x)",
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=0 (x)"
+      ]
+    },
+    "^atlas:rebase R-9 strip pack: .*AtlasStripSet\\.strip\\.package registered, priority -2000 ": {
+      "match": [
+        "atlas:rebase R-9 strip pack: D:\\g\\AtlasStripSet.strip.package registered, priority -2000 (adds 1, drops 0, failures 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 strip pack: D:\\g\\AtlasStripSet.strip.package not registered (open failed): entered strips refuse r9-no-source"
+      ]
+    },
+    "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 8 cells, sources 24/24, lots in the leaving strip 0 \\(paged shells \\d+\\): ready$": {
+      "match": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells, sources 24/24, lots in the leaving strip 0 (paged shells 0): ready"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells (first source (2048, 0)), sources 0/24, lots in the leaving strip 0 (paged shells 0)"
+      ]
+    },
+    "^atlas:rebase R-9 grid: region \\(1, 0\\) .*AtlasStripSet_r01_00\\.world: header version \\d+, scratch TerrainData loaded$": {
+      "match": [
+        "atlas:rebase R-9 grid: region (1, 0) D:\\g\\InstalledWorlds\\AtlasStripSet_r01_00.world: header version 11, scratch TerrainData loaded"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 grid: region (1, 0) D:\\g\\InstalledWorlds\\AtlasStripSet_r01_00.world: header version 11, scratch TerrainData FAILED"
+      ]
+    },
+    "^atlas:rebase R-9 grid: 1 regions, type map 32768 blocks \\(\\d+ detail blocks reused\\), blend tiles swapped$": {
+      "match": [
+        "atlas:rebase R-9 grid: 1 regions, type map 32768 blocks (120 detail blocks reused), blend tiles swapped"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 grid: region (1, 0) r9-grid-quant"
+      ]
+    },
+    "^atlas:rebase R-9 step: 8 cells built, 0 differ from the plan$": {
+      "match": [
+        "atlas:rebase R-9 step: 8 cells built, 0 differ from the plan"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 step: 8 cells built, 1 differ from the plan: FAIL (rollback rebuilds the cells that wrapped in)"
+      ]
+    },
+    "^atlas:rebase R-9 hash strip (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": {
+      "match": [
+        "atlas:rebase R-9 hash strip type-map cells 8: 0A1B2C3D"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 hash strip roads cells 8: 0A1B2C3D",
+        "atlas:rebase R-9 hash strip type-map cells 64: 0A1B2C3D"
+      ]
+    },
+    "^atlas:rebase RESULT PASS slide": {
+      "match": [
+        "atlas:rebase RESULT PASS slide step (-256, 0)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: terrain entered strip"
+      ]
+    },
+    "^atlas:rebase PROVE: StripProve=1 \\(TEST ONLY": {
+      "match": [
+        "atlas:rebase PROVE: StripProve=1 (TEST ONLY: generated Atlas test worlds; unmapped entries effects / window-restore / g-footprint may be bypassed)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack (none: r9-no-source); StripProve=1 (test only: one-way slides with a ready strip pass the unmapped list)"
+      ]
+    },
+    "^atlas:rebase PROVE bypass window-restore \\(test only": {
+      "match": [
+        "atlas:rebase PROVE bypass window-restore (test only, StripProve=1 on a generated test world): window restore at load"
+      ],
+      "noMatch": [
+        "atlas:rebase PROVE bypass effects (test only, StripProve=1 on a generated test world): effects",
+        "atlas:rebase PROVE bypass refused: the strip set is not an Atlas generated set"
+      ]
+    },
+    "^atlas:rebase R-9 hash strip (roads|ponds) cells \\d+: [0-9A-F]{8}$": {
+      "match": [
+        "atlas:rebase R-9 hash strip roads cells 0: 00000000",
+        "atlas:rebase R-9 hash strip ponds cells 3: 0A1B2C3D"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 hash strip type-map cells 8: 0A1B2C3D",
+        "atlas:rebase R-9 hash ref roads cells 0: 00000000"
+      ]
+    },
+    "^atlas:rebase R-9 (REFUSED|ERROR|FAIL) ": {
+      "match": [
+        "atlas:rebase R-9 REFUSED r9-grid-quant: grid half not moved, no cell built (step FAIL, rollback)",
+        "atlas:rebase R-9 FAIL strip step"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 plan: step (-256, 0), entered 8 cells, sources 24/24, lots in the leaving strip 0 (paged shells 0): ready"
+      ]
+    },
+    "^atlas:rebase (FAULT|ERROR|DAMAGED) ": {
+      "match": [
+        "atlas:rebase FAULT in pass O"
+      ],
+      "noMatch": [
+        "atlas:rebase gate out: 1.00 ms, frames 2, slices 1"
+      ]
+    },
+    "^atlas:rebase (hub: )?RESULT FAIL ": {
+      "match": [
+        "atlas:rebase RESULT FAIL roundtrip step (-32, 0)",
+        "atlas:rebase hub: RESULT FAIL fault (damaged)"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS identity step (0, 0) slots 9"
+      ]
+    },
+    "^atlas:rebase (SKIP|off) ": {
+      "match": [
+        "atlas:rebase SKIP shape 0x66CE10",
+        "atlas:rebase off (Enable=0)"
+      ],
+      "noMatch": [
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 4, shape 77/77, 9 internal calls registered"
+      ]
+    },
+    "^atlas:rebase R-9 grid: .*FAILED$": {
+      "match": [
+        "atlas:rebase R-9 grid: region (1, 0) x.world: header version 0, scratch TerrainData FAILED"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 grid: region (1, 0) x.world: header version 11, scratch TerrainData loaded"
+      ]
+    },
+    "^atlas:rebase RESULT REFUSED ": {
+      "match": [
+        "atlas:rebase RESULT REFUSED one-way-unmapped: x"
+      ],
+      "noMatch": [
+        "atlas:rebase RESULT PASS slide step (-256, 0)"
+      ]
+    },
+    "^atlas:icalls rebase SKIP ": {
+      "match": [
+        "atlas:icalls rebase SKIP no script domain in 600 s (host 0x00000000): 9 internal calls not registered"
+      ],
+      "noMatch": [
+        "atlas:icalls rebase: 9 registered 4210 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+      ]
+    },
+    "^atlas:rebase PROVE bypass (effects|g-footprint|refused)": {
+      "match": [
+        "atlas:rebase PROVE bypass refused: the strip set is not an Atlas generated set",
+        "atlas:rebase PROVE bypass effects (test only, StripProve=1 on a generated test world): effects"
+      ],
+      "noMatch": [
+        "atlas:rebase PROVE bypass window-restore (test only, StripProve=1 on a generated test world): window restore at load"
+      ]
+    },
+    "^atlas:rebase sea step: ": {
+      "match": [
+        "atlas:rebase sea step: 4 of 12 tiles rebuilt for the shift (-256, 0) in 38.4 ms"
+      ],
+      "noMatch": [
+        "atlas:rebase sea window: SeaWindow=1, sites 4/4"
+      ]
+    },
+    "^atlas:rebase sea (window: SeaWindow|range: SeaRange|local: SeaLocal)=1": {
+      "match": [
+        "atlas:rebase sea window: SeaWindow=1, sites 4/4",
+        "atlas:rebase sea local: SeaLocal=1, 0xB60A11 and 0xB60B33 patched (pond and sea vertices at * 1, w = 1: range [-32768.5, 32767.5) m)"
+      ],
+      "noMatch": [
+        "atlas:rebase sea step: 4 of 12 tiles rebuilt for the shift (-256, 0) in 38.4 ms"
+      ]
+    },
+    "^ts3native 0\\.36\\.306-m1126b ": {
+      "match": [
+        "ts3native 0.36.306-m1126b 2026-11-26 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.305-m1124d 2026-11-24 13:40:00",
+        "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
+      ]
+    },
+    "^\\[Rewind\\] Park on: ": {
+      "match": [
+        "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+      ],
+      "noMatch": [
+        "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)",
+        "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
+      ]
+    },
+    "^atlas:rebase sea window: SeaWindow=1, sites (\\d+)/\\1$": {
+      "match": [
+        "atlas:rebase sea window: SeaWindow=1, sites 4/4"
+      ],
+      "noMatch": [
+        "atlas:rebase sea window: SeaWindow=1, sites 4/4 (acts only in the R-9 step: StripBuild=0, so never)",
+        "atlas:rebase sea window: SeaWindow=1 but an EA site differs: off"
+      ]
+    },
+    "^atlas:rebase sea range: SeaRange=1, 0xC0DD43 patched \\(sea tiles clamped to \\[-\\d+, \\d+\\] m after EA's layout\\)$": {
+      "match": [
+        "atlas:rebase sea range: SeaRange=1, 0xC0DD43 patched (sea tiles clamped to [-8192, 8191] m after EA's layout)",
+        "atlas:rebase sea range: SeaRange=1, 0xC0DD43 patched (sea tiles clamped to [-32768, 32767] m after EA's layout)"
+      ],
+      "noMatch": [
+        "atlas:rebase sea range: SeaRange=1 but the patch was not written (protection): off"
+      ]
+    },
+    "^atlas:rebase sea local: SeaLocal=1, 0xB60A11 and 0xB60B33 patched ": {
+      "match": [
+        "atlas:rebase sea local: SeaLocal=1, 0xB60A11 and 0xB60B33 patched (pond and sea vertices at * 1, w = 1: range [-32768.5, 32767.5) m)"
+      ],
+      "noMatch": [
+        "atlas:rebase sea local: SeaLocal=1 but the patch was not written (protection): off"
+      ]
+    },
+    "^atlas:rebase sea step: [1-9]\\d* of [1-9]\\d* tiles rebuilt for the shift \\(-256, 0\\) in [0-9.]+ ms$": {
+      "match": [
+        "atlas:rebase sea step: 4 of 12 tiles rebuilt for the shift (-256, 0) in 38.4 ms"
+      ],
+      "noMatch": [
+        "atlas:rebase sea step: 3 of 12 tiles rebuilt for the shift (-256, 0) in 38.4 ms: FAIL",
+        "atlas:rebase sea step: 0 of 12 tiles rebuilt for the shift (-256, 0) in 0.1 ms"
+      ]
+    },
+    "^atlas:rebase sea counters at world quit: steps [1-9]\\d*, tiles rebuilt [1-9]\\d*, failed 0, rollbacks 0, out of range \\d+$": {
+      "match": [
+        "atlas:rebase sea counters at world quit: steps 1, tiles rebuilt 4, failed 0, rollbacks 0, out of range 0"
+      ],
+      "noMatch": [
+        "atlas:rebase sea counters at world quit: steps 1, tiles rebuilt 4, failed 0, rollbacks 1, out of range 0",
+        "atlas:rebase sea counters at world quit: steps 1, tiles rebuilt 3, failed 1, rollbacks 0, out of range 0"
+      ]
+    },
+    "^atlas:rebase sea rollback: ": {
+      "match": [
+        "atlas:rebase sea rollback: 4 tiles rebuilt at the old place"
+      ],
+      "noMatch": [
+        "atlas:rebase sea step: 4 of 12 tiles rebuilt for the shift (-256, 0) in 38.4 ms"
+      ]
+    },
+    "^atlas:rebase R-9 FAIL sea tiles not rebuilt": {
+      "match": [
+        "atlas:rebase R-9 FAIL sea tiles not rebuilt (rollback)"
+      ],
+      "noMatch": [
+        "atlas:rebase R-9 step: 8 cells built, 0 differ from the plan"
+      ]
+    },
+    "^atlas:rebase sea (window|range|local): .*: off$": {
+      "match": [
+        "atlas:rebase sea local: SeaLocal=1 but 0xB60A11 differs: off",
+        "atlas:rebase sea window: SeaWindow=1 but an EA site differs: off"
+      ],
+      "noMatch": [
+        "atlas:rebase sea window: SeaWindow=1, sites 4/4"
+      ]
+    },
+    "^atlas:rebase sea step: .*: FAIL$": {
+      "match": [
+        "atlas:rebase sea step: 3 of 12 tiles rebuilt for the shift (-256, 0) in 38.4 ms: FAIL"
+      ],
+      "noMatch": [
+        "atlas:rebase sea step: 4 of 12 tiles rebuilt for the shift (-256, 0) in 38.4 ms"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "atlas-water-window-off",
+      "note": "[est 25 min] Arm off: [Rebase] SeaWindow=0 SeaRange=0 SeaLocal=0 (defaults). Pass: the slide passes as in atlas-rebase-r9-compare-window and no sea line runs (baseline for the on arm). Window half of the R-9 comparison (AtlasStripSet.world, the 2048 m window of AtlasStrip_8192, whose 8192 m parent has a sea; one-way rebase slide -256 0 with StripProve=1, test only), then a world quit to the main menu for the world-quit counter lines.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "Atlas main 0.3.20 as atlas-rebase-strip-compare-1127 (asi game-copy/atlas-main20-1127/atlas.asi sha256 7c972767..., mod set atlas-main20b-1127, Atlas 7ed0c75, pkg=8cda3053); master set m1126b.",
+      "save": "menu",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 1,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 1,
+          "Rebase.StripBuild": 1,
+          "Rebase.StripPack": "AtlasStripSet",
+          "Rebase.StripProve": 1,
+          "Rebase.WorldLotTree": 1,
+          "Rebase.LotEntries": 1,
+          "Rebase.FrameBlock": 1,
+          "Rebase.SceneMaps": 1,
+          "Rebase.Effects": 1,
+          "Rebase.RoutePaths": 1,
+          "Rebase.LooseFootprints": 1,
+          "Rebase.SeaWindow": 0,
+          "Rebase.SeaRange": 0,
+          "Rebase.SeaLocal": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": 1,
+          "^atlas:rebase R-9 strip pack: .*AtlasStripSet\\.strip\\.package registered, priority -2000 ": 1,
+          "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 8 cells, sources 24/24, lots in the leaving strip 0 \\(paged shells \\d+\\): ready$": 2,
+          "^atlas:rebase R-9 grid: region \\(1, 0\\) .*AtlasStripSet_r01_00\\.world: header version \\d+, scratch TerrainData loaded$": 1,
+          "^atlas:rebase R-9 grid: 1 regions, type map 32768 blocks \\(\\d+ detail blocks reused\\), blend tiles swapped$": 1,
+          "^atlas:rebase R-9 step: 8 cells built, 0 differ from the plan$": 1,
+          "^atlas:rebase R-9 hash strip (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": 7,
+          "^atlas:rebase RESULT PASS slide": 1,
+          "^atlas:rebase PROVE: StripProve=1 \\(TEST ONLY": 1,
+          "^atlas:rebase PROVE bypass window-restore \\(test only": 2,
+          "^atlas:rebase R-9 hash strip (roads|ponds) cells \\d+: [0-9A-F]{8}$": 2
+        },
+        "logForbid": {
+          "^atlas:rebase R-9 (REFUSED|ERROR|FAIL) ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase R-9 grid: .*FAILED$": 0,
+          "^atlas:rebase RESULT REFUSED ": 0,
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase PROVE bypass (effects|g-footprint|refused)": 0,
+          "^atlas:rebase sea step: ": 0,
+          "^atlas:rebase sea (window: SeaWindow|range: SeaRange|local: SeaLocal)=1": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-water-window"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    },
+    {
+      "id": "atlas-water-window-on",
+      "note": "[est 25 min] Arm on: [Rebase] SeaWindow=1 SeaRange=1 SeaLocal=1. Pass: the three sea boot lines, one sea step for the shift (-256, 0) with no FAIL, the world-quit sea counters with 0 failed and 0 rollbacks, never a sea rollback or an R-9 sea FAIL, 0 script errors; the screenshots show the shore at the new place. Window half of the R-9 comparison (AtlasStripSet.world, the 2048 m window of AtlasStrip_8192, whose 8192 m parent has a sea; one-way rebase slide -256 0 with StripProve=1, test only), then a world quit to the main menu for the world-quit counter lines.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "Atlas main 0.3.20 as atlas-rebase-strip-compare-1127 (asi game-copy/atlas-main20-1127/atlas.asi sha256 7c972767..., mod set atlas-main20b-1127, Atlas 7ed0c75, pkg=8cda3053); master set m1126b.",
+      "save": "menu",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 1,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 1,
+          "Rebase.StripBuild": 1,
+          "Rebase.StripPack": "AtlasStripSet",
+          "Rebase.StripProve": 1,
+          "Rebase.WorldLotTree": 1,
+          "Rebase.LotEntries": 1,
+          "Rebase.FrameBlock": 1,
+          "Rebase.SceneMaps": 1,
+          "Rebase.Effects": 1,
+          "Rebase.RoutePaths": 1,
+          "Rebase.LooseFootprints": 1,
+          "Rebase.SeaWindow": 1,
+          "Rebase.SeaRange": 1,
+          "Rebase.SeaLocal": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": 1,
+          "^atlas:rebase R-9 strip pack: .*AtlasStripSet\\.strip\\.package registered, priority -2000 ": 1,
+          "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 8 cells, sources 24/24, lots in the leaving strip 0 \\(paged shells \\d+\\): ready$": 2,
+          "^atlas:rebase R-9 grid: region \\(1, 0\\) .*AtlasStripSet_r01_00\\.world: header version \\d+, scratch TerrainData loaded$": 1,
+          "^atlas:rebase R-9 grid: 1 regions, type map 32768 blocks \\(\\d+ detail blocks reused\\), blend tiles swapped$": 1,
+          "^atlas:rebase R-9 step: 8 cells built, 0 differ from the plan$": 1,
+          "^atlas:rebase R-9 hash strip (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": 7,
+          "^atlas:rebase RESULT PASS slide": 1,
+          "^atlas:rebase PROVE: StripProve=1 \\(TEST ONLY": 1,
+          "^atlas:rebase PROVE bypass window-restore \\(test only": 2,
+          "^atlas:rebase R-9 hash strip (roads|ponds) cells \\d+: [0-9A-F]{8}$": 2,
+          "^atlas:rebase sea window: SeaWindow=1, sites (\\d+)/\\1$": 1,
+          "^atlas:rebase sea range: SeaRange=1, 0xC0DD43 patched \\(sea tiles clamped to \\[-\\d+, \\d+\\] m after EA's layout\\)$": 1,
+          "^atlas:rebase sea local: SeaLocal=1, 0xB60A11 and 0xB60B33 patched ": 1,
+          "^atlas:rebase sea step: [1-9]\\d* of [1-9]\\d* tiles rebuilt for the shift \\(-256, 0\\) in [0-9.]+ ms$": 1,
+          "^atlas:rebase sea counters at world quit: steps [1-9]\\d*, tiles rebuilt [1-9]\\d*, failed 0, rollbacks 0, out of range \\d+$": 1
+        },
+        "logForbid": {
+          "^atlas:rebase R-9 (REFUSED|ERROR|FAIL) ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase R-9 grid: .*FAILED$": 0,
+          "^atlas:rebase RESULT REFUSED ": 0,
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase PROVE bypass (effects|g-footprint|refused)": 0,
+          "^atlas:rebase sea rollback: ": 0,
+          "^atlas:rebase R-9 FAIL sea tiles not rebuilt": 0,
+          "^atlas:rebase sea (window|range|local): .*: off$": 0,
+          "^atlas:rebase sea step: .*: FAIL$": 0
+        }
+      },
+      "run": {
+        "repro": "atlas-water-window"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    },
+    {
+      "id": "atlas-water-frames-off",
+      "note": "[est 22 min] Frame arm off ([Rebase] SeaWindow=0 SeaRange=0 SeaLocal=0). Frame times: profile window (9 min, frames session, no samplers, no test_env) that loads AtlasStripSet.world from the main menu itself (run.profile.loadWorld, profile-world.ts --load-world: waits for live mode, then samples), then the slidecheck and the one-way slide -256 0 as the correctness arms, one camera pose at the west edge and a camera_sweep (180 s); camera-sweep-report.ts gives p50 / p99 / p99.9 / max per segment, compared on against off. Timing counts only on a quiet machine with Rodney's OK; until then the numbers are reported, not judged.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "Atlas main 0.3.20 as atlas-rebase-strip-compare-1127 (asi game-copy/atlas-main20-1127/atlas.asi sha256 7c972767..., mod set atlas-main20b-1127, Atlas 7ed0c75, pkg=8cda3053); master set m1126b.",
+      "save": "menu",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 1,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 1,
+          "Rebase.StripBuild": 1,
+          "Rebase.StripPack": "AtlasStripSet",
+          "Rebase.StripProve": 1,
+          "Rebase.WorldLotTree": 1,
+          "Rebase.LotEntries": 1,
+          "Rebase.FrameBlock": 1,
+          "Rebase.SceneMaps": 1,
+          "Rebase.Effects": 1,
+          "Rebase.RoutePaths": 1,
+          "Rebase.LooseFootprints": 1,
+          "Rebase.SeaWindow": 0,
+          "Rebase.SeaRange": 0,
+          "Rebase.SeaLocal": 0
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": 1,
+          "^atlas:rebase R-9 strip pack: .*AtlasStripSet\\.strip\\.package registered, priority -2000 ": 1,
+          "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 8 cells, sources 24/24, lots in the leaving strip 0 \\(paged shells \\d+\\): ready$": 2,
+          "^atlas:rebase R-9 grid: region \\(1, 0\\) .*AtlasStripSet_r01_00\\.world: header version \\d+, scratch TerrainData loaded$": 1,
+          "^atlas:rebase R-9 grid: 1 regions, type map 32768 blocks \\(\\d+ detail blocks reused\\), blend tiles swapped$": 1,
+          "^atlas:rebase R-9 step: 8 cells built, 0 differ from the plan$": 1,
+          "^atlas:rebase R-9 hash strip (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": 7,
+          "^atlas:rebase RESULT PASS slide": 1,
+          "^atlas:rebase PROVE: StripProve=1 \\(TEST ONLY": 1,
+          "^atlas:rebase PROVE bypass window-restore \\(test only": 2,
+          "^atlas:rebase R-9 hash strip (roads|ponds) cells \\d+: [0-9A-F]{8}$": 2
+        },
+        "logForbid": {
+          "^atlas:rebase R-9 (REFUSED|ERROR|FAIL) ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase R-9 grid: .*FAILED$": 0,
+          "^atlas:rebase RESULT REFUSED ": 0,
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase PROVE bypass (effects|g-footprint|refused)": 0,
+          "^atlas:rebase sea step: ": 0,
+          "^atlas:rebase sea (window: SeaWindow|range: SeaRange|local: SeaLocal)=1": 0
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 9,
+          "repro": "atlas-water-frames",
+          "noSamplers": true,
+          "noEnv": true,
+          "loadWorld": "AtlasStripSet.world"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    },
+    {
+      "id": "atlas-water-frames-on",
+      "note": "[est 22 min] Frame arm on ([Rebase] SeaWindow=1 SeaRange=1 SeaLocal=1). Frame times: profile window (9 min, frames session, no samplers, no test_env) that loads AtlasStripSet.world from the main menu itself (run.profile.loadWorld, profile-world.ts --load-world: waits for live mode, then samples), then the slidecheck and the one-way slide -256 0 as the correctness arms, one camera pose at the west edge and a camera_sweep (180 s); camera-sweep-report.ts gives p50 / p99 / p99.9 / max per segment, compared on against off. Timing counts only on a quiet machine with Rodney's OK; until then the numbers are reported, not judged.",
+      "asi": "game-copy/ts3native.asi.m1126b",
+      "iniBase": "game-copy/ts3native.ini.m1126b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
+      "rewind": false,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.Park": 1
+      },
+      "pinReason": "Atlas main 0.3.20 as atlas-rebase-strip-compare-1127 (asi game-copy/atlas-main20-1127/atlas.asi sha256 7c972767..., mod set atlas-main20b-1127, Atlas 7ed0c75, pkg=8cda3053); master set m1126b.",
+      "save": "menu",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "extraAsi": {
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
+        "ini": {
+          "WorldSize.PhysicsRootM": 0,
+          "PagedLots.Probe": 1,
+          "Rebase.Enable": 1,
+          "Rebase.SliceMs": 8,
+          "Rebase.FallbackMs": 200,
+          "Rebase.Verbose": 0,
+          "Rebase.GridKeys": 1,
+          "Rebase.InferredSlots": 1,
+          "Rebase.CellKeys": 1,
+          "Rebase.TerrainSlide": 1,
+          "Rebase.StripBuild": 1,
+          "Rebase.StripPack": "AtlasStripSet",
+          "Rebase.StripProve": 1,
+          "Rebase.WorldLotTree": 1,
+          "Rebase.LotEntries": 1,
+          "Rebase.FrameBlock": 1,
+          "Rebase.SceneMaps": 1,
+          "Rebase.Effects": 1,
+          "Rebase.RoutePaths": 1,
+          "Rebase.LooseFootprints": 1,
+          "Rebase.SeaWindow": 1,
+          "Rebase.SeaRange": 1,
+          "Rebase.SeaLocal": 1
+        },
+        "logRequire": {
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": 1,
+          "^atlas:rebase R-9 strip pack: .*AtlasStripSet\\.strip\\.package registered, priority -2000 ": 1,
+          "^atlas:rebase R-9 plan: step \\(-256, 0\\), entered 8 cells, sources 24/24, lots in the leaving strip 0 \\(paged shells \\d+\\): ready$": 2,
+          "^atlas:rebase R-9 grid: region \\(1, 0\\) .*AtlasStripSet_r01_00\\.world: header version \\d+, scratch TerrainData loaded$": 1,
+          "^atlas:rebase R-9 grid: 1 regions, type map 32768 blocks \\(\\d+ detail blocks reused\\), blend tiles swapped$": 1,
+          "^atlas:rebase R-9 step: 8 cells built, 0 differ from the plan$": 1,
+          "^atlas:rebase R-9 hash strip (cells|descriptors|shapes|keys|paint|type-map|blend) cells 8: [0-9A-F]{8}$": 7,
+          "^atlas:rebase RESULT PASS slide": 1,
+          "^atlas:rebase PROVE: StripProve=1 \\(TEST ONLY": 1,
+          "^atlas:rebase PROVE bypass window-restore \\(test only": 2,
+          "^atlas:rebase R-9 hash strip (roads|ponds) cells \\d+: [0-9A-F]{8}$": 2,
+          "^atlas:rebase sea window: SeaWindow=1, sites (\\d+)/\\1$": 1,
+          "^atlas:rebase sea range: SeaRange=1, 0xC0DD43 patched \\(sea tiles clamped to \\[-\\d+, \\d+\\] m after EA's layout\\)$": 1,
+          "^atlas:rebase sea local: SeaLocal=1, 0xB60A11 and 0xB60B33 patched ": 1,
+          "^atlas:rebase sea step: [1-9]\\d* of [1-9]\\d* tiles rebuilt for the shift \\(-256, 0\\) in [0-9.]+ ms$": 1
+        },
+        "logForbid": {
+          "^atlas:rebase R-9 (REFUSED|ERROR|FAIL) ": 0,
+          "^atlas:rebase (FAULT|ERROR|DAMAGED) ": 0,
+          "^atlas:rebase (hub: )?RESULT FAIL ": 0,
+          "^atlas:rebase (SKIP|off) ": 0,
+          "^atlas:rebase R-9 grid: .*FAILED$": 0,
+          "^atlas:rebase RESULT REFUSED ": 0,
+          "^atlas:icalls rebase SKIP ": 0,
+          "^atlas:rebase PROVE bypass (effects|g-footprint|refused)": 0,
+          "^atlas:rebase sea rollback: ": 0,
+          "^atlas:rebase R-9 FAIL sea tiles not rebuilt": 0,
+          "^atlas:rebase sea (window|range|local): .*: off$": 0,
+          "^atlas:rebase sea step: .*: FAIL$": 0
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 9,
+          "repro": "atlas-water-frames",
+          "noSamplers": true,
+          "noEnv": true,
+          "loadWorld": "AtlasStripSet.world"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.306-m1126b ": 1,
+        "^\\[Rewind\\] Park on: ": 1
+      }
+    }
+  ]
+}

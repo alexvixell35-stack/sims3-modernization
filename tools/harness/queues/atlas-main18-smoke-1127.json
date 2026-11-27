@@ -1,23 +1,15 @@
 {
-  "note": "atlas-main18-smoke-1127 (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e, 0.3.18 91e12c0 plus the config probe fix) read-back smoke before every atlas-main18 queue (plan-main18-1127.json). One job: AtlasStripSet.world (generated test world) as a new game in live mode with every Atlas feature that registers internal calls on (P1 probe, Oop, rebase with window restore, far desc shadow, long route guard, seed Sims, rings save guard, FreezeLeftBehind=1 for the FZ-1 stand-down), Bin state apex-oop-atlas (fork bfafc850 + the main18 store plugin). Checks every read-back of the pin in the real atlas.log: start line (fd= lr=), rebase version 12 shape 92/92 11 calls, window restore sites 23/23, oop protocol 6 plugin 5, icall counts fd 15 longroute 3 stream 6 born 10 seed 7 p1 24 rings 21 oop 5 rebase 11, and the FZ-1 stand-down. A FAIL stops the plan: no repinned queue runs.",
+  "note": "atlas-main20 repin (2026-11-27): Atlas main 0.3.20 (boundless-atlas 440b469), asi 7c972767, oop plugin 6afc79b5, script half atlas-main20b-1127 (7ed0c75, pkg=8cda3053). atlas-main18-smoke-1127 (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e, 0.3.18 91e12c0 plus the config probe fix) read-back smoke before every atlas-main18 queue (plan-main18-1127.json). One job: AtlasStripSet.world (generated test world) as a new game in live mode with every Atlas feature that registers internal calls on (P1 probe, Oop, rebase with window restore, far desc shadow, long route guard, seed Sims, rings save guard, FreezeLeftBehind=1 for the FZ-1 stand-down), Bin state apex-oop-atlas (fork bfafc850 + the main18 store plugin). Checks every read-back of the pin in the real atlas.log: start line (fd= lr=), rebase version 12 shape 92/92 11 calls, window restore sites 23/23, oop protocol 6 plugin 5, icall counts fd 15 longroute 3 stream 6 born 10 seed 7 p1 24 rings 21 oop 5 rebase 11, and the FZ-1 stand-down. A FAIL stops the plan: no repinned queue runs.",
   "binState": "apex-oop-atlas",
   "binStage": {
     "game-copy/apex-oop-test/atlas-oop.dll": {
-      "from": "game-copy/atlas-main18b-1127/atlas-oop.dll",
-      "sha256": "08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5"
+      "from": "game-copy/atlas-main20-1127/atlas-oop.dll",
+      "sha256": "6afc79b5a60a2919907a73f6343d0bffd26b675dbfa622202e4c604f323e4062"
     }
   },
   "agentPackage": "game-copy/ts3agent.package.m1126",
   "stopQueueOnFail": true,
   "regexCases": {
-    "^atlas:script pkg=b9dd663e ": {
-      "match": [
-        "atlas:script pkg=b9dd663e (script half loadA-4)"
-      ],
-      "noMatch": [
-        "atlas:script pkg=4f0c21aa (script half loadA-4)"
-      ]
-    },
     "^atlas: world load: started by fallback ": {
       "match": [
         "atlas: world load: started by fallback (load finished never reached our handler: a handler ahead of ours threw): p1 task, rebase task"
@@ -26,31 +18,35 @@
         "atlas: world load: fallback: rings task: NullReferenceException"
       ]
     },
-    "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+    "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
       "match": [
-        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
+        "atlas 0.3.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
       ],
       "noMatch": [
         "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 03:40:02, TS3W.exe link stamp 0x52DEC247",
         "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247",
-        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, rundll32.exe link stamp 0xB91766EA"
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, rundll32.exe link stamp 0xB91766EA"
       ]
     },
-    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 12, shape 92/92, 11 internal calls registered$": {
+    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 13, shape 92/92, 11 internal calls registered$": {
       "match": [
-        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 12, shape 92/92, 11 internal calls registered"
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 13, shape 92/92, 11 internal calls registered"
       ],
       "noMatch": [
         "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 10, shape 92/92, 12 internal calls registered",
-        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 12, shape 91/92, 11 internal calls registered"
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 12, shape 91/92, 11 internal calls registered",
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 12, shape 92/92, 11 internal calls registered"
       ]
     },
-    "^atlas:rebase script half ready \\(rebase-4\\), native version 12$": {
+    "^atlas:rebase script half ready \\(rebase-4\\), native version 13$": {
       "match": [
-        "atlas:rebase script half ready (rebase-4), native version 12"
+        "atlas:rebase script half ready (rebase-4), native version 13"
       ],
       "noMatch": [
-        "atlas:rebase script half ready (rebase-4), native version 10"
+        "atlas:rebase script half ready (rebase-4), native version 10",
+        "atlas:rebase script half ready (rebase-4), native version 12"
       ]
     },
     "^atlas:rebase window restore: WindowRestore=1, sites 23/23, ": {
@@ -87,13 +83,14 @@
         "atlas:oop D4 pass: Hello match, protocol 5, page format 1, page core 0x1A2B3C4D, plugin 5"
       ]
     },
-    "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": {
+    "^paged lots: probe on \\(Probe=1, FarM=250\\), 25 internal calls registered, ": {
       "match": [
-        "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
+        "paged lots: probe on (Probe=1, FarM=250), 25 internal calls registered, command file atlas-cmd.txt next to the asi"
       ],
       "noMatch": [
         "paged lots: probe on (Probe=1, FarM=250), 27 internal calls registered, command file atlas-cmd.txt next to the asi",
-        "paged lots: off (Probe=0)"
+        "paged lots: off (Probe=0)",
+        "paged lots: probe on (Probe=1, FarM=250), 24 internal calls registered, command file atlas-cmd.txt next to the asi"
       ]
     },
     "^atlas:icalls fd: 15 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": {
@@ -141,13 +138,14 @@
         "atlas:icalls seed SKIP no script domain in 600 s (host 0x00000000): 7 internal calls not registered"
       ]
     },
-    "^atlas:icalls p1: 24 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": {
+    "^atlas:icalls p1: 25 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": {
       "match": [
-        "atlas:icalls p1: 24 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
+        "atlas:icalls p1: 25 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
       ],
       "noMatch": [
         "atlas:icalls p1: 23 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set",
-        "atlas:icalls p1 SKIP no script domain in 600 s (host 0x00000000): 24 internal calls not registered"
+        "atlas:icalls p1 SKIP no script domain in 600 s (host 0x00000000): 24 internal calls not registered",
+        "atlas:icalls p1: 24 registered 412 ms after start of wait (domain 0x0A1B2C3D), group 5 flag set"
       ]
     },
     "^atlas:icalls rings: 21 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": {
@@ -294,6 +292,26 @@
       "noMatch": [
         "atlas:oop [Atlas] stood down: D2: the Apex restart host is off: turn on [ui] restart_host in ApexRadiance.toml and keep ts3wrap.exe next to it"
       ]
+    },
+    "^paged lots: LotRect=[01] \\(docs/058 G-666: distance to the lot rectangle\\)$": {
+      "match": [
+        "paged lots: LotRect=0 (docs/058 G-666: distance to the lot rectangle)",
+        "paged lots: LotRect=1 (docs/058 G-666: distance to the lot rectangle)"
+      ],
+      "noMatch": [
+        "paged lots: LotRect=2 (docs/058 G-666: distance to the lot rectangle)",
+        "paged lots: probe on (Probe=1, FarM=250), 25 internal calls registered, ProbeVerbose=0"
+      ]
+    },
+    "^atlas:script pkg=8cda3053 ": {
+      "match": [
+        "atlas:script pkg=8cda3053 (script half loadA-4)"
+      ],
+      "noMatch": [
+        "atlas:script pkg=b9dd663e (script half loadA-4)",
+        "atlas:script pkg=cf8c18 (script half)",
+        "atlas:script pkg=f10b8c76 (script half loadA-4)"
+      ]
     }
   },
   "jobs": [
@@ -303,7 +321,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -314,15 +332,15 @@
         "ui.restart_host": true,
         "oop.plugins": "[\"atlas-oop.dll\"]"
       },
-      "pinReason": "Atlas main 0.3.19 (boundless-atlas 91f004e; script half main18c 86ccf60, pkg=b9dd663e, mod set game-copy/mod-sets/atlas-main18c-1127 d3b1adef): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6)",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1: rebase 13, P1 25 internal calls, houseboat native 2): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), oop plugin game-copy/atlas-main20-1127/atlas-oop.dll (sha256 6afc79b5a60a2919907a73f6343d0bffd26b675dbfa622202e4c604f323e4062), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, houseboat StartWatch fallback fix: atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053). Before: Atlas main 0.3.19 (boundless-atlas 91f004e; script half main18c 86ccf60, pkg=b9dd663e, mod set game-copy/mod-sets/atlas-main18c-1127 d3b1adef): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6)",
       "save": "menu",
       "gameArgs": [
         "-disablestoryprogression"
       ],
       "timeoutMin": 30,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
-        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -358,20 +376,20 @@
           "Regions.FreezeLeftBehind": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
-          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 12, shape 92/92, 11 internal calls registered$": 1,
-          "^atlas:rebase script half ready \\(rebase-4\\), native version 12$": 1,
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 13, shape 92/92, 11 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 13$": 1,
           "^atlas:rebase window restore: WindowRestore=1, sites 23/23, ": 1,
           "^atlas:oop start: client \\d+, Oop=1 OopVerbose=0 \\(read back\\), protocol 6, ": 1,
           "^atlas:oop-host atlas-oop plugin 5 loaded: protocol 6, ": 1,
           "^atlas:oop D4 pass: Hello match, protocol 6, page format \\d+, page core 0x[0-9A-F]{8}, plugin 5$": 1,
-          "^paged lots: probe on \\(Probe=1, FarM=250\\), 24 internal calls registered, ": 1,
+          "^paged lots: probe on \\(Probe=1, FarM=250\\), 25 internal calls registered, ": 1,
           "^atlas:icalls fd: 15 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
           "^atlas:icalls longroute: 3 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
           "^atlas:icalls stream: 6 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
           "^atlas:icalls born: 10 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
           "^atlas:icalls seed: 7 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
-          "^atlas:icalls p1: 24 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
+          "^atlas:icalls p1: 25 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
           "^atlas:icalls rings: 21 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
           "^atlas:icalls oop: 5 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
           "^atlas:icalls rebase: 11 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group \\d+ flag set$": 1,
@@ -381,8 +399,9 @@
           "^atlas:born start version 4 BornPaged=0 Verbose=0 self-check PASS: off$": 1,
           "^atlas:freeze stood-down 0\\.2\\.2-fz3 \\(FreezeLeftBehind=1\\): household holds retired by the household rule \\(G-633\\)": 1,
           "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
-          "^atlas:script pkg=b9dd663e ": 1,
-          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1
+          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1,
+          "^paged lots: LotRect=[01] \\(docs/058 G-666: distance to the lot rectangle\\)$": 1,
+          "^atlas:script pkg=8cda3053 ": 1
         },
         "logForbid": {
           "^atlas: world load: started by fallback ": 1000,

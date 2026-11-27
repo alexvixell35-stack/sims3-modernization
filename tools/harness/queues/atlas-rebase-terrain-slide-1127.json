@@ -1,5 +1,5 @@
 {
-  "note": "atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-rebase-terrain-slide-1127: Boundless Atlas docs/022 §8.8.14 rebase R-8 (terrain tables move with the slide on whole-cell steps; one-way slides stay refused: hard stop 'terrain entered strip'), boundless-atlas branch feature/rebase-terrain-slide-1127 at 9583c6b (Atlas main 05a0e61 0.3.15 + R-8, rebase=7). Dry run only: two Sunset Valley jobs run 'rebase slidecheck' east / north / west one 256 m cell (native precheck with oneWay=2, nothing written): TerrainSlide=1 and the TerrainSlide=0 control. The repro waits for the rebase internal-call flag (Atlas.AtlasNative.Groups) before its first native call. Needs the queue key extraAsi (queue.ts from 60310925f or later; dry run validated on bugfix/atlas-main13-repin-1127), game-copy/atlas-r8-1127/atlas.asi (sha256 pinned) and game-copy/mod-sets/atlas-r8-1127. Dry run validated only; not run (written 2026-11-27).",
+  "note": "atlas-main20 repin (2026-11-27): Atlas main 0.3.20 (boundless-atlas 440b469), asi 7c972767, oop plugin 6afc79b5, script half atlas-main20b-1127 (7ed0c75, pkg=8cda3053). atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-rebase-terrain-slide-1127: Boundless Atlas docs/022 §8.8.14 rebase R-8 (terrain tables move with the slide on whole-cell steps; one-way slides stay refused: hard stop 'terrain entered strip'), boundless-atlas branch feature/rebase-terrain-slide-1127 at 9583c6b (Atlas main 05a0e61 0.3.15 + R-8, rebase=7). Dry run only: two Sunset Valley jobs run 'rebase slidecheck' east / north / west one 256 m cell (native precheck with oneWay=2, nothing written): TerrainSlide=1 and the TerrainSlide=0 control. The repro waits for the rebase internal-call flag (Atlas.AtlasNative.Groups) before its first native call. Needs the queue key extraAsi (queue.ts from 60310925f or later; dry run validated on bugfix/atlas-main13-repin-1127), game-copy/atlas-r8-1127/atlas.asi (sha256 pinned) and game-copy/mod-sets/atlas-r8-1127. Dry run validated only; not run (written 2026-11-27).",
   "agentPackage": "game-copy/ts3agent.package.m1126",
   "stopQueueOnFail": false,
   "regexCases": {
@@ -12,14 +12,15 @@
         "FAIL [Rewind] Park: mapping Local\\rewind-ts3n-1 (err 5)"
       ]
     },
-    "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+    "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
       "match": [
-        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
+        "atlas 0.3.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
       ],
       "noMatch": [
         "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=6 oop=0 seed=0",
         "atlas 0.3.15 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=7 oop=0 seed=0",
-        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
+        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247",
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
       ]
     },
     "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": {
@@ -262,13 +263,14 @@
         "atlas:rebase lists R-7: terrain cells 64 (owner 0x12345678), side table 64 entries"
       ]
     },
-    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 12, shape 92/92, 11 internal calls registered$": {
+    "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 13, shape 92/92, 11 internal calls registered$": {
       "match": [
-        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 12, shape 92/92, 11 internal calls registered"
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 13, shape 92/92, 11 internal calls registered"
       ],
       "noMatch": [
         "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 6, shape 92/92, 9 internal calls registered",
-        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 7, shape 92/92, 9 internal calls registered"
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 7, shape 92/92, 9 internal calls registered",
+        "atlas:rebase on (Enable=1, SliceMs=8, FallbackMs=200, Verbose=0), version 12, shape 92/92, 11 internal calls registered"
       ]
     },
     "^atlas:rebase pass Rd .* ms in \\d+ slices \\(max [1-9]\\d{2,} ms\\)": {
@@ -296,13 +298,14 @@
         "atlas:rebase precheck slide: dropped column items 0, unmapped holders 6: terrain entered strip: the cells"
       ]
     },
-    "^atlas:rebase script half ready \\(rebase-4\\), native version 12$": {
+    "^atlas:rebase script half ready \\(rebase-4\\), native version 13$": {
       "match": [
-        "atlas:rebase script half ready (rebase-4), native version 12"
+        "atlas:rebase script half ready (rebase-4), native version 13"
       ],
       "noMatch": [
         "atlas:rebase script half ready (rebase-4), native version 6",
-        "atlas:rebase script half ready (rebase-4), native version 7"
+        "atlas:rebase script half ready (rebase-4), native version 7",
+        "atlas:rebase script half ready (rebase-4), native version 12"
       ]
     },
     "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": {
@@ -347,19 +350,19 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "ini": {
         "Rewind.Park": 1
       },
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from feature/rebase-terrain-slide-1127 9583c6b (Atlas main 05a0e61 0.3.15 + R-8, rebase=7; game-copy/atlas-r8-1127/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-r8-1127 (atlas.package sha256 0e020f4ccf83e3a2dad063aa738c4cd87900f74b1283dec3422777824d4eb0f5, 'rebase slidecheck' command, build rebase-4 read back by the \"script half ready\" line).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1: rebase 13, P1 25 internal calls, houseboat native 2): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), oop plugin game-copy/atlas-main20-1127/atlas-oop.dll (sha256 6afc79b5a60a2919907a73f6343d0bffd26b675dbfa622202e4c604f323e4062), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, houseboat StartWatch fallback fix: atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053). Before: Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from feature/rebase-terrain-slide-1127 9583c6b (Atlas main 05a0e61 0.3.15 + R-8, rebase=7; game-copy/atlas-r8-1127/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-r8-1127 (atlas.package sha256 0e020f4ccf83e3a2dad063aa738c4cd87900f74b1283dec3422777824d4eb0f5, 'rebase slidecheck' command, build rebase-4 read back by the \"script half ready\" line).",
       "save": "Baseline-SV",
       "timeoutMin": 30,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
-        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "Rebase.Enable": 1,
@@ -372,11 +375,11 @@
           "Rebase.TerrainSlide": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:icalls rebase: 11 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": 1,
           "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
-          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 12, shape 92/92, 11 internal calls registered$": 1,
-          "^atlas:rebase script half ready \\(rebase-4\\), native version 12$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 13, shape 92/92, 11 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 13$": 1,
           "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
           "^atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 \\(GridKeys=1\\); R-7 key sites 7/7 match \\(CellKeys=1\\); InferredSlots=0$": 1,
           "^atlas:rebase R-8: TerrainSlide=1 ": 1,
@@ -424,19 +427,19 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "ini": {
         "Rewind.Park": 1
       },
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from feature/rebase-terrain-slide-1127 9583c6b (Atlas main 05a0e61 0.3.15 + R-8, rebase=7; game-copy/atlas-r8-1127/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-r8-1127 (atlas.package sha256 0e020f4ccf83e3a2dad063aa738c4cd87900f74b1283dec3422777824d4eb0f5, 'rebase slidecheck' command, build rebase-4 read back by the \"script half ready\" line).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1: rebase 13, P1 25 internal calls, houseboat native 2): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), oop plugin game-copy/atlas-main20-1127/atlas-oop.dll (sha256 6afc79b5a60a2919907a73f6343d0bffd26b675dbfa622202e4c604f323e4062), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, houseboat StartWatch fallback fix: atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053). Before: Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1 (the gate parks the route worker through that channel); [MonoThread] Mode stays as m1126b ships it (1): the gate waits until that worker is idle. Extra module: boundless-atlas atlas.asi from feature/rebase-terrain-slide-1127 9583c6b (Atlas main 05a0e61 0.3.15 + R-8, rebase=7; game-copy/atlas-r8-1127/atlas.asi, bytes pinned by extraAsi.sha256) and its script half as mod set game-copy/mod-sets/atlas-r8-1127 (atlas.package sha256 0e020f4ccf83e3a2dad063aa738c4cd87900f74b1283dec3422777824d4eb0f5, 'rebase slidecheck' command, build rebase-4 read back by the \"script half ready\" line).",
       "save": "Baseline-SV",
       "timeoutMin": 30,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
-        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "Rebase.Enable": 1,
@@ -449,11 +452,11 @@
           "Rebase.TerrainSlide": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:icalls rebase: 11 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 5 flag set$": 1,
           "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
-          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 12, shape 92/92, 11 internal calls registered$": 1,
-          "^atlas:rebase script half ready \\(rebase-4\\), native version 12$": 1,
+          "^atlas:rebase on \\(Enable=1, SliceMs=8, FallbackMs=200, Verbose=0\\), version 13, shape 92/92, 11 internal calls registered$": 1,
+          "^atlas:rebase script half ready \\(rebase-4\\), native version 13$": 1,
           "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
           "^atlas:rebase P3: load hook 0xC6CF80 on; G map sites 5/5 \\(GridKeys=1\\); R-7 key sites 7/7 match \\(CellKeys=1\\); InferredSlots=0$": 1,
           "^atlas:rebase RESULT REFUSED (one-way-unmapped|dropped-column-occupied): ": 3,

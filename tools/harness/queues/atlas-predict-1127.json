@@ -1,5 +1,5 @@
 {
-  "note": "atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-predict-1127: Boundless Atlas docs/050 predictive staged streaming (PS-8), feature/predictive-streaming-1127. Three jobs on Sunset Valley new games, order matters: the born off arm writes the skip list (setup), then arm A (Predict=0, reactive) and arm B (Predict=1) of the born route visit. M-2 smoke = arm B's read-back lines (native start line and script-on line with the same values, stream group registered, summary with plans >= 1 and faults 0); M-3 = arms A vs B on the visit (household wait from the born pagein lines; arm C HorizonS=10 and the M-4 dense-downtown world wait for recorded tracks). Needs queue key extraAsi, game-copy/atlas-predict-1127/atlas.asi (sha256 pinned) and game-copy/mod-sets/atlas-predict-1127. Dry run only; not run (written 2026-11-27).",
+  "note": "atlas-main20 repin (2026-11-27): Atlas main 0.3.20 (boundless-atlas 440b469), asi 7c972767, oop plugin 6afc79b5, script half atlas-main20b-1127 (7ed0c75, pkg=8cda3053). atlas-main18 repin (2026-11-27): Atlas main 0.3.19 (boundless-atlas 91f004e), asi d09ee22f, oop plugin 08f6bb06, script half atlas-main18-1127. atlas-predict-1127: Boundless Atlas docs/050 predictive staged streaming (PS-8), feature/predictive-streaming-1127. Three jobs on Sunset Valley new games, order matters: the born off arm writes the skip list (setup), then arm A (Predict=0, reactive) and arm B (Predict=1) of the born route visit. M-2 smoke = arm B's read-back lines (native start line and script-on line with the same values, stream group registered, summary with plans >= 1 and faults 0); M-3 = arms A vs B on the visit (household wait from the born pagein lines; arm C HorizonS=10 and the M-4 dense-downtown world wait for recorded tracks). Needs queue key extraAsi, game-copy/atlas-predict-1127/atlas.asi (sha256 pinned) and game-copy/mod-sets/atlas-predict-1127. Dry run only; not run (written 2026-11-27).",
   "agentPackage": "game-copy/ts3agent.package.m1126c",
   "stopQueueOnFail": true,
   "regexCases": {
@@ -192,15 +192,16 @@
         "atlas:icalls born: 10 registered 0 ms after start of wait (domain 0x0A1B2C3D), group 8 flag set"
       ]
     },
-    "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+    "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
       "match": [
-        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 08:00:00, TS3W.exe link stamp 0x4E5B1A2C"
+        "atlas 0.3.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 08:00:00, TS3W.exe link stamp 0x4E5B1A2C"
       ],
       "noMatch": [
         "atlas 0.3.11 p1=1 loadA=0 w8192=0 rings=0 fz=0 rebase=0 oop=0 seed=0 born=2 tiles=0 paint=0 heights=0 built Nov 27 2026 08:00:00, TS3W.exe link stamp 0x4E5B1A2C",
         "atlas 0.3.15 p1=1 loadA=0 w8192=0 rings=0 fz=0 rebase=0 oop=0 seed=0 born=0 tiles=0 paint=0 heights=0 built Nov 27 2026 08:00:00, TS3W.exe link stamp 0x4E5B1A2C",
         "atlas 0.3.15 p1=1 loadA=0 w8192=0 rings=0 fz=0 rebase=0 oop=0 seed=0 born=2 tiles=0 paint=0 heights=0 built Nov 27 2026 08:00:00, TS3W.exe link stamp 0x4E5B1A2C",
-        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 08:00:00, TS3W.exe link stamp 0x4E5B1A2C"
+        "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 08:00:00, TS3W.exe link stamp 0x4E5B1A2C",
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 08:00:00, TS3W.exe link stamp 0x4E5B1A2C"
       ]
     },
     "^atlas:icalls born: \\d+ registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": {
@@ -299,6 +300,16 @@
         "atlas:born pagein lot=0x00000000000000AB why=predict C2 camera ttv= rc=0 ms=812 census=equal",
         "atlas:born pagein lot=0x00000000000000AB why=predict C1 route ttv=4.2 rc=-3 ms=812 census=equal"
       ]
+    },
+    "^paged lots: LotRect=[01] \\(docs/058 G-666: distance to the lot rectangle\\)$": {
+      "match": [
+        "paged lots: LotRect=0 (docs/058 G-666: distance to the lot rectangle)",
+        "paged lots: LotRect=1 (docs/058 G-666: distance to the lot rectangle)"
+      ],
+      "noMatch": [
+        "paged lots: LotRect=2 (docs/058 G-666: distance to the lot rectangle)",
+        "paged lots: probe on (Probe=1, FarM=250), 25 internal calls registered, ProbeVerbose=0"
+      ]
     }
   },
   "jobs": [
@@ -308,15 +319,15 @@
       "asi": "game-copy/ts3native.asi.m1126c",
       "iniBase": "game-copy/ts3native.ini.m1126c",
       "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Boundless Atlas feature/predictive-streaming-1127 (docs/050 PS-1..PS-6, Atlas main 212e136 0.3.15 merged): game-copy/atlas-predict-1127/atlas.asi (sha256 9fd045e86215d9f5e6d19e6a91b90d961b19e79a4dc4cc74b419c5ba0333170c, oop dll as atlas-main13) and game-copy/mod-sets/atlas-predict-1127 (atlas.package sha256 07cf49e8c00f2e09ee19faf6da4298d2a136f5a2eada8379d0c3f30ec4068b57). Master set m1126c as atlas-born-paged-1126. The stream internal calls are group 12 'stream'; Predict.cs asks AtlasNative.Has(kStream) before any call.",
-      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1: rebase 13, P1 25 internal calls, houseboat native 2): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), oop plugin game-copy/atlas-main20-1127/atlas-oop.dll (sha256 6afc79b5a60a2919907a73f6343d0bffd26b675dbfa622202e4c604f323e4062), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, houseboat StartWatch fallback fix: atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053). Before: Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Boundless Atlas feature/predictive-streaming-1127 (docs/050 PS-1..PS-6, Atlas main 212e136 0.3.15 merged): game-copy/atlas-predict-1127/atlas.asi (sha256 9fd045e86215d9f5e6d19e6a91b90d961b19e79a4dc4cc74b419c5ba0333170c, oop dll as atlas-main13) and game-copy/mod-sets/atlas-predict-1127 (atlas.package sha256 07cf49e8c00f2e09ee19faf6da4298d2a136f5a2eada8379d0c3f30ec4068b57). Master set m1126c as atlas-born-paged-1126. The stream internal calls are group 12 'stream'; Predict.cs asks AtlasNative.Has(kStream) before any call.",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "timeoutMin": 30,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
-        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -325,7 +336,7 @@
           "Stream.Predict": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:icalls born: \\d+ registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
           "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
           "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
@@ -335,7 +346,8 @@
           "^atlas:born mark-written lots=[1-9]\\d* born-skip\\\\Sunset_Valley\\.world\\.txt$": 1,
           "^p1: RESULT PASS born mark lots [1-9]\\d* objects [1-9]\\d* of \\d+ candidates$": 1,
           "^atlas:born pin-summary candidates=[1-9]\\d* pinned=\\d+ skippable=[1-9]\\d*$": 1,
-          "^atlas:stream start version 1 Predict=0 ReadAhead=1 HorizonS=30 HurryMs=2000 WasteCapMB=16 Retain=1 TriggerMB=1200 ResumeMB=1400 Verbose=0 born=1$": 1
+          "^atlas:stream start version 1 Predict=0 ReadAhead=1 HorizonS=30 HurryMs=2000 WasteCapMB=16 Retain=1 TriggerMB=1200 ResumeMB=1400 Verbose=0 born=1$": 1,
+          "^paged lots: LotRect=[01] \\(docs/058 G-666: distance to the lot rectangle\\)$": 1
         },
         "logForbid": {
           "^p1: DAMAGED": 0,
@@ -361,15 +373,15 @@
       "asi": "game-copy/ts3native.asi.m1126c",
       "iniBase": "game-copy/ts3native.ini.m1126c",
       "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Boundless Atlas feature/predictive-streaming-1127 (docs/050 PS-1..PS-6, Atlas main 212e136 0.3.15 merged): game-copy/atlas-predict-1127/atlas.asi (sha256 9fd045e86215d9f5e6d19e6a91b90d961b19e79a4dc4cc74b419c5ba0333170c, oop dll as atlas-main13) and game-copy/mod-sets/atlas-predict-1127 (atlas.package sha256 07cf49e8c00f2e09ee19faf6da4298d2a136f5a2eada8379d0c3f30ec4068b57). Master set m1126c as atlas-born-paged-1126. The stream internal calls are group 12 'stream'; Predict.cs asks AtlasNative.Has(kStream) before any call.",
-      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1: rebase 13, P1 25 internal calls, houseboat native 2): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), oop plugin game-copy/atlas-main20-1127/atlas-oop.dll (sha256 6afc79b5a60a2919907a73f6343d0bffd26b675dbfa622202e4c604f323e4062), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, houseboat StartWatch fallback fix: atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053). Before: Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Boundless Atlas feature/predictive-streaming-1127 (docs/050 PS-1..PS-6, Atlas main 212e136 0.3.15 merged): game-copy/atlas-predict-1127/atlas.asi (sha256 9fd045e86215d9f5e6d19e6a91b90d961b19e79a4dc4cc74b419c5ba0333170c, oop dll as atlas-main13) and game-copy/mod-sets/atlas-predict-1127 (atlas.package sha256 07cf49e8c00f2e09ee19faf6da4298d2a136f5a2eada8379d0c3f30ec4068b57). Master set m1126c as atlas-born-paged-1126. The stream internal calls are group 12 'stream'; Predict.cs asks AtlasNative.Has(kStream) before any call.",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "timeoutMin": 30,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
-        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -378,7 +390,7 @@
           "Stream.Predict": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:icalls born: \\d+ registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
           "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
           "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
@@ -389,7 +401,8 @@
           "^atlas:born load-summary lots \\d+, skipped [1-9]\\d*, ": 1,
           "^p1: RESULT PASS born visit lot 0x[0-9A-F]{16}$": 1,
           "^atlas:born pagein lot=0x[0-9A-F]{16} why=(?!edit town|build mode|camera near|command|future world|a Sim is on the lot)[^=]+ rc=0 .* census=equal$": 1,
-          "^atlas:stream start version 1 Predict=0 ReadAhead=1 HorizonS=30 HurryMs=2000 WasteCapMB=16 Retain=1 TriggerMB=1200 ResumeMB=1400 Verbose=0 born=1$": 1
+          "^atlas:stream start version 1 Predict=0 ReadAhead=1 HorizonS=30 HurryMs=2000 WasteCapMB=16 Retain=1 TriggerMB=1200 ResumeMB=1400 Verbose=0 born=1$": 1,
+          "^paged lots: LotRect=[01] \\(docs/058 G-666: distance to the lot rectangle\\)$": 1
         },
         "logForbid": {
           "^p1: DAMAGED": 0,
@@ -417,15 +430,15 @@
       "asi": "game-copy/ts3native.asi.m1126c",
       "iniBase": "game-copy/ts3native.ini.m1126c",
       "fixesPackage": "game-copy/ts3fixes.package.m1126c",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Boundless Atlas feature/predictive-streaming-1127 (docs/050 PS-1..PS-6, Atlas main 212e136 0.3.15 merged): game-copy/atlas-predict-1127/atlas.asi (sha256 9fd045e86215d9f5e6d19e6a91b90d961b19e79a4dc4cc74b419c5ba0333170c, oop dll as atlas-main13) and game-copy/mod-sets/atlas-predict-1127 (atlas.package sha256 07cf49e8c00f2e09ee19faf6da4298d2a136f5a2eada8379d0c3f30ec4068b57). Master set m1126c as atlas-born-paged-1126. The stream internal calls are group 12 'stream'; Predict.cs asks AtlasNative.Has(kStream) before any call.",
-      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.20 (boundless-atlas 440b469, docs/031 §16.8.1: rebase 13, P1 25 internal calls, houseboat native 2): game-copy/atlas-main20-1127/atlas.asi (sha256 7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f), oop plugin game-copy/atlas-main20-1127/atlas-oop.dll (sha256 6afc79b5a60a2919907a73f6343d0bffd26b675dbfa622202e4c604f323e4062), script half game-copy/mod-sets/atlas-main20b-1127 (Atlas main 7ed0c75, houseboat StartWatch fallback fix: atlas.package sha256 330e6971a8d77267f61f8a1e61356442c50cda6e475682b3ab1c50da2f1685eb, pkg=8cda3053). Before: Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Boundless Atlas feature/predictive-streaming-1127 (docs/050 PS-1..PS-6, Atlas main 212e136 0.3.15 merged): game-copy/atlas-predict-1127/atlas.asi (sha256 9fd045e86215d9f5e6d19e6a91b90d961b19e79a4dc4cc74b419c5ba0333170c, oop dll as atlas-main13) and game-copy/mod-sets/atlas-predict-1127 (atlas.package sha256 07cf49e8c00f2e09ee19faf6da4298d2a136f5a2eada8379d0c3f30ec4068b57). Master set m1126c as atlas-born-paged-1126. The stream internal calls are group 12 'stream'; Predict.cs asks AtlasNative.Has(kStream) before any call.",
+      "modSet": "game-copy/mod-sets/atlas-main20b-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "timeoutMin": 30,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
-        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
+        "asi": "game-copy/atlas-main20-1127/atlas.asi",
+        "sha256": "7c972767b427ff84869df3386a59c7b61a68fa96e83f8765d5de1c7039b6f41f",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -434,7 +447,7 @@
           "Stream.Predict": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=13 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:icalls born: \\d+ registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 8 flag set$": 1,
           "^paged lots: probe on \\(Probe=1, FarM=250\\), [1-9]\\d* internal calls registered, ": 1,
           "^p1 self-check: PASS \\(\\d+ checks, 0 failed\\), page format version 1, header 64 bytes$": 1,
@@ -448,7 +461,8 @@
           "^atlas:stream start version 1 Predict=1 ReadAhead=1 HorizonS=30 HurryMs=2000 WasteCapMB=16 Retain=1 TriggerMB=1200 ResumeMB=1400 Verbose=0 born=1( index lazy)?": 1,
           "^atlas:icalls stream: 6 registered \\d+ ms after start of wait \\(domain 0x[0-9A-F]{8}\\), group 12 flag set$": 1,
           "^atlas:stream script on version 1 native 1 HorizonS=30 HurryMs=2000 ReadAhead=1 Retain=1 TriggerMB=1200 ResumeMB=1400$": 1,
-          "^atlas:stream summary-script plans [1-9]\\d* reactive \\d+ speculative \\d+ .* faults 0 ": 1
+          "^atlas:stream summary-script plans [1-9]\\d* reactive \\d+ speculative \\d+ .* faults 0 ": 1,
+          "^paged lots: LotRect=[01] \\(docs/058 G-666: distance to the lot rectangle\\)$": 1
         },
         "logForbid": {
           "^p1: DAMAGED": 0,

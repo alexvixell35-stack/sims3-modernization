@@ -145660,6 +145660,997 @@
     ]
   },
   {
+    "id": "atlas-lotseam-check-sv",
+    "memory": true,
+    "save": "Baseline-SV",
+    "bug": "Boundless Atlas docs/058 lot seams: a lot whose origin stays but a corner leaves the window (G-662), R-9 cells by the lot footprint (G-661), I-058-1 / I-058-5 / I-058-6",
+    "fix": "none: a dev check. atlas.asi [Rebase] Enable=1 GridKeys=1 CellKeys=1 and [PagedLots] Probe=1, TerrainSlide / StripBuild / LotCells per job",
+    "note": "Never run (written 2026-11-27, shape of atlas-rebase-r8-check-sv). Dry run only: one rebase slidecheck 0 512 (oneWay = 2: lists, gates, precheck and the lot footprint lines; nothing written, no lot paged, no Sim touched). Waits for the rebase and p1 internal-call flags before the first native call. Household rule: nothing written, so household Sims stay vanilla by construction; a household Sim in the dropped column makes the hub refuse first (VOID, see the queue note).",
+    "expect": "LotCells=1 / R-9 on: script and native footprint lines, native window count = R-9 cell count, every leaving lot inside its corner box, native refusal; LotCells=0 / R-9 off: dropped-column-occupied (native code -9), no script footprint line; no script error",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.AtlasNative.Groups"
+        },
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.AtlasNative.Groups"
+          },
+          "all": [
+            {
+              "path": "p1",
+              "equals": true
+            },
+            {
+              "path": "rebase",
+              "equals": true
+            },
+            {
+              "path": "ready",
+              "equals": 3
+            },
+            {
+              "path": "waiting",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "atlas.asi never set the rebase or p1 internal-call flag, or not every group is final (Groups ready 3) or a script boot still waits (boundless-atlas docs/031 §16.2; atlas.log: 'atlas:icalls ready 3' and 'atlas:ready ... decided' lines; atlas.log: no 'atlas:icalls rebase:' line; look for 'atlas:icalls ... waiting' or SKIP)"
+        },
+        "note": "wait for atlas.asi's internal calls (rebase) before the first reflect_call into native code: AtlasNative.Groups never calls a missing call, a second call to a missing one crashes at EIP 0 (boundless-atlas docs/031 §12)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.RebaseNative.Version"
+        },
+        "waitS": 1,
+        "note": "fail-fast prep: the rebase group is registered (Groups said so), so this call is safe"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.Rebase.Start",
+          "args": [
+            "rebase slidecheck 0 512"
+          ]
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.Rebase.State"
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            },
+            {
+              "path": "command",
+              "equals": "rebase slidecheck 0 512"
+            }
+          ],
+          "failOn": "fail",
+          "everyS": 2,
+          "maxS": 300
+        },
+        "note": "one-way dry run two terrain cells north (Atlas docs/058 §8: 4 leaving lots, MountainPond corner-only): hub rules reported, native precheck and the footprint lines; nothing written"
+      }
+    ]
+  },
+  {
+    "id": "atlas-houseboat-ip-1127",
+    "memory": true,
+    "save": "Baseline-IP-Spring",
+    "bug": "Boundless Atlas docs/057 houseboats crossing windows and tiles: HB-0 ShownPos, HB-1 HullGuard, HB-2 StripCheck, HB-4 FarDock (far dock-to-dock trips, save bracket, sidecar) on Isla Paradiso",
+    "fix": "none: a dev check. atlas.asi [Houseboat] FarDock per job (StripCheck=1, Verbose=1), [Rebase] Enable=1 and [PagedLots] Probe=1 for the dry slide check",
+    "note": "Never run (written 2026-11-27, docs/057 §6.3). Household rule: the active household (Dregg, Atlantis houseboat) gets no agent action: it plays under EA only (autopilot, dialogs accepted); the slide check is a dry run (nothing written); no Sim is spawned, pushed or moved. The whole-world step (8192 0) puts every Sim in the dropped column, so the hub refuses household-in-dropped-column before any hull or native write. The save goes to the scratch name Atlas-HB-IP-1127 (never the Baseline save) and is reloaded in-game; the last step quits to the main menu so the world-quit counter lines are written.",
+    "expect": "hub refusal household-in-dropped-column with position unreadable 0; 6 min of play with no script error and no fardock throw; save and reload ok (FarDock=1: fardock start line twice, sidecar trips read back); world-quit lines at the main menu",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.AtlasNative.Groups"
+        },
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.AtlasNative.Groups"
+          },
+          "all": [
+            {
+              "path": "p1",
+              "equals": true
+            },
+            {
+              "path": "rebase",
+              "equals": true
+            },
+            {
+              "path": "ready",
+              "equals": 3
+            },
+            {
+              "path": "waiting",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "atlas.asi never set the rebase or p1 internal-call flag, or not every group is final (Groups ready 3) or a script boot still waits (boundless-atlas docs/031 §16.2; atlas.log: 'atlas:icalls ready 3' and 'atlas:ready ... decided' lines; atlas.log: no 'atlas:icalls rebase:' line; look for 'atlas:icalls ... waiting' or SKIP)"
+        },
+        "note": "wait for atlas.asi's internal calls (rebase, p1) before the first reflect_call into native code: a second call to a missing one crashes at EIP 0 (boundless-atlas docs/031 §12)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.RebaseNative.Version"
+        },
+        "waitS": 1,
+        "note": "fail-fast prep: the rebase group is registered (Groups said so), so this call is safe"
+      },
+      {
+        "cmd": "houseboats",
+        "args": {},
+        "waitS": 1,
+        "note": "every hull with position, port and household at the start (household rows compared between the arms)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.Rebase.Start",
+          "args": [
+            "rebase slidecheck 8192 0"
+          ]
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.Rebase.State"
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            },
+            {
+              "path": "command",
+              "equals": "rebase slidecheck 8192 0"
+            }
+          ],
+          "failOn": "fail",
+          "everyS": 2,
+          "maxS": 300
+        },
+        "note": "scenario 1 (slide-check half): dry whole-world step, the household and its houseboat are in the dropped column: the hub refuses household-in-dropped-column, never pos-unknown; nothing written"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "waitS": 360,
+        "note": "scenarios 2 / 5: 6 min of EA play; NPC houseboats sail only by EA (no forced action); FarDock=1 parks any unseen NPC sail"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": false
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "houseboats",
+        "args": {},
+        "waitS": 1,
+        "note": "hull positions after the play window (moved / parked hulls)"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Atlas-HB-IP-1127"
+        },
+        "waitS": 30,
+        "note": "scenario 3: the fardock save bracket (gate order 45, Pre / Post) runs; a parked hull goes back in the world first, its trip to the sidecar"
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "Atlas-HB-IP-1127.sims3",
+          "reload": true
+        },
+        "waitS": 10,
+        "timeoutS": 900,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "Atlas-HB-IP-1127.sims3"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "scenario 3: in-game reload; FarDock=1 reads the sidecar back (sidecar trips <n>), a trip applies only to the hull it names"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.AtlasNative.Groups"
+        },
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.AtlasNative.Groups"
+          },
+          "all": [
+            {
+              "path": "p1",
+              "equals": true
+            },
+            {
+              "path": "rebase",
+              "equals": true
+            },
+            {
+              "path": "ready",
+              "equals": 3
+            },
+            {
+              "path": "waiting",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "atlas.asi never set the rebase or p1 internal-call flag, or not every group is final (Groups ready 3) or a script boot still waits (boundless-atlas docs/031 §16.2; atlas.log: 'atlas:icalls ready 3' and 'atlas:ready ... decided' lines; atlas.log: no 'atlas:icalls rebase:' line; look for 'atlas:icalls ... waiting' or SKIP)"
+        },
+        "note": "groups final again after the reload"
+      },
+      {
+        "cmd": "houseboats",
+        "args": {},
+        "waitS": 1,
+        "note": "hull positions after the reload"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "waitS": 60,
+        "note": "one sim hour after the reload: a replanned trip parks or arrives"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": false
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "main_menu",
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 600
+        },
+        "note": "scenario 5: world unload to the main menu writes the houseboat (and, after any activity, fardock) world-quit counter lines"
+      }
+    ]
+  },
+  {
+    "id": "atlas-sealocal-8192",
+    "memory": true,
+    "save": "menu",
+    "bug": "Boundless Atlas G-681 / G-682: EA's pond and sea surface writer stores x and z at * 4 in a signed short, so sea tiles past +-8191.5 m wrap into world-wide water sheets in an 8192 m world",
+    "fix": "atlas.asi [Rebase] SeaLocal=1 (0xB60A11 movss operand -> our 1.0, 0xB60B33 w = 1); default 0",
+    "note": "Never run (written 2026-11-27). Load steps of atlas-8192-load-thing-8192 (new game in AtlasP0thinG_8192.world, live mode, no household picked), then three horizon poses past 8191 m with a screenshot each, then a scratch save AtlasSea-8192-1127 for the frames jobs. Household rule: no household is active; nothing here changes a Sim.",
+    "expect": "in_world; three screenshots (atlas-sea-east / -north / -corner); the save written; no script error",
+    "steps": [
+      {
+        "cmd": "game_state",
+        "until": {
+          "cmd": "auto_dialog",
+          "args": {
+            "accept": true
+          },
+          "all": [
+            {
+              "path": "title"
+            }
+          ],
+          "everyS": 2,
+          "maxS": 330
+        },
+        "note": "wait at the main menu for the Mod Scripts Found dialog and accept it: a load requested under it never reaches the world (cycle.ts, new-save.ts)"
+      },
+      {
+        "cmd": "game_state",
+        "waitS": 8,
+        "note": "menu quiet"
+      },
+      {
+        "cmd": "dialog_expect",
+        "args": {
+          "seconds": 600,
+          "accept_all": true,
+          "all_seconds": 600
+        },
+        "note": "the autopilot accepts dialogs of the new-game flow"
+      },
+      {
+        "cmd": "load_world",
+        "timeoutS": 900,
+        "args": {
+          "file": "AtlasP0thinG_8192.world",
+          "state": "LiveMode"
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "new game in the generated world, live mode; the step time is the load time"
+      },
+      {
+        "cmd": "camera",
+        "args": {},
+        "note": "start pose"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 8000,
+            "y": 120,
+            "z": 4096
+          },
+          "target": {
+            "x": 8600,
+            "y": 0,
+            "z": 4096
+          }
+        },
+        "waitS": 25,
+        "note": "horizon past x 8191 m (looking east from x 8000)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-sea-east"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-682 evidence: wrapped world-wide water sheets (A) or none (B)"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 4096,
+            "y": 120,
+            "z": 8000
+          },
+          "target": {
+            "x": 4096,
+            "y": 0,
+            "z": 8600
+          }
+        },
+        "waitS": 25,
+        "note": "horizon past z 8191 m (looking north from z 8000)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-sea-north"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-682 evidence: wrapped world-wide water sheets (A) or none (B)"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 8000,
+            "y": 120,
+            "z": 8000
+          },
+          "target": {
+            "x": 8600,
+            "y": 0,
+            "z": 8600
+          }
+        },
+        "waitS": 25,
+        "note": "horizon past the far corner"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-sea-corner"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-682 evidence: wrapped world-wide water sheets (A) or none (B)"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "AtlasSea-8192-1127"
+        },
+        "waitS": 60,
+        "note": "scratch save of the generated test world for the frames jobs"
+      },
+      {
+        "cmd": "game_state",
+        "waitS": 2,
+        "note": "still in the world after the save"
+      }
+    ]
+  },
+  {
+    "id": "atlas-sealocal-frames-8192",
+    "save": "AtlasSea-8192-1127",
+    "bug": "Boundless Atlas G-681 / G-682: EA's pond and sea surface writer stores x and z at * 4 in a signed short, so sea tiles past +-8191.5 m wrap into world-wide water sheets in an 8192 m world",
+    "fix": "atlas.asi [Rebase] SeaLocal=1 (0xB60A11 movss operand -> our 1.0, 0xB60B33 w = 1); default 0",
+    "note": "Never run (written 2026-11-27). Profile repro (queue run.profile.repro): 60 s lead-in (the load minute, excluded), the three horizon poses of atlas-sealocal-8192 (30 s each, screenshot each), then camera_sweep (180 s) over the origin-quadrant lots; camera-sweep-report.ts splits the frames per segment. Camera only: no Sim, lot or save change. Household rule: no household in this world.",
+    "expect": "PASS: camera sweep: 8 segments; three screenshots; no script errors",
+    "steps": [
+      {
+        "cmd": "game_state",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 2,
+          "maxS": 60,
+          "hollow": "the AtlasSea-8192-1127 load is not in live mode (the save has no active household: cycle.ts enter_live_mode did not leave the household picker / Edit Town); rerun the load job, or make the frames job load_world the generated world in its own repro"
+        },
+        "note": "fail fast: the scratch save has no active household; cycle.ts switched the load to live mode (enter_live_mode), as load_world LiveMode did when the save was written"
+      },
+      {
+        "cmd": "camera",
+        "args": {},
+        "waitS": 60,
+        "note": "lead-in: the first 60 s of the window are the load minute (excluded); start pose, for the log"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 8000,
+            "y": 120,
+            "z": 4096
+          },
+          "target": {
+            "x": 8600,
+            "y": 0,
+            "z": 4096
+          }
+        },
+        "waitS": 25,
+        "note": "horizon past x 8191 m (looking east from x 8000)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-sea-east"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-682 evidence: wrapped world-wide water sheets (A) or none (B)"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 4096,
+            "y": 120,
+            "z": 8000
+          },
+          "target": {
+            "x": 4096,
+            "y": 0,
+            "z": 8600
+          }
+        },
+        "waitS": 25,
+        "note": "horizon past z 8191 m (looking north from z 8000)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-sea-north"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-682 evidence: wrapped world-wide water sheets (A) or none (B)"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 8000,
+            "y": 120,
+            "z": 8000
+          },
+          "target": {
+            "x": 8600,
+            "y": 0,
+            "z": 8600
+          }
+        },
+        "waitS": 25,
+        "note": "horizon past the far corner"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-sea-corner"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-682 evidence: wrapped world-wide water sheets (A) or none (B)"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {},
+        "waitS": 182,
+        "note": "still 5 s, zoom smooth 30 s, zoom steps 30 s, rotate 30 s, rotate fast 20 s, still at pan start 5 s, pan 50 s, still 10 s (180 s)"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {
+          "status": true
+        },
+        "waitS": 1,
+        "note": "segment markers into <tag>-repro.jsonl"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {
+          "stop": true
+        },
+        "optional": true
+      }
+    ]
+  },
+  {
+    "id": "atlas-water-window",
+    "memory": true,
+    "save": "menu",
+    "bug": "Boundless Atlas docs/030 G-680 / G-681: the sea kept the old terrain's depth and shore after a one-way slide, and sea horizon tiles reach past the signed short range",
+    "fix": "atlas.asi [Rebase] SeaWindow / SeaRange / SeaLocal per job (default 0)",
+    "note": "Never run (written 2026-11-27). The steps of atlas-rebase-r9-compare-window (load AtlasStripSet.world, slidecheck -256 0, real slide -256 0 with StripProve=1, test only) plus two camera poses with screenshots and a world quit to the main menu. Household rule: a new game in a generated world with no household; nothing touches a household Sim.",
+    "expect": "on: sea window / range / local boot lines, one sea step (-256, 0) without FAIL, world-quit sea counters with 0 failed and 0 rollbacks; off: no sea line; both: the slide passes, 0 script errors",
+    "steps": [
+      {
+        "cmd": "game_state",
+        "until": {
+          "cmd": "auto_dialog",
+          "args": {
+            "accept": true
+          },
+          "all": [
+            {
+              "path": "title"
+            }
+          ],
+          "everyS": 2,
+          "maxS": 330
+        },
+        "note": "wait at the main menu for the Mod Scripts Found dialog and accept it: a load requested under it never reaches the world (cycle.ts, new-save.ts)"
+      },
+      {
+        "cmd": "game_state",
+        "waitS": 8,
+        "note": "menu quiet"
+      },
+      {
+        "cmd": "dialog_expect",
+        "args": {
+          "seconds": 600,
+          "accept_all": true,
+          "all_seconds": 600
+        },
+        "note": "the autopilot accepts dialogs of the new-game flow"
+      },
+      {
+        "cmd": "load_world",
+        "args": {
+          "file": "AtlasStripSet.world",
+          "state": "LiveMode"
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "new game in the generated world, live mode; the step time is the load time",
+        "timeoutS": 900
+      },
+      {
+        "cmd": "game_state",
+        "waitS": 20,
+        "note": "world settled after the load"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.AtlasNative.Groups"
+        },
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.AtlasNative.Groups"
+          },
+          "all": [
+            {
+              "path": "rebase",
+              "equals": true
+            },
+            {
+              "path": "ready",
+              "equals": 3
+            },
+            {
+              "path": "waiting",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "atlas.asi never set the rebase internal-call flag, or not every group is final (Groups ready 3) or a script boot still waits (boundless-atlas docs/031 §16.2; atlas.log: 'atlas:icalls ready 3' and 'atlas:ready ... decided' lines; atlas.log: no 'atlas:icalls rebase:' line; look for 'atlas:icalls ... waiting' or SKIP)"
+        },
+        "note": "wait for atlas.asi's internal calls (rebase) before the first reflect_call into native code: AtlasNative.Groups never calls a missing call, a second call to a missing one crashes at EIP 0 (boundless-atlas docs/031 §12)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.RebaseNative.Version"
+        },
+        "waitS": 1,
+        "note": "fail-fast prep: the rebase group is registered (Groups said so), so this call is safe"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.Rebase.Start",
+          "args": [
+            "rebase slidecheck -256 0"
+          ]
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.Rebase.State"
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            },
+            {
+              "path": "command",
+              "equals": "rebase slidecheck -256 0"
+            }
+          ],
+          "failOn": "fail",
+          "everyS": 2,
+          "maxS": 300
+        },
+        "note": "one-way dry run one terrain cell: R-9 plan ready (strip pack answers the entered keys, region file present)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.Rebase.Start",
+          "args": [
+            "rebase slide -256 0"
+          ]
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.Rebase.State"
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            },
+            {
+              "path": "command",
+              "equals": "rebase slide -256 0"
+            }
+          ],
+          "failOn": "fail",
+          "everyS": 2,
+          "maxS": 600
+        },
+        "note": "real one-way slide (StripProve=1, test only): strip step after Verify, hashes logged"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 128,
+            "y": 300,
+            "z": 1024
+          },
+          "target": {
+            "x": -400,
+            "y": 0,
+            "z": 1024
+          }
+        },
+        "waitS": 20,
+        "note": "west edge after the slide: the entered strip and the sea past it"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-water-west"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-680 evidence: shore drawn at the new place (on) or the old depth and shore (off)"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1920,
+            "y": 300,
+            "z": 1024
+          },
+          "target": {
+            "x": 2600,
+            "y": 0,
+            "z": 1024
+          }
+        },
+        "waitS": 20,
+        "note": "east edge after the slide: the leaving side"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-water-east"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-680 evidence: the sea on the leaving side"
+      },
+      {
+        "cmd": "main_menu",
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 600
+        },
+        "note": "world quit writes the sea counters line (SeaCounters \"world quit\")"
+      }
+    ]
+  },
+  {
+    "id": "atlas-water-frames",
+    "memory": true,
+    "save": "AtlasStripSet.world",
+    "bug": "Boundless Atlas docs/030 G-680 / G-681: frame cost of the sea rebuild in the R-9 step and of clamped sea tiles, SeaWindow=0 against 1",
+    "fix": "atlas.asi [Rebase] SeaWindow / SeaRange / SeaLocal per job (default 0)",
+    "note": "Never run (written 2026-11-27). Runs inside a profile window that loaded AtlasStripSet.world itself (queue run.profile.loadWorld): the rebase group wait, slidecheck -256 0 and the real slide -256 0 of atlas-rebase-r9-compare-window (StripProve=1, test only), one camera pose and a camera_sweep for the per-segment frame times. Household rule: a new game in a generated world with no household; nothing touches a household Sim.",
+    "expect": "the slide passes; camera-sweep-report.ts segments with p50 / p99 / p99.9 / max frame ms for the on / off comparison; 0 script errors",
+    "steps": [
+      {
+        "cmd": "camera",
+        "args": {},
+        "waitS": 60,
+        "note": "lead-in: the first 60 s of the window are the load minute (excluded); start pose, for the log"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.AtlasNative.Groups"
+        },
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.AtlasNative.Groups"
+          },
+          "all": [
+            {
+              "path": "rebase",
+              "equals": true
+            },
+            {
+              "path": "ready",
+              "equals": 3
+            },
+            {
+              "path": "waiting",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "atlas.asi never set the rebase internal-call flag, or not every group is final (Groups ready 3) or a script boot still waits (boundless-atlas docs/031 §16.2; atlas.log: 'atlas:icalls ready 3' and 'atlas:ready ... decided' lines; atlas.log: no 'atlas:icalls rebase:' line; look for 'atlas:icalls ... waiting' or SKIP)"
+        },
+        "note": "wait for atlas.asi's internal calls (rebase) before the first reflect_call into native code: AtlasNative.Groups never calls a missing call, a second call to a missing one crashes at EIP 0 (boundless-atlas docs/031 §12)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.RebaseNative.Version"
+        },
+        "waitS": 1,
+        "note": "fail-fast prep: the rebase group is registered (Groups said so), so this call is safe"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.Rebase.Start",
+          "args": [
+            "rebase slidecheck -256 0"
+          ]
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.Rebase.State"
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            },
+            {
+              "path": "command",
+              "equals": "rebase slidecheck -256 0"
+            }
+          ],
+          "failOn": "fail",
+          "everyS": 2,
+          "maxS": 300
+        },
+        "note": "one-way dry run one terrain cell: R-9 plan ready (strip pack answers the entered keys, region file present)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.Rebase.Start",
+          "args": [
+            "rebase slide -256 0"
+          ]
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.Rebase.State"
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            },
+            {
+              "path": "command",
+              "equals": "rebase slide -256 0"
+            }
+          ],
+          "failOn": "fail",
+          "everyS": 2,
+          "maxS": 600
+        },
+        "note": "real one-way slide (StripProve=1, test only): strip step after Verify, hashes logged"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 128,
+            "y": 300,
+            "z": 1024
+          },
+          "target": {
+            "x": -400,
+            "y": 0,
+            "z": 1024
+          }
+        },
+        "waitS": 25,
+        "note": "west edge after the slide: the entered strip and the sea past it"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "atlas-water-frames-west"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "G-680 evidence: shore at the new place (on) or the old depth and shore (off)"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {},
+        "waitS": 182,
+        "note": "still 5 s, zoom smooth 30 s, zoom steps 30 s, rotate 30 s, rotate fast 20 s, still at pan start 5 s, pan 50 s, still 10 s (180 s)"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {
+          "status": true
+        },
+        "waitS": 1,
+        "note": "segment markers into <tag>-repro.jsonl"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {
+          "stop": true
+        },
+        "optional": true
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

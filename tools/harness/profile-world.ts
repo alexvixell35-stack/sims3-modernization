@@ -78,6 +78,7 @@ import { join, resolve } from 'node:path';
 import { classify } from './shadow-compare-report.ts';
 import { lastLockWaitLineInFile } from './lock-wait-line.ts';
 import { parseArgs } from 'node:util';
+import { loadWorldLive } from './live-wait.ts';
 import { checkRequire, mustMatchFail, nativeWindowStep, numericFields, parseRequire, stepTally } from './fixes-require.ts';
 import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
@@ -96,7 +97,7 @@ import { BIN, GAME_EXE } from './game-exe.ts';
 import { report as camSweepReport, segmentsOf, table as camSweepTable, verdict as camSweepVerdict } from './camera-sweep-report.ts';
 import { homedir } from 'node:os';
 
-const { values } = parseArgs({ options: { svcsplit: { type: 'boolean' }, tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, fixedwork: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'rewind-next': { type: 'boolean' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
+const { values } = parseArgs({ options: { svcsplit: { type: 'boolean' }, tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, fixedwork: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'load-world': { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'rewind-next': { type: 'boolean' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
 if (!values.tag) throw new Error('--tag required');
 const profOpts = values['prof-opts'] ? JSON.parse(values['prof-opts']) : {}; // fail before the game is touched on bad JSON
 if (values['vres-dry'] !== undefined && !/^[1-9]\d*$/.test(values['vres-dry'])) throw new Error('--vres-dry must be a positive integer');
@@ -146,6 +147,8 @@ if (values.travel) {
   const code = await new Promise<number | null>(res => spawn(process.execPath, [join(ROOT, 'tools', 'harness', 'save-matrix.ts'), '--cases', 'travel', '--to', values.travel!, '--stay'], { stdio: 'inherit' }).on('exit', res));
   if (code !== 0) throw new Error(`travel to ${values.travel} failed: save-matrix.ts exit ${code}`);
 }
+// --load-world <x.world> (queue run.profile.loadWorld, save "menu"): a new game from the main menu, then wait for live mode (live-wait.ts)
+if (values['load-world']) await loadWorldLive(ag, values['load-world'], sleep, { log: m => console.log(`${stamp()} ${m}`) });
 const st = await ag('game_state');
 if (st.result?.sub_state !== 'LiveModeState') throw new Error(`not in live mode: ${JSON.stringify(st)}`);
 console.log(`${stamp()} ${values.tag}: ${JSON.stringify(st.result)}`);
