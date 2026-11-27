@@ -231,6 +231,7 @@ const buildsCheck = (wt: string, file: string): string => {
   catch (e: any) { return `${String(e.stdout ?? '')}${String(e.stderr ?? '')}`.trim().split('\n')[0] || 'builds.ts check failed'; }
 };
 
+const CHAIN_DIR = '\0dir', CHAIN_UNZ = join(CHAIN_DIR, 'apex-unz');
 export function preflight(plan: Plan, now = new Date()): { problems: string[]; notes: string[]; runs: Resolved[] } {
   const problems: string[] = [], notes: string[] = [], runs: Resolved[] = [];
   if (!/^[\w.-]+$/.test(plan.night ?? '')) problems.push('plan.night must be letters, digits, . _ -');
@@ -270,7 +271,8 @@ export function preflight(plan: Plan, now = new Date()): { problems: string[]; n
     for (const f of bs.stage) if (!existsSync(join(OWN, f.from))) problems.push(`${at}: binStage from ${f.from} missing`); else if (fileSha(join(OWN, f.from)) !== f.sha256) problems.push(`${at}: binStage from ${f.from} sha256 ${fileSha(join(OWN, f.from)).slice(0, 12)}, want ${f.sha256.slice(0, 12)}`);
     if (bs.state) { // the state's own sources (the chain's apex-unz comes at snapshot; staged files at the queue start)
       const staged = new Set(bs.stage.map(f => resolve(OWN, f.to)));
-      for (const src of Object.values(STATES[bs.state]('\0unz'))) if (src && !src.startsWith('\0unz') && !staged.has(resolve(src)) && !existsSync(src)) problems.push(`${at}: Bin state ${bs.state}: ${src} missing`);
+      // chain-dir paths (apex-unz, and apex-stock-unz next to it, fetched at snapshot) are skipped: '\0dir' marks them
+      for (const src of Object.values(STATES[bs.state](CHAIN_UNZ))) if (src && !src.startsWith(CHAIN_DIR) &&!staged.has(resolve(src)) && !existsSync(src)) problems.push(`${at}: Bin state ${bs.state}: ${src} missing`);
       if (bs.stage.length) notes.push(`${at}: binStage ${bs.stage.length} file(s)`);
     }
     if (!bs.problems.length) {
@@ -469,6 +471,7 @@ function selfCheck() {
   assert.match(binChoice(null, 'off', none, 'no fork.json').problem, /^Bin state apex needs the fork install of FORK.sha, not ready \(no fork.json\): run node tools\/turbo-compat.ts install-copy$/, 'no stock fallback');
   assert.ok(binChoice('apex-oop-atlas', 'off', none, 'x').problem && binChoice('apex-rewind', 'off', none, 'x').problem);
   assert.equal(binChoice('apex-stock', 'off', none, 'x').problem, '', 'stock only as the opt-in state');
+  for (const st of ['apex', 'apex-stock']) assert.ok(Object.values(STATES[st](CHAIN_UNZ)).every(s => !s || s.startsWith(CHAIN_DIR) || !s.includes('-unz')), `${st}: its unz sources sit in the chain dir (preflight skips them)`);
   assert.deepEqual(binChoice('apex-rewind', 'off', none, ''), { state: 'apex-rewind', why: 'binState', warn: '', problem: '' });
   assert.ok(FORK.sha.length === 40);
   assert.match(sh, /st=\$\(\$NP --bin-state \$q --wt \$w --stage < \/dev\/null 2>&1\) \|\| \{ mk "SKIPPED/, 'state from night-plan, refused = skipped');

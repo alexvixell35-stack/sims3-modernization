@@ -18,7 +18,8 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.307-m1126c"  // master set m1126c (release/merge-window-1126): m1126b + simhc1 (IsSimThread, MainHeap, counters v227, PortalFlagRefs large graphs); ts3fixes adds simdescindex (OnSimThread), simresetalarms, farsim shadow, farlight/farhold, non-Sim lot push delta, all off
+#define TS3NATIVE_VERSION "0.36.307-exithooks1"  // bugfix/exit-hook-uaf-1127 (docs/67 §47): m1126c + [Fixes] ExitStaleHooks / ExitHookDiag (TriggerService teardown, exit crash)
+// was "0.36.307-m1126c"  // master set m1126c (release/merge-window-1126): m1126b + simhc1 (IsSimThread, MainHeap, counters v227, PortalFlagRefs large graphs); ts3fixes adds simdescindex (OnSimThread), simresetalarms, farsim shadow, farlight/farhold, non-Sim lot push delta, all off
 // was "0.36.306-simhc1"  // feature/native-simthread-heapcores-1126 (docs/362): m1126b + AutShadowNative IsSimThread / MainHeap internal calls, ts3native_mainheap export, [MemDiag] MainHeap (default 0), counters v227 mhc*
 // was "0.36.306-m1126b"  // master set m1126b: m1126 + [Crash] HeapCallDump split off (default 0; HeapCall stays 1, log only, Rodney OK 2026-11-26), dump request copies the exception record + context; ts3fixes: viewerridehooks ride set cleared when off and on quit
 // was "0.36.306-m1126"  // master set m1126 (CP-0 of docs/340): m1124d + [InstProbe] (docs/325, off) + [Crash] HeapCall detector with the m1124g tags (docs/260 §8-9, log only); ts3fixes adds instprobe and viewerridehooks (docs/335), both off
@@ -6919,6 +6920,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "c2diag.cpp"      // docs/259 §9: [Crash2Diag] route destination list lifetime detector, CRASH-TRIAGE (after autshadow.cpp: g_arGate; values.cpp: PvSwClass)
 #include "monosig.cpp"     // docs/539 §20: [MonoSigGuard] EA bug, delegate signature param_count before params[0] at 0xD70F90 (release ini on)
 #include "hostmapiter.cpp"  // docs/67 §43: [HostMapIterFix] EA bug, ProcessTaskState host id map iterator stale after a rehash in 0xD80460 (off)
+#include "exithooks.cpp"   // docs/67 §47: [Fixes] ExitStaleHooks / ExitHookDiag, EA bug, TriggerService teardown calls into a freed window (exit crash)
 #include "bindertd.cpp"    // docs/537 §20.3 E1: [Binder] TypeHandleDirect, GetTypeFromHandle's EA body reads the handle (no n2m call)
 #include "s3sscompat.cpp"  // docs/539 §22: [S3SSCompat] StaleWriteGuard, S3SS 1.6.3 stale camera-threshold write (after crashreport.cpp: CrFileSha; release ini on)
 #include "eafix.cpp"       // docs/67 §26.4 / §27.5 / §28: [EaCrashFixes] ConformActor, ThumbPose, GeomBoneIndex (needs footprint.cpp's FpCallOk / FpRedirect)
@@ -7114,6 +7116,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyCrash2Diag(ini) || keepLog;  // docs/259 §9 (off): route destination detours, before the game runs
         keepLog = ApplyMonoSigGuard(ini) || keepLog;  // docs/539 §20 (EA bug fix, default on): before Mono starts
         keepLog = ApplyHostMapIterFix(ini) || keepLog;  // docs/67 §43 (EA bug fix + detector, default off): before the sim thread runs
+        keepLog = ApplyExitHooks(ini) || keepLog;  // docs/67 §47 (EA bug fix + detector, code default off): IC slots before Mono registers them
         keepLog = ApplyBinderTypeHandle(ini) || keepLog;  // docs/537 §20.3 E1 (default 0): before Mono starts
         keepLog = ApplyS3ssCompat(ini) || keepLog;  // docs/539 §22 (default on): S3SS 1.6.3 stale maintained write, stands aside for other S3SS builds
         keepLog = ApplyEqualsFast(ini) || keepLog;  // docs/258 option C (off): before [AutShadow] / [MonoJit] start Mono work

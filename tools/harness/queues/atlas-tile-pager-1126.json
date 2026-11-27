@@ -10,9 +10,9 @@
   "agentPackage": "game-copy/ts3agent.package.m1126",
   "stopQueueOnFail": false,
   "regexCases": {
-    "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+    "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
       "match": [
-        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 13:10:00, TS3W.exe link stamp 0x52DEC247"
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 13:10:00, TS3W.exe link stamp 0x52DEC247"
       ],
       "noMatch": [
         "atlas 0.3.10 p1=2 loadA=4 w8192=1 rings=2 fz=1 rebase=2 oop=3 seed=1 tiles=1 paint=1 built Nov 26 2026 23:40:00, TS3W.exe link stamp 0x52DEC247",
@@ -279,6 +279,14 @@
         "atlas:icalls ready 3: groups 0x0A",
         "atlas:icalls oop: 5 registered 12 ms after start of wait (domain 0x1A2B3C4D), group 3 flag set"
       ]
+    },
+    "^atlas:oop D2 pass: restart host ready after \\d+ ms": {
+      "match": [
+        "atlas:oop D2 pass: restart host ready after 21340 ms (Off for 20110 ms while Apex started ts3wrap.exe)"
+      ],
+      "noMatch": [
+        "atlas:oop [Atlas] stood down: D2: the Apex restart host is off: turn on [ui] restart_host in ApexRadiance.toml and keep ts3wrap.exe next to it"
+      ]
     }
   },
   "jobs": [
@@ -288,9 +296,9 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
       "save": "menu",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -310,8 +318,8 @@
         "Config.SceneQuadTree": "8192,512,8"
       },
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -326,7 +334,7 @@
           "Diag.ConfigProbe": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 6, ": 1,
           "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
           "^w8192 Routing: 7 of 7 sites installed$": 1,
@@ -334,7 +342,8 @@
           "^atlas:tiles threshold #\\d+: budget \\d+ cs 256 cap \\d+ -> \\d+ levels \\d+ tris \\d+ splits \\d+ chunk \\d+ x0 \\d+ z0 \\d+, hash 0x[0-9A-F]{8}$": 1,
           "^atlas:tiles thresholds \\([a-z -]+\\): [1-9]\\d* calls, hash 0x[0-9A-F]{8}$": 1,
           "^atlas:tiles watch: O9 0xC88B30 hashed, EA's copy in process \\(TilePager=2, exactness arm\\)$": 1,
-          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1
         },
         "logForbid": {
           "^atlas:tiles (rollback|build failed|SENTINEL FAULT|SKIP|BUG|fetch of gen)": 0,
@@ -363,9 +372,9 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
       "save": "menu",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -385,8 +394,8 @@
         "Config.SceneQuadTree": "8192,512,8"
       },
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -401,7 +410,7 @@
           "Diag.ConfigProbe": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 6, ": 1,
           "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
           "^w8192 Routing: 7 of 7 sites installed$": 1,
@@ -410,7 +419,8 @@
           "^atlas:tiles thresholds \\([a-z -]+\\): [1-9]\\d* calls, hash 0x[0-9A-F]{8}$": 1,
           "^atlas:tiles on: 5 sites \\(O1 0xC883E0, O9 0xC88B30, O10 0xC87C30, loads 0xC885B9 0xC88806\\), cache 16 MB ": 1,
           "^atlas:tiles build gen \\d+: N 8193 count 8193 flag [01]: upload \\d+ ms, host build \\d+ ms, total \\d+ ms; copy in the host ": 1,
-          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1
         },
         "logForbid": {
           "^atlas:tiles (rollback|build failed|SENTINEL FAULT|SKIP|BUG|fetch of gen)": 0,
@@ -439,9 +449,9 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
       "save": "menu",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -461,8 +471,8 @@
         "Config.SceneQuadTree": "8192,512,8"
       },
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -479,14 +489,15 @@
           "Diag.ConfigProbe": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 6, ": 1,
           "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
           "^w8192 Routing: 7 of 7 sites installed$": 1,
           "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
           "^atlas:paint watch: readers P1 0xC22360, P2 0xC23800, P3 0xC22EF0, P4 0xC21FF0 and loader 0xC238E0 hooked, nothing paged \\(PaintPager=2\\), hashed$": 1,
           "^atlas:paint hash \\(load\\): P1 \\d+ 0x[0-9A-F]{8}, P2 \\d+ 0x[0-9A-F]{8}, P3 \\d+ 0x[0-9A-F]{8}, P4 \\d+ 0x[0-9A-F]{8}$": 1,
-          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1
         },
         "logForbid": {
           "stood down|host lost|call \\w+ \\(service \\d+ op \\d+\\) failed|gate-refused|bracket-error|self-check: FAIL": 0,
@@ -515,9 +526,9 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
       "save": "menu",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -537,8 +548,8 @@
         "Config.SceneQuadTree": "8192,512,8"
       },
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -555,7 +566,7 @@
           "Diag.ConfigProbe": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 6, ": 1,
           "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
           "^w8192 Routing: 7 of 7 sites installed$": 1,
@@ -563,7 +574,8 @@
           "^atlas:paint on: 9 sites \\(free 0xC21B60, set 0xC21C20, alloc 0xC21BC0, readers 0xC22360 0xC23800 0xC22EF0 0xC21FF0, saver 0xC22A70, loader 0xC238E0\\), cache 8 MB, ": 1,
           "^atlas:paint load gen \\d+: \\d+ layers, [1-9]\\d* blocks paged out \\(\\d+ MB\\), \\d+ all-zero blocks dropped, upload \\+ sidecar \\d+ ms, cache 8 MB$": 1,
           "^atlas:paint hash \\(load\\): P1 \\d+ 0x[0-9A-F]{8}, P2 \\d+ 0x[0-9A-F]{8}, P3 \\d+ 0x[0-9A-F]{8}, P4 \\d+ 0x[0-9A-F]{8}$": 1,
-          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1
         },
         "logForbid": {
           "stood down|host lost|call \\w+ \\(service \\d+ op \\d+\\) failed|gate-refused|bracket-error|self-check: FAIL": 0,
@@ -592,9 +604,9 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
       "save": "menu",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -614,8 +626,8 @@
         "Config.SceneQuadTree": "8192,512,8"
       },
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -634,13 +646,14 @@
           "Diag.ConfigProbe": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 6, ": 1,
           "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
           "^w8192 Routing: 7 of 7 sites installed$": 1,
           "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
           "^atlas:heights off \\(\\[Terrain\\] HeightPager=0, HeightShapeGuard=0\\)$": 1,
-          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1
         },
         "logForbid": {
           "stood down|host lost|call \\w+ \\(service \\d+ op \\d+\\) failed|gate-refused|bracket-error|self-check: FAIL": 0,
@@ -670,9 +683,9 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
       "save": "menu",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -692,8 +705,8 @@
         "Config.SceneQuadTree": "8192,512,8"
       },
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -712,13 +725,14 @@
           "Diag.ConfigProbe": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 6, ": 1,
           "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
           "^w8192 Routing: 7 of 7 sites installed$": 1,
           "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
           "^atlas:hshape on: map drop 0xC62C49, shapes 0xC29B80 0xC2A240, destructor slot 0x107690C, free 0xAA87ED \\(EA fix, docs/044 §9\\.6\\)$": 1,
-          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1
         },
         "logForbid": {
           "stood down|host lost|call \\w+ \\(service \\d+ op \\d+\\) failed|gate-refused|bracket-error|self-check: FAIL": 0,
@@ -748,9 +762,9 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.14, atlas-main11): master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), unchanged; extra module boundless-atlas main 0af2099 (feature/terrain-tile-pager-1126 e23bae3 merged on top of the shared AtlasReadable and the startup-race fix, docs/031 §16.3; 0.3.14, start line oop=3 born= tiles=1 paint=1 heights=1) in game-copy/atlas-main11/atlas.asi (sha256 225ae6f16abcc99bea54a20b42bcda54e6535649758bde951117014d43e16afb); script half of the same main, mod set game-copy/mod-sets/atlas-main11 (atlas.package sha256 646294890d53364fcf3a2b8eec59c3cf8d0a75678a46860d413ad31ec3a7bb19; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Region store plugin: game-copy/atlas-main11/atlas-oop.dll (protocol 4, plugin version 3, sha256 d33367ece6b131ec9f3c274bfc3d846c1fc05ef2ba1e4263393ac28efdacb30b), NOT the atlas-main8 one (protocol 2: the gate stands down on the version mismatch). Bin state apex-oop-atlas with that dll (chain, see the queue note).",
       "save": "menu",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -770,8 +784,8 @@
         "Config.SceneQuadTree": "8192,512,8"
       },
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -790,14 +804,15 @@
           "Diag.ConfigProbe": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:oop start: client 3, Oop=1 OopVerbose=0 \\(read back\\), protocol 6, ": 1,
           "^atlas:oop armed: service \\d+, D1-D8 pass on the sim thread \\(world load start 1, world quits 0; routing world 0x[0-9A-F]{8}, world manager 0x[0-9A-F]{8}\\); patches now$": 1,
           "^w8192 Routing: 7 of 7 sites installed$": 1,
           "^w8192 PaintIndex: 7 of 7 sites installed$": 1,
           "^atlas:heights on: 17 sites \\(getter 0xF1D820 at 8 sites, accessors 0xAA83D0 0xAA8410, loader 0xAA8640, free 0xAA87ED, saver 0xAA83BC, shapes 0xC29B80 0xC2A240, sampler slot 0x1076934, destructor slot 0x107690C\\), views 24 MB, maps from 32 MB, guard on$": 1,
           "^atlas:hshape on: map drop 0xC62C49, shapes 0xC29B80 0xC2A240, destructor slot 0x107690C, free 0xAA87ED \\(EA fix, docs/044 §9\\.6\\)$": 1,
-          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1
+          "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
+          "^atlas:oop D2 pass: restart host ready after \\d+ ms": 1
         },
         "logForbid": {
           "stood down|host lost|call \\w+ \\(service \\d+ op \\d+\\) failed|gate-refused|bracket-error|self-check: FAIL": 0,

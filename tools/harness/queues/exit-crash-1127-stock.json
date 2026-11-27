@@ -1,0 +1,126 @@
+{
+ "note": "exit-crash-1127-stock (PREPARED, NOT RUN; crash repro, correctness only, no timing): player exit crash 2026-11-27 (Apex 4.1.7 normal mode + RTX Remix bridge, Steam 1.67): C0000005, EIP A8EAB8A2 not mapped, in EA's App_Shutdown 0xEC9B40 -> ServiceManager shutdown 0x589410 -> service list 0x59F060 -> UI/TriggerService shutdown 0x7F10B0 -> 0x7F0EF0, which calls slot +0x10C on the window of a still-active trigger hook; the window 0x5166B754 is freed and reused (docs/67 §47). Bin state apex-stock: released Apex 4.1.7 (GitHub Manual-install zip, as the player had). Arms: run -stock and -fork back to back. 3 jobs: fresh SV load, play 2 min, save, quit to desktop. quitsGame + crashHunt: a crash does not stop the queue. Needs quit-cycle.ts with the crash-file check (bugfix/quit-cycle-apex-crash-1127). Not covered: the player's other Bin mods (S3SS, Sims3Performance, MonoPatcher, RPCLib3, LimbIkScaleFix, RadioLeveler, RandomizedLoadingScreens, TS3ShadowExtender) and the UI-menu quit path (the agent quits with TransitionToGameStateQuitNoCheck).",
+ "binState": "apex-stock",
+ "jobs": [
+  {
+   "id": "sv-quit-stock-1",
+   "note": "[est 9 min] SV load, play 2 min (autopilot), save QuitExit-stock-1, quit to desktop (quit_game), wait for exit. PASS = clean exit; FAIL 'game died at quit' carries the ts3native crash line or the fresh ApexRadiance_Crash.txt exception line (player crash: wild call A8EAB8A2 from TriggerService teardown 0x7F0F4E).",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "player report 11-27 had a 2026-11-26 ts3native (2047488 bytes, build not matched locally); m1126b = master build of 11-26 with its release ini, the closest set we have",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitExit-stock-1",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "logRequire": {
+    "^ts3native 0.36.306-m1126b ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.306-m1126b ": {
+     "match": [
+      "ts3native 0.36.306-m1126b 2026-11-26 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+      "ts3native 0.36.306-m1126c 2026-11-26 20:00:00"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-quit-stock-2",
+   "note": "[est 9 min] SV load, play 2 min (autopilot), save QuitExit-stock-2, quit to desktop (quit_game), wait for exit. PASS = clean exit; FAIL 'game died at quit' carries the ts3native crash line or the fresh ApexRadiance_Crash.txt exception line (player crash: wild call A8EAB8A2 from TriggerService teardown 0x7F0F4E).",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "player report 11-27 had a 2026-11-26 ts3native (2047488 bytes, build not matched locally); m1126b = master build of 11-26 with its release ini, the closest set we have",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitExit-stock-2",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "logRequire": {
+    "^ts3native 0.36.306-m1126b ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.306-m1126b ": {
+     "match": [
+      "ts3native 0.36.306-m1126b 2026-11-26 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+      "ts3native 0.36.306-m1126c 2026-11-26 20:00:00"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-quit-stock-3",
+   "note": "[est 9 min] SV load, play 2 min (autopilot), save QuitExit-stock-3, quit to desktop (quit_game), wait for exit. PASS = clean exit; FAIL 'game died at quit' carries the ts3native crash line or the fresh ApexRadiance_Crash.txt exception line (player crash: wild call A8EAB8A2 from TriggerService teardown 0x7F0F4E).",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "player report 11-27 had a 2026-11-26 ts3native (2047488 bytes, build not matched locally); m1126b = master build of 11-26 with its release ini, the closest set we have",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitExit-stock-3",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "logRequire": {
+    "^ts3native 0.36.306-m1126b ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.306-m1126b ": {
+     "match": [
+      "ts3native 0.36.306-m1126b 2026-11-26 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.306-m1126 2026-11-26 07:26:00",
+      "ts3native 0.36.306-m1126c 2026-11-26 20:00:00"
+     ]
+    }
+   }
+  }
+ ]
+}

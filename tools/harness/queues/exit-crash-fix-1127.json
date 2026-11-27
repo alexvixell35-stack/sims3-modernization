@@ -1,0 +1,168 @@
+{
+ "note": "exit-crash-fix-1127 (PREPARED, NOT RUN; fix check, correctness only, no timing): the player exit crash 2026-11-27 (docs/67 §47: wild call from UI/TriggerService teardown 0x7F10B0 -> 0x7F0EF0 slot +0x10C on a freed window) on our Apex fork (Bin state apex, FORK bfafc850) with ts3native exithooks1 ([Fixes] ExitStaleHooks=1, ExitHookDiag=1). Same steps as exit-crash-1127-stock / -fork: 3 x (fresh SV load, play 2 min, save, quit to desktop). Needs quit-cycle.ts with the crash-file check (bugfix/quit-cycle-apex-crash-1127, ef5bc3248) merged first, else a wild-EIP crash reads PASS. Read with the -stock / -fork arms: a crash there and none here with stale lines = the fix works.",
+ "binState": "apex",
+ "jobs": [
+  {
+   "id": "sv-quit-fix-1",
+   "note": "[est 9 min] SV load, play 2 min (autopilot), save QuitFix-1, quit to desktop, wait for exit; ts3native exithooks1 with [Fixes] ExitStaleHooks=1 ExitHookDiag=1. PASS = clean exit (no ts3native crash line, no fresh ApexRadiance_Crash.txt / xcpt); the job log has the 'exit hooks: TriggerService teardown with N hooks' line and any 'exit hooks: stale' lines (map name = the owning script).",
+   "asi": "game-copy/ts3native.asi.exithooks1-1127",
+   "iniBase": "game-copy/ts3native.ini.exithooks1-1127",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+   "pinReason": "exithooks1-1127 (builds.json, branch bugfix/exit-hook-uaf-1127 11adadf6f): m1126c + [Fixes] ExitStaleHooks / ExitHookDiag; ts3fixes = master set m1126c",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "Fixes.ExitStaleHooks": 1,
+    "Fixes.ExitHookDiag": 1
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitFix-1",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "logRequire": {
+    "^ts3native 0[.]36[.]307-exithooks1 ": 1,
+    "^OK   exit hooks [(]docs/67 §47[)]: TriggerService remove calls 2 of 2 checked .*stale windows skipped [(]ExitStaleHooks=1[)]; diag on [(]teardown list on, map names on[)]": 1
+   },
+   "regexCases": {
+    "^ts3native 0[.]36[.]307-exithooks1 ": {
+     "match": [
+      "ts3native 0.36.307-exithooks1 2026-11-27 05:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.307-m1126c 2026-11-26 20:00:00"
+     ]
+    },
+    "^OK   exit hooks [(]docs/67 §47[)]: TriggerService remove calls 2 of 2 checked .*stale windows skipped [(]ExitStaleHooks=1[)]; diag on [(]teardown list on, map names on[)]": {
+     "match": [
+      "OK   exit hooks (docs/67 §47): TriggerService remove calls 2 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), stale windows skipped (ExitStaleHooks=1); diag on (teardown list on, map names on)"
+     ],
+     "noMatch": [
+      "PART exit hooks (docs/67 §47): TriggerService remove calls 1 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), stale windows skipped (ExitStaleHooks=1); diag on (teardown list on, map names on)",
+      "OK   exit hooks (docs/67 §47): TriggerService remove calls 2 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), log only (ExitStaleHooks=0); diag on (teardown list on, map names on)",
+      "SKIP exit hooks (docs/67 §47): TriggerService remove 0x007F0EF0 differs (another owner or exe): not installed"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-quit-fix-2",
+   "note": "[est 9 min] SV load, play 2 min (autopilot), save QuitFix-2, quit to desktop, wait for exit; ts3native exithooks1 with [Fixes] ExitStaleHooks=1 ExitHookDiag=1. PASS = clean exit (no ts3native crash line, no fresh ApexRadiance_Crash.txt / xcpt); the job log has the 'exit hooks: TriggerService teardown with N hooks' line and any 'exit hooks: stale' lines (map name = the owning script).",
+   "asi": "game-copy/ts3native.asi.exithooks1-1127",
+   "iniBase": "game-copy/ts3native.ini.exithooks1-1127",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+   "pinReason": "exithooks1-1127 (builds.json, branch bugfix/exit-hook-uaf-1127 11adadf6f): m1126c + [Fixes] ExitStaleHooks / ExitHookDiag; ts3fixes = master set m1126c",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "Fixes.ExitStaleHooks": 1,
+    "Fixes.ExitHookDiag": 1
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitFix-2",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "logRequire": {
+    "^ts3native 0[.]36[.]307-exithooks1 ": 1,
+    "^OK   exit hooks [(]docs/67 §47[)]: TriggerService remove calls 2 of 2 checked .*stale windows skipped [(]ExitStaleHooks=1[)]; diag on [(]teardown list on, map names on[)]": 1
+   },
+   "regexCases": {
+    "^ts3native 0[.]36[.]307-exithooks1 ": {
+     "match": [
+      "ts3native 0.36.307-exithooks1 2026-11-27 05:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.307-m1126c 2026-11-26 20:00:00"
+     ]
+    },
+    "^OK   exit hooks [(]docs/67 §47[)]: TriggerService remove calls 2 of 2 checked .*stale windows skipped [(]ExitStaleHooks=1[)]; diag on [(]teardown list on, map names on[)]": {
+     "match": [
+      "OK   exit hooks (docs/67 §47): TriggerService remove calls 2 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), stale windows skipped (ExitStaleHooks=1); diag on (teardown list on, map names on)"
+     ],
+     "noMatch": [
+      "PART exit hooks (docs/67 §47): TriggerService remove calls 1 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), stale windows skipped (ExitStaleHooks=1); diag on (teardown list on, map names on)",
+      "OK   exit hooks (docs/67 §47): TriggerService remove calls 2 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), log only (ExitStaleHooks=0); diag on (teardown list on, map names on)",
+      "SKIP exit hooks (docs/67 §47): TriggerService remove 0x007F0EF0 differs (another owner or exe): not installed"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-quit-fix-3",
+   "note": "[est 9 min] SV load, play 2 min (autopilot), save QuitFix-3, quit to desktop, wait for exit; ts3native exithooks1 with [Fixes] ExitStaleHooks=1 ExitHookDiag=1. PASS = clean exit (no ts3native crash line, no fresh ApexRadiance_Crash.txt / xcpt); the job log has the 'exit hooks: TriggerService teardown with N hooks' line and any 'exit hooks: stale' lines (map name = the owning script).",
+   "asi": "game-copy/ts3native.asi.exithooks1-1127",
+   "iniBase": "game-copy/ts3native.ini.exithooks1-1127",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126c",
+   "pinReason": "exithooks1-1127 (builds.json, branch bugfix/exit-hook-uaf-1127 11adadf6f): m1126c + [Fixes] ExitStaleHooks / ExitHookDiag; ts3fixes = master set m1126c",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "Fixes.ExitStaleHooks": 1,
+    "Fixes.ExitHookDiag": 1
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitFix-3",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "logRequire": {
+    "^ts3native 0[.]36[.]307-exithooks1 ": 1,
+    "^OK   exit hooks [(]docs/67 §47[)]: TriggerService remove calls 2 of 2 checked .*stale windows skipped [(]ExitStaleHooks=1[)]; diag on [(]teardown list on, map names on[)]": 1
+   },
+   "regexCases": {
+    "^ts3native 0[.]36[.]307-exithooks1 ": {
+     "match": [
+      "ts3native 0.36.307-exithooks1 2026-11-27 05:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.307-m1126c 2026-11-26 20:00:00"
+     ]
+    },
+    "^OK   exit hooks [(]docs/67 §47[)]: TriggerService remove calls 2 of 2 checked .*stale windows skipped [(]ExitStaleHooks=1[)]; diag on [(]teardown list on, map names on[)]": {
+     "match": [
+      "OK   exit hooks (docs/67 §47): TriggerService remove calls 2 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), stale windows skipped (ExitStaleHooks=1); diag on (teardown list on, map names on)"
+     ],
+     "noMatch": [
+      "PART exit hooks (docs/67 §47): TriggerService remove calls 1 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), stale windows skipped (ExitStaleHooks=1); diag on (teardown list on, map names on)",
+      "OK   exit hooks (docs/67 §47): TriggerService remove calls 2 of 2 checked (0x007797A0 IC, 0x007F10EF teardown), log only (ExitStaleHooks=0); diag on (teardown list on, map names on)",
+      "SKIP exit hooks (docs/67 §47): TriggerService remove 0x007F0EF0 differs (another owner or exe): not installed"
+     ]
+    }
+   }
+  }
+ ]
+}

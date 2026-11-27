@@ -13446,6 +13446,7 @@ static void TestP5() {
 #include "c2diag-test.h"      // TestCrash2Diag ([Crash2Diag], docs/259 §9)
 #include "monosig-test.h"     // TestMonoSigGuard ([MonoSigGuard], docs/539 §20)
 #include "hostmapiter-test.h"  // TestHostMapIterFix ([HostMapIterFix], docs/67 §43)
+#include "exithooks-test.h"  // TestExitHooks ([Fixes] ExitStaleHooks / ExitHookDiag, docs/67 §47)
 #include "bindertd-test.h"    // TestBinderTypeHandle ([Binder] TypeHandleDirect, docs/537 §20.3)
 #include "equalsfast-test.h"  // TestEqualsFast ([EqualsFast], docs/258 option C)
 #include "mintpairs-test.h"  // TestMintPairs ([MonoFast] PairCount, docs/139 §3)
@@ -15053,6 +15054,7 @@ int main(int argc, char** argv) {
     TestCrash2Diag();  // docs/259 §9
     TestMonoSigGuard();  // docs/539 §20
     TestHostMapIterFix();  // docs/67 §43
+    TestExitHooks();  // docs/67 §47
     TestBinderTypeHandle();  // docs/537 §20.3 E1
     TestEqualsFast();  // docs/258 option C
     TestMintPairs();  // docs/139 §3 pair census

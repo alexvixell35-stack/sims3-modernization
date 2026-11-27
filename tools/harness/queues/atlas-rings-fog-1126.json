@@ -12,9 +12,9 @@
         "ts3native 0.36.306-m1126 2026-11-26 10:00:00"
       ]
     },
-    "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+    "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
       "match": [
-        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
       ],
       "noMatch": [
         "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=3 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247",
@@ -22,7 +22,7 @@
         "atlas 0.3.14 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=2 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 13:10:00, TS3W.exe link stamp 0x52DEC247",
         "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, rundll32.exe link stamp 0xB91766EA",
         "atlas 0.3.15 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247",
-        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 06:41:54, rundll32.exe link stamp 0xB91766EA",
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 06:41:54, rundll32.exe link stamp 0xB91766EA",
         "atlas 0.3.18 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 06:41:54, TS3W.exe link stamp 0x52DEC247"
       ]
     },
@@ -357,16 +357,16 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas atlas.asi 0.2.2-rings (game-copy/atlas-main5/atlas.asi, the 0.3.10 pin) and its script half as mod set game-copy/mod-sets/atlas-main5 (atlas.package sha256 ba9227944ae486883304f8e709fcb8cd826d665621fc9f494d3580e4886b55ee, build rings-2).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: Pinned 2026-11-27 (repinned to Atlas main 0.3.15, atlas-main13): extra module boundless-atlas main 212e136 (0.3.15: the terrain pagers of 0.3.14, rebase P2/P3/R-7 (rebase 6, script rebase-4), FindClosest reset, the CAW creator path tools; start line p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=6 oop=3 seed=1 born=2 tiles=1 paint=1 heights=1) in game-copy/atlas-main13/atlas.asi (sha256 1a849c2616d58b6494e4ebb0333034df168da93b9e6b210f8ebf3abddfc5a919); script half of the same main, mod set game-copy/mod-sets/atlas-main13 (atlas.package sha256 6c8dff14a90e4397cd9dd8b3c1858469080325dd2571d6a12103c6810c30d976; boots wait for registration complete, AtlasNative.Groups answers ready and waiting). Older build names in the rest of this text are history: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Extra module: boundless-atlas atlas.asi 0.2.2-rings (game-copy/atlas-main5/atlas.asi, the 0.3.10 pin) and its script half as mod set game-copy/mod-sets/atlas-main5 (atlas.package sha256 ba9227944ae486883304f8e709fcb8cd826d665621fc9f494d3580e4886b55ee, build rings-2).",
       "save": "Baseline-SV",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "timeoutMin": 60,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -381,7 +381,7 @@
           "Rings.Verbose": 0
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:rings self-check PASS \\(\\d+ checks, 0 failed\\)$": 1,
           "^atlas:rings start version 2 Fog=1 ImposterPager=1 SaveGuard=1 EdgeClouds=1 MaxClouds=48 Verbose=0 SquareM=512 D1Rings=1 fog 0-512 m shape 13/13 self-check PASS: fog on, pager on, saveguard on, clouds on$": 1,
           "^atlas:rings icalls 21 registered$": 1,

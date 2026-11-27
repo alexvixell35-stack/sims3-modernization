@@ -7963,3 +7963,9 @@ Exception to the probe's read-only rule, allowed by Rodney 2026-11-26 for the At
 | V-040-3 .. V-040-5 | copy frees `0xC87C3F` / `0xC88437`; linear readers `0xC885BD`, `0xC8880A`; large-block path `0x4E50F0` / `0x4E512A` | Atlas docs/040 §2 | verified |
 | I-040-1 | A failed optimizer allocation crashes in `0xC88330` | no null check | inferred, T1b |
 | V-hs1-WM | `[0x11ECBC4]` is the world object `0xC63840` works on (`0x787040` loads it into `ecx`) | Capstone | verified |
+
+## 949. Exit crash in UI/TriggerService teardown (2026-11-27, docs/67 §47; static, queues exit-crash-1127-stock / -fork, not run)
+
+| Id | Doc | Claim | Evidence so far | Test | Pass | Fail | Status |
+|---|---|---|---|---|---|---|---|
+| I-628-1 | 67 §47 | The window behind the stale trigger hooks (`0x5166B754`) is the scene window, freed in the world teardown before `App_Shutdown` while its hooks stayed registered | hook priorities in the dump match the scene window's (`userTools` 1) [inferred]; the faulting chain and the freed, reused block [verified, dump + disassembly] | the docs/67 §47 detector on the next hit, or the exit-crash-1127 queues | detector names the scene window and its destroy before `0x7F10B0` | another window or a hook added by a mod | open |

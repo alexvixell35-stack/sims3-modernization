@@ -1,13 +1,14 @@
 // Quit-to-desktop repro (diag/quit-finalizer-crash, player twopointjj 2026-11-14): on the loaded save, play N minutes (autopilot
 // clears dialogs), save under a new name, quit to desktop (ts3agent quit_game: GameStates.TransitionToGameStateQuitNoCheck), wait
 // for TS3W.exe to exit and judge the exit from ts3native.log written since the quit: an access violation in game code or ntdll,
-// or a [QuitDiag] "quitdiag crash" line = "FAIL: game died at quit"; still running after --exit-s = "FAIL: quit hang".
+// or a [QuitDiag] "quitdiag crash" line, or an Apex / EA crash report written since the quit = "FAIL: game died at quit"; still running after --exit-s = "FAIL: quit hang".
 // Before the quit it writes /memory and /native to $TS3_AFTERRUN_FILE (queue.ts quitsGame jobs read their "after" numbers there).
 // Run by queue.ts as run.script (job quitsGame: true; the game is gone at the end by design).
 //   node tools/harness/quit-cycle.ts [--minutes 2] [--save-name QuitCrash-x] [--exit-s 120] [--port 47891]
 //   node tools/harness/quit-cycle.ts --self-check
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { BIN, gameRunning } from './game-exe.ts';
@@ -17,9 +18,18 @@ import { BIN, gameRunning } from './game-exe.ts';
 export const CRASH_RE = /^exception (C0000005|C000001D|C0000096) at 0x00(?:[4-9A-E][0-9A-F]{5}|F[0-8][0-9A-F]{4})\b|^exception C0000005 at 0x[0-9A-F]{8} \(ntdll\.dll\+|^  quitdiag crash: /;
 export const QD_RE = /^quitdiag: |^  quitdiag /;
 
-export function judgeExit(logSince: string, exited: boolean, exitS: number): string[] {
+// crash reports written after the quit (Apex's ApexRadiance_Crash.txt, EA's xcpt): their exception line counts as a crash line,
+// since a wild call (player report 11-27: EIP A8EAB8A2 in EA's TriggerService teardown) is outside CRASH_RE's ranges
+export const CRASH_FILE_RE = /^(ApexRadiance_Crash\.txt|xcpt .*\.txt)$/i;
+const firstException = (t: string) => { const ls = t.split(/\r?\n/); return (ls.find(l => /exception/i.test(l)) ?? ls[0] ?? '').trim().slice(0, 200); };
+export function freshCrashFiles(dirs: string[], since: number): string[] {
+  return dirs.filter(d => existsSync(d)).flatMap(d => readdirSync(d).filter(n => CRASH_FILE_RE.test(n)).map(n => join(d, n)))
+    .filter(p => statSync(p).mtimeMs >= since).map(p => `${basename(p)}: ${firstException(readFileSync(p, 'latin1'))}`);
+}
+
+export function judgeExit(logSince: string, exited: boolean, exitS: number, crashFiles: string[] = []): string[] {
   const lines = logSince.split(/\r?\n/);
-  const crash = lines.filter(l => CRASH_RE.test(l));
+  const crash = [...lines.filter(l => CRASH_RE.test(l)), ...crashFiles];
   const qd = lines.filter(l => QD_RE.test(l));
   const out = [`quit timeline: ${qd.filter(l => l.startsWith('quitdiag: ')).length} quitdiag lines`];
   if (crash.length) out.push(`FAIL: game died at quit: ${crash[0].trim().slice(0, 300)}`, ...qd.filter(l => /crash|BAD/.test(l)).slice(0, 12).map(l => `  ${l.trim().slice(0, 400)}`));
@@ -43,6 +53,16 @@ function selfCheck() {
   assert.match(judgeExit(no.join('\n'), true, 120).at(-1)!, /^PASS: /);
   assert.match(judgeExit('', false, 120).at(-1)!, /^FAIL: quit hang/);
   assert.match(judgeExit(no[3], true, 120)[0], /1 quitdiag lines/);
+  // a wild-EIP crash only Apex's report names: fresh file = FAIL, older file ignored
+  const d = mkdtempSync(join(tmpdir(), 'qc-'));
+  writeFileSync(join(d, 'ApexRadiance_Crash.txt'), 'Apex Radiance 4.1.7 (normal mode) crash report\nException C0000005 at A8EAB8A2 (not mapped), reading A8EAB8A2\n');
+  writeFileSync(join(d, 'ApexRadiance_LOG.txt'), 'exception C0000005 here but not a crash file');
+  const f = freshCrashFiles([d, join(d, 'missing')], Date.now() - 60000);
+  assert.deepEqual(f, ['ApexRadiance_Crash.txt: Exception C0000005 at A8EAB8A2 (not mapped), reading A8EAB8A2']);
+  assert.deepEqual(freshCrashFiles([d], Date.now() + 60000), []);
+  assert.match(judgeExit(no.join('\n'), true, 120, f).at(-1)!, /^FAIL: game died at quit: ApexRadiance_Crash\.txt: Exception C0000005 at A8EAB8A2/);
+  assert.ok(CRASH_FILE_RE.test('xcpt PC 26-11-27 11.11.59.txt') && !CRASH_FILE_RE.test('ApexRadiance_Crash.dmp'));
+  rmSync(d, { recursive: true, force: true });
   console.log('quit-cycle self-check ok');
 }
 
@@ -85,14 +105,15 @@ if (import.meta.main ?? process.argv[1]?.endsWith('quit-cycle.ts')) {
   // 3. the run's "after" numbers while the game still answers
   if (process.env.TS3_AFTERRUN_FILE) writeFileSync(process.env.TS3_AFTERRUN_FILE, JSON.stringify({ mem: await get('memory'), native: await get('native') }));
   // 4. quit to desktop; the game may not answer the command itself
-  const off = existsSync(LOG) ? statSync(LOG).size : 0;
+  const off = existsSync(LOG) ? statSync(LOG).size : 0, quitT = Date.now();
   const q = await ag('quit_game', undefined, 5000);
   console.log(`${stamp()} quit_game: ${q?.ok ? 'ok' : q?.error ?? 'no answer (expected while quitting)'}`);
   let exited = false;
   for (const t0 = Date.now(); Date.now() - t0 < exitS * 1000 && !(exited = !gameRunning());) await sleep(1000);
   await sleep(2000);  // the log's last lines
   const since = existsSync(LOG) ? readFileSync(LOG).subarray(off).toString('latin1') : '';
-  const v = judgeExit(since, exited, exitS);
+  const user = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
+  const v = judgeExit(since, exited, exitS, freshCrashFiles([join(user, 'Apex Radiance'), BIN, user], quitT - 2000));
   for (const l of v) console.log(l);
   process.exit(v.some(l => l.startsWith('FAIL')) ? 1 : 0);
 }

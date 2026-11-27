@@ -123,9 +123,9 @@
         "atlas:rebase R-9 hash ref blend cells 8: 0A1B2C3D"
       ]
     },
-    "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
+    "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": {
       "match": [
-        "atlas 0.3.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
+        "atlas 0.3.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built Nov 27 2026 12:41:13, TS3W.exe link stamp 0x52DEC247"
       ],
       "noMatch": [
         "atlas 0.3.16 p1=0 loadA=0 w8192=0 rings=0 fz=0 rebase=9 oop=0 seed=0",
@@ -280,22 +280,22 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "ini": {
         "Rewind.Park": 1
       },
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-window-restore-1127 ac6784e (Atlas 0.3.16 + window restore with map v2 / WindowIdentity, R-9 leaving column split, held re-entry, StripProve bypass, roads / ponds hash lines, rebase=10), game-copy/atlas-wr2-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-wr2-1127 (atlas.package sha256 6148378b7eaeaf188f31b02190e9b6ec9ae76dfdfd71fa8cfda9abc22b26f5b3; rebase striphash, rebase restoreplant, WindowIdentity). Job ini: UH switches on (Rebase.WorldLotTree, LotEntries, FrameBlock, SceneMaps, Effects, RoutePaths, LooseFootprints = 1), InferredSlots=1, StripProve=1 (test only).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-window-restore-1127 ac6784e (Atlas 0.3.16 + window restore with map v2 / WindowIdentity, R-9 leaving column split, held re-entry, StripProve bypass, roads / ponds hash lines, rebase=10), game-copy/atlas-wr2-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-wr2-1127 (atlas.package sha256 6148378b7eaeaf188f31b02190e9b6ec9ae76dfdfd71fa8cfda9abc22b26f5b3; rebase striphash, rebase restoreplant, WindowIdentity). Job ini: UH switches on (Rebase.WorldLotTree, LotEntries, FrameBlock, SceneMaps, Effects, RoutePaths, LooseFootprints = 1), InferredSlots=1, StripProve=1 (test only).",
       "save": "menu",
       "gameArgs": [
         "-disablestoryprogression"
       ],
       "timeoutMin": 60,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "WorldSize.PhysicsRootM": 0,
           "PagedLots.Probe": 1,
@@ -320,7 +320,7 @@
           "Rebase.LooseFootprints": 1
         },
         "logRequire": {
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
           "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
           "^atlas:rebase R-9: StripBuild=1, EA builders 12/12 match; strip pack .*AtlasStripSet\\.strip\\.package; StripProve=1 ": 1,
@@ -361,7 +361,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "modSet": "game-copy/mod-sets/atlas-main18-1127",
+      "modSet": "game-copy/mod-sets/atlas-main18c-1127",
       "rewind": false,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -372,15 +372,15 @@
       "defaultIni": {
         "Config.SceneQuadTree": "8192,512,8"
       },
-      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18b-1127/atlas.asi (sha256 d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-window-restore-1127 ac6784e (Atlas 0.3.16 + window restore with map v2 / WindowIdentity, R-9 leaving column split, held re-entry, StripProve bypass, roads / ponds hash lines, rebase=10), game-copy/atlas-wr2-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-wr2-1127 (atlas.package sha256 6148378b7eaeaf188f31b02190e9b6ec9ae76dfdfd71fa8cfda9abc22b26f5b3; rebase striphash, rebase restoreplant, WindowIdentity). Job ini: UH switches on (Rebase.WorldLotTree, LotEntries, FrameBlock, SceneMaps, Effects, RoutePaths, LooseFootprints = 1), InferredSlots=1, StripProve=1 (test only).",
+      "pinReason": "Repinned 2026-11-27 to Atlas main 0.3.19 (boundless-atlas 91f004e: 0.3.18 91e12c0 plus the config probe fix, docs/052 §3.1): game-copy/atlas-main18d-1127/atlas.asi (sha256 48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86), oop plugin game-copy/atlas-main18b-1127/atlas-oop.dll (sha256 08f6bb06d8250e7f2acd31c7e29674d8a9e11d77a49565b39226df2b5083d7e5), script half game-copy/mod-sets/atlas-main18-1127 (atlas.package sha256 770dd71098564d8271f5f8834489a176a7643f1f2efc3387631a2a5734795ae6). Before: master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126); no sims3-modernization code change in this lane. Job ini: Rewind.Park=1; [MonoThread] Mode as m1126b ships it. Extra module: boundless-atlas feature/rebase-window-restore-1127 ac6784e (Atlas 0.3.16 + window restore with map v2 / WindowIdentity, R-9 leaving column split, held re-entry, StripProve bypass, roads / ponds hash lines, rebase=10), game-copy/atlas-wr2-1127/atlas.asi (bytes pinned by extraAsi.sha256), script half as mod set game-copy/mod-sets/atlas-wr2-1127 (atlas.package sha256 6148378b7eaeaf188f31b02190e9b6ec9ae76dfdfd71fa8cfda9abc22b26f5b3; rebase striphash, rebase restoreplant, WindowIdentity). Job ini: UH switches on (Rebase.WorldLotTree, LotEntries, FrameBlock, SceneMaps, Effects, RoutePaths, LooseFootprints = 1), InferredSlots=1, StripProve=1 (test only).",
       "save": "menu",
       "gameArgs": [
         "-disablestoryprogression"
       ],
       "timeoutMin": 45,
       "extraAsi": {
-        "asi": "game-copy/atlas-main18b-1127/atlas.asi",
-        "sha256": "d09ee22f1e2881db475ae4f9dc0a63f4805b12e8f8ff8f13ca0d1d963f6ff2fd",
+        "asi": "game-copy/atlas-main18d-1127/atlas.asi",
+        "sha256": "48cc2eb9eb4a53f8c913f6e1614cc12d9b39d43a19148bd171b4a312d9c76b86",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -405,7 +405,7 @@
         "logRequire": {
           "^atlas:rebase self-check: PASS \\(\\d+ checks, 0 failed\\)$": 1,
           "^atlas:icalls ready 3: groups 0x[0-9A-F]{4}$": 1,
-          "^atlas 0\\.3\\.19 p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
+          "^atlas 0\\.3\\.20-pre p1=2 loadA=4 w8192=1 rings=2 fz=3 rebase=12 oop=3 seed=2 born=4 tiles=1 paint=1 heights=1 fd=2 lr=1 built .*, TS3W\\.exe link stamp 0x[0-9A-F]{8}$": 1,
           "^atlas:rebase R-9 hash ref (cells|descriptors|shapes|keys|paint|type-map|blend) cells 64: [0-9A-F]{8}$": 7,
           "^atlas:rebase R-9 striphash \\[256, 2304\\) x \\[0, 2048\\) minus \\(256, 0\\): 64$": 1,
           "^atlas:rebase hub: RESULT CHECKED rebase striphash: 64 cells hashed; nothing written$": 1,
