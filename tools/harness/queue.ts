@@ -255,7 +255,14 @@ export function correctionOnly(xml: string): boolean {
   const lines = body.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const heads = lines.filter(l => /^--.*--$/.test(l));
   return heads.length === 1 && /^-- Correction Logs --$/i.test(heads[0]) && lines.length > 1 &&
-    !lines.some(l => /exception|stack ?trace|^#\d+:|^at\s|Ts3Fixes|Wildflower/i.test(l));
+    !lines.some(l => /exception|stack ?trace|^#\d+:|^at\s|Ts3Fixes|Ts3Agent/i.test(l)); // an EA Sims3...Objects.Wildflower line is a plain correction (REPORT), our Ts3Fixes.Wildflower still counts
+}
+// Correction lines that mean lost data: never silently allowed, the row says REPORT (counts per kind): Sims removed, objects destroyed, objects out of world
+export const CORRECTION_LOSS = /^(SimDescription Removed:|Destroyed: Sims3\.|Out of World Object Found)/;
+export function correctionLoss(xml: string): { sims: number; destroyed: number; outOfWorld: number } {
+  const body = xml.match(/<Content>([\s\S]*?)(?:Loaded Assemblies:|<\/Content>)/)?.[1] ?? '';
+  const l = body.split(/\r?\n/).map(x => x.trim()).filter(x => CORRECTION_LOSS.test(x));
+  return { sims: l.filter(x => x.startsWith('SimDescription')).length, destroyed: l.filter(x => x.startsWith('Destroyed:')).length, outOfWorld: l.filter(x => x.startsWith('Out of')).length };
 }
 // scriptErrorsReport: the error under study (any regex matches the xml text)
 export function reportedError(xml: string, res: string[]): boolean { return res.some(r => new RegExp(r).test(xml)); }
@@ -2084,6 +2091,13 @@ if (values['self-check']) {
     assert.equal(allowedCorrection(rep(shreds), []), true, 'correction-only passes without an allow list');
     assert.equal(allowedCorrection(rep(' SimDescription Removed: Farah Horse'), []), true);
     assert.equal(allowedCorrection(rep(' Destroyed Object Found: Ts3Fixes.Wildflower'), []), false, 'Wildflower line counts');
+    // real lines of atlas-4096-b-reload-travel (2026-11-27): EA Wildflower corrections are correction-only (REPORT), not a FAIL
+    const real = ' Out of World Object Found 2: Sims3.Gameplay.Objects.Wildflower\n Destroyed Object Found: Sims3.Gameplay.Objects.Decorations.FishBowl\n Destroyed: Sims3.Gameplay.Objects.Wildflower (ID=0x3cf400f5c2f14490)';
+    assert.equal(correctionOnly(rep(real)), true, 'EA Wildflower correction lines are correction-only');
+    assert.equal(correctionOnly(rep(`${real}\n Destroyed Object Found: Ts3Agent.Foo`)), false, 'Ts3Agent line counts');
+    assert.deepEqual(correctionLoss(rep(`${real}\n SimDescription Removed: Lucas Flores`)), { sims: 1, destroyed: 1, outOfWorld: 1 });
+    assert.deepEqual(correctionLoss(rep(' Destroyed Object Found: Sims3.Gameplay.Objects.Door.DoorSlidingPatio')), { sims: 0, destroyed: 0, outOfWorld: 0 }, 'a non-loss line is not reported');
+    assert.equal(CORRECTION_LOSS.test('Destroyed Object Found: X'), false);
     assert.equal(allowedCorrection(rep(' System.NullReferenceException: x\n at Sims3.Gameplay.X.Y()'), []), false, 'exception counts');
     assert.equal(allowedCorrection('<NRaas.ErrorTrap>\n<Content>\n-- Correction Logs --\n Destroyed Object Found: A\n-- Exception --\n boom\n Loaded Assemblies: A\n</Content>', []), false, 'second section counts');
     const jig = ' Out of World Object Found 2: Sims3.Gameplay.Core.SocialJigOnePerson\n Destroyed: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x0)\n\n -- Dereferencing --\n Potential Object Found: Sims3.Gameplay.Core.SocialJigOnePerson\n Reference Continue: Sims3.Gameplay.Roles.RolePaparazzi+FollowCelebrity mJig';
@@ -4307,6 +4321,8 @@ for (const [n, j] of jobs.entries()) {
     if (j.scriptErrorsReport) row.verdict.push(`REPORT: ${studied.length} script errors matching ${j.scriptErrorsReport.join(' | ')}${studied.length ? `: ${studied.slice(0, 3).join(', ')}` : ''}`);
     const unknown = news.filter(f => { try { const x = readFileSync(join(USER, f), 'utf8'); return !studied.includes(f) && !matchKnown(x) && !allowedCorrection(x, j.scriptErrorsAllow ?? []); } catch { return true; } });
     row.scriptErrors = unknown;
+    { const loss = news.filter(f => !unknown.includes(f)).map(f => { try { return { f, ...correctionLoss(readFileSync(join(USER, f), 'utf8')) }; } catch { return { f, sims: 0, destroyed: 0, outOfWorld: 0 }; } }).filter(x => x.sims + x.destroyed + x.outOfWorld > 0);
+      if (loss.length) row.verdict.push(`REPORT: ErrorTrap correction lines (not a FAIL, data loss to review): ${loss.reduce((a, x) => a + x.sims, 0)} SimDescription Removed, ${loss.reduce((a, x) => a + x.destroyed, 0)} Destroyed: Sims3, ${loss.reduce((a, x) => a + x.outOfWorld, 0)} Out of World in ${loss.slice(0, 3).map(x => x.f).join(', ')}`); }
     const bad = unknown.length > j.scriptErrorsMax;
     row.verdict.push(`${bad ? 'FAIL' : 'PASS'}: ${unknown.length} new script errors (max ${j.scriptErrorsMax}${news.length > unknown.length ? `, ${news.length - unknown.length} known EA ignored` : ''})${unknown.length ? `: ${unknown.slice(0, 3).join(', ')}` : ''}`);
     if (bad) row.pass = false;

@@ -1,0 +1,58 @@
+{
+ "note": "Atlas-on vs vanilla control on the thin 2048 m world (Sunset Valley through the generator): are the 7 SimDescription Removed (Flores, Curious) and the FishBowl Destroyed Object Found lines of atlas-4096-release-1127 ours? One game at a time; start only when track.ts status shows no job, game or hold. Needs bugfix/errortrap-report-1127 merged for the REPORT line (else read the saved ScriptError xml).",
+ "agentPackage": "game-copy/ts3agent.package.m1126",
+ "stopQueueOnFail": false,
+ "regexCases": {},
+ "jobs": [
+  {
+   "id": "atlas-sims-2048-off",
+   "note": "[est 8 min] Control: same world and repro, no atlas.asi. If the same SimDescription Removed / destroyed Fish lines show, they are EA / NRaas / generated-world artifacts, not Atlas.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "Atlas main20m (asi 7424dce7) vs the vanilla control job; same repro, same world",
+   "save": "menu",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20,
+   "run": {
+    "repro": "atlas-p0-load-2048"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   }
+  },
+  {
+   "id": "atlas-sims-2048-on",
+   "note": "[est 8 min] ErrorTrap SimDescription Removed / fish loss compare: thin 2048 m world (shipped Sunset Valley), Atlas main20m natives ON (PhysicsRootM=0). Read the ScriptError xml: REPORT counts.",
+   "asi": "game-copy/ts3native.asi.m1126b",
+   "iniBase": "game-copy/ts3native.ini.m1126b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1126b",
+   "pinReason": "Atlas main20m (asi 7424dce7) vs the vanilla control job; same repro, same world",
+   "save": "menu",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20,
+   "modSet": "game-copy/mod-sets/atlas-main20m-1127",
+   "extraAsi": {
+    "asi": "game-copy/atlas-main20m-1127/atlas.asi",
+    "sha256": "7424dce790eab843293bbb70d8a4f25ab07129f08c5fb28c9b527de80aa483bb",
+    "ini": {
+     "WorldSize.PhysicsRootM": 0
+    }
+   },
+   "run": {
+    "repro": "atlas-p0-load-2048"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.306-m1126b ": 1
+   }
+  }
+ ]
+}
