@@ -300,6 +300,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFridgeFf value="False" />
     <kFridgeFfUnseen value="False" />
     <kFridgeFfLog value="False" />
+    <kSinkFree value="False" />
+    <kSinkFreeHh value="False" />
+    <kSinkFreeLog value="False" />
     <kCamSafe value="False" />
     <kCamSafeLog value="False" />
     <kCamSafeMarginPct value="25" />

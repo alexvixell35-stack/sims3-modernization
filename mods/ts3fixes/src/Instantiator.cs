@@ -539,6 +539,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kAlibiWalkLog = false;  // alibiwalklog: count what alibiwalk would cut (and long NPC walks by interaction), behaviour unchanged
         [Tunable] public static float kAlibiWalkMinM = 60f;  // alibiwalk: shortest planned route (m) that is cut
         [Tunable] public static float kAlibiWalkTailM = 10f;  // alibiwalk: metres of the route's last walking path the Sim still walks
+        [Tunable] public static bool kSinkFree = false;  // sinkfree (docs/686 §40): an NPC's dish cleanup whose EA sink is in use or has a line washes at the nearest free sink of the lot
+        [Tunable] public static bool kSinkFreeHh = false;  // sinkfreehh: the same for household and selected Sims (with sinkfree)
+        [Tunable] public static bool kSinkFreeLog = false;  // sinkfreelog: one ts3native.log line per busy pick (switched / would / none free)
         [Tunable] public static bool kFridgeFfLog = false;  // fridgefflog: one ts3native.log line per fast grab
         [Tunable] public static bool kCamSafe = false;  // camsafe (docs/690): every off-screen shortcut asks one camera-safe rule: predictive reach margin, recently-seen hold, camera-jump pause (CamSafe.cs); off = each fix's old test, unchanged
         [Tunable] public static bool kCamSafeLog = false;  // camsafelog: with camsafe off, sample the camera and count what camsafe would say (counters 4880-4899), behaviour unchanged

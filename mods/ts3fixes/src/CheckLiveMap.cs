@@ -468,6 +468,9 @@ namespace Ts3Fixes
                 case "simfestkeep": return EpLive(typeof(SimFestKeepHook), 1);
                 case "simpass": return EpJoin(EpLive(typeof(ShlAcquireHook), 0), EpLive(typeof(ShlLaneHook), 0));
                 case "simpasshh": return EpJoin(EpLive(typeof(ShlAcquireHook), 0), EpLive(typeof(ShlLaneHook), 0));
+                case "sinkfree": return EpLive(typeof(SnfHook), 1);
+                case "sinkfreehh": return EpLive(typeof(SnfHook), 1);
+                case "sinkfreelog": return EpLive(typeof(SnfHook), 1);
                 case "slavewakereason": return EpLive(typeof(SbSyncHook), 1, "sSbMaster", sSbMaster, null);
                 case "sneakoutlistener": return EpLive(typeof(SneakOutHook), 0, "sSoOwner", sSoOwner, null, "sSoGoing", sSoGoing, 0, "sSoFrom", sSoFrom, null, "sSoOn", sSoOn, null);
                 case "snowfightjoinwait": return EpLive(typeof(SnowFightHook), 0);

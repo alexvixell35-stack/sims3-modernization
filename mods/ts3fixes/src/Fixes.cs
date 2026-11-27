@@ -562,6 +562,7 @@ namespace Ts3Fixes
             ApplyStairFlow();          // docs/686 §32 (StairFlow.cs): stairflow / stairflowhh, stairtimelog, off by default (counts either way); swaps FollowRouteAction.PerformRoute and PortalAnimateThroughAction.UseStartAnimWhenExitingPortal
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
             ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
+            ApplySinkFree();           // docs/686 §40 (SinkFree.cs): sinkfree / sinkfreehh / sinkfreelog, off by default (counts either way); swaps ServingContainer.ServingContainer_CleanUp.GetBestObjectToWashDishes
             ApplyUnseenSkip();         // docs/686 §37 (UnseenSkip.cs): rhskipunseen, bookskipunseen, gymtwin, lineswitchpc, slidehang and their household opt-ins, off by default (counts either way); swaps Bookshelf_ReadSomething.Run; the rest rides ObjShare's, ShareLanes' and LineSwitch's hooks
             ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh / elevskiphhunseen, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
             ApplyElevParked();         // docs/686 §34 (ElevParked.cs): elevparked / elevparkedhh, off by default (counts either way); swaps ElevatorDoorsPortalComponent.OnApproachingPortalObject
@@ -1856,7 +1857,9 @@ namespace Ts3Fixes
         // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
         // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
-        const int kCounterSlots = 4960;
+        // [5000-5009] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
+        // would / no free sink / exempt / errors / EA's sink free / not a sink / lines; 5010-5019 spare.
+        const int kCounterSlots = 5020;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2259,6 +2262,9 @@ namespace Ts3Fixes
                 case "alibiwalk": return Instantiator.kAlibiWalk;  // AlibiWalk.cs (docs/691): an unseen NPC's long walk off the active lot cut to its tail, off
                 case "alibiwalklog": return Instantiator.kAlibiWalkLog;  // AlibiWalk.cs: count what alibiwalk would cut, off
                 case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
+                case "sinkfree": return Instantiator.kSinkFree;  // SinkFree.cs (docs/686 §40): dish cleanup washes at the nearest free sink when EA's pick is busy (NPCs), off
+                case "sinkfreehh": return Instantiator.kSinkFreeHh;  // SinkFree.cs: the same for household and selected Sims, off
+                case "sinkfreelog": return Instantiator.kSinkFreeLog;  // SinkFree.cs: one line per busy pick
                 case "reachcache": return Instantiator.kReachCache;  // ReachCache.cs (docs/688): an NPC's plan to rooms behind portals locked for it fails at once, autonomy skips the pair, off
                 case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off
                 case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off
