@@ -248,7 +248,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to the Atlas P0 findings fix build (boundless-atlas bugfix/atlas-p0-findings-1127 861eb7d, atlas 0.3.16, its docs/052): game-copy/atlas-p0fix-1127/atlas.asi (sha256 55c212f551f5bb82d74c4cc248bde07291eb30d062e476e5b649fbbd07f08adc); script half game-copy/mod-sets/atlas-p0fix-1127 (atlas.package sha256 f75dd443d9c912a567cc51c96da0b7e03dac0ec87ed78bda84440285c6934d09). Older build names in this text are history. Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas 7c27eee, atlas 0.3.9): game-copy/atlas-main3/atlas.asi (sha256 b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10) and game-copy/mod-sets/atlas-main3 (atlas.package sha256 5780848d4d32c51d414ced432836d25dc55e36f0c42ab223008bbc1a1dbe523a); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.2.1-w8192 (game-copy/atlas-main3/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "pinReason": "Repinned 2026-11-27 to the Atlas P0 findings fix build (boundless-atlas bugfix/atlas-p0-findings-1127 052bc73 rebuild, asi 7efc781f; was 861eb7d, atlas 0.3.16, its docs/052): game-copy/atlas-p0fix-1127/atlas.asi (sha256 7efc781f7584b4ecb6200ae6220dfe1c6b03cf0bcaff9117e7cb4e5f5b4dcf2a); script half game-copy/mod-sets/atlas-p0fix-1127 (atlas.package sha256 f75dd443d9c912a567cc51c96da0b7e03dac0ec87ed78bda84440285c6934d09). Older build names in this text are history. Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas 7c27eee, atlas 0.3.9): game-copy/atlas-main3/atlas.asi (sha256 b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10) and game-copy/mod-sets/atlas-main3 (atlas.package sha256 5780848d4d32c51d414ced432836d25dc55e36f0c42ab223008bbc1a1dbe523a); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.2.1-w8192 (game-copy/atlas-main3/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
       "save": "menu",
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -261,7 +261,7 @@
       },
       "extraAsi": {
         "asi": "game-copy/atlas-p0fix-1127/atlas.asi",
-        "sha256": "55c212f551f5bb82d74c4cc248bde07291eb30d062e476e5b649fbbd07f08adc",
+        "sha256": "7efc781f7584b4ecb6200ae6220dfe1c6b03cf0bcaff9117e7cb4e5f5b4dcf2a",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,
@@ -307,7 +307,7 @@
       "asi": "game-copy/ts3native.asi.m1126b",
       "iniBase": "game-copy/ts3native.ini.m1126b",
       "fixesPackage": "game-copy/ts3fixes.package.m1126b",
-      "pinReason": "Repinned 2026-11-27 to the Atlas P0 findings fix build (boundless-atlas bugfix/atlas-p0-findings-1127 861eb7d, atlas 0.3.16, its docs/052): game-copy/atlas-p0fix-1127/atlas.asi (sha256 55c212f551f5bb82d74c4cc248bde07291eb30d062e476e5b649fbbd07f08adc); script half game-copy/mod-sets/atlas-p0fix-1127 (atlas.package sha256 f75dd443d9c912a567cc51c96da0b7e03dac0ec87ed78bda84440285c6934d09). Older build names in this text are history. Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas 7c27eee, atlas 0.3.9): game-copy/atlas-main3/atlas.asi (sha256 b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10) and game-copy/mod-sets/atlas-main3 (atlas.package sha256 5780848d4d32c51d414ced432836d25dc55e36f0c42ab223008bbc1a1dbe523a); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.2.1-w8192 (game-copy/atlas-main3/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
+      "pinReason": "Repinned 2026-11-27 to the Atlas P0 findings fix build (boundless-atlas bugfix/atlas-p0-findings-1127 052bc73 rebuild, asi 7efc781f; was 861eb7d, atlas 0.3.16, its docs/052): game-copy/atlas-p0fix-1127/atlas.asi (sha256 7efc781f7584b4ecb6200ae6220dfe1c6b03cf0bcaff9117e7cb4e5f5b4dcf2a); script half game-copy/mod-sets/atlas-p0fix-1127 (atlas.package sha256 f75dd443d9c912a567cc51c96da0b7e03dac0ec87ed78bda84440285c6934d09). Older build names in this text are history. Repinned 2026-11-26 to the merged Atlas main build (boundless-atlas 7c27eee, atlas 0.3.9): game-copy/atlas-main3/atlas.asi (sha256 b85a12829c9ed920ec011b5d1949bc01405fc9d18a6f241ae07aa6120a705b10) and game-copy/mod-sets/atlas-main3 (atlas.package sha256 5780848d4d32c51d414ced432836d25dc55e36f0c42ab223008bbc1a1dbe523a); older build names in this text are history. master set m1126b (0.36.306-m1126b asi + ini, ts3fixes m1126b, agent m1126), the current master build set; no sims3-modernization code change in this lane. Extra module: boundless-atlas native/atlas atlas.asi 0.2.1-w8192 (game-copy/atlas-main3/atlas.asi, built by its build.cmd, bytes pinned by extraAsi.sha256).",
       "save": "menu",
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -323,7 +323,7 @@
       },
       "extraAsi": {
         "asi": "game-copy/atlas-p0fix-1127/atlas.asi",
-        "sha256": "55c212f551f5bb82d74c4cc248bde07291eb30d062e476e5b649fbbd07f08adc",
+        "sha256": "7efc781f7584b4ecb6200ae6220dfe1c6b03cf0bcaff9117e7cb4e5f5b4dcf2a",
         "ini": {
           "World8192.Routing": 1,
           "World8192.PaintIndex": 1,

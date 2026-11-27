@@ -8,7 +8,16 @@
 //   node tools/harness/night-plan.ts --watch <night> [--timeout 3600]   exits 0 on a new FAIL/STOP/DONE wake line (exit 2 = timeout: re-arm)
 //   node tools/harness/night-plan.ts --triage --night <n> --name <q> --out <file> --est <min> --minutes <m> --rc <rc>   (chain only)
 //   node tools/harness/night-plan.ts --lock <night> --pid <pid> | --unlock <night>   (chain only: one chain at a time)
+//   node tools/harness/night-plan.ts --bin-state <queue.json> --wt <worktree> [--stage]   (chain only: the queue's Bin state)
 //   node tools/harness/night-plan.ts --self-check
+//
+// Bin state per queue (2026-11-27): queue key "binState" names a tools/turbo-compat.ts state (unknown names refused), optional
+// "binStage" { "game-copy/<dest>": { "from": "game-copy/<src>", "sha256": "<hex>" } } the files the chain copies into that state's
+// source folder first (game-copy of this checkout, where turbo-compat.ts reads; each read back by sha256).
+// Without binState: apex-rewind when the queue has rewind auto and the worktree has the rewind tool, its own or (sources sha256
+// equal) the main checkout's, which --stage copies in; else apex. apex and every state but base / turbo / apex-stock are our fork
+// build (turbo-compat.ts): --check and --bin-state refuse them while the fork install of FORK.sha is missing or stale (no stock
+// fallback), and --check notes the asi each queue gets. The chain sets the state before a queue (and its rerun), apex after it.
 //
 // Chain lock (2026-11-27): two chains started with --start could both pass nogame / wait-job-end in the gap between one
 // chain's queues and run together. Each chain takes probe-out/queue/night-chain.lock (O_EXCL create) before its checks and
@@ -27,21 +36,27 @@
 // logRequire regex has regexCases that pass; notes that say a job FAILs by design need expectFail; the disk gate; the total est
 // fits before the cutoff; the generated script has no rm/del/elevation and feeds every child /dev/null.
 import { execFileSync, spawn } from 'node:child_process';
-import { appendFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { loadDb, packageTuning } from '../builds.ts';
+import { FORK, forkInstallProblem, STATES, STOCK_STATES } from '../turbo-compat.ts';
+import { queueRewind } from './queue-rewind.ts';
+import { pickRewindExe } from './rewind-smoke.ts';
 
 // the main checkout (also when this runs from a worktree): the chain, probe-out and game-copy live there
 const M = resolve(execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: import.meta.dirname, encoding: 'utf8', timeout: 30000 }).trim(), '..');
 const QOUT = join(M, 'probe-out', 'queue');
+// this checkout: turbo-compat.ts (imported) resolves its state sources here, so binStage reads and writes here too
+const OWN = resolve(import.meta.dirname, '..', '..');
 const { values } = parseArgs({ allowPositionals: true, options: {
   check: { type: 'string' }, write: { type: 'string' }, start: { type: 'string' }, watch: { type: 'string' }, timeout: { type: 'string', default: '3600' },
   triage: { type: 'boolean' }, night: { type: 'string' }, name: { type: 'string' }, out: { type: 'string' }, est: { type: 'string' }, minutes: { type: 'string' }, rc: { type: 'string' }, 'rerun-ids': { type: 'string' },
   lock: { type: 'string' }, unlock: { type: 'string' }, pid: { type: 'string' },
+  'bin-state': { type: 'string' }, wt: { type: 'string' }, stage: { type: 'boolean' },
   'self-check': { type: 'boolean' } } });
 
 type Run = { worktree?: string; branch?: string; queue: string; est?: number };
@@ -82,6 +97,45 @@ export function estFromNotes(q: any): number | null {
   let sum = 0;
   for (const j of jobsOf(q)) { const m = String(j.note ?? '').match(/\[est (\d+)(?:\s*-\s*(\d+))? min\]/); if (!m) return null; sum += Number(m[2] ?? m[1]); }
   return jobsOf(q).length ? sum : null;
+}
+// queue keys binState / binStage (header): state null = not declared (the rewind rule decides)
+type Stage = { to: string; from: string; sha256: string };
+const GC_FILE = /^game-copy\/[\w.\/ -]+$/;
+export function binStateOf(q: any, states = Object.keys(STATES)): { state: string | null; stage: Stage[]; problems: string[] } {
+  const problems: string[] = [], stage: Stage[] = [], o = Array.isArray(q) ? {} : q ?? {}, s = o.binState, st = o.binStage;
+  if (s !== undefined && !(typeof s === 'string' && states.includes(s))) problems.push(`binState ${JSON.stringify(s)} is not a turbo-compat state (${states.join(', ')})`);
+  if (st !== undefined) {
+    if (s === undefined) problems.push('binStage without binState');
+    if (!st || typeof st !== 'object' || Array.isArray(st)) problems.push('binStage must be an object { "game-copy/<dest>": { from, sha256 } }');
+    else for (const [to, v] of Object.entries<any>(st)) {
+      const ok = (p: unknown) => typeof p === 'string' && GC_FILE.test(p) && !p.split('/').includes('..');
+      if (!ok(to) || !ok(v?.from) || !/^[0-9a-f]{64}$/.test(v?.sha256 ?? '')) problems.push(`binStage ${to}: dest and from must be game-copy/ files (no ..), sha256 64 lowercase hex`);
+      else stage.push({ to, from: v.from, sha256: v.sha256 });
+    }
+  }
+  return { state: problems.length ? null : s ?? null, stage, problems };
+}
+const fileSha = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
+// the state a queue gets; problem: it needs the fork install (every state but STOCK_STATES, Rodney 11-19: tests run on our fork
+// build) and that is not ready (forkProblem from turbo-compat); warn: rewind auto without a rewind tool (fork build, fresh starts)
+export function binChoice(declared: string | null, rewind: 'auto' | 'off', rewindExe: { from: 'own' | 'main' | 'none'; why: string }, forkProblem: string): { state: string; why: string; warn: string; problem: string } {
+  const c = declared ? { state: declared, why: 'binState', warn: '' }
+    : rewind !== 'auto' ? { state: 'apex', why: 'no binState, rewind off', warn: '' }
+    : rewindExe.from === 'none' ? { state: 'apex', why: 'rewind auto', warn: `rewind auto but no rewind tool (${rewindExe.why}): apex, every job starts fresh` }
+    : { state: 'apex-rewind', why: `rewind auto, rewind tool ${rewindExe.from === 'own' ? 'built here' : rewindExe.why}`, warn: '' };
+  return { ...c, problem: !STOCK_STATES.has(c.state) && forkProblem ? `Bin state ${c.state} needs the fork install of FORK.sha, not ready (${forkProblem}): run node tools/turbo-compat.ts install-copy` : '' };
+}
+// the Apex asi a state puts in Bin: the fork install's (fork.json asi), stock Apex, or none
+function apexAsiOf(state: string): string {
+  if (state === 'base' || state === 'turbo') return 'no Apex';
+  if (state === 'apex-stock') return 'stock Apex (latest release)';
+  if (state === 'apex-oop') return 'PR158 asi (game-copy/apex-oop-test)';
+  try { const fj = JSON.parse(readFileSync(join(OWN, 'game-copy', 'rewind-bridge-1119', 'install', 'fork.json'), 'utf8')); return `ApexRadiance.asi ${String(fj.asi).slice(0, 12)} (fork ${String(fj.sha).slice(0, 8)})`; } catch { return 'fork install missing'; }
+}
+const rewindDir = (root: string) => join(root, 'tools', 'harness', 'rewind');
+function resolveBin(q: any, wt: string) {
+  const exe = pickRewindExe(rewindDir(wt), rewindDir(M));
+  return { ...binChoice(binStateOf(q).state, queueRewind(q), exe, forkInstallProblem()), exe };
 }
 export const queueTimeout = (est: number) => Math.max(30, 2 * est);
 // next local HH:MM after `now`
@@ -210,6 +264,20 @@ export function preflight(plan: Plan, now = new Date()): { problems: string[]; n
       if (slow.length) problems.push(`${at}: repro ${rp}: ${slow.length} slow step(s) without timeoutS: ${[...new Set(slow)].join(', ')}`);
     }
     for (const p of regexCaseProblems(q)) problems.push(`${at}: ${p}`);
+    const bs = binStateOf(q);
+    for (const p of bs.problems) problems.push(`${at}: ${p}`);
+    for (const f of bs.stage) if (!existsSync(join(OWN, f.from))) problems.push(`${at}: binStage from ${f.from} missing`); else if (fileSha(join(OWN, f.from)) !== f.sha256) problems.push(`${at}: binStage from ${f.from} sha256 ${fileSha(join(OWN, f.from)).slice(0, 12)}, want ${f.sha256.slice(0, 12)}`);
+    if (bs.state) { // the state's own sources (the chain's apex-unz comes at snapshot; staged files at the queue start)
+      const staged = new Set(bs.stage.map(f => resolve(OWN, f.to)));
+      for (const src of Object.values(STATES[bs.state]('\0unz'))) if (src && !src.startsWith('\0unz') && !staged.has(resolve(src)) && !existsSync(src)) problems.push(`${at}: Bin state ${bs.state}: ${src} missing`);
+      if (bs.stage.length) notes.push(`${at}: binStage ${bs.stage.length} file(s)`);
+    }
+    if (!bs.problems.length) {
+      const rb = resolveBin(q, wt);
+      if (rb.problem) problems.push(`${at}: ${rb.problem}`);
+      if (rb.warn) notes.push(`${at}: WARN ${rb.warn}`);
+      notes.push(`${at}: Bin state ${rb.state} (${rb.why}): ${apexAsiOf(rb.state)}`);
+    }
     const unmarked = expectFailUnmarked(q);
     if (unmarked.length) problems.push(`${at}: note says FAIL by design but no expectFail: true: ${unmarked.join(', ')}`);
     try {
@@ -275,7 +343,7 @@ agentin() { # worktree agent tag: back up the worktree's build/ts3agent.package 
 agentout() { local b=$1/build/ts3agent.package bak=$D/agent-$2.bak; [ -f "$bak" ] && cp -p "$bak" "$b" && mk "agent put back in $1"; }
 runq() { # worktree queue agent est timeout tag [--only ids]
   local w=$1 q=$2 a=$3 e=$4 to=$5 tag=$6 name=$(basename $2 .json); shift 6
-  local st=apex; [ -f $w/tools/harness/queue-rewind.ts ] && st=$(cd $w && node --no-warnings tools/harness/queue-rewind.ts state $q < /dev/null 2>/dev/null | tail -1); case "$st" in apex|apex-rewind) ;; *) st=apex;; esac
+  local st; st=$($NP --bin-state $q --wt $w --stage < /dev/null 2>&1) || { mk "SKIPPED $name$tag: Bin state refused ($(echo "$st" | tail -1 | cut -c1-140))"; return 1; }; st=$(echo "$st" | tail -1)
   $TC state $D $st > $O/$C-state-$name$tag.out 2>&1 < /dev/null || { mk "SKIPPED $name$tag: Bin state $st failed"; return 1; }
   agentin $w $a $name || { mk "SKIPPED $name$tag: agent install failed ($a)"; return 1; }
   mk "queue $name$tag start ($(basename $w), agent $(basename $a), est \${e}m, timeout \${to}m, Bin $st)"
@@ -284,6 +352,7 @@ runq() { # worktree queue agent est timeout tag [--only ids]
   local rc=$? min=$(( ($(date +%s) - t0) / 60 ))
   [ $rc -ne 0 ] && { taskkill //F //T //IM TS3W.exe < /dev/null > /dev/null 2>&1; nogame; }
   agentout $w $name
+  [ "$st" != apex ] && { nogame; $TC state $D apex > $O/$C-state-$name$tag-back.out 2>&1 < /dev/null && mk "Bin back to apex after $name$tag" || mk "WARN: Bin back to apex failed after $name$tag (the next queue sets its own state)"; }
   mk "queue $name$tag exited $rc in \${min}m: $(grep -E 'queue: \\S+: (PASS|FAIL|N/A|VOID|CRASH|KILLED) in' $O/$C-$name$tag.out | cut -c1-110 | tr '\\n' ';')"
   node --no-warnings tools/harness/night-plan.ts --triage --night $N --name $name$tag --out $O/$C-$name$tag.out --est $e --minutes $min --rc $rc < /dev/null >> $L 2>&1
   return $rc
@@ -368,6 +437,33 @@ function selfCheck() {
   const runs: Resolved[] = [{ wt: M, q: join(M, 'tools/harness/queues/x.json'), name: 'x', est: 20, agent: join(M, 'game-copy/ts3agent.package.t'), agentWhy: 'k', expectFail: ['off'] }];
   const sh = chainScript({ night: 'night-test', cutoff: '07:45', rgbOffUntil: '09:00', runs: [] }, runs, now, 'C:\\x\\alienfx-cli.exe');
   assert.deepEqual(scriptProblems(sh), []);
+  // Bin state per queue: declared, unknown, staged, undeclared; the chain asks night-plan and puts apex back after a queue
+  const ST = ['base', 'apex', 'apex-rewind', 'apex-oop-atlas'], H = 'a'.repeat(64);
+  assert.deepEqual(binStateOf({ jobs: [] }, ST), { state: null, stage: [], problems: [] }, 'undeclared: the rewind rule decides');
+  assert.deepEqual(binStateOf([{ id: 'x' }], ST).state, null, 'array queue');
+  assert.equal(binStateOf({ binState: 'apex-oop-atlas' }, ST).state, 'apex-oop-atlas');
+  assert.match(binStateOf({ binState: 'apex-oop' }, ST).problems[0], /binState "apex-oop" is not a turbo-compat state/, 'unknown state refused');
+  assert.equal(binStateOf({ binState: 'apex-oop' }, ST).state, null);
+  assert.match(binStateOf({ binState: 7 }, ST).problems[0], /is not a turbo-compat state/);
+  assert.deepEqual(binStateOf({ binState: 'apex-oop-atlas', binStage: { 'game-copy/apex-oop-test/atlas-oop.dll': { from: 'game-copy/atlas-main13/atlas-oop.dll', sha256: H } } }, ST).stage,
+    [{ to: 'game-copy/apex-oop-test/atlas-oop.dll', from: 'game-copy/atlas-main13/atlas-oop.dll', sha256: H }]);
+  for (const bad of [{ 'game-copy/../x.dll': { from: 'game-copy/a', sha256: H } }, { 'C:/Bin/x.dll': { from: 'game-copy/a', sha256: H } }, { 'game-copy/x': { from: 'game-copy/a', sha256: 'abc' } }, { 'game-copy/x': { from: 'tools/a', sha256: H } }])
+    assert.equal(binStateOf({ binState: 'apex', binStage: bad }, ST).problems.length, 1, `bad binStage ${JSON.stringify(bad)}`);
+  assert.match(binStateOf({ binStage: {} }, ST).problems[0], /binStage without binState/);
+  assert.ok(['apex', 'apex-rewind', 'apex-oop-atlas'].every(k => k in STATES), 'turbo-compat names');
+  // which state; the fork install is required (no stock fallback); rewind auto without a tool = fork apex, fresh starts
+  const own = { from: 'own' as const, why: 'built' }, main = { from: 'main' as const, why: "the main checkout's" }, none = { from: 'none' as const, why: 'not built' };
+  assert.deepEqual([binChoice(null, 'auto', own, '').state, binChoice(null, 'auto', main, '').state, binChoice(null, 'off', main, '').state], ['apex-rewind', 'apex-rewind', 'apex'], 'worktree borrows the main exe');
+  assert.match(binChoice(null, 'auto', none, '').warn, /rewind auto but no rewind tool \(not built\): apex, every job starts fresh/);
+  assert.equal(binChoice(null, 'off', none, '').warn, '', 'rewind off: apex (the fork build) by design');
+  assert.match(binChoice(null, 'off', none, 'no fork.json').problem, /^Bin state apex needs the fork install of FORK.sha, not ready \(no fork.json\): run node tools\/turbo-compat.ts install-copy$/, 'no stock fallback');
+  assert.ok(binChoice('apex-oop-atlas', 'off', none, 'x').problem && binChoice('apex-rewind', 'off', none, 'x').problem);
+  assert.equal(binChoice('apex-stock', 'off', none, 'x').problem, '', 'stock only as the opt-in state');
+  assert.deepEqual(binChoice('apex-rewind', 'off', none, ''), { state: 'apex-rewind', why: 'binState', warn: '', problem: '' });
+  assert.ok(FORK.sha.length === 40);
+  assert.match(sh, /st=\$\(\$NP --bin-state \$q --wt \$w --stage < \/dev\/null 2>&1\) \|\| \{ mk "SKIPPED/, 'state from night-plan, refused = skipped');
+  assert.ok(!/case "\$st"/.test(sh), 'no apex|apex-rewind whitelist forcing apex');
+  assert.ok(sh.indexOf('$TC state $D $st') < sh.indexOf('queue.ts $q "$@"') && sh.indexOf('queue.ts $q "$@"') < sh.indexOf('$TC state $D apex >'), 'state before the queue, apex after');
   assert.match(sh, /RUNS=".*\|20\|40\|off"/); assert.match(sh, /setall=0,0,0 setdim=0/); assert.match(sh, /trap restore EXIT/); assert.match(sh, /--rerun-ids "\$xf"/);
   // chain lock: taken before nogame / wait-job-end, released by the EXIT traps
   assert.ok(sh.indexOf('$NP --lock $N') > 0 && sh.indexOf('$NP --lock $N') < sh.indexOf('\nnogame;'), 'lock before the nogame wait');
@@ -424,6 +520,30 @@ if (values.lock) { // chain side: wait (no time limit, like nogame) until this c
     if (who !== said) { console.log(`${new Date().toTimeString().slice(0, 5)} chain lock held by ${who}: waiting`); said = who; }
     await new Promise(res => setTimeout(res, 20000));
   }
+}
+if (values['bin-state']) { // chain side: print the queue's Bin state (last line); --stage copies binStage first; exit 1 = refused
+  const qf = values['bin-state'], wt = values.wt ?? M, b = binStateOf(JSON.parse(readFileSync(qf, 'utf8')));
+  const refuse = (why: string) => { console.log(`refused: ${why}`); process.exit(1); };
+  if (b.problems.length) refuse(b.problems.join('; '));
+  const rb = resolveBin(JSON.parse(readFileSync(qf, 'utf8')), wt);
+  if (rb.problem) refuse(rb.problem);
+  if (rb.warn) console.log(`WARN ${rb.warn}`);
+  // a worktree without the rewind tool gets the main checkout's (same sources): copied in, so queue.ts of any branch finds it
+  if (values.stage && rb.state === 'apex-rewind' && rb.exe.from === 'main') {
+    const to = join(rewindDir(wt), 'out', 'rewind-spike.exe'), want = fileSha(rb.exe.exe);
+    mkdirSync(dirname(to), { recursive: true }); copyFileSync(rb.exe.exe, to);
+    if (fileSha(to) !== want) refuse(`rewind tool copy ${to}: read-back differs`);
+    utimesSync(to, new Date(), new Date()); // newer than the worktree's sources: queue.ts's stale check
+    console.log(`rewind tool from the main checkout (${want.slice(0, 12)}) -> ${to}`);
+  }
+  if (values.stage) for (const f of b.stage) {
+    const from = join(OWN, f.from), to = join(OWN, f.to);
+    if (!existsSync(from) || fileSha(from) !== f.sha256) refuse(`binStage from ${f.from} missing or not sha256 ${f.sha256.slice(0, 12)}`);
+    mkdirSync(dirname(to), { recursive: true }); copyFileSync(from, to);
+    if (fileSha(to) !== f.sha256) refuse(`binStage ${f.to}: read-back differs`);
+    console.log(`staged ${f.to} (${f.sha256.slice(0, 12)})`);
+  }
+  console.log(rb.state); process.exit(0);
 }
 if (values.watch) await watchCmd(values.watch);
 const pf = values.check ?? values.write ?? values.start;

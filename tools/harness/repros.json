@@ -136743,6 +136743,605 @@
     ]
   },
   {
+    "id": "atlas-fd-off-sv",
+    "memory": false,
+    "fix": "none: Boundless Atlas far description store, OFF arm",
+    "save": "Baseline-SV",
+    "bug": "docs/045 (Atlas): [FarDesc] Enable=0 registers nothing and swaps nothing",
+    "note": "Never run (written 2026-11-27 without the game). Needs the queue key extraAsi, game-copy/atlas-fardesc/atlas.asi and game-copy/mod-sets/atlas-fardesc (boundless-atlas feature/far-desc-store-1126 aa9095d). Household rule: household Sims, the selected Sim and unknown scope are never far (FarDescCore.Graph seeds); this job changes nothing.",
+    "expect": "atlas:fd off (Enable=0); no atlas:fd native/on line; no script error",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "live play a minute; nothing of FarDesc runs"
+      }
+    ]
+  },
+  {
+    "id": "atlas-fd-shadow-sv",
+    "memory": false,
+    "fix": "none: far description store shadow mode",
+    "save": "Baseline-SV",
+    "bug": "docs/045 MH-0, MH-2: census and related-set pass, nothing moves",
+    "note": "Never run (written 2026-11-27 without the game). Needs the queue key extraAsi, game-copy/atlas-fardesc/atlas.asi and game-copy/mod-sets/atlas-fardesc (boundless-atlas feature/far-desc-store-1126 aa9095d). Household rule: household Sims, the selected Sim and unknown scope are never far (FarDescCore.Graph seeds); shadow mode moves nothing and swaps nothing.",
+    "expect": "native and script on lines; census line; >= 1 shadow line with far>=0; State errors 0, mhEvict 0, hooks 0/0; no ERROR / SKIP / stood down; no script error",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.AtlasNative.Groups"
+        },
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.AtlasNative.Groups"
+          },
+          "all": [
+            {
+              "path": "fd",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "atlas.asi never set the fd internal-call flag (atlas.log: no 'atlas:icalls fd:' line; look for 'atlas:icalls ... waiting', 'atlas:fd SKIP' or 'atlas:fd off')"
+        },
+        "note": "wait for atlas.asi internal calls (fd) before the first reflect_call into native code: a call to a missing internal call crashes at EIP 0 (boundless-atlas docs/031 §12)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5,
+        "note": "moves never run while paused: the move gate needs live, unpaused play"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.State"
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.FarDesc.State"
+          },
+          "all": [
+            {
+              "path": "on",
+              "equals": true
+            },
+            {
+              "path": "mode",
+              "equals": "shadow"
+            },
+            {
+              "path": "errors",
+              "equals": 0
+            },
+            {
+              "path": "selfCheck",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120
+        },
+        "note": "script half booted in shadow mode"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.Census"
+        },
+        "waitS": 2,
+        "note": "MH-0 census line (atlas:fd census ...)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.Shadow"
+        },
+        "waitS": 2,
+        "note": "MH-2 pass now (also once per sim hour from the task): R by rule, far Sims, groups"
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "a few sim hours at normal speed: hourly shadow lines"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.State"
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.FarDesc.State"
+          },
+          "all": [
+            {
+              "path": "errors",
+              "equals": 0
+            },
+            {
+              "path": "mhEvict",
+              "equals": 0
+            },
+            {
+              "path": "mhShadowPasses",
+              "atLeast": 2
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120
+        },
+        "note": "nothing moved, passes ran"
+      }
+    ]
+  },
+  {
+    "id": "atlas-fd-test-sv",
+    "memory": false,
+    "fix": "none: far description store test moves (Enable=3)",
+    "save": "Baseline-SV",
+    "bug": "docs/045 MH-3..MH-8: evict one far group, find it by id, save, load it back",
+    "note": "Never run (written 2026-11-27 without the game). Needs the queue key extraAsi, game-copy/atlas-fardesc/atlas.asi and game-copy/mod-sets/atlas-fardesc (boundless-atlas feature/far-desc-store-1126 aa9095d). Household rule: household Sims, the selected Sim and unknown scope are never far (FarDescCore.Graph seeds); Enable=3 is a test mode: the no-gaps gate (class (b) pick sites) is waived, moves happen only on these harness commands. Saves to the scratch save Repro-FarDesc-1126 (never the Baseline save; remove it and ts3native\\atlas\\fd\\ by hand). TestClean at the start removes every fd store folder.",
+    "expect": "hooks 32/32 (three by-id Find swaps, 29 class (b) site swaps), pick sites 64/64; TestEvict returns a 16-hex group; evict line; TestFind returns a 16-hex id (by-id miss loaded the group: materialise line why=find); second TestEvict + save + commit; TestMaterialise >= 0; mhFindGated 0, errors 0, damaged false; no ERROR / SKIP / stood down / fidelity refusal; no script error",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.AtlasNative.Groups"
+        },
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.AtlasNative.Groups"
+          },
+          "all": [
+            {
+              "path": "fd",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "atlas.asi never set the fd internal-call flag (atlas.log: no 'atlas:icalls fd:' line; look for 'atlas:icalls ... waiting', 'atlas:fd SKIP' or 'atlas:fd off')"
+        },
+        "note": "wait for atlas.asi internal calls (fd) before the first reflect_call into native code: a call to a missing internal call crashes at EIP 0 (boundless-atlas docs/031 §12)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.TestClean"
+        },
+        "waitS": 2,
+        "note": "test cleanup: every fd store folder (native Clean) and the index"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5,
+        "note": "moves never run while paused: the move gate needs live, unpaused play"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.State"
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.FarDesc.State"
+          },
+          "all": [
+            {
+              "path": "on",
+              "equals": true
+            },
+            {
+              "path": "hooks",
+              "equals": "32/32"
+            },
+            {
+              "path": "pickSitesHooked",
+              "equals": 64
+            },
+            {
+              "path": "errors",
+              "equals": 0
+            },
+            {
+              "path": "gate",
+              "equals": "ok"
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120
+        },
+        "note": "test mode on, all 32 swaps in (pick sites 64/64), gate open (live, not paused)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.Shadow"
+        },
+        "waitS": 2,
+        "note": "R pass: far groups exist on Sunset Valley (townies with no tie to the household)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.TestEvict"
+        },
+        "waitS": 3,
+        "mustMatch": "^[0-9a-f]{16}$",
+        "note": "evict the first far group: export, dry-import fidelity check, put + read back, EA removal"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.Census"
+        },
+        "waitS": 2,
+        "note": "census after the move: far >= 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.TestFind"
+        },
+        "waitS": 3,
+        "mustMatch": "^[0-9a-f]{16}$",
+        "note": "SimDescription.Find of a stored Sim: the miss path loads the group back"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.TestEvict"
+        },
+        "waitS": 3,
+        "mustMatch": "^[0-9a-f]{16}$",
+        "note": "evict again, then save with the group in the store"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Repro-FarDesc-1126"
+        },
+        "waitS": 60,
+        "note": "scratch save; SaveBracket Post (fd, order 50) commits work\\ to save\\ (Save As: new key)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5,
+        "note": "moves never run while paused: the move gate needs live, unpaused play"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.State"
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.FarDesc.State"
+          },
+          "all": [
+            {
+              "path": "mhSaveWrites",
+              "atLeast": 1
+            },
+            {
+              "path": "mhSaveFail",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120
+        },
+        "note": "store committed after the save"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.TestMaterialise"
+        },
+        "waitS": 3,
+        "mustMatch": "^[0-9]+$",
+        "note": "load every stored group back (aging days, pair decay applied)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 120,
+        "note": "an hourly pass: evicted objects released (mhEvictLeft read in State, not a gate)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.State"
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.FarDesc.State"
+          },
+          "all": [
+            {
+              "path": "errors",
+              "equals": 0
+            },
+            {
+              "path": "damaged",
+              "equals": false
+            },
+            {
+              "path": "mhFindGated",
+              "equals": 0
+            },
+            {
+              "path": "mhMaterialiseFail",
+              "equals": 0
+            },
+            {
+              "path": "mhEvict",
+              "atLeast": 2
+            },
+            {
+              "path": "mhMaterialise",
+              "atLeast": 2
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120
+        },
+        "note": "clean round trip"
+      }
+    ]
+  },
+  {
+    "id": "atlas-fd-d0-sv",
+    "memory": true,
+    "fix": "none: docs/045 §5 D0 measurement (heap per description)",
+    "save": "Baseline-SV",
+    "bug": "docs/045 D0: Boehm bytes per far description and per relationship pair, before any size claim",
+    "note": "Never run (written 2026-11-27 without the game). Needs the queue key extraAsi, game-copy/atlas-fardesc/atlas.asi and game-copy/mod-sets/atlas-fardesc (boundless-atlas feature/far-desc-store-1126 aa9095d). Household rule: household Sims, the selected Sim and unknown scope are never far (FarDescCore.Graph seeds); shadow mode (Enable=2): D0Step makes townie households with EA calls (Genetics.MakeSim, Household.Create), D0Pairs adds relationships; [MemDiag] TypeGrowth reads live bytes per class after each GC. Nothing is saved (scratch play only).",
+    "expect": "census lines after each step; typegrowth lines; State errors 0. Read: SimDescription / Household / Relationship bytes per step (D0-a/b/c)",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.AtlasNative.Groups"
+        },
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.AtlasNative.Groups"
+          },
+          "all": [
+            {
+              "path": "fd",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "atlas.asi never set the fd internal-call flag (atlas.log: no 'atlas:icalls fd:' line; look for 'atlas:icalls ... waiting', 'atlas:fd SKIP' or 'atlas:fd off')"
+        },
+        "note": "wait for atlas.asi internal calls (fd) before the first reflect_call into native code: a call to a missing internal call crashes at EIP 0 (boundless-atlas docs/031 §12)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5,
+        "note": "moves never run while paused: the move gate needs live, unpaused play"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        },
+        "note": "baseline gc"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.Census"
+        },
+        "waitS": 2,
+        "note": "D0-a census"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.D0Step",
+          "args": [
+            100
+          ]
+        },
+        "waitS": 10,
+        "note": "D0-b step 1: 100 one-adult households"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        },
+        "note": "gc after step 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.D0Step",
+          "args": [
+            100
+          ]
+        },
+        "waitS": 10,
+        "note": "D0-b step 2: 100 more"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        },
+        "note": "gc after step 2"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.D0Step",
+          "args": [
+            100
+          ]
+        },
+        "waitS": 10,
+        "note": "D0-b step 3: 100 more"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        },
+        "note": "gc after step 3"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.D0Pairs",
+          "args": [
+            4
+          ]
+        },
+        "waitS": 10,
+        "note": "D0-c: 4 relationships per NPC"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        },
+        "note": "gc after pairs"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Atlas.FarDesc.State"
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Atlas.FarDesc.State"
+          },
+          "all": [
+            {
+              "path": "errors",
+              "equals": 0
+            },
+            {
+              "path": "mhEvict",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120
+        },
+        "note": "nothing moved"
+      }
+    ]
+  },
+  {
     "id": "atlas-main-smoke-on-sv-p0fix",
     "memory": true,
     "bug": "Atlas main smoke, probe on: do the merged features work together (atlas 0.3.6)? One P1 page-out/page-in cycle, one loader A page-in, rebase 0 0, then a save and a reload with the SaveBracket gate and handler in place (boundless-atlas docs/031 §11).",

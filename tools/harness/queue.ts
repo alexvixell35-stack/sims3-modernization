@@ -2666,6 +2666,10 @@ if (values['self-check']) {
     writeFileSync(join(d, 'set.json'), JSON.stringify({ files: [{ file: 'A.package' }] })); assert.match(modSetProblem(d), /missing in the set: A\.package/);
     writeFileSync(join(d, 'A.package'), 'x'); assert.equal(modSetProblem(d), '');
   }
+  assert.equal(apexAsiLabel('ab'.repeat(32), { sha: 'da4b80eb0bf2', asi: 'ab'.repeat(32) }), 'abababababab (fork da4b80eb)');
+  assert.equal(apexAsiLabel('cd'.repeat(32), { sha: 'da4b80eb0bf2', asi: 'ab'.repeat(32) }), 'cdcdcdcdcdcd (NOT the fork build)');
+  assert.equal(apexAsiLabel('cd'.repeat(32), null), 'cdcdcdcdcdcd (NOT the fork build)');
+  assert.equal(apexAsiLabel(null, null), 'missing');
   console.log('self-check ok');
   process.exit(0);
 }
@@ -2811,6 +2815,16 @@ const LOG = join(BIN, 'ts3native.log');
 const ageClash = (j: Job) => { const n = ageName(j).toLowerCase(); return existsSync(SAVES) ? readdirSync(SAVES).filter(f => f.toLowerCase() === `${n}.sims3` || f.toLowerCase().startsWith(`${n}-day`)) : []; };
 const DEFAULT_INI = join(BIN, 'Default.ini'), S3PP_INI = join(BIN, 'Sims3Performance.ini'), S3SS_TOML = join(USER, 'S3SS', 'S3SS.toml'), DXVK_CONF = join(BIN, 'dxvk.conf'), OPTIONS_INI = join(USER, 'Options.ini'), D3D9_DLL = join(BIN, 'd3d9.dll'), D3D9_BAK = join(BIN, 'd3d9.dll.dxvk-bak'), D3D9_PROXY_LOG = join(BIN, 'd3d9on12-proxy.log');
 const sha = (p: string) => (existsSync(p) ? createHash('sha256').update(readFileSync(p)).digest('hex').slice(0, 12) : 'missing');
+// the Apex asi in Bin, read back for every job (row apexAsi, log line, dry-run line): tests run on our fork build (Rodney 11-19),
+// told by the fork install's fork.json asi sha256 (tools/turbo-compat.ts install-copy)
+export function apexAsiLabel(asiSha: string | null, fork: { sha?: string; asi?: string } | null): string { // a declaration: the self-check runs above
+  return !asiSha ? 'missing' : `${asiSha.slice(0, 12)} (${fork?.asi && asiSha === fork.asi ? `fork ${String(fork.sha).slice(0, 8)}` : 'NOT the fork build'})`;
+}
+function binApex(): string {
+  const p = join(BIN, 'ApexRadiance.asi');
+  let fork = null; try { fork = JSON.parse(readFileSync(join(ROOT, 'game-copy', 'rewind-bridge-1119', 'install', 'fork.json'), 'utf8')); } catch { /* no fork install */ }
+  return apexAsiLabel(existsSync(p) ? createHash('sha256').update(readFileSync(p)).digest('hex') : null, fork);
+}
 // docs/170: jobs with the same key need the same game start (what is written before the launch); reuseOf null = reuse off
 const reuseOf = (j: Job): ReuseOpts | null => parseReuse(j.reuseSession);
 const keyOf = (j: Job) => stableKey({ asi: asiPath(j), sha: sha(asiPath(j)), ini: jobIni(j) ?? {}, fixes: j.fixes ?? null, fixesPackage: j.fixesPackage ?? null, save: saveFile(saveOf(j) ?? ''), ...(isDirect(j) ? { launch: 'direct' } : {}), content: j.content ?? 'as-is', ccSet: j.ccSet ?? null, ccLots: j.ccLots ?? null, modSet: j.modSet ?? null,
@@ -2904,6 +2918,7 @@ if (values['dry-run']) {
   for (const [di, j] of jobs.entries()) {
     const a = asiPath(j), s = saveOf(j)!, r = runArgs(j);
     console.log(`\n${j.id}${j.note ? ` - ${j.note}` : ''} (timeout ${j.timeoutMin ?? 60} min)`);
+    console.log(`  0 Bin ApexRadiance.asi now: ${binApex()} (the chain sets the queue's Bin state before the run)`);
     // docs/170: the game of the job before is taken over when both have reuse on, the same game start and the window budget left
     const rg = rwGroups.get(j), rwPrev = rg !== undefined && rwGroups.get(jobs[di - 1]) === rg, rwNext = rg !== undefined && rwGroups.get(jobs[di + 1]) === rg;
     const ro = reuseOf(j), key = keyOf(j), items = itemsOf(j), reused = rwPrev || (!!ro && !reuseBlock(j) && key === dryKey && dryWin < ro.maxJobs);
@@ -3646,8 +3661,9 @@ for (const [n, j] of jobs.entries()) {
   const sections = [...new Set(Object.keys(j.ini ?? {}).map(k => k.split('.')[0]))];
   const s = saveOf(j)!;
   log(`== ${j.id} (${n + 1}/${jobs.length})${j.note ? `: ${j.note}` : ''}; log ${logFile}`);
-  const row: any = { time: t0, ...machineField(machineTag()), queue: queueName, build, job: j.id, base: rowBase(j), note: j.note ?? null, asi: j.asi, asiSha: sha(asiPath(j)), ini: rowIni(j), fixes: j.fixes ?? null,
+  const row: any = { time: t0, apexAsi: binApex(), ...machineField(machineTag()), queue: queueName, build, job: j.id, base: rowBase(j), note: j.note ?? null, asi: j.asi, asiSha: sha(asiPath(j)), ini: rowIni(j), fixes: j.fixes ?? null,
     save: s, content: j.content ?? 'as-is', contentMoved: 0, run: j.run, gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, dxvkConf: j.dxvkConf ?? null, profileTag: j.run.profile ? profileTag(j) : null, exitCode: null, verdict: [], pass: false, crashed: false, crash: null, timedOut: false, memory: {}, counters: {}, error: null };
+  log(`${j.id}: Bin ApexRadiance.asi ${row.apexAsi}`);
   const pin = pinConfig(j.pin, process.env, undefined, isTimingJob(j)), machineFile = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-machine.jsonl`);
   const sweepFile = machineFile.replace(/-machine\.jsonl$/, '-sweep.json');
   process.env.TS3_SWEEP_ON = pin?.sweep ? '1' : '0'; // machine-load.ts in children (profile-world.ts): rule figures from the apps on the game CPUs

@@ -2,7 +2,8 @@
 // a thread/working-set sampler for the running game, per-arm log collection, and a hash-checked restore.
 //   node tools/turbo-compat.ts snapshot <dir>      hash every Bin file, back up the files the states touch and Apex's Documents
 //                                                  folder into <dir>; refuses when <dir>/snapshot.json exists or TS3W.exe runs
-//   node tools/turbo-compat.ts state <dir> <name>  Bin = snapshot + that state's files (read back by sha256); names in STATES
+//   node tools/turbo-compat.ts state <dir> <name>  Bin = snapshot + that state's files (read back by sha256); names in STATES; every state but base, turbo, apex-stock
+//                                                  is our fork build (the install-copy output for FORK.sha) and refuses while it is missing or stale
 //   node tools/turbo-compat.ts monitor <dir> <arm> [--all-on] [--f7] [--max-min 40]
 //        waits for TS3W.exe, samples its threads (base priority, start address -> ts3native.asi RVA) and working set every 5 s
 //        for 2 min, then every 30 s, until it exits; --all-on writes the all-on Turbo.txt once Turbo has rewritten its file
@@ -58,25 +59,59 @@ export const ALL_ON = ['# TS3 Turbo Engine Configuration (all on, turbo-apex-111
 // last merged with (a newer merged release only logs). A new release not merged yet: merge it into the branch in the fork,
 // update FORK.sha and REWIND_BUILT_ON, run install-copy --build.
 const REWIND = join(GC, 'rewind-bridge-1119'), REWIND_BUILT_ON = 'v4.1.7';
-export const FORK = { remote: 'https://github.com/rodneypantonial/Sims3-ApexRadiance.git', branch: 'ours/test-integration-1119', sha: 'da4b80eb0bf244cf04962b94ed97286827c3a4c0' };
+export const FORK = { remote: 'https://github.com/rodneypantonial/Sims3-ApexRadiance.git', branch: 'ours/test-integration-1119', sha: 'bfafc850647da996f66e61eeefea20208e0e0def' };
+const REWIND_UNZ = join(REWIND, 'install', 'apex-unz');
+// Rodney 11-19 (restated 11-27): every game test runs on our fork's integration build, never stock Apex. The fork install
+// (install-copy for FORK.sha) is ready when fork.json names FORK.sha and its asi, bridge pair and ts3wrap.exe still hash to the
+// sha256 values it recorded; '' = ready, else why not (every state but STOCK_STATES then refuses: no fallback to stock)
+export const FORK_FILES: [string, string][] = [['ApexRadiance.asi', 'asi'], ['d3d9.dll', 'd3d9'], ['.trex/NvRemixBridge.exe', 'server'], ['ts3wrap.exe', 'ts3wrap']];
+export function forkInstallProblemOf(fj: Record<string, any> | null, forkSha: string, fileSha: (rel: string) => string | null): string {
+  if (!fj) return 'no fork.json (install-copy never ran)';
+  if (fj.sha !== forkSha) return `fork.json is for ${String(fj.sha).slice(0, 8)}, FORK.sha is ${forkSha.slice(0, 8)}`;
+  const bad = FORK_FILES.filter(([rel, k]) => !fj[k] || fileSha(rel) !== fj[k]).map(([rel, k]) => fj[k] ? `${rel} changed` : `no ${k} sha256 in fork.json (older install-copy)`);
+  return bad.length ? bad.join(', ') : '';
+}
+export const forkInstallProblem = () => {
+  let fj = null; try { fj = JSON.parse(readFileSync(join(REWIND, 'install', 'fork.json'), 'utf8')); } catch { /* no install copy */ }
+  return forkInstallProblemOf(fj, FORK.sha, rel => existsSync(join(REWIND_UNZ, rel)) ? sha(join(REWIND_UNZ, rel)) : null);
+};
+// states that never need the fork install: no Apex, or stock Apex as an explicit opt-in (comparison, reporter repros)
+export const STOCK_STATES = new Set(['base', 'turbo', 'apex-stock']);
+// a run's <dir>/apex-unz = the fork install with rewindMode taken out of both bridge.conf (rewind is its own opt-in: apex-rewind)
+export const noRewindMode = (conf: string) => conf.replace(/^[ \t]*rewindMode[ \t]*=.*(\r?\n|$)/gim, '');
+function forkUnz(dir: string) {
+  const why = forkInstallProblem();
+  if (why) throw new Error(`fork install not ready for FORK.sha ${FORK.sha.slice(0, 8)} (${why}): run node tools/turbo-compat.ts install-copy (stock Apex only as state apex-stock)`);
+  const unz = join(dir, 'apex-unz');
+  rmSync(unz, { recursive: true, force: true }); cpSync(REWIND_UNZ, unz, { recursive: true });
+  for (const c of ['bridge.conf', '.trex/bridge.conf']) if (existsSync(join(unz, c))) writeFileSync(join(unz, c), noRewindMode(readFileSync(join(unz, c), 'utf8')));
+  copyFileSync(join(REWIND, 'install', 'fork.json'), join(dir, 'fork.json'));
+  const fj = JSON.parse(readFileSync(join(dir, 'fork.json'), 'utf8'));
+  for (const [rel, k] of FORK_FILES) if (sha(join(unz, rel)) !== fj[k]) throw new Error(`fork install copy: ${rel} read-back differs`);
+}
 type Src = string | null; // file to copy into Bin, null = absent
 export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   base: () => ({}),
-  apex: unz => ({ 'ApexRadiance.asi': join(unz, 'ApexRadiance.asi'), ...Object.fromEntries(BRIDGE.filter(k => !unz || existsSync(join(unz, k))).map(k => [k, join(unz, k)])) }),
+  // a run's <dir>/apex-unz: the fork install of FORK.sha (forkUnz, at every state switch) with its restart host ts3wrap.exe
+  apex: unz => ({ 'ApexRadiance.asi': join(unz, 'ApexRadiance.asi'), ...Object.fromEntries(BRIDGE.filter(k => !unz || existsSync(join(unz, k))).map(k => [k, join(unz, k)])),
+    ...(unz && existsSync(join(unz, 'ts3wrap.exe')) ? { 'ts3wrap.exe': join(unz, 'ts3wrap.exe') } : {}) }),
+  // stock Apex (the latest release, fetched at snapshot into <dir>/apex-stock-unz): explicit opt-in only
+  'apex-stock': unz => STATES.apex(join(dirname(unz), 'apex-stock-unz')),
   'apex-turbo': unz => ({ ...STATES.apex(unz), 'Turbo.asi': SRC.turbo.path }),
   'apex-turbo-ual77': unz => ({ ...STATES['apex-turbo'](unz), 'wininet.dll': SRC.ual77.path }),
   turbo: () => ({ 'Turbo.asi': SRC.turbo.path }),
   // docs/270 §12: the install copy with our patched bridge pair and rewindMode = True (made by `install-copy`)
-  'apex-rewind': () => STATES.apex(join(REWIND, 'install', 'apex-unz')),
+  // apex + the install copy's bridge.conf files (rewindMode = True)
+  'apex-rewind': unz => ({ ...STATES.apex(unz), 'bridge.conf': join(REWIND_UNZ, 'bridge.conf'), '.trex/bridge.conf': join(REWIND_UNZ, '.trex', 'bridge.conf') }),
   // docs/305: the latest Apex release with a fork build's ApexRadiance.asi and ts3wrap.exe (the restart host that runs the
   // out-of-process services); a chain copies the build under test into game-copy/apex-oop-test first
   // docs/309 §2: the latest Apex release with the fork build of feature/async-rt-reads-1120 (asi + bridge patches 0017/0018:
   // d3d9.dll, .trex/NvRemixBridge.exe, bridge.conf with client.asyncReadback); a chain copies them into game-copy/apex-asyncrt-test
   'apex-asyncrt': unz => ({ ...STATES.apex(unz), ...Object.fromEntries(['ApexRadiance.asi', 'd3d9.dll', '.trex/NvRemixBridge.exe', 'bridge.conf'].map(k => [k, join(GC, 'apex-asyncrt-test', k)])) }),
   'apex-oop': unz => ({ ...STATES.apex(unz), 'ApexRadiance.asi': join(GC, 'apex-oop-test', 'ApexRadiance.asi'), 'ts3wrap.exe': join(GC, 'apex-oop-test', 'ts3wrap.exe') }),
-  // boundless-atlas docs/025: apex-oop (an Apex build with the plugin host, Apex PR #158) plus the Atlas region store plugin,
-  // which the host loads from its own folder only; a chain copies all three into game-copy/apex-oop-test first
-  'apex-oop-atlas': unz => ({ ...STATES['apex-oop'](unz), 'atlas-oop.dll': join(GC, 'apex-oop-test', 'atlas-oop.dll') }),
+  // boundless-atlas docs/025: the fork build (apex: asi + ts3wrap.exe with the 64-bit plugin host #158) plus the Atlas region
+  // store plugin, which the host loads from its own folder only (the chain stages it in game-copy/apex-oop-test)
+  'apex-oop-atlas': unz => ({ ...STATES.apex(unz), 'atlas-oop.dll': join(GC, 'apex-oop-test', 'atlas-oop.dll') }),
   // docs/260 §9: the latest Apex release with one fork build's ApexRadiance.asi (an Apex bug fix under test); a chain copies the
   // build under test into game-copy/apex-fork-asi-test first
   'apex-fork-asi': unz => ({ ...STATES.apex(unz), 'ApexRadiance.asi': join(GC, 'apex-fork-asi-test', 'ApexRadiance.asi') }),
@@ -114,7 +149,7 @@ export const pickZip = (assets: { name: string; digest?: string; browser_downloa
 
 // latest release -> game-copy/apex-<ver>/<zip> (downloaded once, sha256 = the asset digest) -> <dir>/apex-unz with
 // ApexRadiance.asi + the bridge files at their Bin paths. No network: the newest game-copy/apex-*/apex.json zip, with a WARN.
-async function fetchApex(dir: string) {
+async function fetchApex(dir: string, name = 'apex-unz') {
   let pin: { tag: string; zip: string; sha: string; from: string } | undefined;
   try {
     const r = await fetch(`https://api.github.com/repos/${APEX_REPO}/releases/latest`, { headers: { 'User-Agent': 'turbo-compat', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(30000) });
@@ -138,7 +173,7 @@ async function fetchApex(dir: string) {
     pin = { ...known[0], from: `WARN: GitHub not reachable (${(e as Error).message}): newest earlier fetch` };
   }
   verify({ path: pin.zip, sha: pin.sha });
-  const tmp = join(dir, 'apex-zip'), unz = join(dir, 'apex-unz');
+  const tmp = join(dir, 'apex-zip'), unz = join(dir, name);
   for (const d of [tmp, unz]) { rmSync(d, { recursive: true, force: true }); mkdirSync(d, { recursive: true }); }
   // Windows bsdtar reads zip; Git Bash's GNU tar would take "C:" for a remote host
   execFileSync(join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe'), ['-xf', pin.zip, '-C', tmp]);
@@ -230,7 +265,9 @@ function buildLocalAsi() {
   if (!existsSync(asi) || !/SHA256/.test(readFileSync(log, 'utf8'))) throw new Error(`build: Public asi build failed, see ${log}`);
   rmSync(d, { recursive: true, force: true }); mkdirSync(d, { recursive: true });
   copyFileSync(asi, join(d, 'ApexRadiance.asi'));
-  writeFileSync(join(d, 'build.json'), JSON.stringify({ sha: FORK.sha, asiSha: sha(join(d, 'ApexRadiance.asi')), log }, null, 1));
+  const tw = join(repo, 'Public', 'ts3wrap.exe'); // the same Public build makes the restart host
+  if (existsSync(tw)) copyFileSync(tw, join(d, 'ts3wrap.exe'));
+  writeFileSync(join(d, 'build.json'), JSON.stringify({ sha: FORK.sha, asiSha: sha(join(d, 'ApexRadiance.asi')), ts3wrapSha: existsSync(tw) ? sha(join(d, 'ts3wrap.exe')) : null, log }, null, 1));
   say(`build: local Public asi ${sha(join(d, 'ApexRadiance.asi')).slice(0, 12)}`);
 }
 
@@ -256,6 +293,11 @@ function forkAsi(build: boolean) {
   if (!ci && build) { try { return pick(); } catch { buildLocalAsi(); } }
   return pick();
 }
+
+// the fork's ts3wrap.exe (restart host + 64-bit plugin host, #158): the first candidate that exists and hashes to its want
+// (no want = any); null = none, the install has no host and apex-oop-atlas falls back to the PR158 pair
+export const chooseTs3wrap = (cands: { path: string; want?: string | null }[], fileSha: (p: string) => string | null): string | null =>
+  cands.find(c => { const s = fileSha(c.path); return !!s && (!c.want || s === c.want); })?.path ?? null;
 
 // is release tag <tag> an ancestor of (or equal to) commit sha in git repo <repo>? false when the tag is unknown there
 export function releaseInFork(repo: string, tag: string, sha: string): boolean {
@@ -283,17 +325,25 @@ async function installCopy(build: boolean) {
   if (tag !== REWIND_BUILT_ON) say(`install-copy: release ${tag} is merged into ${FORK.sha.slice(0, 8)} (REWIND_BUILT_ON ${REWIND_BUILT_ON} is older: update it with the next pin)`);
   for (const p of pair) copyFileSync(join(out, p), join(unz, p));
   copyFileSync(asi, join(unz, 'ApexRadiance.asi'));
+  // next to the chosen asi (CI artifact; local build: its build.json sha256), else apex-repo's Public output (HEAD = FORK.sha above)
+  // shortcut: the Public fallback is not proven built from FORK.sha (an older build.json has no ts3wrapSha); fixed by install-copy --build
+  const bj = join(localAsiDir(), 'build.json'), lj = existsSync(bj) ? JSON.parse(readFileSync(bj, 'utf8')) : null;
+  const tw = chooseTs3wrap([{ path: join(dirname(asi), 'ts3wrap.exe'), want: asiSource === 'local' ? lj?.ts3wrapSha ?? '-' : null }, { path: join(repo, 'Public', 'ts3wrap.exe') }], p => existsSync(p) ? sha(p) : null);
+  if (tw) copyFileSync(tw, join(unz, 'ts3wrap.exe')); else say('install-copy: WARN no fork ts3wrap.exe: the install has no restart host (apex-oop-atlas falls back to the PR158 pair)');
   copyFileSync(join(rb, 'conf', 'dxvk.conf'), join(unz, 'dxvk.conf'));
   for (const c of ['bridge.conf', '.trex/bridge.conf']) { copyFileSync(join(rb, 'conf', 'bridge.conf'), join(unz, c)); appendFileSync(join(unz, c), '\r\nrewindMode = True\r\n'); }
-  writeFileSync(join(dir, 'fork.json'), JSON.stringify({ ...FORK, release: tag, asiSource, asi: sha(join(unz, 'ApexRadiance.asi')), d3d9: sha(join(unz, pair[0])), server: sha(join(unz, pair[1])) }, null, 1));
-  say(`install-copy: ${unz} = Apex ${tag} files + fork ${FORK.branch} ${FORK.sha.slice(0, 8)}: asi (${asiSource}) ${sha(join(unz, 'ApexRadiance.asi')).slice(0, 12)}, d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, rewindMode = True`);
+  const twSha = tw ? sha(join(unz, 'ts3wrap.exe')) : null;
+  writeFileSync(join(dir, 'fork.json'), JSON.stringify({ ...FORK, release: tag, asiSource, asi: sha(join(unz, 'ApexRadiance.asi')), d3d9: sha(join(unz, pair[0])), server: sha(join(unz, pair[1])), ts3wrap: twSha }, null, 1));
+  say(`install-copy: ${unz} = Apex ${tag} files + fork ${FORK.branch} ${FORK.sha.slice(0, 8)}: asi (${asiSource}) ${sha(join(unz, 'ApexRadiance.asi')).slice(0, 12)}, d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, ts3wrap.exe ${twSha?.slice(0, 12) ?? 'none'}, rewindMode = True`);
 }
 
 async function snapshot(dir: string) {
   if (existsSync(join(dir, 'snapshot.json'))) throw new Error(`${dir}/snapshot.json exists: restore first (or remove it after a verified restore)`);
   if (!DRY && gamePids().length) throw new Error('TS3W.exe runs');
   for (const s of Object.values(SRC)) verify(s);
-  await fetchApex(dir);
+  await fetchApex(dir, 'apex-stock-unz'); // stock: state apex-stock only; the fork install comes in at each state switch
+  const fw = forkInstallProblem();
+  if (fw) say(`snapshot: WARN fork install not ready for FORK.sha ${FORK.sha.slice(0, 8)} (${fw}): every state but ${[...STOCK_STATES].join(', ')} refuses until install-copy`);
   const bak = join(dir, 'bin-bak');
   mkdirSync(bak, { recursive: true });
   const present: string[] = [];
@@ -311,6 +361,7 @@ function setState(dir: string, name: string) {
   if (!STATES[name]) throw new Error(`unknown state ${name} (${Object.keys(STATES).join(', ')})`);
   if (!DRY && gamePids().length) throw new Error('TS3W.exe runs');
   if (s3mmFiles().length) throw new Error(`Sims3MonoModder (S3MM) in the game folder: ${s3mmFiles().join(', ')}; we never install it (docs/291), remove it first`);
+  if (!STOCK_STATES.has(name)) forkUnz(dir); // refuses when the fork install is missing or stale
   const snap = loadSnap(dir), want = STATES[name](join(dir, 'apex-unz'));
   for (const f of MANAGED) { // back to the snapshot first
     const p = join(BIN, f);
@@ -485,13 +536,36 @@ function selfCheck() {
   assert.ok(MANAGED.includes('wininet.dll') && MANAGED.includes('d3d9.dll') && MANAGED.includes('.trex/NvRemixBridge.exe') && MANAGED.includes('ts3native.asi'));
   assert.deepEqual(Object.keys(STATES.turbo('u')), ['Turbo.asi']);
   assert.ok(Object.keys(STATES['apex-rewind']('u')).every(k => MANAGED.includes(k)), 'restore knows every file of the rewind arm');
-  assert.ok(STATES['apex-rewind']('u')['ApexRadiance.asi']!.includes('rewind-bridge-1119'), 'the rewind arm takes its files from the install copy');
+  assert.ok(STATES['apex-rewind']('u')['bridge.conf']!.includes('rewind-bridge-1119'), 'the rewind arm takes its rewindMode confs from the install copy');
   assert.equal(STATES['apex-turbo-ual77']('u')['wininet.dll'], SRC.ual77.path);
   assert.ok(Object.keys(STATES['apex-asyncrt']('u')).every(k => MANAGED.includes(k)) && STATES['apex-asyncrt']('u')['.trex/NvRemixBridge.exe']!.includes('apex-asyncrt-test'), 'restore knows the bridge pair of the async read-back arm');
   assert.ok(STATES['apex-fork-asi']('u')['ApexRadiance.asi']!.includes('apex-fork-asi-test') && STATES['apex-fork-asi']('u')['d3d9.dll'] === STATES.apex('u')['d3d9.dll'], 'fork asi state: our asi, the release bridge');
   assert.ok(Object.keys(STATES['apex-oop']('u')).every(k => MANAGED.includes(k)) && STATES['apex-oop']('u')['ts3wrap.exe']!.includes('apex-oop-test'), 'restore knows the restart host of the oop arm');
   assert.ok(Object.keys(STATES['apex-oop-atlas']('u')).every(k => MANAGED.includes(k)) && STATES['apex-oop-atlas']('u')['atlas-oop.dll']!.includes('apex-oop-test') && EXTRA_OK.test('atlas-oop.dll'), 'restore knows the Atlas store plugin');
   assert.ok(!('wininet.dll' in STATES['apex-turbo']('u')), 'arm 2 keeps our loader');
+  // fork install: ready only for FORK.sha with every recorded sha256 matching; rewind is opt-in; stock only as apex-stock
+  const F = 'f'.repeat(40), ok = { sha: F, asi: 'a', d3d9: 'd', server: 's', ts3wrap: 't' }, files: Record<string, string> = { 'ApexRadiance.asi': 'a', 'd3d9.dll': 'd', '.trex/NvRemixBridge.exe': 's', 'ts3wrap.exe': 't' };
+  const fsx = (m: Record<string, string>) => (rel: string) => m[rel] ?? null;
+  assert.equal(forkInstallProblemOf(ok, F, fsx(files)), '');
+  assert.match(forkInstallProblemOf(null, F, fsx(files)), /no fork.json/);
+  assert.match(forkInstallProblemOf({ ...ok, sha: 'a69a1bbc' }, F, fsx(files)), /fork.json is for a69a1bbc, FORK.sha is ffffffff/);
+  assert.match(forkInstallProblemOf({ ...ok, ts3wrap: undefined }, F, fsx(files)), /no ts3wrap sha256 in fork.json \(older install-copy\)/);
+  assert.match(forkInstallProblemOf(ok, F, fsx({ ...files, 'ApexRadiance.asi': 'x' })), /ApexRadiance.asi changed/);
+  assert.equal(noRewindMode('a = 1\r\nrewindMode = True\r\nb = 2\r\n\r\nrewindMode = True\r\n'), 'a = 1\r\nb = 2\r\n\r\n');
+  assert.equal(noRewindMode('# rewindMode = True\n'), '# rewindMode = True\n', 'a comment stays');
+  assert.ok(['apex', 'apex-rewind', 'apex-oop-atlas', 'apex-turbo'].every(k => !STOCK_STATES.has(k)) && STOCK_STATES.has('apex-stock'), 'only base, turbo, apex-stock skip the fork');
+  assert.equal(STATES['apex-stock']('r/apex-unz')['ApexRadiance.asi'], join('r', 'apex-stock-unz', 'ApexRadiance.asi'));
+  assert.equal(STATES.apex('r/apex-unz')['ApexRadiance.asi'], join('r/apex-unz', 'ApexRadiance.asi'), 'apex = the run copy of the fork install');
+  const rw = STATES['apex-rewind']('r/apex-unz');
+  assert.ok(rw['bridge.conf']!.includes('rewind-bridge-1119') && rw['.trex/bridge.conf']!.includes('rewind-bridge-1119') && rw['ApexRadiance.asi'] === STATES.apex('r/apex-unz')['ApexRadiance.asi'], 'apex-rewind = apex + the rewindMode confs');
+  const oa = STATES['apex-oop-atlas']('r/apex-unz');
+  assert.ok(oa['ApexRadiance.asi'] === STATES.apex('r/apex-unz')['ApexRadiance.asi'] && oa['atlas-oop.dll']!.includes('apex-oop-test'), 'apex-oop-atlas = the fork build + the plugin');
+  const T = 't'.repeat(64);
+  const has = (m: Record<string, string>) => (p: string) => m[p] ?? null;
+  assert.equal(chooseTs3wrap([{ path: 'l', want: T }, { path: 'p' }], has({ l: T, p: 'y' })), 'l');
+  assert.equal(chooseTs3wrap([{ path: 'l', want: '-' }, { path: 'p' }], has({ l: T, p: 'y' })), 'p', 'local build without a recorded sha: the Public output');
+  assert.equal(chooseTs3wrap([{ path: 'l', want: T }, { path: 'p' }], has({})), null, 'none: no host');
+  assert.equal(chooseTs3wrap([{ path: 'c', want: null }], has({ c: 'z' })), 'c', 'CI artifact: any');
   const dg = `sha256:${'a'.repeat(64)}`, url = 'https://x/y';
   assert.equal(pickZip([{ name: 'ApexRadianceSetup.exe', digest: dg, browser_download_url: url }, { name: 'Apex-Radiance-3.2.1-Manual-install.zip', digest: dg, browser_download_url: url }])?.name, 'Apex-Radiance-3.2.1-Manual-install.zip');
   assert.equal(pickZip([{ name: 'Apex-Radiance-3.2.1-Manual-install.zip', browser_download_url: url }]), undefined, 'no digest = no pin');
@@ -540,6 +614,8 @@ function selfCheck() {
   console.log('turbo-compat self-check OK');
 }
 
+// imported by night-plan.ts for STATES: the CLI runs only when this file is the entry point
+if (import.meta.main) {
 const { values: v, positionals: [cmd, dir, arg] } = parseArgs({ allowPositionals: true, options: {
   'all-on': { type: 'boolean' }, build: { type: 'boolean' }, f7: { type: 'boolean' }, 'max-min': { type: 'string' }, 'self-check': { type: 'boolean' } } });
 if (v['self-check']) selfCheck();
@@ -549,4 +625,5 @@ else if (cmd === 'state' && dir && arg) setState(resolve(dir), arg);
 else if (cmd === 'monitor' && dir && arg) monitor(resolve(dir), arg, { allOn: !!v['all-on'], f7: !!v.f7, maxMin: Number(v['max-min'] ?? 40) });
 else if (cmd === 'collect' && dir && arg) collect(resolve(dir), arg);
 else if (cmd === 'restore' && dir) process.exit(restore(resolve(dir)) ? 0 : 1);
-else { console.error('usage: node tools/turbo-compat.ts snapshot|restore <dir> | state <dir> <base|apex|apex-turbo|apex-turbo-ual77|turbo> (or apex-rewind) | install-copy [--build] | monitor <dir> <arm> [--all-on] [--f7] | collect <dir> <arm> | --self-check'); process.exit(2); }
+else { console.error('usage: node tools/turbo-compat.ts snapshot|restore <dir> | state <dir> <name> (apex = our fork build of FORK.sha; apex-stock = stock Apex, opt-in; names in STATES) | install-copy [--build] | monitor <dir> <arm> [--all-on] [--f7] | collect <dir> <arm> | --self-check'); process.exit(2); }
+}

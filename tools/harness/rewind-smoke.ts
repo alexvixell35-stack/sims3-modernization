@@ -21,14 +21,30 @@
 // Verdict: FAIL when the tool ended the game (exit 3), the game is gone, or it no longer answers; a refusal is a result.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { BIN } from './game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
-const DIR = resolve(import.meta.dirname, 'rewind'), EXE = join(DIR, 'out', 'rewind-spike.exe'), TOY = join(DIR, 'out', 'rewind-toy.exe');
-export { EXE };
+// worktrees have no build output (tools/harness/rewind/out is git-ignored): the main checkout's rewind-spike.exe is used when this
+// checkout has none and every source it is built from has the same sha256 in both (2026-11-27: worktree queues got plain apex)
+export const REWIND_SRCS = ['rewind-spike.cpp', 'rewind-toy.h', 'rewind-selftest.inl'];
+const fsha = (p: string) => existsSync(p) ? createHash('sha256').update(readFileSync(p)).digest('hex') : null;
+export function pickRewindExe(own: string, main: string | null, sha: (p: string) => string | null = fsha, has: (p: string) => boolean = existsSync): { exe: string; from: 'own' | 'main' | 'none'; why: string } {
+  const exe = (d: string) => join(d, 'out', 'rewind-spike.exe');
+  if (has(exe(own))) return { exe: exe(own), from: 'own', why: 'built in this checkout' };
+  if (!main || resolve(main) === resolve(own)) return { exe: exe(own), from: 'none', why: 'not built (tools/harness/rewind/build.cmd)' };
+  if (!has(exe(main))) return { exe: exe(own), from: 'none', why: 'not built here nor in the main checkout' };
+  const diff = REWIND_SRCS.filter(n => { const a = sha(join(own, n)); return !a || a !== sha(join(main, n)); });
+  if (diff.length) return { exe: exe(own), from: 'none', why: `the main checkout's exe is built from other sources (${diff.join(', ')} differ)` };
+  return { exe: exe(main), from: 'main', why: `the main checkout's (sources sha256 equal, exe ${sha(exe(main))?.slice(0, 12)})` };
+}
+const mainDir = (() => { try { return join(resolve(execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: import.meta.dirname, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30000 }).trim(), '..'), 'tools', 'harness', 'rewind'); } catch { return null; } })();
+const DIR = resolve(import.meta.dirname, 'rewind'), PICK = pickRewindExe(DIR, mainDir), EXE = PICK.exe;
+export { EXE, PICK as REWIND_PICK };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 export const TASK_ROW = /^"[^"]+","(\d+)"/m;
 export const pidOf = (name: string): number => {  // not imported from rewind-census.ts: that script runs its own command line on import
@@ -70,8 +86,8 @@ export const rendererOk = (want: string | undefined, bridgeRuns: boolean, rewind
   !want || (want === 'inproc' ? !bridgeRuns : bridgeRuns && (want !== 'bridge-rewind' || rewindOn));
 
 // One `rewind-spike serve` process: send a command, get its result row.
-export function serve(pid: number, flags: string[]) {
-  const child = spawn(EXE, ['serve', String(pid), ...flags], { stdio: ['pipe', 'pipe', 'inherit'] });
+export function serve(pid: number, flags: string[], exe = EXE) {
+  const child = spawn(exe, ['serve', String(pid), ...flags], { stdio: ['pipe', 'pipe', 'inherit'] });
   let buf = '', exit: number | null = null;
   const rows: Row[] = [];
   child.stdout.on('data', d => {
@@ -108,25 +124,41 @@ async function selfCheck() {
   assert.deepEqual([rendererOk('bridge', true), rendererOk('bridge', false), rendererOk('inproc', false), rendererOk('inproc', true), rendererOk(undefined, true)], [true, false, true, false, true]);
   assert.deepEqual([rendererOk('bridge-rewind', true, true), rendererOk('bridge-rewind', true, false), rendererOk('bridge-rewind', false, true)], [true, false, false]);
   // real lines: the install copy's bridge.conf ends with the first one; Apex's shipped conf with patch 0015 has the commented one
+  // the rewind exe of a worktree: its own, else the main checkout's built from equal sources
+  const fk = (m: Record<string, string>) => (p: string) => m[p.replaceAll('\\', '/')] ?? null, hk = (m: Record<string, string>) => (p: string) => p.replaceAll('\\', '/') in m;
+  const same = { 'w/rewind-spike.cpp': 'a', 'w/rewind-toy.h': 'b', 'w/rewind-selftest.inl': 'c', 'm/rewind-spike.cpp': 'a', 'm/rewind-toy.h': 'b', 'm/rewind-selftest.inl': 'c', 'm/out/rewind-spike.exe': 'e' };
+  assert.equal(pickRewindExe('w', 'm', fk(same), hk(same)).from, 'main');
+  assert.equal(pickRewindExe('w', 'm', fk({ ...same, 'w/out/rewind-spike.exe': 'x' }), hk({ ...same, 'w/out/rewind-spike.exe': 'x' })).from, 'own');
+  const drift = { ...same, 'w/rewind-spike.cpp': 'z' };
+  assert.match(pickRewindExe('w', 'm', fk(drift), hk(drift)).why, /rewind-spike.cpp differ/);
+  const { 'w/rewind-toy.h': _, ...gone } = same;
+  assert.equal(pickRewindExe('w', 'm', fk(gone), hk(gone)).from, 'none', 'a source missing here: no borrow');
+  const { 'm/out/rewind-spike.exe': __, ...nomain } = same;
+  assert.equal(pickRewindExe('w', 'm', fk(nomain), hk(nomain)).from, 'none');
+  assert.equal(pickRewindExe('w', null, fk(same), hk(same)).from, 'none');
   assert.ok(REWIND_ON.test('serverChannelMemSize = 72MB\r\n\r\nrewindMode = True\r\n') && !REWIND_ON.test('serverChannelMemSize = 72MB\n# rewindMode = True\n'));
   const vswhere = join(process.env['ProgramFiles(x86)'] ?? '', 'Microsoft Visual Studio', 'Installer', 'vswhere.exe');
   if (process.platform !== 'win32' || !existsSync(vswhere)) { console.log('rewind-smoke self-check: flags and parser ok; toy selftest skipped (no MSVC build tools)'); return; }
+  // built into a temp folder (REWIND_OUT), never the checkout's out\: a build there would hide a missing exe from pickRewindExe
+  const tmp = mkdtempSync(join(tmpdir(), 'rewind-selfcheck-')), tExe = join(tmp, 'rewind-spike.exe'), tToy = join(tmp, 'rewind-toy.exe');
+  try {
   let out = '';
-  try { out = execFileSync('cmd', ['/c', join(DIR, 'build.cmd')], { encoding: 'utf8', timeout: 200000, stdio: ['ignore', 'pipe', 'pipe'] }); }
+  try { out = execFileSync('cmd', ['/c', join(DIR, 'build.cmd')], { encoding: 'utf8', timeout: 200000, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, REWIND_OUT: tmp } }); }
   catch (e: any) { console.error(String(e.stdout ?? '').split('\n').filter((l: string) => /FAIL|error|result/.test(l)).join('\n')); throw new Error(`toy selftest failed: ${e.message.split('\n')[0]}`); }
   const oks = out.split('\n').filter(l => l.startsWith('  ok')).length;
   assert.ok(/^PASS\s*$/m.test(out) && !/^\s+FAIL/m.test(out) && oks >= 80, `toy selftest: ${oks} ok, no PASS line`);
   // the serve protocol on a toy, as a game job uses it
-  const toy = spawn(TOY, [], { stdio: 'ignore' });
+  const toy = spawn(tToy, [], { stdio: 'ignore' });
   try {
     await sleep(700);
-    const s = serve(toy.pid!, []);
+    const s = serve(toy.pid!, [], tExe);
     const snap = await s.cmd('snapshot'), rew = await s.cmd('rewind'), plan = await s.cmd('plan'), bad = await s.cmd('nonsense');
     assert.deepEqual([snap.code, rew.code, plan.code, bad.code], [0, 0, 0, 1], JSON.stringify([snap, rew, plan]));
     assert.ok(rew.stats!.hashEqual === 1 && snap.stats!.viewsPinned >= 4);
     assert.equal(await s.quit(), 0);
   } finally { toy.kill(); }
   console.log(`rewind-smoke self-check: toy selftest PASS (${oks} checks), serve protocol ok`);
+  } finally { await sleep(500); try { rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 400 }); } catch (e) { console.log(`rewind-smoke self-check: WARN temp build ${tmp} not removed (${(e as Error).message.split(/\r?\n/)[0]})`); } } // AV can hold the fresh exe
 }
 
 async function main() {

@@ -35,7 +35,12 @@ Plan file: `{ "night": "night-1125", "cutoff": "07:45", "rgbOffUntil": "09:00", 
   alone miss the gap between another chain's queues); a second chain waits for it, a dead owner's lock is taken over, the
   EXIT trap releases it
 - waits for TS3W.exe and the running job to end; main checkout on master; Bin snapshot + `trap restore EXIT` (Bin state per queue:
-  `queue-rewind.ts state` -> apex or apex-rewind, bridge only, no DXVK arms)
+  queue key `binState` (a `turbo-compat.ts` state, unknown refused = skipped; `binStage` files copied + sha256 checked first),
+  else rewind auto -> apex-rewind when the worktree has the rewind tool (its own, or the main checkout's built from the same
+  sources, copied in), else apex. `apex` = our fork build (install-copy output for FORK.sha: asi, bridge pair, ts3wrap.exe;
+  rewindMode off); apex-rewind = apex + rewindMode; apex-oop-atlas = apex + atlas-oop.dll; stock Apex only as `apex-stock`.
+  A missing or stale fork install refuses (`--check` problem, queue SKIPPED), never stock. queue.ts logs the Bin asi sha per
+  job (row `apexAsi`, "fork <sha8>" or "NOT the fork build"). Bin back to apex after a non-apex queue; bridge only)
 - per queue: dry-run (refused = skipped), agent copied into the worktree's `build/ts3agent.package` and put back after,
   `timeout` at 2x est (>= 30 min), skip on timeout / error / refusal, no queue starts past the cutoff
 - one rerun of the FAIL / VOID / CRASH jobs only (`--only`), never the whole queue, never expectFail jobs
