@@ -53,7 +53,7 @@ namespace Ts3Fixes
         const int kFrsUses = 5040, kFrsAtOnce = 5041, kFrsBeside = 5042, kFrsYield = 5043, kFrsWouldYield = 5044, kFrsWouldShare = 5045,
             kFrsExempt = 5046, kFrsSideFail = 5047, kFrsWaitAfter = 5048, kFrsTimedOut = 5049, kFrsCleanRelease = 5050, kFrsErrors = 5051,
             kFrsOverlap = 5052, kFrsStepIn = 5053, kFrsCapped = 5054, kFrsPlayerKept = 5055, kFrsFromLine = 5056, kFrsContainerWait = 5057,
-            kFrsGaveWayWaited = 5058;  // 5059 spare
+            kFrsGaveWayWaited = 5058, kFrsCleanOrder = 5059;
 
         static readonly Dictionary<Sim, Fridge> sFrsAsk = new Dictionary<Sim, Fridge>();      // in WaitForTurn from our copy
         static readonly Dictionary<Sim, Fridge> sFrsWalk = new Dictionary<Sim, Fridge>();     // walking to / standing at the fridge in our copy
@@ -132,6 +132,19 @@ namespace Ts3Fixes
             string n = ii.GetType().Name;
             if (n == "Fridge_EatLeftovers") return object.ReferenceEquals(ii.Target, f);
             return n == "ServingContainer_CleanUp";  // putting leftovers away: its Target is the dish, the Sim is in the fridge's use list
+        }
+
+        static bool FrsClean(InteractionInstance ii) { return ii != null && ii.GetType().Name == "Fridge_CleanOutBadFood"; }
+
+        // Swap the line records at i-1 and i (a quick grab before a clean-out that waits ahead of it).
+        static bool FrsSwapAhead(SimQueue q, Sim w)
+        {
+            IList list = sFrsQueueF == null ? null : sFrsQueueF.GetValue(q) as IList;
+            if (list == null) return false;
+            int i = FrsIndex(list, w);
+            if (i < 2) return false;  // never past the head
+            object rec = list[i]; list[i] = list[i - 1]; list[i - 1] = rec;
+            return true;
         }
 
         // Other Sims at this fridge: users and Sims let in to share, by kind of use.
@@ -244,7 +257,25 @@ namespace Ts3Fixes
             }
             if (f == null || !object.ReferenceEquals(f.Line, q)) return false;
             List<Sim> line = q.SimsInQueue;
-            if (line == null || line.Count < 2 || line[1] != w) return false;
+            if (line == null || line.Count < 2) return false;
+            int wi = line.IndexOf(w);
+            if (wi >= 2 && line[wi - 1] != null && !f.IsActorUsingMe(line[wi - 1]))
+            {
+                Sim cl = line[wi - 1];
+                InteractionInstance cIa = cl.CurrentInteraction;
+                if (!FrsClean(cIa) || !object.ReferenceEquals(cIa.Target, f)) return false;
+                bool onC = ShortcutOn("fridgeshare");
+                InteractionInstance wIa = w.CurrentInteraction;
+                int o = FridgeShareCore.CleanOrder(onC, !onC || FrsScope(cl) && FrsScope(w), !cIa.Autonomous, FrsShortUse(wIa, f), wIa != null && !wIa.Autonomous);
+                if (o == FridgeShareCore.kGo && FrsSwapAhead(q, w))
+                {
+                    PatchCounters()[kFrsCleanOrder]++;
+                    FrsLine(w.FullName + " " + ShlWho(w) + " takes a quick grab before " + cl.FullName + "'s clean-out in the " + f.GetType().Name + " line");
+                }
+                else if (o == FridgeShareCore.kWould && FrsTell(((long)w.ObjectId.Value) ^ ((long)cl.ObjectId.Value << 2))) PatchCounters()[kFrsWouldYield]++;
+                return false;  // EA's loop goes on: its place is still behind the head
+            }
+            if (line[1] != w) return false;
             Sim head = line[0];
             if (head == null || head == w) return false;
             int[] c = PatchCounters();
@@ -283,7 +314,7 @@ namespace Ts3Fixes
             if (on && !headMine) return false;  // EA's own fridge action at the head: not ours to move
             if (!headMine) hIa = head.CurrentInteraction;
             else sFrsWalkIa.TryGetValue(head, out hIa);
-            bool walks = head.IsRouting && hIa != null && FrsShortUse(hIa, f);
+            bool walks = head.IsRouting && hIa != null && (FrsShortUse(hIa, f) || FrsClean(hIa));
             float hDist = (head.Position - slot).Length();
             long since;
             if (headMine && sFrsGrant.TryGetValue(head, out since)) { }
@@ -354,7 +385,7 @@ namespace Ts3Fixes
 
         // Fridge.RouteToOpen for our copy: the line (or a share without it), the walk, then the wait until this Sim may use the
         // fridge (FridgeShareCore.Ready). atSide: the use is played from beside the slot (no impassable region then).
-        static bool FrsRouteToOpen(InteractionInstance ii, Fridge f, bool playRouteFail, out bool atSide)
+        static bool FrsRouteToOpen(InteractionInstance ii, Fridge f, bool playRouteFail, bool mineShort, out bool atSide)
         {
             atSide = false;
             Sim a = ii.InstanceActor;
@@ -363,7 +394,7 @@ namespace Ts3Fixes
             int mode = FridgeShareCore.kNone;
             int sN, lN; bool othersIn;
             FrsOthers(f, a, out sN, out lN, out othersIn);
-            if (sN + lN > 0 && FrsUsers(f, a) > 0)  // a share only next to a Sim really at it (a Sim let in that waits beside the slot is no user)
+            if (mineShort && sN + lN > 0 && FrsUsers(f, a) > 0)  // a share only next to a Sim really at it (a Sim let in that waits beside the slot is no user)
             {
                 int waiting = FrsWaiting(f, a);
                 bool unseen = sN > 0 && lN == 0 && waiting == 0 && FfUnseen(f, a, FrsSlot(f), FrsSide(f, 1));
@@ -503,7 +534,7 @@ namespace Ts3Fixes
                 {
                     if (CheckForCancelAndCleanup()) return false;
                     bool atSide;
-                    if (!FrsRouteToOpen(this, Target, true, out atSide)) return false;
+                    if (!FrsRouteToOpen(this, Target, true, true, out atSide)) return false;
                     if (!atSide)
                     {
                         mImpassableRegion.AddMember(Actor);
@@ -566,7 +597,7 @@ namespace Ts3Fixes
                 {
                     if (ChosenContainer == null || !ChosenContainer.HasFoodLeft()) { Actor.AddExitReason(ExitReason.NullValueFound); return false; }
                     bool atSide;
-                    if (!FrsRouteToOpen(this, Target, true, out atSide)) { Actor.AddExitReason(ExitReason.RouteFailed); return false; }
+                    if (!FrsRouteToOpen(this, Target, true, true, out atSide)) { Actor.AddExitReason(ExitReason.RouteFailed); return false; }
                     if (ChosenContainer.HasBeenDestroyed || ChosenContainer.ItemComp.InventoryParent != Target.FridgeInventory) return false;
                     if (CheckForCancelAndCleanup()) return false;
                     for (int i = 0; i < 12 && ChosenContainer.ActorsUsingMe.Count > 0; i++)
@@ -656,7 +687,14 @@ namespace Ts3Fixes
                 catch (ResetException) { throw; }
                 catch (Exception e) { FrsError(e); }
                 if (!mine) return RunOrig();
-                if (!Target.RouteToOpen(this, true)) return false;
+                try { return FrsCleanBody(); }
+                finally { FrsDone(Actor); }
+            }
+
+            bool FrsCleanBody()
+            {
+                bool atSide;
+                if (!FrsRouteToOpen(this, Target, true, false, out atSide)) return false;  // a long use: never shared, waits for every user
                 ImpassableRegion region = sFrsCleanRegionF.GetValue(this) as ImpassableRegion;
                 if (region != null)
                 {
@@ -708,7 +746,7 @@ namespace Ts3Fixes
                 + ", shared at once (unseen) " + c[kFrsAtOnce] + ", beside the slot " + c[kFrsBeside] + " (from the line " + c[kFrsFromLine] + "), stepped in " + c[kFrsStepIn]
                 + ", overlapping uses " + c[kFrsOverlap] + ", heads gave way " + c[kFrsYield] + " (then waited " + c[kFrsGaveWayWaited] + "), waited at the fridge " + c[kFrsWaitAfter]
                 + ", timed out " + c[kFrsTimedOut] + ", capped " + c[kFrsCapped] + ", no spot beside " + c[kFrsSideFail] + ", dish wait " + c[kFrsContainerWait]
-                + ", clean-outs released " + c[kFrsCleanRelease] + "; off: would give way " + c[kFrsWouldYield] + ", would share " + c[kFrsWouldShare]
+                + ", clean-outs released " + c[kFrsCleanRelease] + ", quick grabs before a clean-out " + c[kFrsCleanOrder] + "; off: would give way " + c[kFrsWouldYield] + ", would share " + c[kFrsWouldShare]
                 + "; kept for a player's order " + c[kFrsPlayerKept] + ", exempt " + c[kFrsExempt] + ", errors " + c[kFrsErrors]
                 + (sFrsLastError.Length > 0 ? " (last: " + sFrsLastError + ")" : "") + (sFrsLast.Length > 0 ? "; last: " + sFrsLast : "");
         }
