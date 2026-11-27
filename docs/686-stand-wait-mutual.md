@@ -2145,4 +2145,28 @@ storm speed (~8 sim-min per real second). s660a is left out (claims were never m
   (`hitchwatch` >= 100 ms): SV 8 off vs 11 / 6 on, SU 19 off vs 25 on: within run-to-run spread, no nextplan frame in them
   [not traced per hitch].
 
-### 38.5 8-Sim household A/B (s662a off, s663b on) [pending]
+### 38.5 8-Sim household A/B (2026-11-27, Deck, s664a off / s664b on) [measured]
+Same storm setup (38.4); at storm start the story household `full-house` (8 Sims: two elders, two adults, a toddler, four
+children) is made with the agent's `make_household` (funds 32000, the familyfunds cheat: at CAS funds no affordable lot
+fit the crib and beds in s662b / s663b, which then ran on the old household and are left out) and switched to. Both arms
+moved into "Shotgun Style - 2br, 1ba": 1 toilet, 1 shower/bath, 2 sinks, 1 fridge, 2 beds, contention ratio 8 (high).
+
+| | off (s664a) | on (s664b) |
+|---|---|---|
+| household pick gap ms p50 / p90 | 1024 / 2048 | 128 / 2048 |
+| sim-min p50 / p90 | 6.4 / 25.6 | 0.8 / 12.8 |
+| actdelay household pick p50 / p90 ms (n) | 352 / 960 (2033) | 60 / 480 (2068) |
+| delay class (after a player's action) sim-min p50 | 12.8 | 0.8 |
+| household same-target picks: claimed by another Sim / in use by another Sim | 110 / 107 | 78 / 101 |
+| claimed objects scored down (high level) | would 1410 | 1673 (854) |
+| household autonomous actions done per sim-hour | 12.4 | 13.3 |
+| household motive mean / min at the end | -0.9 / -100 | 2.7 / -100 |
+| errors (nextplan / ErrorTrap / script exception lines) | 0 / 6 / 19 | 0 / 6 / 18 |
+| hitch lines >= 100 ms | 9 | 8 |
+
+- The gap falls 8x at the median in the crowded house; two household Sims heading for one claimed object fall by 29 %
+  (in-use picks, EA's own 0.2 factor already, stay). The house stays overloaded either way (one toilet for eight: motive
+  min -100 in both arms); the on arm finishes 7 % more actions per sim-hour.
+- Proof status: storm A/B on two worlds and an 8-Sim house, 0 errors of its own, no hitch rise; one run per arm, so the
+  needs and hitch differences are within noise. Not run: a forced repro of a player's queued order against a pre-pick
+  (EA's own rule; counted as "dropped by a higher-priority add" 71-157 per on arm, the storm's pushes).
