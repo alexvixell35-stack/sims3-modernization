@@ -1,6 +1,7 @@
 // Usage: node tools/selftest/sinkfree/run.ts  (compiles this with mods/ts3fixes/src/SinkFreeCore.cs)
-// Offline self-check of SinkFreeCore.cs (docs/686 §40): when a busy sink pick for dishes becomes the nearest free sink,
-// switch and scope, the busy test and the nearest-sink choice with EA's level factor. Exit code 1 on failure.
+// Offline self-check of SinkFreeCore.cs (docs/686 §40): kitchen sinks first, never kitchen -> bathroom, the hand-in
+// decision with its cap, the extra wash time and what happens to handed-in dishes when the wash ends or stops early.
+// Exit code 1 on failure.
 using System;
 using Ts3Fixes;
 
@@ -9,50 +10,93 @@ static class SinkFreeTest
     static int sFails;
     static void Check(bool ok, string what) { if (!ok) { sFails++; Console.WriteLine("FAIL: " + what); } }
 
-    const int N = SinkFreeCore.kNone, W = SinkFreeCore.kWould, X = SinkFreeCore.kExempt, G = SinkFreeCore.kGo;
+    const int N = SinkFreeCore.kNone, W = SinkFreeCore.kWould, X = SinkFreeCore.kExempt, G = SinkFreeCore.kGo, C = SinkFreeCore.kCapped;
+    const float L = 0.25f;
 
-    static void Rules()
+    static void Decide()
     {
-        Check(SinkFreeCore.Decide(true, true, true, true, 0) == G, "busy sink, a free one exists: wash at the free one");
-        Check(SinkFreeCore.Decide(false, true, true, true, 0) == W, "switch off: would");
-        Check(SinkFreeCore.Decide(true, false, true, true, 0) == X, "household Sim without sinkfreehh: exempt");
-        Check(SinkFreeCore.Decide(false, false, true, true, 0) == X, "out of scope wins over off (counted as exempt)");
-        Check(SinkFreeCore.Decide(true, true, true, false, 0) == N, "EA's sink is free: EA's pick");
-        Check(SinkFreeCore.Decide(true, true, true, true, -1) == N, "no free sink: EA's pick");
-        Check(SinkFreeCore.Decide(true, true, false, true, 0) == N, "EA picked a dishwasher or synthesizer: never changed");
-        // every combination: Go only with on, in scope, a busy sink and a free one
-        for (int m = 0; m < 32; m++)
-        {
-            bool on = (m & 1) != 0, sc = (m & 2) != 0, sink = (m & 4) != 0, busy = (m & 8) != 0; int free = (m & 16) != 0 ? 1 : -1;
-            int d = SinkFreeCore.Decide(on, sc, sink, busy, free);
-            bool want = on && sc && sink && busy && free >= 0;
-            Check((d == G) == want, "combination " + m + ": go only when everything holds");
-            if (!(sink && busy && free >= 0)) Check(d == N, "combination " + m + ": nothing to change = none");
-        }
+        Check(SinkFreeCore.Decide(true, true, true, true) == G, "another sink: go");
+        Check(SinkFreeCore.Decide(false, true, true, true) == W, "switch off: would");
+        Check(SinkFreeCore.Decide(true, false, true, true) == X, "household Sim without sinkfreehh: exempt");
+        Check(SinkFreeCore.Decide(true, true, true, false) == N, "same sink: nothing");
+        Check(SinkFreeCore.Decide(true, true, false, true) == N, "EA picked a dishwasher or synthesizer: never changed");
+        Check(!SinkFreeCore.Busy(0, false) && SinkFreeCore.Busy(1, false) && SinkFreeCore.Busy(0, true), "busy = another user or another line head");
+        Check(SinkFreeCore.Kitchen(false, false) && !SinkFreeCore.Kitchen(true, false) && !SinkFreeCore.Kitchen(false, true), "kitchen = counter sink outside a bathroom");
     }
 
-    static void Busy()
+    static void Pick()
     {
-        Check(!SinkFreeCore.Busy(0, false), "nobody else: free");
-        Check(SinkFreeCore.Busy(1, false), "another user: busy");
-        Check(SinkFreeCore.Busy(0, true), "another Sim heads the line: busy");
+        // sinks: 0 bathroom near, 1 kitchen far, 2 kitchen farther
+        bool[] kit = { false, true, true };
+        float[] d = { 1f, 5f, 8f };
+        Check(SinkFreeCore.Pick(0, kit, new bool[] { false, false, false }, d, null, L) == 1, "free bathroom pick, free kitchen exists: kitchen first");
+        Check(SinkFreeCore.Pick(0, kit, new bool[] { true, true, false }, d, null, L) == 2, "nearest kitchen busy: the free one");
+        Check(SinkFreeCore.Pick(0, kit, new bool[] { true, true, true }, d, null, L) == 1, "every kitchen busy: the nearest kitchen (hand-in or its line), not the bathroom");
+        Check(SinkFreeCore.Pick(1, kit, new bool[] { false, true, true }, d, null, L) == 1, "EA's busy kitchen, only the bathroom free: stays (never kitchen -> bathroom)");
+        Check(SinkFreeCore.Pick(1, kit, new bool[] { false, true, false }, d, null, L) == 2, "EA's busy kitchen, another kitchen free: that one");
+        Check(SinkFreeCore.Pick(2, kit, new bool[] { false, false, false }, d, null, L) == 2, "EA's free kitchen: kept");
+        bool[] bathOnly = { false, false };
+        Check(SinkFreeCore.Pick(0, bathOnly, new bool[] { true, false }, new float[] { 1f, 4f }, null, L) == 1, "no kitchen sink: the free bathroom sink");
+        Check(SinkFreeCore.Pick(0, bathOnly, new bool[] { true, true }, new float[] { 1f, 4f }, null, L) == 0, "no kitchen, none free: EA's");
+        Check(SinkFreeCore.Pick(0, bathOnly, new bool[] { false, true }, new float[] { 1f, 4f }, null, L) == 0, "no kitchen, EA's free: EA's");
+        Check(SinkFreeCore.Pick(-1, kit, new bool[3], d, null, L) == -1, "EA's pick not on the lot: EA's");
+        Check(SinkFreeCore.Pick(0, kit, new bool[] { false, false, false }, new float[] { 1f, 2f, 6f }, new bool[] { false, true, false }, L) == 2, "kitchen upstairs counts 4x: the one on this level");
+        // never kitchen -> bathroom, every combination of busy for a two-sink house (0 bathroom, 1 kitchen)
+        for (int m = 0; m < 4; m++)
+        {
+            bool[] b = { (m & 1) != 0, (m & 2) != 0 };
+            Check(SinkFreeCore.Pick(1, new bool[] { false, true }, b, new float[] { 1f, 5f }, null, L) == 1, "kitchen pick stays kitchen, busy mask " + m);
+            Check(SinkFreeCore.Pick(0, new bool[] { false, true }, b, new float[] { 1f, 5f }, null, L) == 1, "bathroom pick goes to the kitchen, busy mask " + m);
+        }
     }
 
     static void Nearest()
     {
-        float lv = 0.25f;
-        Check(SinkFreeCore.Nearest(new float[] { 3f, 6f }, new bool[] { true, true }, new bool[] { false, false }, lv) == 0, "the nearer of two");
-        Check(SinkFreeCore.Nearest(new float[] { 3f, 6f }, new bool[] { false, true }, new bool[] { false, false }, lv) == 1, "unusable skipped");
-        Check(SinkFreeCore.Nearest(new float[] { 3f, 6f }, new bool[] { false, false }, null, lv) == -1, "none usable");
-        Check(SinkFreeCore.Nearest(new float[] { 2f, 6f }, new bool[] { true, true }, new bool[] { true, false }, lv) == 1, "2 m upstairs counts as 8 m: the 6 m one on this level");
-        Check(SinkFreeCore.Nearest(new float[] { 1f, 6f }, new bool[] { true, true }, new bool[] { true, false }, lv) == 0, "1 m upstairs counts as 4 m: still nearer");
-        Check(SinkFreeCore.Nearest(null, null, null, lv) == -1, "no sinks");
-        Check(SinkFreeCore.Nearest(new float[0], new bool[0], new bool[0], lv) == -1, "empty lot");
+        Check(SinkFreeCore.Nearest(new float[] { 3f, 6f }, new bool[] { true, true }, null, L) == 0, "the nearer of two");
+        Check(SinkFreeCore.Nearest(new float[] { 3f, 6f }, new bool[] { false, false }, null, L) == -1, "none usable");
+        Check(SinkFreeCore.Nearest(null, null, null, L) == -1 && SinkFreeCore.Nearest(new float[0], new bool[0], null, L) == -1, "no sinks");
+    }
+
+    static void Handoff()
+    {
+        Check(SinkFreeCore.Handoff(true, true, true, true, false, 2, 0) == G, "kitchen sink, someone washing, no free kitchen: hand in");
+        Check(SinkFreeCore.Handoff(false, true, true, true, false, 2, 0) == W, "off: would");
+        Check(SinkFreeCore.Handoff(true, false, true, true, false, 2, 0) == X, "out of scope: exempt");
+        Check(SinkFreeCore.Handoff(true, true, false, true, false, 2, 0) == N, "bathroom sink: never");
+        Check(SinkFreeCore.Handoff(true, true, true, false, false, 2, 0) == N, "nobody washing (a teeth brusher, or free): EA's wash");
+        Check(SinkFreeCore.Handoff(true, true, true, true, true, 2, 0) == N, "another kitchen sink free: no hand-in (the pick sends it there)");
+        Check(SinkFreeCore.Handoff(true, true, true, true, false, 0, 0) == N, "nothing held: nothing");
+        Check(SinkFreeCore.Handoff(true, true, true, true, false, 3, 0) == G, "3 dishes, none handed yet: at the cap, ok");
+        Check(SinkFreeCore.Handoff(true, true, true, true, false, 1, 2) == G, "third dish of this wash: ok");
+        Check(SinkFreeCore.Handoff(true, true, true, true, false, 1, 3) == C, "cap reached: EA's line");
+        Check(SinkFreeCore.Handoff(true, true, true, true, false, 2, 2) == C, "would go past the cap: EA's line");
+        Check(SinkFreeCore.Handoff(true, true, true, true, false, 4, 0) == C, "a stack of 4: EA's line");
+        Check(SinkFreeCore.Handoff(false, false, true, true, false, 4, 0) == C, "cap counted before scope and switch");
+        for (int h = 0; h <= 4; h++)
+            for (int n = 1; n <= 4; n++)
+            {
+                int r = SinkFreeCore.Handoff(true, true, true, true, false, n, h);
+                Check((r == G) == (h + n <= SinkFreeCore.kHandCap), "cap " + h + "+" + n);
+            }
+    }
+
+    static void Times()
+    {
+        Check(Math.Abs(SinkFreeCore.ExtraMinutes(16f, 8, 2) - 4f) < 1e-4, "16 sim-min for a stack of 8: 2 dishes = 4 sim-min");
+        Check(SinkFreeCore.ExtraMinutes(16f, 8, 0) == 0f && SinkFreeCore.ExtraMinutes(0f, 8, 2) == 0f && SinkFreeCore.ExtraMinutes(16f, 0, 2) == 0f, "no time for nothing");
+    }
+
+    static void End()
+    {
+        Check(SinkFreeCore.EndDish(true, true) == SinkFreeCore.kEndWashed, "wash done, dishes still down: washed");
+        Check(SinkFreeCore.EndDish(false, true) == SinkFreeCore.kEndLeft, "washer stopped early: dishes stay down, dirty (EA's cleanup)");
+        Check(SinkFreeCore.EndDish(true, false) == SinkFreeCore.kEndTaken, "picked up by another Sim meanwhile: left to that Sim (no duplicate)");
+        Check(SinkFreeCore.EndDish(false, false) == SinkFreeCore.kEndTaken, "stopped early and taken: left to that Sim");
     }
 
     static int Main()
     {
-        Rules(); Busy(); Nearest();
+        Decide(); Pick(); Nearest(); Handoff(); Times(); End();
         Console.WriteLine(sFails == 0 ? "sinkfree selftest: all passed" : "sinkfree selftest: " + sFails + " failed");
         return sFails == 0 ? 0 : 1;
     }
