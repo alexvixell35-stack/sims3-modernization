@@ -158,7 +158,7 @@ namespace Ts3Fixes
                 SimQueue line = t.SimLine;
                 if (line != null && line.HasMembers()) continue;  // somebody is in its line: the push would only join it
                 if (t.Repairable != null && t.Repairable.Broken) continue;
-                if (home.RoomLockedByPrivacy(s, t.RoomId)) continue;
+                if (home.RoomLockedByPrivacy(s, t.RoomId) && !FbOpenFor(s, t, true)) continue;  // familybath (docs/686 §44): a room held only by a household member's shower or bath is open for the toilet
                 BwClaim c;
                 if (claim.TryGetValue(t.ObjectId.Value, out c) && c.S != s)
                 {
