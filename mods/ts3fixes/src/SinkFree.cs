@@ -24,8 +24,8 @@ namespace Ts3Fixes
     //    bath) gets dishes only on a lot without a kitchen sink. s691b: 17 of 23 household bathroom-sink waits were dishes.
     // 2. Drop it in the sink: Sink.WashDishes.Run of the Sim with the dishes, at a kitchen sink where another Sim runs
     //    WashDishes and no other kitchen sink is free: a real walk (RouteToObjectRadialRange) to the sink, EA's put-down on
-    //    the floor (CarrySystem.PutDownOnFloor), the washer's TimedStage longer by EA's wash length / kMaxDishStackSize per
-    //    dish, and at the end of that wash (its own Run returning true, i.e. EA's stage done) the dishes get EA's washed events
+    //    the floor (CarrySystem.PutDownOnFloor), the washer's TimedStage a little longer (1/16 of EA's wash length per
+    //    dish, the wash +20 % at most: SinkFreeCore.ExtraMinutes), and at the end of that wash (its own Run returning true, i.e. EA's stage done) the dishes get EA's washed events
     //    and are destroyed as EA destroys a washed stack. At most SinkFreeCore.kHandCap dishes per wash, else EA's line. The
     //    handed-in dish is hidden right after the put-down (EA's FadeOut, footprint hidden, all interactions off), so it looks
     //    washed along with the washer's and nobody can take or clean it. A wash that ends early (cancel, reset, need) shows
@@ -40,7 +40,6 @@ namespace Ts3Fixes
             kSnfHandWould = 5012, kSnfCapped = 5013, kSnfWashed = 5014, kSnfLeft = 5015, kSnfTaken = 5016, kSnfHandBack = 5017, kSnfShown = 5018;
         static string sSnfLast = "";
         static FieldInfo sSnfTotal;  // SimpleStage.mTotalTime (protected): the stage's length, for TimedStage.ResetCompletionTime
-        static FieldInfo sSnfStack;  // ServingContainer_CleanUp.kMaxDishStackSize (private static, 8)
 
         sealed class SnfPend { public Sim Washer; public List<GameObject> Tops = new List<GameObject>(); public List<int> Counts = new List<int>(); public int Dishes; }
         static readonly Dictionary<InteractionInstance, SnfPend> sSnfPend = new Dictionary<InteractionInstance, SnfPend>();
@@ -50,7 +49,6 @@ namespace Ts3Fixes
             Patch(typeof(ServingContainer.ServingContainer_CleanUp), "GetBestObjectToWashDishes", Type.EmptyTypes, typeof(SnfHook), "PickHook", "PickOrig");
             Patch(typeof(Sink.WashDishes), "Run", Type.EmptyTypes, typeof(SnfWashHook), "RunHook", "RunOrig");
             sSnfTotal = typeof(SimpleStage).GetField("mTotalTime", BindingFlags.Instance | BindingFlags.NonPublic);
-            sSnfStack = typeof(ServingContainer.ServingContainer_CleanUp).GetField("kMaxDishStackSize", BindingFlags.Static | BindingFlags.NonPublic);
             World.OnWorldLoadFinishedEventHandler -= SnfWorldLoaded;
             World.OnWorldLoadFinishedEventHandler += SnfWorldLoaded;
         }
@@ -187,12 +185,6 @@ namespace Ts3Fixes
             return false;
         }
 
-        static int SnfMaxStack()
-        {
-            try { if (sSnfStack != null) return (int)sSnfStack.GetValue(null); } catch (ResetException) { throw; } catch (Exception) { }
-            return 8;
-        }
-
         // Rule 2 for the Sim a at the start of its WashDishes at s: true = handed in (its Run ends here).
         static bool SnfTryHand(Sink.WashDishes self)
         {
@@ -224,10 +216,11 @@ namespace Ts3Fixes
             if (p == null) { p = new SnfPend(); p.Washer = washer; sSnfPend[wi] = p; }
             p.Tops.Add(held); p.Counts.Add(count); p.Dishes += count;
             List<Sims3.UI.Hud.IStage> st = wi.IStages; TimedStage ts = st != null && st.Count > 0 ? st[0] as TimedStage : null;
-            float extra = SinkFreeCore.ExtraMinutes(s.TuningSink.WashDishesLengthInMinutes, SnfMaxStack(), count);
+            float washLen = s.TuningSink.WashDishesLengthInMinutes;
+            float extra = SinkFreeCore.ExtraMinutes(washLen, p.Dishes - count, count);
             if (ts != null && sSnfTotal != null) ts.ResetCompletionTime((float)sSnfTotal.GetValue(ts) + extra);
             c[kSnfHanded] += count;
-            SnfLine("sinkfree: " + a.FullName + " " + who + ": hands " + count + " dishes to " + washer.FullName + " at " + s.GetType().Name + ", wash +" + extra.ToString("0.0") + " sim-min");
+            SnfLine("sinkfree: " + a.FullName + " " + who + ": hands " + count + " dishes to " + washer.FullName + " at " + s.GetType().Name + ", wash " + washLen.ToString("0.0") + " sim-min +" + extra.ToString("0.00") + " sim-min");
             return true;
         }
 
@@ -331,7 +324,7 @@ namespace Ts3Fixes
             bool hand = SinkFreeCore.Handoff(true, true, true, true, false, 2, 0) == SinkFreeCore.kGo;
             bool cap = SinkFreeCore.Handoff(true, true, true, true, false, 2, 2) == SinkFreeCore.kCapped;
             bool early = SinkFreeCore.EndDish(false, true) == SinkFreeCore.kEndLeft;
-            bool hooked = typeof(ServingContainer.ServingContainer_CleanUp).GetMethod("GetBestObjectToWashDishes") != null && sSnfTotal != null && sSnfStack != null;
+            bool hooked = typeof(ServingContainer.ServingContainer_CleanUp).GetMethod("GetBestObjectToWashDishes") != null && sSnfTotal != null;
             return "sinkfree check: bathroom pick -> free kitchen " + toKitchen + ", busy kitchen never -> bathroom " + neverBath + ", hand-in " + hand
                 + ", cap " + cap + ", early end leaves dishes " + early + ", members found=" + hooked + "; " + SnfCounters();
         }
