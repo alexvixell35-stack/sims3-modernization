@@ -106,25 +106,22 @@ static class SinkFreeTest
     static void Merge()
     {
         int G = SinkFreeCore.kGo;
-        Check(SinkFreeCore.Merge(true, true, true, true, false, 2f, 6f, 1, 1, 0, 8) == G, "carrier 2 m away, sink 6 m: merge");
-        Check(SinkFreeCore.Merge(false, true, true, true, false, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kWould, "off: would");
-        Check(SinkFreeCore.Merge(true, false, true, true, false, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kExempt, "out of scope: exempt");
-        Check(SinkFreeCore.Merge(true, true, false, true, false, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kNone, "bathroom sink: never");
-        Check(SinkFreeCore.Merge(true, true, true, false, false, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kNone, "no carrier: none");
-        Check(SinkFreeCore.Merge(true, true, true, true, true, 2f, 6f, 1, 1, 0, 8) == SinkFreeCore.kNone, "another kitchen sink free: wash there");
-        Check(SinkFreeCore.Merge(true, true, true, true, false, 0f, 6f, 0, 1, 0, 8) == SinkFreeCore.kNone, "no dishes: none");
-        Check(SinkFreeCore.Merge(true, true, true, true, false, 4.5f, 9f, 1, 1, 0, 8) == SinkFreeCore.kMergeFar, "carrier past kMergeNear: own trip");
-        Check(SinkFreeCore.Merge(true, true, true, true, false, 3f, 2f, 1, 1, 0, 8) == SinkFreeCore.kMergeFar, "sink nearer than the carrier: own trip");
-        Check(SinkFreeCore.Merge(true, true, true, true, false, float.NaN, 6f, 1, 1, 0, 8) == SinkFreeCore.kMergeFar, "no distance: own trip");
-        Check(SinkFreeCore.Merge(true, true, true, true, false, 4f, 6f, 1, 1, 0, 8) == G, "at kMergeNear: merge");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 1, 1, 0, 8) == G, "carrier on its way, room on the stack: merge");
+        Check(SinkFreeCore.Merge(false, true, true, true, false, 1, 1, 0, 8) == SinkFreeCore.kWould, "off: would");
+        Check(SinkFreeCore.Merge(true, false, true, true, false, 1, 1, 0, 8) == SinkFreeCore.kExempt, "out of scope: exempt");
+        Check(SinkFreeCore.Merge(true, true, false, true, false, 1, 1, 0, 8) == SinkFreeCore.kNone, "bathroom sink: never");
+        Check(SinkFreeCore.Merge(true, true, true, false, false, 1, 1, 0, 8) == SinkFreeCore.kNone, "no carrier: none");
+        Check(SinkFreeCore.Merge(true, true, true, true, true, 1, 1, 0, 8) == SinkFreeCore.kNone, "another kitchen sink free: wash there");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 0, 1, 0, 8) == SinkFreeCore.kNone, "no dishes: none");
         for (int stack = 1; stack <= 8; stack++)
             for (int joined = 0; joined <= 4; joined++)
                 for (int n = 1; n <= 4; n++)
                 {
-                    int r = SinkFreeCore.Merge(true, true, true, true, false, 1f, 5f, n, stack, joined, 8);
+                    int r = SinkFreeCore.Merge(true, true, true, true, false, n, stack, joined, 8);
                     Check((r == G) == (stack + joined + n <= 8) && (r == G || r == SinkFreeCore.kCapped), "stack " + stack + "+" + joined + "+" + n);
                 }
-        Check(SinkFreeCore.Merge(true, true, true, true, false, 1f, 5f, 1, 1, 0, 0) == SinkFreeCore.kCapped, "no stack size: never");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 1, 1, 0, 0) == SinkFreeCore.kCapped, "no stack size: never");
+        Check(SinkFreeCore.Kitchen(false, false) && !SinkFreeCore.Kitchen(true, false) && !SinkFreeCore.Kitchen(false, true), "kitchen = counter sink in a room without a toilet, shower or tub");
     }
 
     static void Times()

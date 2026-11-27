@@ -33,7 +33,7 @@ namespace Ts3Fixes
 
         // A kitchen sink: not a pedestal sink and not in a room with a toilet, shower or bath (EA has no room types; these
         // are the objects EA's own privacy situations lock rooms for).
-        public static bool Kitchen(bool pedestal, bool roomHasBathObject) { return !pedestal && !roomHasBathObject; }
+        public static bool Kitchen(bool notCounterSink, bool roomHasBathObject) { return !notCounterSink && !roomHasBathObject; }
 
         // The nearest usable sink: distance divided by EA's level factor (GlobalFunctions.GetClosestObject's kDifferentLevelScore)
         // for a sink on another level, as EA ranks them.
@@ -107,17 +107,12 @@ namespace Ts3Fixes
         }
 
         // Rule 3: merge dish trips? Another Sim (the carrier) is on its way to the same kitchen sink with dishes (its WashDishes
-        // runs, it does not wash yet) and no other kitchen sink is free. The Sim with the dishes walks to the carrier and adds
-        // its dishes to the carrier's wash only when the carrier is near (kMergeNear) and nearer than the sink, so the walk
-        // is short and on the way; and only while the carrier's stack plus what joined it plus these dishes fit in EA's
-        // kMaxDishStackSize. kMergeFar: the carrier is not close (EA's own trip).
-        public const float kMergeNear = 4f, kMergeReach = 1.5f;
-        public const int kMergeFar = 5;
-        public static int Merge(bool on, bool inScope, bool kitchenSink, bool carrierWalking, bool freeKitchen, float distToCarrier,
-            float distToSink, int dishes, int carrierStack, int joined, int maxStack)
+        // runs, it does not wash yet) and no other kitchen sink is free: the Sim with the dishes sets them by the sink and they
+        // join the carrier's wash, as a hand-in, only while the carrier's stack plus what joined it plus these dishes fit in
+        // EA's kMaxDishStackSize. (EA has no hand-over animation; a plate set down mid-room on the way would sit on the floor.)
+        public static int Merge(bool on, bool inScope, bool kitchenSink, bool carrierWalking, bool freeKitchen, int dishes, int carrierStack, int joined, int maxStack)
         {
             if (!kitchenSink || !carrierWalking || freeKitchen || dishes <= 0) return kNone;
-            if (!(distToCarrier <= kMergeNear) || !(distToCarrier < distToSink)) return kMergeFar;
             if (maxStack <= 0 || carrierStack + joined + dishes > maxStack) return kCapped;
             if (!inScope) return kExempt;
             return on ? kGo : kWould;

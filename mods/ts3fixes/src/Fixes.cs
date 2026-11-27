@@ -1858,8 +1858,8 @@ namespace Ts3Fixes
         // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
         // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
-        // [5000-5019, 5080-5084] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
-        // would / no better sink / exempt / errors / EA's sink free / not a sink / lines / to kitchen / handed in / hand-in would / capped / washed / left down / moved while hidden / washer stopped first / shown again / merged dishes; 5080-5084 merge would / stack full / carrier not close / carrier out of reach / locked-room sink skipped; 5085-5089 spare.
+        // [5000-5019, 5080-5087] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
+        // would / no better sink / exempt / errors / EA's sink free / not a sink / lines / to kitchen / handed in / hand-in would / capped / washed / left down / moved while hidden / washer stopped first / shown again / merged dishes; 5080-5087 merge would / stack full / spare / carrier stopped or full / locked-room sink skipped / no surface by the sink (seen) / floor put-down (unseen) / put-down on screen; 5088-5089 spare.
         // [4980-4999] doorseat (DoorSeat.cs, docs/686 §39; reserved by hand 2026-11-27): seat tests refused with a door near / would /
         // allowed scoot / feet / kept: no door near / door allowed still refused / exempt / errors / scoot refused / feet refused /
         // snaps faded / lines / check sit orders / seated / not seated / seatreach: seat cases / walked after the grace / clip /
