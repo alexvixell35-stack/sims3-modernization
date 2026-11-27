@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
+using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.ObjectComponents;
@@ -270,8 +271,12 @@ namespace Ts3Fixes
         {
             GameObject chair = table.GetContainedObject(r.ChairSlot) as GameObject;
             if (chair == null) return r;
-            InteractionInstance cur = sim.CurrentInteraction;
-            bool sitting = cur != null && sScSitType != null && cur.GetType() == sScSitType && object.ReferenceEquals(cur.Target, table);  // the pick that is walked, not a score
+            // the pick that is walked, not a score: SitHereForEating runs as the Sim's posture transition (the eat action is
+            // the queue's head), or as its own action
+            InteractionQueue q = sim.InteractionQueue;
+            InteractionInstance cur = q == null ? null : q.TransitionInteraction;
+            if (cur == null || sScSitType == null || cur.GetType() != sScSitType) cur = sim.CurrentInteraction;
+            bool sitting = cur != null && sScSitType != null && cur.GetType() == sScSitType && object.ReferenceEquals(cur.Target, table);
             int[] c = PatchCounters();
             if (ScHeldByOther(chair, sim))
             {
@@ -452,6 +457,12 @@ namespace Ts3Fixes
                 if (o == null || o.HasBeenDestroyed) continue;
                 if (o.InUse || o.Parent is Sim) { kept++; continue; }
                 o.Destroy(); gone++;
+            }
+            foreach (ServingContainer sc in sel.LotCurrent.GetObjects<ServingContainer>())
+            {
+                if (sc == null || sc.HasBeenDestroyed) continue;
+                if (sc.InUse || sc.Parent is Sim) { kept++; continue; }
+                sc.Destroy(); gone++;
             }
             return "seatclash clear: destroyed " + gone + " plates / platters, kept " + kept + " held or in use";
         }

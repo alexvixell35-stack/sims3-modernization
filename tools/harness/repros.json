@@ -152799,6 +152799,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -152854,6 +152862,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -152863,6 +152872,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -152872,6 +152882,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -152881,6 +152892,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -152890,6 +152902,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -152899,6 +152912,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -152908,6 +152922,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -152917,6 +152932,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -153036,6 +153052,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -153091,6 +153115,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -153100,6 +153125,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -153109,6 +153135,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -153118,6 +153145,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -153127,6 +153155,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -153136,6 +153165,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -153145,6 +153175,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -153154,6 +153185,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -153273,6 +153305,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -153328,6 +153368,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -153337,6 +153378,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -153346,6 +153388,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -153355,6 +153398,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -153364,6 +153408,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -153373,6 +153418,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -153382,6 +153428,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -153391,6 +153438,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -153581,6 +153629,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -153636,6 +153692,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -153645,6 +153702,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -153654,6 +153712,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -153663,6 +153722,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -153672,6 +153732,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -153681,6 +153742,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -153690,6 +153752,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -153699,6 +153762,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -153818,6 +153882,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -153873,6 +153945,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -153882,6 +153955,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -153891,6 +153965,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -153900,6 +153975,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -153909,6 +153985,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -153918,6 +153995,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -153927,6 +154005,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -153936,6 +154015,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -154055,6 +154135,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -154110,6 +154198,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -154119,6 +154208,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -154128,6 +154218,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -154137,6 +154228,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -154146,6 +154238,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -154155,6 +154248,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -154164,6 +154258,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -154173,6 +154268,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -154634,6 +154730,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -154689,6 +154793,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -154698,6 +154803,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -154707,6 +154813,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -154716,6 +154823,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -154725,6 +154833,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -154734,6 +154843,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -154743,6 +154853,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -154752,6 +154863,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-1: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -154871,6 +154983,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -154926,6 +155046,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -154935,6 +155056,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -154944,6 +155066,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -154953,6 +155076,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -154962,6 +155086,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -154971,6 +155096,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -154980,6 +155106,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -154989,6 +155116,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-2: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -155108,6 +155236,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -155163,6 +155299,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -155172,6 +155309,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -155181,6 +155319,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -155190,6 +155329,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -155199,6 +155339,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -155208,6 +155349,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -155217,6 +155359,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -155226,6 +155369,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-off-3: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -155416,6 +155560,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -155471,6 +155623,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -155480,6 +155633,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -155489,6 +155643,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -155498,6 +155653,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -155507,6 +155663,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -155516,6 +155673,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -155525,6 +155683,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -155534,6 +155693,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-1: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -155653,6 +155813,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -155708,6 +155876,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -155717,6 +155886,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -155726,6 +155896,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -155735,6 +155906,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -155744,6 +155916,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -155753,6 +155926,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -155762,6 +155936,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -155771,6 +155946,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-2: Hal Seatclash ordered to grab a serving"
       },
       {
@@ -155890,6 +156066,14 @@
         "optional": true
       },
       {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:ServingContainerGroup"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
         "cmd": "reflect_call",
         "args": {
           "path": "Ts3Fixes.Fixes.SeatClashCheck",
@@ -155945,6 +156129,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Ada Seatclash ordered to grab a serving"
       },
       {
@@ -155954,6 +156139,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Ben Seatclash ordered to grab a serving"
       },
       {
@@ -155963,6 +156149,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Cia Seatclash ordered to grab a serving"
       },
       {
@@ -155972,6 +156159,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Dov Seatclash ordered to grab a serving"
       },
       {
@@ -155981,6 +156169,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Eva Seatclash ordered to grab a serving"
       },
       {
@@ -155990,6 +156179,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Fox Seatclash ordered to grab a serving"
       },
       {
@@ -155999,6 +156189,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Gia Seatclash ordered to grab a serving"
       },
       {
@@ -156008,6 +156199,7 @@
           "target": "@type:ServingContainerGroup",
           "interaction": "def:ServingContainerGroup_GrabAServing"
         },
+        "optional": true,
         "note": "seatclash-on-3: Hal Seatclash ordered to grab a serving"
       },
       {
