@@ -173,6 +173,10 @@ export function unlock(file: string, night: string): boolean {
   unlinkSync(file); return true;
 }
 // job ids of FAIL / VOID / CRASH rows in queue.ts output ("HH:MM:SS queue: <id>: FAIL in 3 min ...")
+// deterministic same-build failures: a rerun of the same build gives the same result, so the chain does not rerun them
+// (2026-11-27: Atlas P1 native inspect fault 0xC0000005 in Inspect, step 'inspect io set', -99 on every run of main 0.3.21)
+export const NO_RERUN: RegExp[] = [/native inspect -99\b/];
+export const noRerunJobs = (out: string): string[] => [...new Set([...out.matchAll(/^\d\d:\d\d:\d\d queue: ([\w.-]+): (?:FAIL|VOID|CRASH) in [^\n]*/gm)].filter(m => NO_RERUN.some(re => re.test(m[0]))).map(m => m[1]))];
 export const failedJobs = (out: string): string[] => [...new Set([...out.matchAll(/^\d\d:\d\d:\d\d queue: ([\w.-]+): (?:FAIL|VOID|CRASH) in /gm)].map(m => m[1]))];
 // first-pass triage: known failure patterns of a queue's output -> class + suggested fix (the night-all-1124 failures)
 export const CLASSES: { cls: string; re: RegExp; fix: (m: RegExpMatchArray) => string }[] = [
@@ -385,7 +389,8 @@ function triageCmd() {
   const n = values.night!, out = values.out!, txt = existsSync(out) ? readFileSync(out, 'latin1') : '';
   if (values['rerun-ids'] !== undefined) { // rerun list only: failed ids minus expectFail ids ("-" = none)
     const skip = new Set(values['rerun-ids'].split(',').filter(x => x && x !== '-'));
-    console.log(failedJobs(txt).filter(id => !skip.has(id)).join(',') || '-');
+    const det = new Set(noRerunJobs(txt));
+    console.log(failedJobs(txt).filter(id => !skip.has(id) && !det.has(id)).join(',') || '-');
     return;
   }
   const t = triage(txt, { est: Number(values.est), minutes: Number(values.minutes), rc: Number(values.rc) });
@@ -500,6 +505,10 @@ function selfCheck() {
   } finally { rmSync(td, { recursive: true, force: true }); }
   try { execFileSync('bash', ['-n'], { input: sh, stdio: ['pipe', 'ignore', 'pipe'], timeout: 30000 }); } catch (e: any) { if (e.code !== 'ENOENT') assert.fail(`bash -n: ${e.stderr}`); }
   // triage: the night-all-1124 lines
+  { const o = '08:45:11 queue: atlas-main-smoke-on-sv: FAIL in 2.3 min | FAIL: reflect_call failed: {"result":"p1: RESULT FAIL native inspect -99, inspect lots 93 pageable 0"}\n08:12:39 queue: atlas-main20c-smoke-lotseam-sv: FAIL in 2.8 min | FAIL: atlas.log log rules: x\n08:13:00 queue: ok-job: PASS in 1 min\n';
+    assert.deepEqual(noRerunJobs(o), ['atlas-main-smoke-on-sv'], 'the P1 inspect fault row is not rerun');
+    assert.deepEqual(failedJobs(o).filter(id => !noRerunJobs(o).includes(id)), ['atlas-main20c-smoke-lotseam-sv'], 'other FAILs still rerun');
+    assert.deepEqual(noRerunJobs('08:45:11 queue: j: FAIL in 2 min | FAIL: p1: RESULT FAIL native inspect -990\n'), [], 'only -99 itself'); }
   assert.deepEqual(failedJobs('18:42:44 queue: bp-cullrace-smoke: FAIL in 0 min | x\n18:44:48 queue: ip-c: PASS in 3 min\n21:12:13 queue: bp-l: CRASH in 11 min | y\n'), ['bp-cullrace-smoke', 'bp-l']);
   const cls = (out: string, o = { est: 30, minutes: 20, rc: 1 }) => triage(out, o);
   assert.deepEqual(cls('18:42:44 queue: bp-c: FAIL in 0 min | FAIL: asi missing: game-copy/ts3native.asi.cullrace1 (refused before touching the game)').classes, ['setup: build file missing']);

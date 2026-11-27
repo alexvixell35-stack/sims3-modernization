@@ -302,7 +302,7 @@ import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, m
 import { defaultBranch } from '../default-branch.ts';
 import { ATLAS_KIT_INI, selfCheck as atlasKitSelfCheck } from '../release/atlas-kit.ts';
 import { BLOCKED as EXTRA_BLOCKED, extraAsiInstall, extraIni, extraLog, extraMarker, extraOwned, extraPending, extraSweep, strayAsi, INI_BAK, iniBackupRestore, iniBackupWrite, iniLine, selfCheck as extraAsiSelfCheck } from './extra-asi.ts';
-import { BIN, s3mmFiles, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, relaunched, seenPids } from './game-exe.ts';
+import { BIN, configBin, s3mmFiles, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, relaunched, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
 import { checkRequire, flatDelta, parseRequire, startupDeltaLint } from './fixes-require.ts';
 import { parseHitchTasks } from './hitch-tasks.ts';
@@ -2861,7 +2861,7 @@ const installFixesPackage = (j: Job) => {
 const LOG = join(BIN, 'ts3native.log');
 // saves an age job would overwrite: <name>.sims3 and <name>-day*.sims3
 const ageClash = (j: Job) => { const n = ageName(j).toLowerCase(); return existsSync(SAVES) ? readdirSync(SAVES).filter(f => f.toLowerCase() === `${n}.sims3` || f.toLowerCase().startsWith(`${n}-day`)) : []; };
-const DEFAULT_INI = join(BIN, 'Default.ini'), S3PP_INI = join(BIN, 'Sims3Performance.ini'), S3SS_TOML = join(USER, 'S3SS', 'S3SS.toml'), DXVK_CONF = join(BIN, 'dxvk.conf'), OPTIONS_INI = join(USER, 'Options.ini'), D3D9_DLL = join(BIN, 'd3d9.dll'), D3D9_BAK = join(BIN, 'd3d9.dll.dxvk-bak'), D3D9_PROXY_LOG = join(BIN, 'd3d9on12-proxy.log');
+const DEFAULT_INI = join(configBin(), 'Default.ini'), DEFAULT_INIS = [...new Set([DEFAULT_INI, join(BIN, 'Default.ini')])], S3PP_INI = join(BIN, 'Sims3Performance.ini'), S3SS_TOML = join(USER, 'S3SS', 'S3SS.toml'), DXVK_CONF = join(BIN, 'dxvk.conf'), OPTIONS_INI = join(USER, 'Options.ini'), D3D9_DLL = join(BIN, 'd3d9.dll'), D3D9_BAK = join(BIN, 'd3d9.dll.dxvk-bak'), D3D9_PROXY_LOG = join(BIN, 'd3d9on12-proxy.log');
 const sha = (p: string) => (existsSync(p) ? createHash('sha256').update(readFileSync(p)).digest('hex').slice(0, 12) : 'missing');
 // the Apex asi in Bin, read back for every job (row apexAsi, log line, dry-run line): tests run on our fork build (Rodney 11-19),
 // told by the fork install's fork.json asi sha256 (tools/turbo-compat.ts install-copy)
@@ -3027,7 +3027,7 @@ if (values['dry-run']) {
     if (callSitesOffNote(j)) console.log(`  3 ${callSitesOffNote(j)}`);
     if (!noOurs(j)) console.log(`  3 Bin/ts3native.ini = ${j.iniBase ? `iniBase ${j.iniBase}` : dogfoodOn(j) ? `repo ini, dogfood base (${DOGFOOD!.id})` : 'repo ini'}${Object.keys(ji ?? {}).length ? ` + ${Object.entries(ji!).map(([k, v]) => `${k}=${v}`).join(', ')}` : ' (unchanged)'}`);
     if (j.run.worldimage && !existsSync(String(ji!['WorldImage.Helper']))) console.log(`  3 ** helper MISSING: build native\\worldimage\\build.cmd; the job refuses before touching the game **`);
-    if (j.defaultIni) console.log(`  3 Bin/Default.ini + ${Object.entries(j.defaultIni).map(([k, v]) => `${k}=${v}`).join(', ')}   (original kept at Default.ini.queue-bak, each key read back, put back after the job)${existsSync(DEFAULT_INI + INI_BAK) ? '  ** Default.ini.queue-bak PENDING **' : ''}`);
+    if (j.defaultIni) console.log(`  3 ${DEFAULT_INI} + ${Object.entries(j.defaultIni).map(([k, v]) => `${k}=${v}`).join(', ')}   (original kept at Default.ini.queue-bak, each key read back, put back after the job)${existsSync(DEFAULT_INI + INI_BAK) ? '  ** Default.ini.queue-bak PENDING **' : ''}`);
     if (j.optionsIni) console.log(`  3 <user>/Options.ini + ${Object.entries(j.optionsIni).map(([k, v]) => `${k}=${v}`).join(', ')}   (put back after the job)`);
     if (j.extraAsi) console.log(`  3 extraAsi Bin/${basename(j.extraAsi.asi)} from ${j.extraAsi.asi} (sha256 ${sha(resolve(ROOT, j.extraAsi.asi))})${j.extraAsi.sha256 ? (existsSync(resolve(ROOT, j.extraAsi.asi)) && createHash('sha256').update(readFileSync(resolve(ROOT, j.extraAsi.asi))).digest('hex') === j.extraAsi.sha256.toLowerCase() ? ', pin ok' : '  ** NOT THE PINNED sha256 **') : ', no pin'}${[basename(j.extraAsi.asi), extraIni(basename(j.extraAsi.asi))].filter(f => existsSync(join(BIN, f)) && !extraOwned(extraMarker(BIN)).includes(f)).map(f => `  ** ${f} ALREADY IN Bin **`).join('')} + ini ${Object.entries(j.extraAsi.ini ?? {}).map(([k, v]) => `${k}=${v}`).join(', ') || '(empty)'}; log rules ${Object.keys(j.extraAsi.logRequire ?? {}).length} required, ${Object.keys(j.extraAsi.logForbid ?? {}).length} forbidden   (removed after the job)`);
     if (j.s3ppIni) console.log(`  3 Bin/Sims3Performance.ini + ${Object.entries(j.s3ppIni).map(([k, v]) => `${k}=${v}`).join(', ')}   (put back after the job)`);
@@ -3400,7 +3400,7 @@ process.on('exit', () => { // a throw outside the job's try, a signal: with the 
   try { if (existsSync(ourModsMf()) && !gameRunning()) log(`restored ts3native + ts3fixes on exit: ${vanillaRestore(ourModsSpec())} files`); } catch (e) { console.error(`ts3native + ts3fixes left in the stash: ${e}; run --restore-content`); }
   // a throw or signal before the end restore: Mods packages back now when the game is closed, else the next queue start / track.ts stop does it
   // extraAsi / defaultIni of a job that never reached restoreStart: gone now when the game is closed, else the next queue start does it
-  try { if (!values['dry-run'] && (extraPending(BIN) || existsSync(DEFAULT_INI + INI_BAK))) log(gameRunning() ? `extraAsi files / Default.ini.queue-bak left in Bin (${GAME_EXE} running): the next queue start removes them` : `on exit: extraAsi ${extraSweep(BIN) || 'removed'}; Default.ini ${iniBackupRestore(DEFAULT_INI) || 'as before'}`); } catch (e) { console.error(`extraAsi / Default.ini cleanup on exit failed: ${e}`); }
+  try { if (!values['dry-run'] && (extraPending(BIN) || DEFAULT_INIS.some(f => existsSync(f + INI_BAK)))) log(gameRunning() ? `extraAsi files / Default.ini.queue-bak left in Bin (${GAME_EXE} running): the next queue start removes them` : `on exit: extraAsi ${extraSweep(BIN) || 'removed'}; Default.ini ${DEFAULT_INIS.map(f => iniBackupRestore(f)).filter(Boolean).join('; ') || 'as before'}`); } catch (e) { console.error(`extraAsi / Default.ini cleanup on exit failed: ${e}`); }
   try { if (!values['dry-run'] && !VANILLA && modsPending(MODS_BEFORE)) log(gameRunning() ? `Mods packages left as the job installed them (${GAME_EXE} running): node tools/harness/mods-restore.ts restore` : `on exit: ${restoreMods(MODS_BEFORE).line}`); } catch (e) { console.error(`Mods restore on exit failed: ${e}`); }
 });
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(sig, () => process.exit(130));
@@ -3420,9 +3420,9 @@ if (!values['dry-run'] && existsSync(ourModsMf())) {
 }
 // an extraAsi / defaultIni job of a killed queue: the module leaves Bin and the Default.ini it found goes back before bin-before reads it
 // (bin-before must never hold a job's Default.ini)
-if (!values['dry-run'] && (extraPending(BIN) || existsSync(DEFAULT_INI + INI_BAK))) {
+if (!values['dry-run'] && (extraPending(BIN) || DEFAULT_INIS.some(f => existsSync(f + INI_BAK)))) {
   await closeGame(); // the game of the killed queue may still run and hold the module
-  const a = extraSweep(BIN), b = iniBackupRestore(DEFAULT_INI);
+  const a = extraSweep(BIN), b = DEFAULT_INIS.map(f => iniBackupRestore(f)).filter(Boolean).join('; '); // the old Bin path too: a queue of an older harness
   if (a || b) { console.error(`leftovers of an earlier queue could not be cleaned: ${[a && `extraAsi (${a}; Bin/extra-asi.queue.json)`, b && `Default.ini (${b}; Bin/Default.ini.queue-bak)`].filter(Boolean).join('; ')}`); process.exit(4); }
   log('removed the extraAsi files / put back Default.ini of an earlier queue that was killed (extra-asi.queue.json, Default.ini.queue-bak)');
 }
@@ -3831,8 +3831,8 @@ for (const [n, j] of jobs.entries()) {
       const back = readFileSync(DEFAULT_INI, 'utf8');
       for (const [k, v] of Object.entries(j.defaultIni)) {
         const line = iniLine(back, k), want = typeof v === 'boolean' ? (v ? '1' : '0') : String(v);
-        if (line.slice(line.indexOf('=') + 1).trim() !== want) throw new Error(`defaultIni: ${k} read back as "${line}" from Bin/Default.ini, want ${want}`);
-        log(`${j.id}: Bin/Default.ini read back [${k.slice(0, k.lastIndexOf('.'))}] ${line}`);
+        if (line.slice(line.indexOf('=') + 1).trim() !== want) throw new Error(`defaultIni: ${k} read back as "${line}" from ${DEFAULT_INI}, want ${want}`);
+        log(`${j.id}: ${DEFAULT_INI} read back [${k.slice(0, k.lastIndexOf('.'))}] ${line}`);
       }
     }
     if (j.extraAsi) {

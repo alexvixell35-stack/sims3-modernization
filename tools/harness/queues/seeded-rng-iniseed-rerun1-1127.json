@@ -1,0 +1,47 @@
+[
+  {
+    "id": "ini-seed-menu-1-r1127",
+    "note": "Rerun 2026-11-27 of seeded-rng ini-seed-menu-1 after bugfix/defaultini-ep-bin-1127 (queue.ts defaultIni writes the Default.ini the game reads: the EA-picked Bin, highest productid under HKLM SOFTWARE WOW6432Node Sims, EP11 on this install; before, the seed key went to GameBin and the game never read it). optional, docs/27 §1.2: Default.ini [Config] SimulatorRandomSeed, 3 RandomGen draws at the menu",
+    "asi": "tested",
+    "save": "menu",
+    "defaultIni": {
+      "Config.SimulatorRandomSeed": 424243
+    },
+    "run": {
+      "menuMemory": {
+        "waitS": 60,
+        "draws": 3
+      }
+    },
+    "timeoutMin": 15
+  },
+  {
+    "id": "ini-seed-menu-2-r1127",
+    "note": "Rerun 2026-11-27 of seeded-rng ini-seed-menu-2 after bugfix/defaultini-ep-bin-1127 (queue.ts defaultIni writes the Default.ini the game reads: the EA-picked Bin, highest productid under HKLM SOFTWARE WOW6432Node Sims, EP11 on this install; before, the seed key went to GameBin and the game never read it). optional: same seed again",
+    "asi": "tested",
+    "save": "menu",
+    "defaultIni": {
+      "Config.SimulatorRandomSeed": 424243
+    },
+    "run": {
+      "menuMemory": {
+        "waitS": 60,
+        "draws": 3
+      }
+    },
+    "timeoutMin": 15
+  },
+  {
+    "id": "ini-seed-menu-off-r1127",
+    "note": "Rerun 2026-11-27 of seeded-rng ini-seed-menu-off after bugfix/defaultini-ep-bin-1127 (queue.ts defaultIni writes the Default.ini the game reads: the EA-picked Bin, highest productid under HKLM SOFTWARE WOW6432Node Sims, EP11 on this install; before, the seed key went to GameBin and the game never read it). optional: no seed key (control)",
+    "asi": "tested",
+    "save": "menu",
+    "run": {
+      "menuMemory": {
+        "waitS": 60,
+        "draws": 3
+      }
+    },
+    "timeoutMin": 15
+  }
+]

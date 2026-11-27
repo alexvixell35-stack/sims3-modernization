@@ -28,7 +28,7 @@ import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSyn
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { BIN, ensureVramSidecar, s3mmFiles } from './harness/game-exe.ts';
+import { BIN, configBin, ensureVramSidecar, s3mmFiles } from './harness/game-exe.ts';
 import { extraMarker, extraOwned, extraSweep, iniBackupRestore, LEGACY_MARKER } from './harness/extra-asi.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -394,7 +394,7 @@ function restore(dir: string): boolean {
   const legacy = DRY ? '' : LEGACY_MARKER, snap = loadSnap(dir), kept = [extraMarker(BIN), legacy].filter(Boolean).flatMap(m => extraOwned(m)).filter(f => f in snap.files);
   if (kept.length) problems.push(`extra-asi marker names snapshot files, left alone: ${kept.join(', ')}`);
   else { const why = extraSweep(BIN, true, legacy); if (why) problems.push(`extraAsi files of a killed queue: ${why}`); }
-  { const why = iniBackupRestore(join(BIN, 'Default.ini')); if (why) problems.push(`Default.ini.queue-bak: ${why}`); }
+  for (const ini of new Set([join(BIN, 'Default.ini'), join(DRY ? BIN : configBin(), 'Default.ini')])) { const why = iniBackupRestore(ini); if (why) problems.push(`Default.ini.queue-bak: ${why}`); } // queue.ts writes the game's config folder (configBin)
   const cur = hashTree(BIN);
   for (const f of Object.keys(cur)) if (!(f in snap.files) && !KEEP_CACHE.test(f)) {
     if (EXTRA_OK.test(f)) rmSync(join(BIN, f), { force: true }); else problems.push(`new file left in place: ${f}`);

@@ -7,6 +7,7 @@
 //   TS3_MACHINE      machine tag (default main): result rows/files of any other machine carry it and never mix with the main machine's (docs/TESTING.md)
 //   node tools/harness/game-exe.ts --self-check   no process is started
 //   node tools/harness/game-exe.ts --installed    base game + EP/SP folders found under the game root
+//   node tools/harness/game-exe.ts --config-bin the folder the game reads Default.ini from (configBin below)
 //   node tools/harness/game-exe.ts --vram         write or confirm <TS3_BIN>\ts3native-vram.ini (dxdiag-vram.exe, docs/284)
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -109,6 +110,50 @@ export function ensureVramSidecar(bin = BIN, helper = VRAM_HELPER): string {
   catch (e: any) { return `dxdiag-vram: failed (${e.status ?? e.code ?? e}): ${String(e.stdout ?? '').trim().split(/\r?\n/).pop() ?? ''}`; }
 }
 
+// The folder the game reads Default.ini, Sims3.ini and the local inis from (its config folder), which is not always Bin:
+// TS3W.exe 1.67 0x7D0AF0 opens HKLM\Software\Sims(Steam) (WOW6432Node: the game is 32-bit), takes the subkey with the highest
+// DWORD ProductID (1001, the base game, counts as 1; on a tie the later subkey in enumeration order wins) and uses its
+// "Install Dir" + \Game\Bin\; the config init 0x58B440 takes that folder and falls back to the exe's folder without the key
+// [verified in the disassembly; Steam with every pack: EP11\Game\Bin, ProductID 21, matches the 2026-11-27 Atlas config probe].
+// The game itself has no existence check there [inferred from 0x7D0AF0]; the harness refuses to write into a folder that is not
+// there and keeps the exe's folder instead.
+// EA app 1.69 0x7D15C0 (Lenovo 2026-11-27, REA [verified]): HKLM\Software\Sims, the FIRST subkey in enumeration order whose
+// DWORD ProductID is exactly 1001, its Install Dir + \Game\Bin\; no match = 0 and the caller's folder (the exe's) is used.
+// A subkey without ProductID is skipped, and a winner whose <Install Dir>\Game\Bin does not exist gives null (the exe's folder).
+// TS3_CONFIG_BIN overrides.
+export type Edition = 'steam' | 'ea';
+export const REG_KEY_RE = /^HKEY_LOCAL_MACHINE\\.*\\Sims(?:\(Steam\))?\\(.+)$/;
+export const REG_PRODUCT_RE = /^\s+ProductID\s+REG_DWORD\s+0x([0-9a-f]+)\s*$/i; // reg prints the value name as stored: productid on Steam
+export const REG_INSTALL_RE = /^\s+Install Dir\s+REG_SZ\s+(.+?)\s*$/i;
+export function pickConfigBin(regText: string, exists: (p: string) => boolean = existsSync, edition: Edition = isSteamGame() ? 'steam' : 'ea'): string | null {
+  let best: string | null = null, bestId = 0, cur: { id: number | null; dir: string | null } | null = null;
+  const done = () => {
+    if (!cur || cur.id === null || !cur.dir) return;
+    if (edition === 'ea') { if (cur.id === 1001 && best === null) best = join(cur.dir, 'Game', 'Bin'); return; } // first exact 1001
+    const id = cur.id === 1001 ? 1 : cur.id; if (id >= bestId) { bestId = id; best = join(cur.dir, 'Game', 'Bin'); }  // Steam: highest, later on a tie
+  };
+  for (const l of regText.split(/\r?\n/)) {
+    if (REG_KEY_RE.test(l)) { done(); cur = { id: null, dir: null }; continue; }
+    if (!cur) continue;
+    const p = REG_PRODUCT_RE.exec(l); if (p) cur.id = parseInt(p[1], 16);
+    const d = REG_INSTALL_RE.exec(l); if (d) cur.dir = d[1];
+  }
+  done();
+  return best !== null && exists(best) ? best : null;
+}
+let configBinCache: string | undefined;
+export function configBin(bin = BIN): string {
+  if (process.env.TS3_CONFIG_BIN) return process.env.TS3_CONFIG_BIN;
+  if (bin !== BIN || process.platform !== 'win32') return bin;
+  if (configBinCache === undefined) {
+    let pick: string | null = null;
+    const key = isSteamGame() ? 'HKLM\\SOFTWARE\\WOW6432Node\\Sims(Steam)' : 'HKLM\\SOFTWARE\\WOW6432Node\\Sims';
+    try { pick = pickConfigBin(execFileSync('reg', ['query', key, '/s'], { timeout: 30_000, stdio: ['ignore', 'pipe', 'ignore'] }).toString()); } catch { /* no key: the exe's folder */ }
+    configBinCache = pick && existsSync(join(pick, 'Default.ini')) ? pick : bin;
+  }
+  return configBinCache;
+}
+
 if (import.meta.main) {
   if (process.argv[2] === '--self-check') {
     { const r = ensureVramSidecar(BIN, join(tmpdir(), 'no-such-dxdiag-vram.exe')); if (!/not built/.test(r)) throw new Error(`ensureVramSidecar without helper: ${r}`); }
@@ -163,8 +208,43 @@ if (import.meta.main) {
         assert.deepEqual(s3mmFiles(b).map(f => basename(f)).sort(), ['S3MM.toml', 'Sims3MonoModder.asi']);
         assert.ok(S3MM_RE.test('sims3monomodder.ASI') && !S3MM_RE.test('S3SS.asi') && !S3MM_RE.test('Sims3SettingsSetter.asi'));
       } finally { rmSync(b, { recursive: true, force: true }); } }
+    { // config folder: lines as `reg query ... /s` prints them (2026-11-27, Steam with every pack); highest ProductID wins, 1001 = 1
+      const S = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3';
+      const k = (n: string, id: number, dir: string) => `\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Sims(Steam)\\${n}\r\n    install dir    REG_SZ    ${dir}\r\n    productid    REG_DWORD    0x${id.toString(16)}\r\n`;
+      const reg = k('The Sims 3', 1001, S) + k('The Sims 3 Into the Future', 21, `${S}\\EP11`) + k('the sims 3 movie stuff', 20, `${S}\\SP9`) + k('The Sims 3 World Adventures', 2, `${S}\\EP1`);
+      const all = () => true;
+      assert.equal(pickConfigBin(reg, all, 'steam'), join(`${S}\\EP11`, 'Game', 'Bin'));
+      assert.equal(pickConfigBin(k('The Sims 3', 1001, S), all, 'steam'), join(S, 'Game', 'Bin'), 'base game alone');
+      assert.equal(pickConfigBin('ERROR: The system was unable to find the specified registry key or value.\r\n', all, 'steam'), null);
+      // the winner's Game\Bin missing: null (the caller uses the exe's folder), not the next best
+      assert.equal(pickConfigBin(reg, p => !p.includes('EP11'), 'steam'), null, 'winner folder missing');
+      // EA app 1.69 shape (Lenovo 2026-11-27): only the base key has productid, packs have Install Dir only, no pack Game\Bin
+      const E = 'C:\\Program Files\\EA Games\\The Sims 3';
+      const ea = `\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Sims\\The Sims 3\r\n    Install Dir    REG_SZ    ${E}\r\n    productid    REG_DWORD    0x3e9\r\n`
+        + `\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Sims\\The Sims 3 Into the Future\r\n    Install Dir    REG_SZ    ${E}\\EP11\r\n`
+        + `\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Sims\\The Sims 3 World Adventures\r\n    Install Dir    REG_SZ    ${E}\\EP1\r\n`;
+      const eaDirs = (p: string) => p === join(E, 'Game', 'Bin');
+      assert.equal(pickConfigBin(ea, eaDirs, 'ea'), join(E, 'Game', 'Bin'), 'EA: packs without productid skipped, base Game\\Bin');
+      assert.equal(pickConfigBin(ea, () => false, 'ea'), null, 'EA: base Game\\Bin missing too');
+      // EA 1.69 rule (0x7D15C0, Lenovo REA): the FIRST subkey with ProductID exactly 1001, even when pack keys carry ProductIDs
+      const ke = (n: string, id: number, dir: string) => `\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Sims\\${n}\r\n    Install Dir    REG_SZ    ${dir}\r\n    ProductID    REG_DWORD    0x${id.toString(16)}\r\n`;
+      const eaIds = ke('The Sims 3 Into the Future', 21, `${E}\\EP11`) + ke('The Sims 3', 1001, E) + ke('The Sims 3 World Adventures', 2, `${E}\\EP1`) + ke('The Sims 3 Copy', 1001, `${E} Copy`);
+      assert.equal(pickConfigBin(eaIds, all, 'ea'), join(E, 'Game', 'Bin'), 'EA: first exact 1001; higher pack ids and a later 1001 ignored');
+      assert.equal(pickConfigBin(eaIds, all, 'steam'), join(`${E}\\EP11`, 'Game', 'Bin'), 'same keys, Steam rule: highest id (EP11 21, 1001 counts as 1)');
+      assert.equal(pickConfigBin(ke('The Sims 3 Into the Future', 21, `${E}\\EP11`), all, 'ea'), null, 'EA: no 1001 = exe folder');
+      assert.equal(pickConfigBin(eaIds, p => p !== join(E, 'Game', 'Bin'), 'ea'), null, 'EA: winner folder missing');
+      assert.ok(REG_KEY_RE.test('HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Sims(Steam)\\The Sims 3 Into the Future'));
+      assert.ok(REG_KEY_RE.test('HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Sims\\The Sims 3'));
+      assert.ok(!REG_KEY_RE.test('HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Electronic Arts\\The Sims 3'));
+      assert.equal(REG_PRODUCT_RE.exec('    productid    REG_DWORD    0x15')?.[1], '15');
+      assert.ok(!REG_PRODUCT_RE.test('    SKU    REG_DWORD    0x15'));
+      assert.equal(REG_INSTALL_RE.exec(`    install dir    REG_SZ    ${S}\\EP11`)?.[1], `${S}\\EP11`);
+      assert.ok(!REG_INSTALL_RE.test(`    exe name    REG_SZ    ${S}\\Game\\Bin\\TS3W.exe`));
+      assert.equal(configBin('X:\\other\\Bin'), process.env.TS3_CONFIG_BIN ?? 'X:\\other\\Bin', 'another Bin: unchanged');
+    }
     console.log('self-check ok');
   } else if (process.argv[2] === '--installed') console.log(`${gameRoot()}: ${installedProducts().join(' ')}`);
   else if (process.argv[2] === '--vram') console.log(ensureVramSidecar());
-  else { console.error('usage: node tools/harness/game-exe.ts --self-check | --installed | --vram'); process.exit(2); }
+  else if (process.argv[2] === '--config-bin') console.log(configBin());
+  else { console.error('usage: node tools/harness/game-exe.ts --self-check | --installed | --vram | --config-bin'); process.exit(2); }
 }
