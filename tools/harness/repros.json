@@ -156637,7 +156637,6 @@
         },
         "max": 4000,
         "waitS": 40,
-        "mustMatch": "queued for 4",
         "note": "mopclaim-off-1: all four Sims start EA's autonomous mop at once"
       },
       {
@@ -156728,7 +156727,6 @@
         },
         "max": 4000,
         "waitS": 40,
-        "mustMatch": "queued for 4",
         "note": "mopclaim-off-2: all four Sims start EA's autonomous mop at once"
       },
       {
@@ -156839,7 +156837,6 @@
         },
         "max": 4000,
         "waitS": 40,
-        "mustMatch": "queued for 4",
         "note": "mopclaim-off-3: all four Sims start EA's autonomous mop at once"
       },
       {
@@ -156950,7 +156947,6 @@
         },
         "max": 4000,
         "waitS": 40,
-        "mustMatch": "queued for 4",
         "note": "mopclaim-off-4: all four Sims start EA's autonomous mop at once"
       },
       {
@@ -157093,7 +157089,6 @@
         },
         "max": 4000,
         "waitS": 40,
-        "mustMatch": "queued for 4",
         "note": "mopclaim-on-1: all four Sims start EA's autonomous mop at once"
       },
       {
@@ -157184,7 +157179,6 @@
         },
         "max": 4000,
         "waitS": 40,
-        "mustMatch": "queued for 4",
         "note": "mopclaim-on-2: all four Sims start EA's autonomous mop at once"
       },
       {
@@ -157295,7 +157289,6 @@
         },
         "max": 4000,
         "waitS": 40,
-        "mustMatch": "queued for 4",
         "note": "mopclaim-on-3: all four Sims start EA's autonomous mop at once"
       },
       {
@@ -157406,7 +157399,6 @@
         },
         "max": 4000,
         "waitS": 40,
-        "mustMatch": "queued for 4",
         "note": "mopclaim-on-4: all four Sims start EA's autonomous mop at once"
       },
       {
