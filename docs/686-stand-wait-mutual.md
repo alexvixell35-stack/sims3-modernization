@@ -2591,3 +2591,91 @@ restriction plus a portal check for autonomous routes). Audit of the household f
 - standwaitlocked ends a wait at a privacy-locked room earlier; it opens nothing.
 - reachcache sets doors to `Nobody` for a moment and restores them in the same call (its own measurement; docs/688).
 - familybath (§44) changes the privacy situation's rule only and refuses any room the player locked.
+
+## 42. Clashes at the dining table: the chair is held from pick to seat, the push wait ends after the grace (`seatclash`, `seatclashhh`, `seatclashlog`; 2026-11-27, `post/seatclash-1127`, built, default off, forced repros s702a / s702b)
+
+The player's report: "the clashing animations when getting into the table". The wait logs (linewait, standwait,
+routefail) do not see these: the Sim walks to a chair, plays the route-fail shrug and gives up.
+
+### 42.1 Why [verified, decompiled `ChairDining.RouteToForSitting`, `SitHereForEating.Run`, `EatingSurfaceImpl`, `GameObject.PushSimsFromFootprint`, `RoutingComponent.PushSimsStatic`]
+
+A walk to a dining chair can end in the shrug three ways (the bar stool has the same steps):
+
+1. **Taken on arrival.** `SitHereForEating.Run` picks its chair with `GetClosestFreeSlotPair` (the nearest chair that
+   is not in use), puts the Sim in the chair's use list only while the plate is put down, and takes it out again before
+   the walk to the chair. A second Sim that picks in that gap gets the same chair; whoever arrives second finds it in
+   use and shrugs.
+2. **Push failed.** At the chair the game pushes the Sims standing behind it and waits up to 15 sim-min
+   (`kTotalSimMinutesToWaitForSimsToBePushed`). A Sim that cannot be pushed (in a conversation, or its action refuses)
+   makes the answer false at once: shrug.
+3. **Pull-out refused.** `CanScootBack` is the build-mode placement test with only the sitting Sim allowed; a Sim still
+   behind the chair refuses it: shrug. (A door or furniture behind the chair is §39.)
+
+### 42.2 Probe (always counted; lines with `seatclashlog`)
+
+Every `RouteToForSitting` of a dining chair or bar stool with a Sim: the exit (seated / taken on arrival / push failed /
+pull-out refused / walk failed or other), the shrugs, each push wait in sim-min, and the time from the chair pick (or
+the approach's start) to seated. `SeatClashCheck result` prints them, `reset` clears them.
+
+### 42.3 Fix (`SeatClash.cs`, rules in `SeatClashCore.cs`)
+
+For the Sims the switches cover (`seatclash` = Sims the player does not control, `seatclashhh` = household and selected
+Sims, `HhSharedCore.Scope`):
+
+- **a. The pick is held.** The chair `SitHereForEating` picks is a hold in nextplan's claim table (`HhHold`, §41) until
+  the Sim sits or its walk fails (or `kNextPlanClaimMinutes`). A pick that lands on a chair another Sim holds or claims
+  is made again with EA's own rule over the remaining free chairs; when every free chair is held, the answer is EA's
+  "no chair" (the Sim does not walk to the table: no shrug). The table picks the chair in this path, so a chair the
+  player clicked is never changed. A Sim that reaches a chair another way (a posture change picks the seat) holds it
+  from the start of its approach; an approach to a seat another Sim is already walking to, or sits on, ends before its
+  walk (EA's "taken on arrival" without the walk and the shrug: the Sim stands a sim-minute and its action picks again).
+- **b. The push wait.** EA's pushes start as before; the Sim then waits until the area behind the chair is clear, at
+  most the shared grace (`HhGraceMin`, 2.5 sim-min; no grace when nobody sees it, camsafe). After the grace the chair
+  pulls out past the neighbour: a brief partial overlap of chair and legs, no walk through a standing Sim, no snap.
+- **c. The pull-out test** after such a grace is asked again with Sims allowed (the chair's own
+  `mAllowIntersectionAllSims`, which the game uses for the feet test). Furniture, walls and doors still refuse it.
+
+Works with: nextplan (one claim table: a Sim whose next action sits on a chair also keeps others off it), doorseat /
+seatreach (their `CanScootBack` swap runs inside this one and answers first), clipwait (the same grace), camsafe.
+EA's events, buffs and the eating itself are untouched: only which chair, and how long the wait.
+Off = compare mode: counted (`would`), nothing changed.
+
+Swaps: `ChairDining.RouteToForSitting`, `ChairBarStool.RouteToForSitting` (probe round the game's body),
+`ChairDining.CanScootBack`, `GameObject.PushSimsFromFootprint` (only a waiting push at the seat of a running approach
+is changed), `EatingSurfaceImpl.GetClosestFreeSlotPair`. Counters 5020-5039. Sofas and benches
+(`Sim.RouteToUnusedPart`) are not covered.
+
+### 42.4 Checks
+
+Selftest `tools/selftest/seatclash` (19 checks). Forced repros `seatclash-force` (4-seat `TableDiningBistro`) and
+`seatclash-force6` (6-seat `TableDiningMission`): 8 household Sims, a group meal by the counters, all 8 ordered to grab
+a serving at once, three rounds per arm; both arms run the planned-on household set of this branch (facilityplan,
+facilityquick, facilitychain, showerpeeplan, nextplan, clipwait, doorseat, seatreach, all with hh), arm on adds
+`seatclash` + `seatclashhh`.
+
+### 42.5 Forced repro runs s702 (2026-11-27/28, Deck, Sunset Valley new game, 8 household Sims ordered to grab a serving at once, 3 rounds per arm, camera on the lot; both arms with the planned-on set of this branch) [verified in the repro logs]
+
+Counters are per arm (cumulative over its 3 rounds); "household" = the 8 Sims, the totals include townies elsewhere.
+
+| run (table, build) | arm | approaches | seated | taken on arrival | push failed | shrugs | push waits: n, sum, longest (sim-min) | grace ends (on screen) | ended before the walk | errors |
+|---|---|---|---|---|---|---|---|---|---|---|
+| s702a run 1, 4 seats, holds at the table's pick only | off | 35 | 32 | 2 | 1 | 3 | 1, 15.3, 15.3 | 0 (would 1) | - | 0 |
+| | on | 38 | 35 | 3 | 0 | 3 | 23, 5.6, 2.6 | 1 (1) | - | 0 |
+| s702a run 2, 4 seats, final build | off | 29 | 25 | 0 | 1 | 1 | 1, 15.2, 15.2 | 0 (would 1) | 0 | 0 |
+| | on | 32 | 30 | 2 (household 0) | 0 | 2 (household 0) | 18, 2.7, 0.7 | 0 | 0 | 0 |
+| s702b, 6 seats, final build | off | 39 | 34 | 0 | 3 | 3 | 3, 45.5, 15.3 | 0 (would 3) | 0 | 0 |
+| | on | 43 | 43 | 0 | 0 | 0 | 25, 10.3, 2.7 | 3 (3) | 2 | 0 |
+
+Pick (or approach start) to seated, sim-min, p50 / p90: run 2 off 1.6 / 8.4, on 3.2 / 12.0; s702b off 1.6 / 7.1, on 6.4 /
+8.5 (log bins, upper edges; the on arms seat more Sims, including those that waited out a grace). Snaps 0 in every arm;
+on-screen partial clips = the grace ends on screen: 1, 0 and 3.
+
+- **Push wait: PROVEN.** Every off arm had a Sim stand the full 15 sim-min behind a chair and then shrug (5 cases in 3
+  runs, 76 sim-min); no on arm had one (0 of 113 approaches), the longest wait was 2.7 sim-min, and 4 approaches ended
+  their grace with the chair pulling out past the neighbour.
+- **Taken on arrival: NOT proven.** It occurred only in run 1 (off 2, on 3: that build held a chair only at the table's
+  pick, and most Sims reach their chair through a posture change). The final build holds the seat from the approach's
+  start and ends a doomed approach before its walk; in its two runs no household Sim was taken on arrival in either
+  arm (the 2 in run 2 "on" were townies on a community lot), and the early end fired twice. More rounds are needed to
+  see it fail in an off arm with this build.
+- The pull-out retry with Sims allowed never fired (0): with seatreach on in the set its own test passes first.
