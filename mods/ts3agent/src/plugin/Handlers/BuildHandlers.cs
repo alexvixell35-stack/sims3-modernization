@@ -29,6 +29,7 @@ namespace Ts3Agent
             Dispatcher.Register("floor_grid", FloorGrid);
             Dispatcher.Register("stair_lots", StairLots);
             Dispatcher.Register("destroy_object", DestroyObject);
+            Dispatcher.Register("stair_stacks", StairStacks);
             Dispatcher.Register("build_presets", BuildPresets);
             Dispatcher.Register("auto_roof", AutoRoof);
         }
@@ -214,6 +215,64 @@ namespace Ts3Agent
             Dictionary<string, object> r = Util.Obj();
             r["destroyed"] = t;
             return r;
+        }
+
+        // stair_stacks {}: every lot's pairs of stair flights stacked one level apart (docs/871): the lower flight's top level
+        // is the upper flight's bottom level and their runs overlap in plan (each run = the flat rect between its two lane-0
+        // ends, kRunHalfWidth wide). relation: same / opposite / cross by the two ascent directions. Lot id, name, household.
+        const float kRunHalfWidth = 0.45f;
+        static object StairStacks(Args a)
+        {
+            List<object> res = new List<object>();
+            foreach (Lot lot in LotManager.AllLots)
+            {
+                if (lot == null) continue;
+                Sims3.Gameplay.Core.Stairs[] st = lot.GetObjects<Sims3.Gameplay.Core.Stairs>();
+                if (st.Length < 2) continue;
+                int n = st.Length;
+                Vector3[] b = new Vector3[n], t = new Vector3[n];
+                int[] lb = new int[n], lt = new int[n];
+                for (int i = 0; i < n; i++)
+                {
+                    b[i] = st[i].GetPositionOfSlot(Sims3.Gameplay.Core.Stairs.RoutingSlots.Stairs_Bottom0);
+                    t[i] = st[i].GetPositionOfSlot(Sims3.Gameplay.Core.Stairs.RoutingSlots.Stairs_Top0);
+                    LotLocation x = LotLocation.Invalid, y = LotLocation.Invalid;
+                    World.GetLotLocation(b[i], ref x);
+                    World.GetLotLocation(t[i], ref y);
+                    lb[i] = x.mLevel; lt[i] = y.mLevel;
+                }
+                for (int i = 0; i < n; i++)
+                    for (int j = 0; j < n; j++)
+                    {
+                        if (i == j || lt[i] != lb[j] || lt[i] != lb[i] + 1 || lt[j] != lb[j] + 1) continue;
+                        float ov = RunOverlap(b[i], t[i], b[j], t[j]);
+                        if (ov <= 0f) continue;
+                        float ax = t[i].x - b[i].x, az = t[i].z - b[i].z, bx = t[j].x - b[j].x, bz = t[j].z - b[j].z;
+                        float dot = (ax * bx + az * bz) / (float)Math.Max(1e-3, Math.Sqrt((ax * ax + az * az) * (bx * bx + bz * bz)));
+                        Dictionary<string, object> e = Util.Obj();
+                        e["lot"] = lot.LotId.ToString();
+                        e["name"] = lot.Name;
+                        e["household"] = lot.Household != null ? lot.Household.Name : "";
+                        e["lower"] = st[i].ObjectId.Value.ToString() + " L" + lb[i] + "->L" + lt[i];
+                        e["upper"] = st[j].ObjectId.Value.ToString() + " L" + lb[j] + "->L" + lt[j];
+                        e["relation"] = dot > 0.7f ? "same" : dot < -0.7f ? "opposite" : "cross";
+                        e["overlap_m2"] = Math.Round(ov, 2);
+                        e["lower_top_to_upper_bottom_m"] = Math.Round(Math.Sqrt((t[i].x - b[j].x) * (t[i].x - b[j].x) + (t[i].z - b[j].z) * (t[i].z - b[j].z)), 2);
+                        res.Add(e);
+                    }
+            }
+            return res;
+        }
+
+        // area where two flat runs (axis-aligned bounding rects of bottom..top widened by kRunHalfWidth) overlap
+        static float RunOverlap(Vector3 b0, Vector3 t0, Vector3 b1, Vector3 t1)
+        {
+            float x0 = Math.Min(b0.x, t0.x) - kRunHalfWidth, x1 = Math.Max(b0.x, t0.x) + kRunHalfWidth;
+            float z0 = Math.Min(b0.z, t0.z) - kRunHalfWidth, z1 = Math.Max(b0.z, t0.z) + kRunHalfWidth;
+            float u0 = Math.Min(b1.x, t1.x) - kRunHalfWidth, u1 = Math.Max(b1.x, t1.x) + kRunHalfWidth;
+            float w0 = Math.Min(b1.z, t1.z) - kRunHalfWidth, w1 = Math.Max(b1.z, t1.z) + kRunHalfWidth;
+            float dx = Math.Min(x1, u1) - Math.Max(x0, u0), dz = Math.Min(z1, w1) - Math.Max(z0, w0);
+            return dx > 0f && dz > 0f ? dx * dz : 0f;
         }
 
         static object TileInfo(Args a)

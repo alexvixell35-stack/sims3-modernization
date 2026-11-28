@@ -1,6 +1,6 @@
 # 871: stacked stairs (basement flight under a ground flight) and the stair placement test
 
-Status 2026-11-28: investigation only. No fix: bug 1 was not reproduced (the tools cannot build the reported layout yet), and
+Status 2026-11-28: investigation only. No fix: bug 1 was not reproduced (EA-built stacked pairs route correctly on every level; true same-footprint stacking is refused by EA's placement test), and
 the placement test in bug 2 is EA's intended strictness as far as the code shows. Two community reports:
 
 1. A basement flight placed directly under the flight to the next floor breaks routing: Sims go down and come straight back
@@ -51,6 +51,29 @@ Other repo pieces: `LevelLink.cs` (level links, reused here) and `LaneSnap*`. No
   matches "down and straight back up" and "depends on orientation". It needs the layout built (a stair-rotate step and an
   upper-level build step in the agent) before any fix.
 
+## Bug 1: EA-built stacked flights on upper floors (session s712, 2026-11-28)
+
+The scope widened to ground/1st and 1st/2nd pairs, so the agent's `stair_stacks {}` step scanned every lot in Sunset Valley.
+It lists pairs where the lower flight's top level is the upper flight's bottom level and their runs overlap in plan view
+(each run widened by 0.45 m to each side).
+
+- **Pairs found: 3.**
+  - "Plus Plus" and "28 Hour Wellness Gym": L0->L1 under L1->L2, crossing at right angles, with 0.08 m² and 0.02 m² overlap.
+  - "Wagner's Repose": L2->L3 under L3->L4, ascending the same way, with 3.9 m² overlap.
+- **Wagner's Repose, walked in game** (new household, autonomy off, Go Here orders):
+  - `StairStackCheck "plan"` succeeded to both ends of every flight. The one failure was the 1 m probe point past the L4
+    top, which lies off the L4 floor; it was not a stair fault.
+  - Level 1 to the L4 landing arrived on L4 by way of both stacked flights.
+  - L4 back to level 1 went down every flight, through level 2, and arrived. No down-and-up, and no stall.
+  - EA's own same-direction stacked pair routes correctly both ways.
+- **True same-footprint stacking cannot be built.**
+  - The stair tool's ghost on level 1 under the L2->L3 flight was red. Furniture stood under it, and the upper flight's
+    steps fill the headroom over the lower flight's high end in either orientation.
+  - EA's placement test (bug 2) keeps a flight's steps out of another flight's headroom. The pairs that can be built are
+    offset or crossing, and those route correctly.
+- **Verdict: not reproduced.** No fix was built, under the bug-fixes-only rule. A player save with the failing layout is
+  the next step. Read it with `StairStackCheck` (and `"plan"`) before writing any code.
+
 ## Bug 2: the placement test (verified static)
 
 - `0xCB97B0` (scratch name `ModularStairsPlacementHelper/DoesModularStairsIntersectObjects`) walks the flight step by step.
@@ -89,6 +112,8 @@ Other repo pieces: `LevelLink.cs` (level links, reused here) and `LaneSnap*`. No
   - without `home`, vacant residential lots with an L0->L1 flight not on a foundation;
   - with `home: true`, the home lot's flights with their ids and end tiles.
 - `destroy_object {id}`.
+- `stair_stacks {}`: stacked flight pairs on every lot (lower top level = upper bottom level, plan overlap, relation
+  same / opposite / cross).
 
 Basement repro steps:
 - `reflect_call Sims3.UI.BuildController.sController.SetItemState [16]`;
