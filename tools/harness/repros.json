@@ -156427,11 +156427,12 @@
         "cmd": "build_layout",
         "args": {
           "map": [
-            "E E E E E E E",
-            "E E E E E E E",
-            "E E E E E E E",
-            "E E E E E E E",
-            "c E E E E E E"
+            "E E E E E E E E E",
+            "E E E E E E E E E",
+            "E E E E E E E E E",
+            "E E E E E E E E E",
+            "E E E E E E E E E",
+            "E E E E E E E c c"
           ],
           "house": true,
           "margin": 0,
@@ -156466,7 +156467,7 @@
           "everyS": 3,
           "maxS": 420
         },
-        "note": "one room 7x5 with a counter as the place marker"
+        "note": "one room 9x6 with two counters as the place marker (the seatclash room without its table)"
       },
       {
         "cmd": "setup_sims",
@@ -156615,7 +156616,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 2.0
+          "right": -2.0
         },
         "waitS": 1,
         "note": "mopclaim-off-1: puddle 1 of 1"
@@ -156706,7 +156707,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 2.0
+          "right": -2.0
         },
         "waitS": 1,
         "note": "mopclaim-off-2: puddle 1 of 1"
@@ -156797,7 +156798,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 2.0
+          "right": -2.0
         },
         "waitS": 1,
         "note": "mopclaim-off-3: puddle 1 of 3"
@@ -156807,7 +156808,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 3.5
+          "right": -3.5
         },
         "waitS": 1,
         "note": "mopclaim-off-3: puddle 2 of 3"
@@ -156817,7 +156818,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 5.0
+          "right": -5.0
         },
         "waitS": 1,
         "note": "mopclaim-off-3: puddle 3 of 3"
@@ -156908,7 +156909,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 2.0
+          "right": -2.0
         },
         "waitS": 1,
         "note": "mopclaim-off-4: puddle 1 of 3"
@@ -156918,7 +156919,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 3.5
+          "right": -3.5
         },
         "waitS": 1,
         "note": "mopclaim-off-4: puddle 2 of 3"
@@ -156928,7 +156929,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 5.0
+          "right": -5.0
         },
         "waitS": 1,
         "note": "mopclaim-off-4: puddle 3 of 3"
@@ -157071,7 +157072,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 2.0
+          "right": -2.0
         },
         "waitS": 1,
         "note": "mopclaim-on-1: puddle 1 of 1"
@@ -157162,7 +157163,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 2.0
+          "right": -2.0
         },
         "waitS": 1,
         "note": "mopclaim-on-2: puddle 1 of 1"
@@ -157253,7 +157254,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 2.0
+          "right": -2.0
         },
         "waitS": 1,
         "note": "mopclaim-on-3: puddle 1 of 3"
@@ -157263,7 +157264,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 3.5
+          "right": -3.5
         },
         "waitS": 1,
         "note": "mopclaim-on-3: puddle 2 of 3"
@@ -157273,7 +157274,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 5.0
+          "right": -5.0
         },
         "waitS": 1,
         "note": "mopclaim-on-3: puddle 3 of 3"
@@ -157364,7 +157365,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 2.0
+          "right": -2.0
         },
         "waitS": 1,
         "note": "mopclaim-on-4: puddle 1 of 3"
@@ -157374,7 +157375,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 3.5
+          "right": -3.5
         },
         "waitS": 1,
         "note": "mopclaim-on-4: puddle 2 of 3"
@@ -157384,7 +157385,7 @@
         "args": {
           "near": "@type:Counter",
           "forward": 2.5,
-          "right": 5.0
+          "right": -5.0
         },
         "waitS": 1,
         "note": "mopclaim-on-4: puddle 3 of 3"
