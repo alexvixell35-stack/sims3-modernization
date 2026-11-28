@@ -3230,3 +3230,248 @@ restriction plus a portal check for autonomous routes). Audit of the household f
 - standwaitlocked ends a wait at a privacy-locked room earlier; it opens nothing.
 - reachcache sets doors to `Nobody` for a moment and restores them in the same call (its own measurement; docs/688).
 - familybath (§44) changes the privacy situation's rule only and refuses any room the player locked.
+
+## 42. Clashes at the dining table: the chair is held from pick to seat, the push wait ends after the grace (`seatclash`, `seatclashhh`, `seatclashlog`; 2026-11-27, `post/seatclash-1127`, built, default off, forced repros s702a / s702b)
+
+The player's report: "the clashing animations when getting into the table". The wait logs (linewait, standwait,
+routefail) do not see these: the Sim walks to a chair, plays the route-fail shrug and gives up.
+
+### 42.1 Why [verified, decompiled `ChairDining.RouteToForSitting`, `SitHereForEating.Run`, `EatingSurfaceImpl`, `GameObject.PushSimsFromFootprint`, `RoutingComponent.PushSimsStatic`]
+
+A walk to a dining chair can end in the shrug three ways (the bar stool has the same steps):
+
+1. **Taken on arrival.** `SitHereForEating.Run` picks its chair with `GetClosestFreeSlotPair` (the nearest chair that
+   is not in use), puts the Sim in the chair's use list only while the plate is put down, and takes it out again before
+   the walk to the chair. A second Sim that picks in that gap gets the same chair; whoever arrives second finds it in
+   use and shrugs.
+2. **Push failed.** At the chair the game pushes the Sims standing behind it and waits up to 15 sim-min
+   (`kTotalSimMinutesToWaitForSimsToBePushed`). A Sim that cannot be pushed (in a conversation, or its action refuses)
+   makes the answer false at once: shrug.
+3. **Pull-out refused.** `CanScootBack` is the build-mode placement test with only the sitting Sim allowed; a Sim still
+   behind the chair refuses it: shrug. (A door or furniture behind the chair is §39.)
+
+### 42.2 Probe (always counted; lines with `seatclashlog`)
+
+Every `RouteToForSitting` of a dining chair or bar stool with a Sim: the exit (seated / taken on arrival / push failed /
+pull-out refused / walk failed or other), the shrugs, each push wait in sim-min, and the time from the chair pick (or
+the approach's start) to seated. `SeatClashCheck result` prints them, `reset` clears them.
+
+### 42.3 Fix (`SeatClash.cs`, rules in `SeatClashCore.cs`)
+
+For the Sims the switches cover (`seatclash` = Sims the player does not control, `seatclashhh` = household and selected
+Sims, `HhSharedCore.Scope`):
+
+- **a. The pick is held.** The chair `SitHereForEating` picks is a hold in nextplan's claim table (`HhHold`, §41) until
+  the Sim sits or its walk fails (or `kNextPlanClaimMinutes`). A pick that lands on a chair another Sim holds or claims
+  is made again with EA's own rule over the remaining free chairs; when every free chair is held, the answer is EA's
+  "no chair" (the Sim does not walk to the table: no shrug). The table picks the chair in this path, so a chair the
+  player clicked is never changed. A Sim that reaches a chair another way (a posture change picks the seat) holds it
+  from the start of its approach; an approach to a seat another Sim is already walking to, or sits on, ends before its
+  walk (EA's "taken on arrival" without the walk and the shrug: the Sim stands a sim-minute and its action picks again).
+- **b. The push wait.** EA's pushes start as before; the Sim then waits until the area behind the chair is clear, at
+  most the shared grace (`HhGraceMin`, 2.5 sim-min; no grace when nobody sees it, camsafe). After the grace the chair
+  pulls out past the neighbour: a brief partial overlap of chair and legs, no walk through a standing Sim, no snap.
+- **c. The pull-out test** after such a grace is asked again with Sims allowed (the chair's own
+  `mAllowIntersectionAllSims`, which the game uses for the feet test). Furniture, walls and doors still refuse it.
+
+Works with: nextplan (one claim table: a Sim whose next action sits on a chair also keeps others off it), doorseat /
+seatreach (their `CanScootBack` swap runs inside this one and answers first), clipwait (the same grace), camsafe.
+EA's events, buffs and the eating itself are untouched: only which chair, and how long the wait.
+Off = compare mode: counted (`would`), nothing changed.
+
+Swaps: `ChairDining.RouteToForSitting`, `ChairBarStool.RouteToForSitting` (probe round the game's body),
+`ChairDining.CanScootBack`, `GameObject.PushSimsFromFootprint` (only a waiting push at the seat of a running approach
+is changed), `EatingSurfaceImpl.GetClosestFreeSlotPair`. Counters 5020-5039. Sofas and benches
+(`Sim.RouteToUnusedPart`) are not covered.
+
+### 42.4 Checks
+
+Selftest `tools/selftest/seatclash` (19 checks). Forced repros `seatclash-force` (4-seat `TableDiningBistro`) and
+`seatclash-force6` (6-seat `TableDiningMission`): 8 household Sims, a group meal by the counters, all 8 ordered to grab
+a serving at once, three rounds per arm; both arms run the planned-on household set of this branch (facilityplan,
+facilityquick, facilitychain, showerpeeplan, nextplan, clipwait, doorseat, seatreach, all with hh), arm on adds
+`seatclash` + `seatclashhh`.
+
+### 42.5 Forced repro runs s702 (2026-11-27/28, Deck, Sunset Valley new game, 8 household Sims ordered to grab a serving at once, 3 rounds per arm, camera on the lot; both arms with the planned-on set of this branch) [verified in the repro logs]
+
+Counters are per arm (cumulative over its 3 rounds); "household" = the 8 Sims, the totals include townies elsewhere.
+
+| run (table, build) | arm | approaches | seated | taken on arrival | push failed | shrugs | push waits: n, sum, longest (sim-min) | grace ends (on screen) | ended before the walk | errors |
+|---|---|---|---|---|---|---|---|---|---|---|
+| s702a run 1, 4 seats, holds at the table's pick only | off | 35 | 32 | 2 | 1 | 3 | 1, 15.3, 15.3 | 0 (would 1) | - | 0 |
+| | on | 38 | 35 | 3 | 0 | 3 | 23, 5.6, 2.6 | 1 (1) | - | 0 |
+| s702a run 2, 4 seats, final build | off | 29 | 25 | 0 | 1 | 1 | 1, 15.2, 15.2 | 0 (would 1) | 0 | 0 |
+| | on | 32 | 30 | 2 (household 0) | 0 | 2 (household 0) | 18, 2.7, 0.7 | 0 | 0 | 0 |
+| s702b, 6 seats, final build | off | 39 | 34 | 0 | 3 | 3 | 3, 45.5, 15.3 | 0 (would 3) | 0 | 0 |
+| | on | 43 | 43 | 0 | 0 | 0 | 25, 10.3, 2.7 | 3 (3) | 2 | 0 |
+
+Pick (or approach start) to seated, sim-min, p50 / p90: run 2 off 1.6 / 8.4, on 3.2 / 12.0; s702b off 1.6 / 7.1, on 6.4 /
+8.5 (log bins, upper edges; the on arms seat more Sims, including those that waited out a grace). Snaps 0 in every arm;
+on-screen partial clips = the grace ends on screen: 1, 0 and 3.
+
+- **Push wait: PROVEN.** Every off arm had a Sim stand the full 15 sim-min behind a chair and then shrug (5 cases in 3
+  runs, 76 sim-min); no on arm had one (0 of 113 approaches), the longest wait was 2.7 sim-min, and 4 approaches ended
+  their grace with the chair pulling out past the neighbour.
+- **Taken on arrival: NOT proven.** It occurred only in run 1 (off 2, on 3: that build held a chair only at the table's
+  pick, and most Sims reach their chair through a posture change). The final build holds the seat from the approach's
+  start and ends a doomed approach before its walk; in its two runs no household Sim was taken on arrival in either
+  arm (the 2 in run 2 "on" were townies on a community lot), and the early end fired twice. More rounds are needed to
+  see it fail in an off arm with this build.
+- The pull-out retry with Sims allowed never fired (0): with seatreach on in the set its own test passes first.
+
+## 43. A puddle being mopped is held (`mopclaim`, `mopclaimhh`, `mopclaimlog`; 2026-11-27, `post/mopclaim-1127`, built, default off, forced repro s702c)
+
+Household wait census s691: a second mopper walks to a puddle another Sim is already mopping and shrugs; about
+0.3 sim-min per Sim-day, but a visible "confused Sim" moment.
+
+**Why** [verified, decompiled `Terrain.Mopping.Run` / `MopTile`, `PuddleInteraction.GetClosestPuddle`]: mopping takes
+the nearest puddle of the room, walks there, and only then asks `PuddleManager.CanMopPuddle` with Sims counted; the Sim
+already mopping that tile refuses it, so the second Sim plays the route-fail shrug and its mopping ends. A puddle is a
+floor tile: no use list, no reservation, and EA's hidden "mop the floors" action sends every Sim to the lot's first
+puddle.
+
+**Fix** (`MopClaim.cs`, rules in `MopClaimCore.cs`): the tile a mopping Sim takes is a hold in nextplan's claim table
+(`HhHold`, key = lot, level, tile; §41). A Sim whose own pick (autonomous) lands on a tile another mopping Sim holds
+takes the nearest puddle of the room nobody holds; with none left its mopping ends at once, without a walk or a shrug.
+An ordered mop (the player's click on that puddle, a script's push) is never moved: it keeps EA's puddle and takes the
+hold over. A hold whose Sim stopped mopping is dropped at the next read. Scope: `mopclaim` = Sims the player does not
+control, `mopclaimhh` = household and selected Sims. Off = compare mode (`would`).
+Probe (always counted): mop runs, and the runs that ended with a failed walk or EA's shrug.
+
+Swaps: `Terrain.PuddleInteraction.GetClosestPuddle` (no yield), `Terrain.Mopping.Run` (probe after the game's body).
+Counters 5060-5072. Selftest `tools/selftest/mopclaim` (10 checks). Forced repro `mopclaim-force`: 4 household Sims,
+EA's own autonomous mop queued for all four at once (`MopClaimCheck mop`), rounds with one and with three puddles, off
+arm then on arm.
+
+With `mopunreachable` on (its own mop loop and nearest-puddle search replace `Mopping.Run`, so the game's
+`GetClosestPuddle` is not asked) the same rule is asked inside that loop (`McSkipMu` / `McTakenMu`): works with
+mopunreachable, which skips a blocked puddle only after the walk. Holds are taken only for Sims the switches cover.
+
+**Forced repro s702c** (2026-11-28, Deck, Sunset Valley new game, final build, the planned-on set in both arms; 4
+household Sims, EA's autonomous mop queued for all four at once; rounds 1-2 one puddle, rounds 3-4 three puddles; the
+camera on the room) [verified in the repro log]:
+
+| arm | mop runs | ended with a failed walk or shrug | pick held by another mopping Sim | took another puddle | ended quietly, none left | holds | snaps, clips | errors |
+|---|---|---|---|---|---|---|---|---|
+| off | 16 | 9 | - (no holds off) | - | - | 0 | 0 | 0 |
+| on (`mopclaim` + `mopclaimhh`) | 14 | 2 | 14 | 4 | 10 | 10 | 0 | 0 |
+
+**PROVEN in the forced repro:** the walk-over-and-shrug ends fell from 9 of 16 to 2 of 14; the Sims that found their
+puddle taken took another one (4) or stopped without a walk (10). The 2 left are runs that ended with EA's own failed
+walk (not a held puddle). Two earlier runs of this repro showed the off-arm figure (10 of 16, 7 of 16) but 0 picks:
+first the pick hook's type test was folded to false by the compiler, then the rule was not asked in mopunreachable's
+loop; both are fixed in the build above. Not measured in a storm.
+
+## 44. The bathroom as one system; family may use another fixture in a room with privacy (`familybath`, `familybathhh`, `familybathlog`; 2026-11-27, `post/familybath-1127`, built, default off, CHANGES AN EA RULE, storm A/B s703)
+
+### 44.1 Review of the bathroom fixes (facilityplan, facilityquick, facilitychain, showerpeeplan, privacyroom, bathroomwait, lineswitch, standwaitlocked)
+
+Measured (8 Sims, one bathroom, s691 / s693, `hhwait.py`): the toilet line costs 27 sim-min per Sim-day (p50 21, p90
+36); a bath or shower holds the room's privacy for a mean of 51-76 sim-min, and for that time the toilet and the sink
+are closed to everyone but toddlers and the bather's partner; an autonomous toilet clean takes a turn in the line.
+
+1. **The room, not the fixture, is the unit EA locks.** Every fix so far works inside that rule: privacyroom stops
+   autonomy from picking a fixture in the room, bathroomwait waits for the toilet's room to open, facilityplan counts
+   every fixture of the room as taken until the privacy use ends. None of them can use the toilet during a bath.
+   That is the largest remaining wait and is an EA rule, so it is a switch of its own: familybath (44.2).
+2. **Cleaning takes a turn** while Sims queue: cleandefer (§45).
+3. **Two "who is sent to which toilet" tables.** bathroomwait keeps its own claim list (30 sim-min) beside nextplan's
+   claim table; a Sim sent by bathroomwait is not seen by nextplan's pick or by cleandefer until its action is queued.
+   To do: bathroomwait's claim as an `HhHold` (§41). Not changed here (the queued action is seen by both a tick later).
+4. **Order tests** in bathroomwait and fridgeline now use `HhDirected` (§41).
+5. **Checked, no change:** privacyroom and familybath answer different questions (who is *in* the situation; who may
+   *ignore* it) and do not overlap; lineswitch and facilitychain move only autonomous actions; standwaitlocked ends a
+   wait at a room with privacy and opens nothing; none of them touches a door lock the player set (§41.3).
+6. **Left alone on purpose:** shower and bath lengths, motive rates and autonomy weights (balance, not bugs).
+
+### 44.2 familybath [verified, decompiled `GenericPrivacySituation`, `PrivacySituation`, `Toilet.ToiletSituation`, `Shower` / `Bathtub` privacy situations, `Sim.CanIgnoreNormalPrivacySituationsWith`, `CommonDoor`]
+
+EA has two different things that keep a Sim out of a bathroom:
+
+- **The door's lock**, set by the player on the door (`CommonDoor.tLock`: nobody, selected Sim, household, pets, owner
+  list, VIP room), asked by the door itself (`CommonDoor.IsAllowedThrough`). **familybath never changes or bypasses
+  it** (the player: "If its locked its manually locked, i think we shouldnt mess with that"). A Sim the door refuses
+  waits or goes elsewhere exactly as in EA's game, and a room whose doors the player locked against a Sim is never
+  granted (`HhDoorLockedAgainst`; selftest cases for both mechanisms).
+- **The automatic privacy situation** a Sim gets while it showers, bathes or uses the toilet: a room restriction, a
+  portal check for autonomous routes, and a shoo for Sims inside. Its one rule for exceptions is
+  `OtherSimCanIgnorePrivacy`: toddlers and babies, and for these situations the Sim's romantic partner.
+
+familybath adds one more exception to the second: a Sim of the **same household** that comes for a **different
+fixture**: the toilet or the sink while someone showers or bathes, the sink while someone uses the toilet (its running
+or next action targets that fixture in that room). It keeps a pass for 5 sim-min after its last such ask (it washes
+its hands and walks out without being shooed), and the Sim it joined is accepted by the newcomer's own situation (a
+toilet user does not shoo the bather out of the tub).
+
+Never: guests, visitors, service Sims (not the household); either Sim Never Nude or Shy (EA's modesty traits); pets;
+the same fixture; a second toilet user; WooHoo and every other privacy situation. Everything else is EA's: the Sims
+walk in and use EA's animations, nothing is snapped, skipped or clipped, the privacy situation still runs for
+everyone else, buffs and events are unchanged.
+
+Scope: `familybath` = households the player does not control, `familybathhh` = the active household. It changes an EA
+rule, so no other switch turns it on and it is in no proven set.
+
+Works with: privacyroom (unchanged), bathroomwait (`FbOpenFor` with commit: a toilet in a room held only by a household
+member's shower or bath counts as free, and the pushed Sim has its pass before the game's tests), facilityplan
+(`FbOpenFor` estimate: such a toilet or sink is not counted as taken), cleandefer, nextplan.
+
+Swap: `GenericPrivacySituation.OtherSimCanIgnorePrivacy` (EA's body folded in, no extra frame with the switches off).
+Counters 5090-5099. Selftest `tools/selftest/familybath` (15 checks).
+
+### 44.3 Storm A/B s703 (2026-11-27, Deck, Sunset Valley new game, 25 min, seed 156, the s691 / s693 household: 8 Sims, "Shotgun Style - 2br, 1ba", a group meal every 6 min; test build = the s693 base + §41 + §44 + §45) [verified in logs]
+
+Arm a = the household fixes planned on (facilityplan, facilityquick, facilitychain, showerpeeplan, nextplan, fridgeline,
+clipwait, all with hh; bathroomwait, privacyroom). Arm b = a plus `familybath familybathhh cleandefer cleandeferhh`.
+Household waits from `hhwait.py` (HH=Northcott), 7.2 Sim-days each:
+
+| | a (planned set) | b (+ familybath, cleandefer) |
+|---|---|---|
+| toilet line, sim-min per Sim-day (n, p50, p90) | 23.3 (6, 30.7, 41.9) | 17.7 (5, 22.7, 43.5) |
+| shower / bath line, per Sim-day (n) | 5.9 (4) | 2.1 (3) |
+| household members let into a room with privacy | 0 (would 18) | 11, all on screen |
+| the joined Sim accepted by the newcomer's situation | 0 | 86 asks |
+| "be shooed to the next room" lines | 16 | 6 |
+| first-plan route fails at bathroom fixtures (household) | 34 | 31 |
+| EA's rule kept: modest / not family / door locked by the player | 0 / 0 / 0 | 0 / 0 / 0 |
+| snaps, clips | 0 | 0 |
+| familybath errors, native exception lines | 0, 15 | 0, 16 |
+| hitches >= 300 ms | 7 | 7 |
+| all household waits, per Sim-day | 48.6 | 72.4 |
+
+Reading: the mechanism works (11 household members used the toilet or the sink during a bath or shower, with EA's
+animations, no shoo of the bather, no error) and the bathroom lines are lower, but **the line figures are not proof**:
+the same configuration gave 7.9 to 38.0 sim-min per Sim-day of toilet line across s691a/b and s693a/b, so 23.3 vs 17.7
+is inside the run-to-run spread (5-6 waits per arm). The total rose because the fridge line was 31.2 per Sim-day in b
+against 4.8 in a (4.8 to 23.4 in the four earlier runs); nothing in these two fixes touches the fridge, but one run
+cannot rule out an indirect effect (more Sims free at the same time). A third run of each arm would settle both.
+A first attempt at arm b ran with the 8-Sim household unselected (the harness's household switch threw) and is not
+counted; there the Northcotts, as an NPC household, were let in 7 times with 0 errors. No door on that lot is locked by
+the player, so the door-lock rule is covered by the selftest only (not run in game).
+The first test build, on the current upstream main, died at world load twice with the s693 asi (an access violation
+at address 0, once with none of these switches on); the cause is not established (the combo build with the same hooks
+loads). The storm therefore ran on the s693 base; the post branches are built and checked, not loaded in game.
+
+## 45. A toilet clean waits while Sims wait for the toilet (`cleandefer`, `cleandeferhh`, `cleandeferlog`; 2026-11-27, `post/cleandefer-1127`, built, default off, storm A/B s703)
+
+[verified, decompiled `Toilet.Clean`; s691 / s693 linewait lines "Clean target ToiletCheap"] Cleaning the toilet is an
+ordinary use of it: the cleaner walks to the toilet's slot, takes the toilet (or stands in its line) and other Sims
+wait behind the cleaning.
+
+Fix (`CleanDefer.cs`, rules in `CleanDeferCore.cs`): when a Sim's **own pick** to clean a toilet starts
+(`Toilet.Clean.Run`, before its walk) and other Sims wait for that toilet, the clean ends at once, quietly: no walk, no
+shrug; the Sim's autonomy picks something else and comes back to the cleaning later. Waiting means: in the toilet's
+line; the toilet as the target of a queued action; a claim or hold on it in nextplan's table (`HhHolder`, §41); or a
+household Sim at home whose bladder is at bathroomwait's level (-20). An ordered clean (the player's click, a maid's
+pushed job) is never deferred. A toilet is not deferred for more than 120 sim-min in a row (it would stay dirty in a
+house where someone always needs it). Ordering only: no autonomy weight, need or duration is changed.
+
+Scope: `cleandefer` = Sims the player does not control, `cleandeferhh` = household and selected Sims. Off = compare
+mode (`would`). Swap: `Toilet.Clean.Run`. Counters 5100-5107. Selftest `tools/selftest/cleandefer` (5 checks).
+
+**Storm s703** (see §44.3 for the set-up; arm b = planned set + familybath + cleandefer): 32 autonomous toilet
+cleans started, 31 deferred, 0 errors, 0 capped; in arm a (off) the one clean of the run hit a NullReferenceException in
+the waiters count (an empty line is null), caught by the hook and fixed before arm b. 31 of 32 is too many: almost
+all waited for "a household Sim with a bladder need at -20", which is nearly always true with 8 Sims and one toilet, so
+the toilet would only be cleaned at the 120 sim-min cap. The need now counts from EA's urgent level (-60); **that
+change is not run in game**. The toilet line was 23.3 sim-min per Sim-day in a and 17.7 in b (inside the run-to-run
+spread, §44.3), so the gain is not proven; what the run shows is that the deferral works and ends quietly.
