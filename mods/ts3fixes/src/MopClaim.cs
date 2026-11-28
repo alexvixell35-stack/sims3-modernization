@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Controllers;
 using Sims3.Gameplay.Core;
@@ -20,7 +21,8 @@ namespace Ts3Fixes
     // script's push) is never moved: it keeps EA's puddle and takes the hold over.
     // Probe (always counted): mop runs, and the runs that ended with a failed walk or EA's shrug.
     // Scope: mopclaim = Sims the player does not control, mopclaimhh = household and selected Sims (HhSharedCore.Scope).
-    // Works with: nextplan (one claim table), seatclash (the same hold calls). Off = compare mode: counted, nothing
+    // Works with: nextplan (one claim table), seatclash (the same hold calls), mopunreachable (its own mop loop asks the
+    // same rule through McSkipMu / McTakenMu; with it on a blocked puddle is skipped after the walk, with mopclaim before it). Off = compare mode: counted, nothing
     // changed. Counters 5060-5079. Check: MopClaimCheck.
     public static partial class Fixes
     {
@@ -59,7 +61,7 @@ namespace Ts3Fixes
             {
                 Vector3 r = ClosestOrig(lotId, startPos);
                 Sim a = Actor;
-                if (a == null || r == Vector3.Invalid || !(this is Terrain.Mopping)) return r;
+                if (a == null || r == Vector3.Invalid || !((object)this is Terrain.Mopping)) return r;  // through object: the compiler folds "hook class is Mopping" to false
                 try
                 {
                     int[] c = PatchCounters();
@@ -83,7 +85,7 @@ namespace Ts3Fixes
                         McLine(head + " is being mopped by " + other.FullName + ": takes the puddle at " + BuAt(r2));
                         r = r2;
                     }
-                    if (scope != HhSharedCore.kExempt && HhHold(key, a, MopClaimCore.HoldMinutes(PuddleManager.TimeToMopPuddle, Instantiator.kNextPlanClaimMinutes))) c[kMcHolds]++;
+                    if (scope == HhSharedCore.kGo && HhHold(key, a, MopClaimCore.HoldMinutes(PuddleManager.TimeToMopPuddle, Instantiator.kNextPlanClaimMinutes))) c[kMcHolds]++;
                     return r;
                 }
                 catch (ResetException) { throw; }
@@ -115,6 +117,55 @@ namespace Ts3Fixes
                 key = MopClaimCore.Key(lotId, p.mLevel, p.mX, p.mZ);
                 return tiles[pick];
             }
+        }
+
+        // The same rule for mopunreachable's run (MopUnreachable.cs replaces Mopping.Run with its own loop and its own
+        // nearest-puddle search, so the game's GetClosestPuddle is not asked there). McSkipMu: true = this pick is held by
+        // another mopping Sim and the fix covers the Sim: the loop asks its search for the next one. McTakenMu: the pick the
+        // loop settled on (Invalid: none left); counts and takes the hold.
+        static bool McSkipMu(Terrain.Mopping m, Sim a, ulong lotId, Vector3 picked, bool first)
+        {
+            try
+            {
+                int[] c = PatchCounters();
+                if (first) c[kMcPicks]++;
+                Sim other = McHolder(McKeyAt(lotId, picked), a);
+                if (other == null) return false;
+                int scope = HhSharedCore.Scope(true, true, IsPlayerSim(a), ShortcutOn("mopclaim"), ShortcutOn("mopclaimhh"));
+                int d = MopClaimCore.Decide(true, HhDirected(m), scope);
+                if (first)
+                {
+                    c[kMcHeld]++;
+                    string head = BuWho(a) + " " + a.FullName + ": puddle at " + BuAt(picked) + " is being mopped by " + other.FullName;
+                    if (d == MopClaimCore.kOrdered) { c[kMcOrdered]++; McLine(head + ": ordered, kept"); }
+                    else if (d == MopClaimCore.kWould) { c[kMcWould]++; McLine(head + ": would take another"); }
+                    else if (d == MopClaimCore.kMove) McLine(head + ": takes another puddle, or ends when there is none");
+                }
+                return d == MopClaimCore.kMove;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { McError(e); return false; }
+        }
+
+        static void McTakenMu(Sim a, ulong lotId, Vector3 picked, bool moved)
+        {
+            try
+            {
+                int[] c = PatchCounters();
+                if (picked == Vector3.Invalid) { if (moved) c[kMcNone]++; return; }
+                if (moved) c[kMcMoved]++;
+                if (HhSharedCore.Scope(true, true, IsPlayerSim(a), ShortcutOn("mopclaim"), ShortcutOn("mopclaimhh")) == HhSharedCore.kGo
+                    && HhHold(McKeyAt(lotId, picked), a, MopClaimCore.HoldMinutes(PuddleManager.TimeToMopPuddle, Instantiator.kNextPlanClaimMinutes))) c[kMcHolds]++;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { McError(e); }
+        }
+
+        static ulong McKeyAt(ulong lotId, Vector3 pos)
+        {
+            LotLocation l = LotLocation.Invalid;
+            World.GetLotLocationAtFloor(pos, ref l);
+            return MopClaimCore.Key(lotId, l.mLevel, l.mX, l.mZ);
         }
 
         // The other Sim that holds the tile and is still mopping; a hold whose Sim stopped mopping is dropped.
@@ -167,12 +218,12 @@ namespace Ts3Fixes
         // game queues it when several Sims decide to clean up at once.
         static string McMopAll()
         {
-            Sim sel = Sims3.Gameplay.Core.PlumbBob.SelectedActor;
-            if (sel == null || sel.LotCurrent == null || sel.Household == null) return "mopclaim mop: no selected Sim on a lot";
+            Sims3.Gameplay.Core.Lot home = HhHomeLot();
+            if (home == null) return "mopclaim mop: no active household with a home lot";
             int n = 0;
-            foreach (Sim s in sel.Household.Sims)
+            foreach (Sim s in home.Household.Sims)
             {
-                if (s == null || s.HasBeenDestroyed || s.LotCurrent != sel.LotCurrent || s.InteractionQueue == null) continue;
+                if (s == null || s.HasBeenDestroyed || s.LotCurrent != home || s.InteractionQueue == null) continue;
                 InteractionInstance ii = Sim.MopPuddles.Singleton.CreateInstance(s, s, new InteractionPriority(InteractionPriorityLevel.Autonomous), true, true);
                 if (ii != null && s.InteractionQueue.Add(ii)) n++;
             }

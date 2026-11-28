@@ -2591,3 +2591,46 @@ restriction plus a portal check for autonomous routes). Audit of the household f
 - standwaitlocked ends a wait at a privacy-locked room earlier; it opens nothing.
 - reachcache sets doors to `Nobody` for a moment and restores them in the same call (its own measurement; docs/688).
 - familybath (§44) changes the privacy situation's rule only and refuses any room the player locked.
+
+## 43. A puddle being mopped is held (`mopclaim`, `mopclaimhh`, `mopclaimlog`; 2026-11-27, `post/mopclaim-1127`, built, default off, forced repro s702c)
+
+Household wait census s691: a second mopper walks to a puddle another Sim is already mopping and shrugs; about
+0.3 sim-min per Sim-day, but a visible "confused Sim" moment.
+
+**Why** [verified, decompiled `Terrain.Mopping.Run` / `MopTile`, `PuddleInteraction.GetClosestPuddle`]: mopping takes
+the nearest puddle of the room, walks there, and only then asks `PuddleManager.CanMopPuddle` with Sims counted; the Sim
+already mopping that tile refuses it, so the second Sim plays the route-fail shrug and its mopping ends. A puddle is a
+floor tile: no use list, no reservation, and EA's hidden "mop the floors" action sends every Sim to the lot's first
+puddle.
+
+**Fix** (`MopClaim.cs`, rules in `MopClaimCore.cs`): the tile a mopping Sim takes is a hold in nextplan's claim table
+(`HhHold`, key = lot, level, tile; §41). A Sim whose own pick (autonomous) lands on a tile another mopping Sim holds
+takes the nearest puddle of the room nobody holds; with none left its mopping ends at once, without a walk or a shrug.
+An ordered mop (the player's click on that puddle, a script's push) is never moved: it keeps EA's puddle and takes the
+hold over. A hold whose Sim stopped mopping is dropped at the next read. Scope: `mopclaim` = Sims the player does not
+control, `mopclaimhh` = household and selected Sims. Off = compare mode (`would`).
+Probe (always counted): mop runs, and the runs that ended with a failed walk or EA's shrug.
+
+Swaps: `Terrain.PuddleInteraction.GetClosestPuddle` (no yield), `Terrain.Mopping.Run` (probe after the game's body).
+Counters 5060-5072. Selftest `tools/selftest/mopclaim` (10 checks). Forced repro `mopclaim-force`: 4 household Sims,
+EA's own autonomous mop queued for all four at once (`MopClaimCheck mop`), rounds with one and with three puddles, off
+arm then on arm.
+
+With `mopunreachable` on (its own mop loop and nearest-puddle search replace `Mopping.Run`, so the game's
+`GetClosestPuddle` is not asked) the same rule is asked inside that loop (`McSkipMu` / `McTakenMu`): works with
+mopunreachable, which skips a blocked puddle only after the walk. Holds are taken only for Sims the switches cover.
+
+**Forced repro s702c** (2026-11-28, Deck, Sunset Valley new game, final build, the planned-on set in both arms; 4
+household Sims, EA's autonomous mop queued for all four at once; rounds 1-2 one puddle, rounds 3-4 three puddles; the
+camera on the room) [verified in the repro log]:
+
+| arm | mop runs | ended with a failed walk or shrug | pick held by another mopping Sim | took another puddle | ended quietly, none left | holds | snaps, clips | errors |
+|---|---|---|---|---|---|---|---|---|
+| off | 16 | 9 | - (no holds off) | - | - | 0 | 0 | 0 |
+| on (`mopclaim` + `mopclaimhh`) | 14 | 2 | 14 | 4 | 10 | 10 | 0 | 0 |
+
+**PROVEN in the forced repro:** the walk-over-and-shrug ends fell from 9 of 16 to 2 of 14; the Sims that found their
+puddle taken took another one (4) or stopped without a walk (10). The 2 left are runs that ended with EA's own failed
+walk (not a held puddle). Two earlier runs of this repro showed the off-arm figure (10 of 16, 7 of 16) but 0 picks:
+first the pick hook's type test was folded to false by the compiler, then the rule was not asked in mopunreachable's
+loop; both are fixed in the build above. Not measured in a storm.
