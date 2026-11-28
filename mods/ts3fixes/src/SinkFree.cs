@@ -40,7 +40,12 @@ namespace Ts3Fixes
     // Put-down (hand-in and merge): EA's PutDownOnNearestSurface on a counter or table beside the sink (the Sim walks to the
     //    slot), then EA's fade. No surface there: the floor by the sink only when camsafe's CsDecide says nobody sees it;
     //    else EA's own line and wash. No snaps, no clips.
-    // 1b. A sink in a room locked for privacy (SnfLocked) is skipped while another usable sink exists (SinkFreeCore.PickOpen).
+    // 1b. A sink in a room locked for privacy (SnfLocked) is skipped while another usable sink exists (SinkFreeCore.PickOpen);
+    //    so is a sink in a room whose doors the player locked against the Sim (HhDoorLockedAgainst, docs/686 §41).
+    // Works with the shared household helpers (docs/686 §41): a cleanup or wash the Sim did not pick itself (HhDirected: the
+    //    player's click, a script's push) keeps EA's sink and EA's line; the sink a moved trip goes to is held in nextplan's
+    //    claim table (HhHold, walk + wash) so the next dish Sim and nextplan's pick see it taken, and the hold is dropped
+    //    when that Sim's wash ends; a sink another Sim holds counts as busy in the pick.
     // Counters 5000-5019 and 5080-5087 (merge, locked, put-down). Off = compare mode (would counters).
     public static partial class Fixes
     {
@@ -111,7 +116,7 @@ namespace Ts3Fixes
             return head != null && head != a;
         }
 
-        static bool SnfBusy(Sink s, Sim a) { return SinkFreeCore.Busy(SnfOthers(s, a), SnfHeadOther(s, a)); }
+        static bool SnfBusy(Sink s, Sim a) { return SinkFreeCore.Busy(SnfOthers(s, a), SnfHeadOther(s, a)) || HhHeldByOther(s.ObjectId.Value, a); }
 
         static bool SnfUsable(Sink s, Sim a)
         {
@@ -130,12 +135,13 @@ namespace Ts3Fixes
             return SinkFreeCore.Kitchen(!(s is SinkCounter), bath);  // EA's pedestal sinks (SinkPedestalModerate ...) derive from Sink itself
         }
 
-        static GameObject SnfPick(Sim a, GameObject ea)
+        static GameObject SnfPick(Sim a, GameObject ea, InteractionInstance trip)
         {
             int[] c = PatchCounters();
             c[kSnfCalls]++;
             Sink sink = ea as Sink;
             if (sink == null) { c[kSnfNotSink]++; return ea; }
+            if (HhDirected(trip)) { c[kSnfExempt]++; return ea; }  // the player's or a script's cleanup: EA's sink (docs/686 §41)
             bool eaBusy = SnfBusy(sink, a);
             if (eaBusy) c[kSnfEaBusy]++; else c[kSnfEaFree]++;
             Lot lot = a.LotCurrent;
@@ -173,6 +179,7 @@ namespace Ts3Fixes
             c[kSnfSwitched]++;
             if (kit[k] && !kit[eaIdx]) c[kSnfToKitchen]++;
             SnfLine("sinkfree: " + a.FullName + " " + who + ": washes at " + what);
+            HhHold(to.ObjectId.Value, a, FpTravel(a, to) + to.TuningSink.WashDishesLengthInMinutes);  // dropped at the end of its wash
             return to;
         }
 
@@ -181,7 +188,9 @@ namespace Ts3Fixes
         static bool SnfLocked(Sink s, Sim a)
         {
             Lot lot = s.LotCurrent;
-            return lot != null && s.RoomId != 0 && lot.RoomLockedByPrivacy(a, s.RoomId);  // EA's own test (facilityplan, bathroomwait use it too)
+            if (lot == null || s.RoomId == 0) return false;
+            return lot.RoomLockedByPrivacy(a, s.RoomId)  // EA's own test (facilityplan, bathroomwait use it too)
+                || HhDoorLockedAgainst(a, lot, s.RoomId);  // the player's door lock (docs/686 §41)
         }
 
         // Immersion: the Sim sets its dishes down on a counter or table beside the sink with EA's own put-down (it walks to the
@@ -278,6 +287,7 @@ namespace Ts3Fixes
         {
             Sim a = self.Actor; Sink s = self.Target;
             if (a == null || s == null) return false;
+            if (HhDirected(self)) return false;  // an ordered wash keeps EA's line and wash (docs/686 §41)
             ServingContainer held = a.GetObjectInRightHand() as ServingContainer;
             if (held == null || held.StackList == null) return false;
             if (sSnfRetry.Remove(a.ObjectId.Value)) return false;  // its dishes came back from a stopped wash: EA's own wash
@@ -416,7 +426,7 @@ namespace Ts3Fixes
             public GameObject PickHook()
             {
                 GameObject ea = PickOrig();
-                try { SnfPrune(); return SnfPick(Actor, ea); }
+                try { SnfPrune(); return SnfPick(Actor, ea, this); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { SnfError(e); return ea; }
             }
@@ -440,7 +450,11 @@ namespace Ts3Fixes
                 catch (Exception e) { SnfError(e); }
                 if (handed) { SnfTrip(this, t0, "joined a wash"); return true; }
                 bool ok = RunOrig();
-                try { if (sSnfPend.Count > 0) SnfWashEnd(this, ok); }
+                try
+                {
+                    if (Target != null) HhDrop(Target.ObjectId.Value, Actor);  // the pick's hold on this sink (no-op without one)
+                    if (sSnfPend.Count > 0) SnfWashEnd(this, ok);
+                }
                 catch (ResetException) { throw; }
                 catch (Exception e) { SnfError(e); }
                 SnfTrip(this, t0, ok ? "washed own" : "stopped");

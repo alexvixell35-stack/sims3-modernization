@@ -3170,7 +3170,14 @@ pick, the join rule, the hand-in cap grid and scope, the merge stack grid, extra
 
 ### 40.3 Works with
 
-- **nextplan**: claims only autonomous queue picks of single-use targets; sinks are never claimed, so no overlap.
+- **nextplan**: claims only autonomous queue picks of single-use targets; it does not claim sinks itself. The sink a
+  moved dish trip goes to is held in nextplan's claim table through §41's `HhHold` (walk + EA's wash length), so
+  nextplan's pick factor and the next dish Sim see it taken (`SnfBusy` counts a sink another Sim holds as busy); the
+  hold is dropped when that Sim's `WashDishes` ends (`HhDrop`).
+- **§41 order test**: a cleanup or wash the Sim did not pick itself (`HhDirected`: the player's click or a script's
+  push; EA's continuation keeps the cleanup's autonomy) keeps EA's sink and EA's line: no move, no hand-in, no merge.
+- **§41 door lock**: a sink in a room whose doors the player locked against the Sim (`HhDoorLockedAgainst`) is
+  skipped like a privacy-locked one; EA's automatic privacy stays `RoomLockedByPrivacy`.
 - **facilityplan**: sinkfree reads its `FpBusy` for the wait test and the same privacy test; facilityplan scores
   bathroom visits and never moves dishes, so neither undoes the other.
 - **fridgeline, servingshare**: act before eating (fridge line, shared serving); sinkfree acts on the plate after,
