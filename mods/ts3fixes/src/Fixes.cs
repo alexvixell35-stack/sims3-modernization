@@ -563,6 +563,7 @@ namespace Ts3Fixes
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
             ApplyDoorSeat();           // docs/686 §39 (DoorSeat.cs): doorseat / doorseathh / seatreach / seatreachhh / seatsnap, off by default (counts either way); swaps ChairDining.CanScootBack / CanEnableFeetFootprint, ChairBarStool.CanScootBack
             ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
+            ApplyFridgeShare();        // docs/686 §41 (FridgeShare.cs): fridgeshare / fridgesharehh / fridgesharelog, off by default (counts either way); swaps Fridge_CleanOutBadFood.Run, rides FridgeFf's Fridge_Have / Fridge_EatLeftovers swaps and LineSwitch's waiter check
             ApplySinkFree();           // docs/686 §40 (SinkFree.cs): sinkfree / sinkfreehh / sinkfreelog, off by default (counts either way); swaps ServingContainer.ServingContainer_CleanUp.GetBestObjectToWashDishes
             ApplySeatClash();          // docs/686 §42 (SeatClash.cs): seatclash / seatclashhh / seatclashlog, off by default (the probe counts either way); swaps ChairDining / ChairBarStool.RouteToForSitting, ChairDining.CanScootBack (after doorseat's: theirs answers first), GameObject.PushSimsFromFootprint, EatingSurfaceImpl.GetClosestFreeSlotPair
             ApplyMopClaim();           // docs/686 §43 (MopClaim.cs): mopclaim / mopclaimhh / mopclaimlog, off by default (the probe counts either way); swaps Terrain.PuddleInteraction.GetClosestPuddle, Terrain.Mopping.Run
@@ -1862,8 +1863,8 @@ namespace Ts3Fixes
         // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
         // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
-        // [5000-5018] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
-        // would / no better sink / exempt / errors / EA's sink free / not a sink / lines / to kitchen / handed in / hand-in would / capped / washed / left down / moved while hidden / washer stopped first / shown again; 5019 spare.
+        // [5000-5019, 5080-5087] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
+        // would / no better sink / exempt / errors / EA's sink free / not a sink / lines / to kitchen / handed in / hand-in would / capped / washed / left down / moved while hidden / washer stopped first / shown again / merged dishes; 5080-5087 merge would / stack full / spare / carrier stopped or full / locked-room sink skipped / no surface by the sink (seen) / floor put-down (unseen) / put-down on screen; 5088-5089 spare.
         // [4980-4999] doorseat (DoorSeat.cs, docs/686 §39; reserved by hand 2026-11-27): seat tests refused with a door near / would /
         // allowed scoot / feet / kept: no door near / door allowed still refused / exempt / errors / scoot refused / feet refused /
         // snaps faded / lines / check sit orders / seated / not seated / seatreach: seat cases / walked after the grace / clip /
@@ -1879,7 +1880,11 @@ namespace Ts3Fixes
         // modest / not family / door locked by the player / let in on screen / errors / lines / planner asks answered open.
         // [5100-5107] cleandefer (CleanDefer.cs, docs/686 §45; 5100-5109 reserved 2026-11-27): toilet cleans started / deferred / would /
         // ordered: cleaned / deferred too long: cleaned / errors / lines / nobody waiting.
-        const int kCounterSlots = 5110;  // 5090: seatclash 5020-5039, fridgeshare 5040-5059, mopclaim 5060-5079, sinkfree 5080-5089
+        // [5040-5059] fridgeshare (FridgeShare.cs, docs/686 §41; reserved by hand 2026-11-27): uses / shared at once / beside / heads
+        // gave way / would give way / would share / exempt / no spot beside / waited at the fridge / timed out / clean-outs released /
+        // errors / overlapping uses / stepped in / capped / kept for a player's order / shared from the line / dish wait / gave way
+        // then waited / quick grab before a clean-out.
+        const int kCounterSlots = 5110;  // seatclash 5020-5039, fridgeshare 5040-5059, mopclaim 5060-5079, sinkfree 5080-5089, familybath 5090-5099, cleandefer 5100-5109
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2282,6 +2287,9 @@ namespace Ts3Fixes
                 case "alibiwalk": return Instantiator.kAlibiWalk;  // AlibiWalk.cs (docs/691): an unseen NPC's long walk off the active lot cut to its tail, off
                 case "alibiwalklog": return Instantiator.kAlibiWalkLog;  // AlibiWalk.cs: count what alibiwalk would cut, off
                 case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
+                case "fridgeshare": return Instantiator.kFridgeShare;  // FridgeShare.cs (docs/686 §41): two short fridge uses at once, a waiter at the fridge before a head still walking over (NPCs), off
+                case "fridgesharehh": return Instantiator.kFridgeShareHh;  // FridgeShare.cs: the same for household and selected Sims, off
+                case "fridgesharelog": return Instantiator.kFridgeShareLog;  // FridgeShare.cs: one line per share / give-way / release
                 case "sinkfree": return Instantiator.kSinkFree;  // SinkFree.cs (docs/686 §40): dish cleanup washes at the nearest free sink when EA's pick is busy (NPCs), off
                 case "sinkfreehh": return Instantiator.kSinkFreeHh;  // SinkFree.cs: the same for household and selected Sims, off
                 case "sinkfreelog": return Instantiator.kSinkFreeLog;  // SinkFree.cs: one line per busy pick

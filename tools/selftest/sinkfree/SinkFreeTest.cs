@@ -57,6 +57,20 @@ static class SinkFreeTest
         Check(SinkFreeCore.Nearest(null, null, null, L) == -1 && SinkFreeCore.Nearest(new float[0], new bool[0], null, L) == -1, "no sinks");
     }
 
+    static void Join()
+    {
+        const int N = SinkFreeCore.kJoinNone, Wa = SinkFreeCore.kJoinWasher, Nx = SinkFreeCore.kJoinNext;
+        Check(SinkFreeCore.Join(3f, false, 0f, false, 0f, 0, 0f) == N, "sink free, nobody coming: EA's own wash");
+        Check(SinkFreeCore.Join(3f, true, 5f, false, 0f, 0, 5f) == Wa, "washer still at it when it arrives: hand in");
+        Check(SinkFreeCore.Join(3f, true, 0.8f, false, 0f, 0, 0.8f) == N, "EA's 1-min wash done before it arrives: no wait, own wash");
+        Check(SinkFreeCore.Join(3f, true, 0.8f, true, 1f, 1, 1.8f) == Nx, "washer done soon, one in line: join the next wash");
+        Check(SinkFreeCore.Join(3f, false, 0f, true, 4f, 0, 0f) == Nx, "carrier ahead, its wash ends after this arrives: join it");
+        Check(SinkFreeCore.Join(3f, false, 0f, true, 2f, 0, 0f) == N, "carrier ahead done before this arrives: own wash");
+        Check(SinkFreeCore.Join(3f, false, 0f, true, 2f, 0, 4f) == Nx, "facilityplan says busy past the arrival: join the next wash");
+        Check(SinkFreeCore.Join(3f, false, 0f, false, 0f, 2, 9f) == N, "a line but no wash to join (hands, teeth): EA's line");
+        Check(SinkFreeCore.Join(float.NaN, true, 0.5f, false, 0f, 0, 0f) == Wa, "unknown walk counts as 0");
+    }
+
     static void Handoff()
     {
         Check(SinkFreeCore.Handoff(true, true, true, true, false, 2, 0) == G, "kitchen sink, someone washing, no free kitchen: hand in");
@@ -78,6 +92,50 @@ static class SinkFreeTest
                 int r = SinkFreeCore.Handoff(true, true, true, true, false, n, h);
                 Check((r == G) == (h + n <= SinkFreeCore.kHandCap), "cap " + h + "+" + n);
             }
+    }
+
+    static void Open()
+    {
+        float[] dist = { 1f, 4f, 8f };
+        bool[] none = { false, false, false };
+        // 0 = bathroom sink (locked), 1 = kitchen sink, 2 = second bathroom sink
+        Check(SinkFreeCore.PickOpen(0, new bool[] { false, true, false }, none, new bool[] { true, false, false }, dist, null, 0.25f) == 1, "EA's locked bathroom sink: kitchen sink");
+        Check(SinkFreeCore.PickOpen(0, new bool[] { false, false, false }, none, new bool[] { true, false, false }, dist, null, 0.25f) == 1, "no kitchen: nearest open sink");
+        Check(SinkFreeCore.PickOpen(0, new bool[] { false, false, false }, new bool[] { false, true, true }, new bool[] { true, false, false }, dist, null, 0.25f) != 0, "others busy: still not the locked one");
+        Check(SinkFreeCore.PickOpen(0, new bool[] { false, false, false }, none, new bool[] { true, true, true }, dist, null, 0.25f) == 0, "all locked: EA's pick");
+        Check(SinkFreeCore.PickOpen(1, new bool[] { true, true, false }, new bool[] { false, true, false }, new bool[] { true, false, false }, dist, null, 0.25f) == 1, "free kitchen sink locked: busy open kitchen sink, never the locked one");
+        Check(SinkFreeCore.PickOpen(1, new bool[] { false, true, false }, none, none, dist, null, 0.25f) == SinkFreeCore.Pick(1, new bool[] { false, true, false }, none, dist, null, 0.25f), "nothing locked: Pick");
+        Check(SinkFreeCore.PickOpen(1, new bool[] { false, true, false }, none, null, dist, null, 0.25f) == 1, "no lock list: Pick");
+        for (int mask = 0; mask < 8; mask++)
+            for (int lk = 0; lk < 7; lk++)
+                for (int ea = 0; ea < 3; ea++)
+                {
+                    bool[] busy = { (mask & 1) != 0, (mask & 2) != 0, (mask & 4) != 0 };
+                    bool[] locked = { (lk & 1) != 0, (lk & 2) != 0, (lk & 4) != 0 };
+                    int r = SinkFreeCore.PickOpen(ea, new bool[] { false, true, false }, busy, locked, dist, null, 0.25f);
+                    Check(r >= 0 && r < 3 && !locked[r], "open sink when one exists: busy " + mask + " locked " + lk + " ea " + ea);
+                }
+    }
+
+    static void Merge()
+    {
+        int G = SinkFreeCore.kGo;
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 1, 1, 0, 8) == G, "carrier on its way, room on the stack: merge");
+        Check(SinkFreeCore.Merge(false, true, true, true, false, 1, 1, 0, 8) == SinkFreeCore.kWould, "off: would");
+        Check(SinkFreeCore.Merge(true, false, true, true, false, 1, 1, 0, 8) == SinkFreeCore.kExempt, "out of scope: exempt");
+        Check(SinkFreeCore.Merge(true, true, false, true, false, 1, 1, 0, 8) == SinkFreeCore.kNone, "bathroom sink: never");
+        Check(SinkFreeCore.Merge(true, true, true, false, false, 1, 1, 0, 8) == SinkFreeCore.kNone, "no carrier: none");
+        Check(SinkFreeCore.Merge(true, true, true, true, true, 1, 1, 0, 8) == SinkFreeCore.kNone, "another kitchen sink free: wash there");
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 0, 1, 0, 8) == SinkFreeCore.kNone, "no dishes: none");
+        for (int stack = 1; stack <= 8; stack++)
+            for (int joined = 0; joined <= 4; joined++)
+                for (int n = 1; n <= 4; n++)
+                {
+                    int r = SinkFreeCore.Merge(true, true, true, true, false, n, stack, joined, 8);
+                    Check((r == G) == (stack + joined + n <= 8) && (r == G || r == SinkFreeCore.kCapped), "stack " + stack + "+" + joined + "+" + n);
+                }
+        Check(SinkFreeCore.Merge(true, true, true, true, false, 1, 1, 0, 0) == SinkFreeCore.kCapped, "no stack size: never");
+        Check(SinkFreeCore.Kitchen(false, false) && !SinkFreeCore.Kitchen(true, false) && !SinkFreeCore.Kitchen(false, true), "kitchen = counter sink in a room without a toilet, shower or tub");
     }
 
     static void Times()
@@ -104,7 +162,7 @@ static class SinkFreeTest
 
     static int Main()
     {
-        Decide(); Pick(); Nearest(); Handoff(); Times(); End();
+        Decide(); Pick(); Nearest(); Join(); Handoff(); Merge(); Open(); Times(); End();
         Console.WriteLine(sFails == 0 ? "sinkfree selftest: all passed" : "sinkfree selftest: " + sFails + " failed");
         return sFails == 0 ? 0 : 1;
     }

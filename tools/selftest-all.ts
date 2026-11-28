@@ -190,6 +190,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/mopclaim/run.ts': CSC,
   'tools/selftest/familybath/run.ts': CSC,
   'tools/selftest/cleandefer/run.ts': CSC,
+  'tools/selftest/fridgeshare/run.ts': CSC,
   'tools/selftest/alibiwalk/run.ts': CSC,
   'tools/selftest/reachcache/run.ts': CSC,
   'tools/selftest/termlenguard/run.ts': CSC,

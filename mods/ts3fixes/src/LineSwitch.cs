@@ -313,6 +313,15 @@ namespace Ts3Fixes
                     catch (ResetException) { throw; }
                     catch (Exception e) { UnsError(e); }
                 }
+                // docs/686 §41 (FridgeShare.cs): a fridge waiter shares the fridge or goes before a head still walking over
+                if (sim != null && minutesToWait > 0f)
+                {
+                    bool now = false;
+                    try { now = FrsCheck(this, sim); }
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { FrsError(e); }
+                    if (now) return ExitOrig(sim, 0f, exitReasons);  // EA's loop reads the new place at once
+                }
                 return ExitOrig(sim, minutesToWait, exitReasons);
             }
             public bool ExitOrig(Sim sim, float minutesToWait, ExitReason exitReasons) { return false; }  // receives SimQueue.WaitForExitReasonOnSim

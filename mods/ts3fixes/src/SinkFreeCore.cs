@@ -33,7 +33,7 @@ namespace Ts3Fixes
 
         // A kitchen sink: not a pedestal sink and not in a room with a toilet, shower or bath (EA has no room types; these
         // are the objects EA's own privacy situations lock rooms for).
-        public static bool Kitchen(bool pedestal, bool roomHasBathObject) { return !pedestal && !roomHasBathObject; }
+        public static bool Kitchen(bool notCounterSink, bool roomHasBathObject) { return !notCounterSink && !roomHasBathObject; }
 
         // The nearest usable sink: distance divided by EA's level factor (GlobalFunctions.GetClosestObject's kDifferentLevelScore)
         // for a sink on another level, as EA ranks them.
@@ -77,12 +77,59 @@ namespace Ts3Fixes
             return f >= 0 ? f : ea;
         }
 
+        // Rule 1b: a sink in a room locked for privacy (someone on the toilet or in the shower there; EA's route then fails with
+        // FailedBecauseDestinationPortalLocked) is skipped while any other usable sink exists: Pick over the others, and when
+        // EA's pick is the locked one, EA's own rule (the nearest) over the others stands in for it. locked: also true for an
+        // unusable sink. All sinks locked: Pick as before.
+        public static int PickOpen(int ea, bool[] kitchen, bool[] busy, bool[] locked, float[] dist, bool[] otherLevel, float levelScore)
+        {
+            int n = kitchen.Length;
+            if (locked == null || locked.Length != n || ea < 0 || ea >= n) return Pick(ea, kitchen, busy, dist, otherLevel, levelScore);
+            bool[] open = new bool[n]; bool anyOpen = false;
+            for (int i = 0; i < n; i++) { open[i] = !locked[i]; if (open[i]) anyOpen = true; }
+            if (!anyOpen) return Pick(ea, kitchen, busy, dist, otherLevel, levelScore);
+            bool[] k2 = new bool[n], b2 = new bool[n];
+            for (int i = 0; i < n; i++) { k2[i] = kitchen[i] && open[i]; b2[i] = busy[i] || !open[i]; }
+            int ea2 = open[ea] ? ea : Nearest(dist, open, otherLevel, levelScore);
+            if (ea2 < 0) return Pick(ea, kitchen, busy, dist, otherLevel, levelScore);
+            int r = Pick(ea2, k2, b2, dist, otherLevel, levelScore);
+            return r >= 0 && open[r] ? r : ea2;
+        }
+
+        // Rules 2 and 3 fire only where EA's line would make the Sim with the dishes wait (Sink.RouteToSink's Line.WaitForTurn,
+        // or facilityplan's ETA): which wash it joins. myTravel: its walk to the sink; washing: another Sim washes there now,
+        // washerLeft its stage's sim-minutes left; nextCarrier: another Sim with dishes runs WashDishes at the sink and does not
+        // wash yet (in EA's line, or on its way), nextEnd when that Sim's wash would end (its walk plus EA's wash length);
+        // lineAhead: Sims in EA's line ahead of it; busy: facilityplan's sim-minutes until the sink is free.
+        // kJoinWasher = hand in to the current wash; kJoinNext = set down for the next wash; kJoinNone = no wait, or no wash to
+        // join (a Sim washing hands or brushing teeth): EA's line and its own wash.
+        public const int kJoinNone = 0, kJoinWasher = 1, kJoinNext = 2;
+        public static int Join(float myTravel, bool washing, float washerLeft, bool nextCarrier, float nextEnd, int lineAhead, float busy)
+        {
+            if (!(myTravel >= 0f)) myTravel = 0f;
+            if (washing && washerLeft > myTravel) return kJoinWasher;
+            if (nextCarrier && (lineAhead > 0 || nextEnd > myTravel || busy > myTravel)) return kJoinNext;
+            return kJoinNone;
+        }
+
         // Rule 2: hand the dishes in? washerWashing: another Sim runs WashDishes at this sink now; freeKitchen: another
         // kitchen sink is free; dishes: in the carrier's stack; handed: dishes already handed in to this wash.
         public static int Handoff(bool on, bool inScope, bool kitchenSink, bool washerWashing, bool freeKitchen, int dishes, int handed)
         {
             if (!kitchenSink || !washerWashing || freeKitchen || dishes <= 0) return kNone;
             if (handed + dishes > kHandCap) return kCapped;
+            if (!inScope) return kExempt;
+            return on ? kGo : kWould;
+        }
+
+        // Rule 3: merge dish trips? Another Sim (the carrier) is on its way to the same kitchen sink with dishes (its WashDishes
+        // runs, it does not wash yet) and no other kitchen sink is free: the Sim with the dishes sets them by the sink and they
+        // join the carrier's wash, as a hand-in, only while the carrier's stack plus what joined it plus these dishes fit in
+        // EA's kMaxDishStackSize. (EA has no hand-over animation; a plate set down mid-room on the way would sit on the floor.)
+        public static int Merge(bool on, bool inScope, bool kitchenSink, bool carrierWalking, bool freeKitchen, int dishes, int carrierStack, int joined, int maxStack)
+        {
+            if (!kitchenSink || !carrierWalking || freeKitchen || dishes <= 0) return kNone;
+            if (maxStack <= 0 || carrierStack + joined + dishes > maxStack) return kCapped;
             if (!inScope) return kExempt;
             return on ? kGo : kWould;
         }
