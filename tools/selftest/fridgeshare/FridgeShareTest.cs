@@ -27,6 +27,10 @@ namespace Ts3Fixes
             Check("share at once unseen", FridgeShareCore.Share(true, true, true, 1, 0, 0, true) == FridgeShareCore.kAtOnce);
             Check("share beside seen", FridgeShareCore.Share(true, true, true, 1, 0, 0, false) == FridgeShareCore.kBeside);
 
+            // the let-in hold's key (HhHold): never the fridge's own id (nextplan's claim), one to one
+            Check("share key not the fridge id", FridgeShareCore.ShareKey(0x14BC00F5C6D0DC50UL) != 0x14BC00F5C6D0DC50UL);
+            Check("share key one to one", FridgeShareCore.ShareKey(FridgeShareCore.ShareKey(5UL)) == 5UL && FridgeShareCore.ShareKey(5UL) != FridgeShareCore.ShareKey(6UL));
+
             // at the fridge
             Check("ready side at once", FridgeShareCore.Ready(true, true, 1, 0) == FridgeShareCore.kReady);
             Check("ready side at once capped", FridgeShareCore.Ready(true, true, 2, 0) == FridgeShareCore.kWait);

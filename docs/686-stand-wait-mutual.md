@@ -2651,6 +2651,14 @@ clipwait (no-spot fallback), camsafe (at once vs beside), servingshare (platters
 / seatreach / sinkfree (no overlap: other objects). No double handling: rule 3 moves only heads in our copy (EA's own fridge
 actions at the head are left to linestale where built).
 
+**The shared helpers (§41, since the stack on `post/holistic-1127`)**: a Sim let in to share is an `HhHold` in nextplan's
+claim table under the fridge's share key (`FridgeShareCore.ShareKey`, the bitwise not of the fridge's id, so nextplan's own
+claim on the fridge is untouched), for EA's line time-out (15 sim-min); `sFrsPending` is only the Sim-to-fridge index of
+those holds, and it is dropped at the Sim's entry or end. A let-in whose hold ran out (a reset Sim, one that never reached
+the fridge) no longer counts as a second user, where before it held that fridge's second place for the session. A full
+claim table lets nobody in (EA's line). The head that keeps its turn is asked with `HhDirected` (the one order test) and
+`HhSharedCore.Scope` (a head the switches leave to EA, or a non-human one, is exempt); the head's grace is `HhGraceMin`.
+
 Not built: **fetch for two** (one Sim takes two servings and hands one over). EA has no food hand-over between two Sims (the
 only "Hand Over Snack" is the imaginary friend's social); the waiter is inside its own `WaitForTurn` loop and the item would
 appear in its hand with no animation, which breaks the immersion rule; with rule 2 the waiter already reaches the fridge in
@@ -2659,7 +2667,7 @@ the same minute, so at most one 2 sim-min grab is left to gain.
 Counters 5040-5059 (`kCounterSlots` 5060): uses / shared at once / beside / heads gave way / would give way / would share /
 exempt / no spot beside / waited at the fridge / timed out / clean-outs released / errors / overlapping uses / stepped in /
 capped / kept for a player's order / shared from the line / dish wait / gave way then waited / quick grab before a clean-out. Check `FridgeShareCheck
-run|result`, repro `fridgeshare-check`, selftest `tools/selftest/fridgeshare` (50). Swaps: `Fridge_CleanOutBadFood.Run` (new);
+run|result`, repro `fridgeshare-check`, selftest `tools/selftest/fridgeshare` (52). Swaps: `Fridge_CleanOutBadFood.Run` (new);
 rides `Fridge_Have.Run` / `Fridge_EatLeftovers.Run` (FridgeFf.cs) and `SimQueue.WaitForExitReasonOnSim` (LineSwitch.cs).
 
 ### 46.3 Limits [inferred unless marked]
