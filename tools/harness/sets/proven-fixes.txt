@@ -31,6 +31,7 @@
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
 #   simresetalarms
 #   firegreet
+#   skateoccult
 #   fglinbound fglinboundhh
 #   standwaitfix standwaitfixhh standwaitlog standwaitsocial standwaitsocialhh reactoverlayhh reactoverlaylog
 #   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog

@@ -70,6 +70,8 @@ namespace Ts3Agent
             Dispatcher.Register("queues", Queues);
             Dispatcher.Register("seed_rng", SeedRng);
             Dispatcher.Register("test_env", TestEnv);
+            Dispatcher.Register("pond_skate", PondSkate);
+            Dispatcher.Register("skate_occult", SkateOccult);
             Dispatcher.Register("weather", WeatherCmd);  // gated live-only in GateHandlers
             RegisterFreshWorld();
             Dispatcher.Register("quiet_ui", QuietUi);
@@ -77,6 +79,189 @@ namespace Ts3Agent
             Dispatcher.Register("dialog_expect", DialogExpect);
             RegisterGates(); // docs/179: game-mode gates wrap the handlers registered above
             StartAutopilot();
+        }
+
+        // Pond skating (2026-11-27, skate hang / frozen skater hunt, ts3fixes skateoccult: 33826 hang and 33883 frozen skater were both on the
+        // Central Park pond). The LotPond on the lot whose name has `lot` (default "Central Park"): corners, size, lanes (vertex
+        // count, length, shortest step, near-zero steps), every Sim whose current interaction targets it (skate state, minutes
+        // skated, route distance left, current route action), and the path EA would build for `sim` (default the first skater) on
+        // each lane. EA's CreateIceSkatingPath marks the route Succeeded whenever a lane has a vertex, so a bad lane is never caught
+        // by a plan: a path that cannot be followed returns from DoRoute at once (DoSkate then loops without a yield) or leaves the
+        // Sim routing in place (the skate callbacks that end a skate only run while the Sim travels).
+        static object PondSkate(Args a)
+        {
+            RequireLive();
+            string want = a.Str("lot", "Central Park").ToLowerInvariant();
+            Dictionary<string, object> r = Util.Obj();
+            Sims3.Gameplay.Pools.LotPond pond = null;
+            List<object> all = new List<object>();
+            foreach (Sims3.Gameplay.Pools.LotPond p in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Pools.LotPond>())
+            {
+                string ln = p.LotCurrent != null ? p.LotCurrent.Name ?? "" : "";
+                all.Add(ln + " " + p.ObjectId.Value + ": outer " + PsLane(PsGet(p, "mOuterRouteVerts") as List<Vector3>[]));
+                if (pond == null && ln.ToLowerInvariant().IndexOf(want) >= 0) pond = p;
+            }
+            r["ponds"] = all;
+            if (pond == null) { r["pond"] = "none on a lot named like " + want; return r; }
+            r["pond"] = pond.LotCurrent.Name + " " + pond.ObjectId.Value + ", use count " + pond.UseCount;
+            r["pond_id"] = PsGet(pond, "mPondId");
+            r["clockwise"] = PsGet(pond, "mIsClockwise");
+            Vector3[] cv = PsGet(pond, "mCornerVectors") as Vector3[];
+            List<object> cs = new List<object>();
+            if (cv != null) foreach (Vector3 v in cv) cs.Add(v.x.ToString("F1") + "," + v.z.ToString("F1"));
+            r["corners"] = cs;
+            if (cv != null && cv.Length == 4) r["size"] = PsFlat(cv[1] - cv[0]).ToString("F2") + " x " + PsFlat(cv[1] - cv[2]).ToString("F2");
+            r["outer"] = PsLane(PsGet(pond, "mOuterRouteVerts") as List<Vector3>[]);
+            r["inner"] = PsLane(PsGet(pond, "mInnerRouteVerts") as List<Vector3>[]);
+            r["outer_route"] = PsLoop(pond.GetAllRouteVerts(Sims3.Gameplay.Objects.SkatingRink.Lane.Outside));  // EA's own vertex order
+            Dictionary<ulong, Sims3.Gameplay.Objects.SkatingRink.Lane> lanes = pond.Skaters;
+            r["skaters_registered"] = lanes != null ? lanes.Count : 0;
+            List<object> sk = new List<object>();
+            Sim first = null;
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                InteractionInstance c = s.InteractionQueue != null ? s.CurrentInteraction : null;
+                if (c == null || !object.ReferenceEquals(c.Target, pond)) continue;
+                if (first == null) first = s;
+                Sims3.Gameplay.ObjectComponents.RoutingComponent rc = s.SimRoutingComponent;
+                Sims3.Gameplay.Routing.RouteAction ra = rc != null ? rc.GetCurrentRouteAction() : null;
+                Dictionary<string, object> e = Util.Obj();
+                e["sim"] = s.FullName;
+                e["interaction"] = c.GetType().Name + (c.Autonomous ? " autonomous" : " pushed") + (c.Cancelled ? " cancelled" : "");
+                e["at"] = s.Position.x.ToString("F2") + "," + s.Position.z.ToString("F2");
+                e["routing"] = s.IsRouting;
+                e["left"] = rc != null ? Math.Round(rc.GetDistanceRemainingOnRoute(), 2) : -1;
+                e["action"] = ra != null ? ra.GetType().Name : "-";
+                Sims3.Gameplay.Objects.SkatingRink.Lane ln;
+                e["lane"] = lanes != null && lanes.TryGetValue(s.SimDescription.SimDescriptionId, out ln) ? ln.ToString() : "not registered";
+                object state = PsGet(c, "mSkateState"), started = PsGet(c, "mStartedSkatingTime"), limit = PsGet(c, "mTimeToSkateAutonomously");
+                e["state"] = state != null ? state.ToString() : "?";
+                if (started is Sims3.Gameplay.Utilities.DateAndTime)
+                    e["minutes_skated"] = Math.Round(Sims3.Gameplay.Utilities.SimClock.ElapsedTime(Sims3.Gameplay.Utilities.TimeUnit.Minutes, (Sims3.Gameplay.Utilities.DateAndTime)started), 1);
+                if (limit != null) e["autonomous_limit_min"] = limit;
+                e["queue"] = s.InteractionQueue.Count;
+                e["occult_skater"] = PsGet(c, "mIsOccultSkater");  // EA's SkatingRouteCallback skips the autonomous time-out for these
+                e["exit"] = ((ulong)s.ExitReason).ToString("X");
+                e["occult"] = s.SimDescription.OccultManager != null ? s.SimDescription.OccultManager.CurrentOccultTypes.ToString() : "-";
+                e["transform"] = s.BuffManager != null && s.BuffManager.TransformBuff != null ? s.BuffManager.TransformBuff.GetType().Name : "-";
+                e["ghost"] = s.IsGhostOrHasGhostBuff;
+                e["walk"] = s.CurrentWalkStyle.ToString();
+                sk.Add(e);
+            }
+            r["skating"] = sk;
+            Sim ts = a.Has("sim") ? Util.FindSim(a, "sim") : first;
+            if (ts != null)
+            {
+                Dictionary<string, object> tp = Util.Obj();
+                foreach (Sims3.Gameplay.Objects.SkatingRink.Lane lane in new Sims3.Gameplay.Objects.SkatingRink.Lane[] { Sims3.Gameplay.Objects.SkatingRink.Lane.Outside, Sims3.Gameplay.Objects.SkatingRink.Lane.Inside })
+                {
+                    try
+                    {
+                        List<Vector3> verts = pond.GetAllRouteVerts(lane);
+                        if (verts == null) { tp[lane.ToString()] = "no lane"; continue; }
+                        Route rt = ts.CreateIceSkatingPath(verts, pond, true);
+                        tp[lane.ToString()] = verts.Count + " verts, plan " + rt.PlanResult.mType + ", length " + rt.GetDistanceRemaining().ToString("F2");
+                    }
+                    catch (Exception ex) { tp[lane.ToString()] = ex.GetType().Name + ": " + ex.Message; }
+                }
+                r["test_path_" + ts.FullName] = tp;
+            }
+            return r;
+        }
+
+        // skate_occult {lot?: "Central Park", max?: 2} (2026-11-27, ts3fixes skateoccult): the next autonomous skater on the lot's pond
+        // that is in state Skating and not yet an occult skater gets mIsOccultSkater = true (what Skate.Run stores for an occult
+        // Sim: SimBot, genie, mummy, fairy, zombie, vampire, werewolf form, ...) and a 1 sim-minute autonomous limit, at most `max`
+        // Sims per session. Every call also reports each Sim forced so far: still skating the pond, state, minutes, limit. EA's
+        // SkatingRouteCallback skips the time-out for occult skaters (a forced Sim keeps skating); skateoccult ends it.
+        static readonly List<ulong> sSkOccForced = new List<ulong>();
+        static object SkateOccult(Args a)
+        {
+            RequireLive();
+            string want = a.Str("lot", "Central Park").ToLowerInvariant();
+            Sims3.Gameplay.Pools.LotPond pond = null;
+            foreach (Sims3.Gameplay.Pools.LotPond p in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Pools.LotPond>())
+                if (pond == null && p.LotCurrent != null && (p.LotCurrent.Name ?? "").ToLowerInvariant().IndexOf(want) >= 0 && PsGet(p, "mOuterRouteVerts") != null) pond = p;
+            if (pond == null) throw new McpException("skate_occult: no pond with a lane on a lot named like " + want);
+            BindingFlags bf = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            Type kt = typeof(Sims3.Gameplay.Objects.SkatingRink.Skate);
+            FieldInfo occ = kt.GetField("mIsOccultSkater", bf), lim = kt.GetField("mTimeToSkateAutonomously", bf);
+            if (occ == null || lim == null) throw new McpException("skate_occult: Skate.mIsOccultSkater / mTimeToSkateAutonomously not found");
+            Dictionary<string, object> r = Util.Obj();
+            r["forced"] = "-";
+            if (sSkOccForced.Count < (int)a.Long("max", 2))
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    Sims3.Gameplay.Objects.SkatingRink.Skate k = s.CurrentInteraction as Sims3.Gameplay.Objects.SkatingRink.Skate;
+                    if (k == null || !object.ReferenceEquals(k.Target, pond) || !k.IsSkating || !k.Autonomous || k.IsOccultSkater) continue;
+                    if (sSkOccForced.Contains(s.SimDescription.SimDescriptionId)) continue;
+                    occ.SetValue(k, true);
+                    lim.SetValue(k, 1f);
+                    sSkOccForced.Add(s.SimDescription.SimDescriptionId);
+                    r["forced"] = s.FullName;
+                    break;
+                }
+            List<object> st = new List<object>();
+            foreach (ulong id in sSkOccForced)
+            {
+                SimDescription d = SimDescription.Find(id);
+                Sim s = d != null ? d.CreatedSim : null;
+                Sims3.Gameplay.Objects.SkatingRink.Skate k = s != null ? s.CurrentInteraction as Sims3.Gameplay.Objects.SkatingRink.Skate : null;
+                Dictionary<string, object> e = Util.Obj();
+                e["sim"] = d != null ? d.FullName : id.ToString();
+                e["on_pond"] = k != null && object.ReferenceEquals(k.Target, pond);
+                if (k != null)
+                {
+                    object started = PsGet(k, "mStartedSkatingTime");
+                    e["state"] = PsGet(k, "mSkateState").ToString();
+                    e["occult_skater"] = k.IsOccultSkater;
+                    if (started is Sims3.Gameplay.Utilities.DateAndTime)
+                        e["minutes_skated"] = Math.Round(Sims3.Gameplay.Utilities.SimClock.ElapsedTime(Sims3.Gameplay.Utilities.TimeUnit.Minutes, (Sims3.Gameplay.Utilities.DateAndTime)started), 1);
+                    e["limit"] = lim.GetValue(k);
+                    e["exit"] = ((ulong)s.ExitReason).ToString("X");
+                }
+                else e["now"] = s != null && s.CurrentInteraction != null ? s.CurrentInteraction.GetType().Name : "-";
+                st.Add(e);
+            }
+            r["forced_sims"] = st;
+            return r;
+        }
+
+        // a field by name anywhere in the object's type chain (null when absent: SkateEx and EA's Skate differ)
+        static object PsGet(object o, string name)
+        {
+            for (Type t = o.GetType(); t != null; t = t.BaseType)
+            {
+                FieldInfo f = t.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                if (f != null) return f.GetValue(o);
+            }
+            return null;
+        }
+
+        static float PsFlat(Vector3 d) { return (float)Math.Sqrt(d.x * d.x + d.z * d.z); }
+
+        // a lane (EA: 4 vertex lists, one per side) in list order
+        static object PsLane(List<Vector3>[] lane)
+        {
+            if (lane == null) return "none";
+            List<Vector3> v = new List<Vector3>();
+            foreach (List<Vector3> l in lane) if (l != null) v.AddRange(l);
+            return lane.Length + " lists, " + PsLoop(v);
+        }
+
+        // a vertex loop: vertices, length, shortest and longest step, steps under 5 cm
+        static string PsLoop(List<Vector3> v)
+        {
+            if (v == null) return "none";
+            if (v.Count == 0) return "0 verts";
+            float len = 0f, lo = float.MaxValue, hi = 0f;
+            int tiny = 0;
+            for (int i = 0; i < v.Count; i++)
+            {
+                float d = PsFlat(v[(i + 1) % v.Count] - v[i]);
+                len += d; if (d < lo) lo = d; if (d > hi) hi = d; if (d < 0.05f) tiny++;
+            }
+            return v.Count + " verts, loop " + len.ToString("F2") + " m, step " + lo.ToString("F3") + "-" + hi.ToString("F2") + " m, " + tiny + " under 5 cm";
         }
 
         // Less on screen during unattended runs: turn the memory system off (no memory popups, photos or

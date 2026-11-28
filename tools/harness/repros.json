@@ -150295,6 +150295,420 @@
     ]
   },
   {
+    "id": "skate-occult-timeout",
+    "switches": [
+      "skateoccult"
+    ],
+    "note": "2026-11-27: a natural Sunset Valley winter run had Holly Alto, a werewolf (SkateEx autonomous, state Skating, routing, moving), skate the Central Park pond 2543+ sim minutes against an autonomous limit of 104. EA SkatingRouteCallback runs the autonomous time-out (SimClock.ElapsedTime(mStartedSkatingTime) >= mTimeToSkateAutonomously -> AddExitReason(CanceledByScript)) inside if (!mIsOccultSkater && Autonomous && !IsSpinning && !IsExiting), the block that also picks autonomous spins and backward skating, so an occult skater never times out (EA: SimBot, genie, mummy, fairy, zombie, awake vampire, werewolf form, imaginary friend in costume, ghost; NRaas Hybrid SkateEx: SimBot, mummy, zombie, imaginary friend, any transform buff, and the others only with its occult skating setting off). skate_occult gives the next natural skaters on the Central Park pond (up to 2) the occult flag Skate.Run stores for those Sims and a 1 sim-minute limit, then reports them every 10 s. Job envGuard false.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {},
+        "show": "skateoccult",
+        "max": 100000,
+        "waitS": 1,
+        "note": "arm (job fixesOn / fixesOff)"
+      },
+      {
+        "cmd": "test_env",
+        "args": {
+          "mode": "fixed",
+          "season": "winter",
+          "weather": "sunny",
+          "temperature": -10,
+          "freeze_ponds": true
+        },
+        "max": 2000,
+        "waitS": 2,
+        "note": "keep the ponds frozen"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 1: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 2: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 3: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 4: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 5: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 6: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 7: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 8: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 9: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 10: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 11: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 12: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 13: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 14: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 15: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 16: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 17: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 18: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 19: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 20: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 21: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 22: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 23: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 24: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 25: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 26: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 27: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 28: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 29: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 30: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 31: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 32: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 33: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 34: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 35: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "skate_occult",
+        "args": {
+          "lot": "Central Park",
+          "max": 2
+        },
+        "max": 20000,
+        "waitS": 10,
+        "note": "call 36: forces the next autonomous skater (up to 2) and reports the forced ones: EA keeps a forced Sim skating past its 1 min limit, skateoccult ends it"
+      },
+      {
+        "cmd": "pond_skate",
+        "args": {
+          "lot": "Central Park"
+        },
+        "max": 20000,
+        "waitS": 1,
+        "note": "the pond at the end"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "show": "skateoccult",
+        "max": 100000,
+        "waitS": 1,
+        "note": "end: skateoccult counters (skateoccult_ended = 4012, skateoccult_seen_off = 4013, skateoccult_errors = 4014)"
+      },
+      {
+        "cmd": "leak_census",
+        "args": {},
+        "max": 60000,
+        "waitS": 1,
+        "note": "skateoccult counters: 4012 occult skates ended, 4013 seen past the time-out (off), 4014 errors"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
