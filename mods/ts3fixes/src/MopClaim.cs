@@ -59,7 +59,7 @@ namespace Ts3Fixes
             {
                 Vector3 r = ClosestOrig(lotId, startPos);
                 Sim a = Actor;
-                if (a == null || r == Vector3.Invalid || !(this is Terrain.Mopping)) return r;
+                if (a == null || r == Vector3.Invalid || !((object)this is Terrain.Mopping)) return r;  // through object: the compiler folds "hook class is Mopping" to false
                 try
                 {
                     int[] c = PatchCounters();
