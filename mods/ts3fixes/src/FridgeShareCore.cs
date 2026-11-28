@@ -90,5 +90,9 @@ namespace Ts3Fixes
         {
             return longOthers == 0 && waiting == 0 && shortOthers < kMaxUsers;
         }
+
+        // The key of a fridge's second place in nextplan's claim table (HhHold): not the fridge's object id, so nextplan's own
+        // claim on the fridge stays as it is. Bitwise not: one to one; the object ids seen in game start 0x1.., so the key starts 0xE.. [inferred].
+        public static ulong ShareKey(ulong fridgeId) { return ~fridgeId; }
     }
 }

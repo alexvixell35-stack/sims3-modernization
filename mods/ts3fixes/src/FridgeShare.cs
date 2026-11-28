@@ -47,6 +47,9 @@ namespace Ts3Fixes
     // not reach a spot beside the slot walks to the slot and gets clipwait's grace rule), camsafe (CsDecide decides at once
     // vs beside), servingshare (platters only, never the fridge). Never a teleport or snap; a player's queued fridge order
     // keeps its turn and its fridge.
+    // The shared household helpers (docs/686 §41): a Sim let in to share is an HhHold on the fridge's share key (FrsLetIn,
+    // dropped at its entry or end, runs out after EA's line time-out); the head that keeps its turn is asked with HhDirected
+    // and HhSharedCore.Scope; the head's grace is HhGraceMin.
     // Counters 5040-5059 (kCounterSlots 5060). Check: FridgeShareCheck.
     public static partial class Fixes
     {
@@ -58,7 +61,7 @@ namespace Ts3Fixes
         static readonly Dictionary<Sim, Fridge> sFrsAsk = new Dictionary<Sim, Fridge>();      // in WaitForTurn from our copy
         static readonly Dictionary<Sim, Fridge> sFrsWalk = new Dictionary<Sim, Fridge>();     // walking to / standing at the fridge in our copy
         static readonly Dictionary<Sim, InteractionInstance> sFrsWalkIa = new Dictionary<Sim, InteractionInstance>();
-        static readonly Dictionary<Sim, Fridge> sFrsPending = new Dictionary<Sim, Fridge>();  // let in to share, not in the use list yet
+        static readonly Dictionary<Sim, Fridge> sFrsPending = new Dictionary<Sim, Fridge>();  // let in to share, not in the use list yet (index of the HhHolds, FrsLetIn)
         static readonly Dictionary<Sim, int> sFrsMode = new Dictionary<Sim, int>();           // share mode granted from the line
         static readonly Dictionary<Sim, long> sFrsGrant = new Dictionary<Sim, long>();        // when the head got its turn
         static readonly Dictionary<Sim, long> sFrsSeenWalk = new Dictionary<Sim, long>();     // off arm: when a waiter first saw the head walk
@@ -164,6 +167,7 @@ namespace Ts3Fixes
                 if (!FrsScope(u)) inScope = false;
             }
             if (!pending) return;
+            FrsPruneLetIn();
             foreach (KeyValuePair<Sim, Fridge> kv in sFrsPending)
                 if (kv.Key != a && object.ReferenceEquals(kv.Value, f) && !users.Contains(kv.Key)) { shortN++; if (!FrsScope(kv.Key)) inScope = false; }
             // the line's head on EA's own body (a Sim the switches leave to EA, putting leftovers away): it holds the turn, so a
@@ -174,6 +178,36 @@ namespace Ts3Fixes
                 shortN++;
                 if (!FrsScope(head)) inScope = false;
             }
+        }
+
+        // A Sim let in to share (docs/686 §41): held in nextplan's claim table under the fridge's share key (one second place
+        // per fridge, FridgeShareCore.ShareKey) for EA's line time-out; sFrsPending is only the Sim -> fridge index of those
+        // holds. false: the table is full (nothing let in, EA's line). A let-in whose hold ran out (the Sim was reset, or
+        // never got to the fridge) no longer counts as a user (FrsPruneLetIn).
+        static bool FrsLetIn(Sim w, Fridge f)
+        {
+            if (!HhHold(FridgeShareCore.ShareKey(f.ObjectId.Value), w, sFrsLineMin)) return false;
+            sFrsPending[w] = f;
+            return true;
+        }
+
+        static void FrsLetOut(Sim a)
+        {
+            Fridge f;
+            if (a == null || !sFrsPending.TryGetValue(a, out f)) return;
+            sFrsPending.Remove(a);
+            if (f != null) HhDrop(FridgeShareCore.ShareKey(f.ObjectId.Value), a);
+        }
+
+        static readonly List<Sim> sFrsStale = new List<Sim>();
+        static void FrsPruneLetIn()
+        {
+            if (sFrsPending.Count == 0) return;
+            sFrsStale.Clear();
+            foreach (KeyValuePair<Sim, Fridge> kv in sFrsPending)
+                if (kv.Key == null || kv.Value == null || kv.Key.HasBeenDestroyed || HhHolder(FridgeShareCore.ShareKey(kv.Value.ObjectId.Value)) != kv.Key.ObjectId.Value) sFrsStale.Add(kv.Key);
+            foreach (Sim s in sFrsStale) sFrsPending.Remove(s);
+            sFrsStale.Clear();
         }
 
         static int FrsUsers(Fridge f, Sim a)
@@ -266,7 +300,7 @@ namespace Ts3Fixes
                 if (!FrsClean(cIa) || !object.ReferenceEquals(cIa.Target, f)) return false;
                 bool onC = ShortcutOn("fridgeshare");
                 InteractionInstance wIa = w.CurrentInteraction;
-                int o = FridgeShareCore.CleanOrder(onC, !onC || FrsScope(cl) && FrsScope(w), !cIa.Autonomous, FrsShortUse(wIa, f), wIa != null && !wIa.Autonomous);
+                int o = FridgeShareCore.CleanOrder(onC, !onC || FrsScope(cl) && FrsScope(w), HhDirected(cIa), FrsShortUse(wIa, f), HhDirected(wIa));
                 if (o == FridgeShareCore.kGo && FrsSwapAhead(q, w))
                 {
                     PatchCounters()[kFrsCleanOrder]++;
@@ -300,7 +334,8 @@ namespace Ts3Fixes
                 if (d == FridgeShareCore.kAtOnce || d == FridgeShareCore.kBeside)
                 {
                     if (!FrsFront(q, w)) return false;
-                    sFrsPending[w] = f; sFrsMode[w] = d;
+                    if (!FrsLetIn(w, f)) return false;  // the claim table is full: EA's line
+                    sFrsMode[w] = d;
                     c[d == FridgeShareCore.kAtOnce ? kFrsAtOnce : kFrsBeside]++; c[kFrsFromLine]++;
                     FrsLine(w.FullName + " " + ShlWho(w) + " shares the " + f.GetType().Name + " with " + head.FullName + " " + (d == FridgeShareCore.kAtOnce ? "at once (unseen)" : "from beside the slot") + ", from the line");
                     return true;
@@ -323,9 +358,12 @@ namespace Ts3Fixes
                 if (!walks) { sFrsSeenWalk.Remove(head); return false; }
                 if (!sFrsSeenWalk.TryGetValue(head, out since)) { if (sFrsSeenWalk.Count > 64) sFrsSeenWalk.Clear(); since = SimClock.CurrentTicks; sFrsSeenWalk[head] = since; }
             }
-            bool player = hIa != null && !hIa.Autonomous;
-            int y = FridgeShareCore.Yield(on && headMine, !on || FrsScope(head) && FrsScope(w), walks, player, sFrsGaveWay.ContainsKey(head), hDist, OjsMinutes(since),
-                true, wDist, w.IsRouting, Instantiator.kClipGraceMinutes);
+            // the head that keeps its turn (docs/686 §41): the shared order test and the shared scope (a head the switches leave
+            // to EA, or a non-human one, is exempt), with the one shared grace
+            bool player = HhDirected(hIa);
+            bool headGo = HhSharedCore.Scope(true, FrsHumanUser(head), IsPlayerSim(head), on, ShortcutOn("fridgesharehh")) == HhSharedCore.kGo;
+            int y = FridgeShareCore.Yield(on && headMine, !on || headGo && FrsScope(w), walks, player, sFrsGaveWay.ContainsKey(head), hDist, OjsMinutes(since),
+                true, wDist, w.IsRouting, HhGraceMin());
             if (y == FridgeShareCore.kNone) return false;
             long key = ((long)head.ObjectId.Value) ^ (since << 1);
             bool first = FrsTell(key);
@@ -401,9 +439,9 @@ namespace Ts3Fixes
                 mode = FridgeShareCore.Share(true, true, othersIn, sN, lN, waiting, unseen);
                 if (mode == FridgeShareCore.kCapped) c[kFrsCapped]++;
                 else if (mode == FridgeShareCore.kExempt) c[kFrsExempt]++;
+                if ((mode == FridgeShareCore.kAtOnce || mode == FridgeShareCore.kBeside) && !FrsLetIn(a, f)) mode = FridgeShareCore.kNone;  // table full: EA's line
                 if (mode == FridgeShareCore.kAtOnce || mode == FridgeShareCore.kBeside)
                 {
-                    sFrsPending[a] = f;
                     c[mode == FridgeShareCore.kAtOnce ? kFrsAtOnce : kFrsBeside]++;
                     FrsLine(a.FullName + " " + ShlWho(a) + " shares the " + f.GetType().Name + " (users " + f.ActorsUsingMe.Count + ") " + (mode == FridgeShareCore.kAtOnce ? "at once (unseen)" : "from beside the slot"));
                 }
@@ -494,7 +532,7 @@ namespace Ts3Fixes
         // StandardEntry of our copy: the share is a use now.
         static void FrsEntered(Fridge f, Sim a, bool atSide)
         {
-            sFrsPending.Remove(a);
+            FrsLetOut(a);
             int others = 0;
             foreach (Sim u in f.ActorsUsingMe) if (u != null && u != a) others++;
             if (others > 0)
@@ -506,7 +544,7 @@ namespace Ts3Fixes
 
         static void FrsDone(Sim a)
         {
-            sFrsPending.Remove(a);
+            FrsLetOut(a);
             sFrsGaveWay.Remove(a);
             sFrsMode.Remove(a);
             sFrsSeenWalk.Remove(a);
