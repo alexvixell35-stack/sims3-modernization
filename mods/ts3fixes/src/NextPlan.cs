@@ -218,7 +218,7 @@ namespace Ts3Fixes
             sNp.Sweep(now, false);
             ulong id = o.ObjectId.Value, who = actor.ObjectId.Value;
             if (!sNp.HeldByOther(id, who, now)) return m;
-            if (o is Fridge && FrsRoom(o, actor)) return m;  // docs/686 §41: fridgeshare serves a second short use, the claim leaves room
+            if (o is Fridge && FrsRoom(o, actor)) return m;  // docs/686 §46: fridgeshare serves a second short use, the claim leaves room
             int level = NpLevel(o.LotCurrent, now);
             float f = NextPlanCore.ClaimFactor(level, m, rp, inUse);
             if (f >= m) return m;  // already in use / routed to: EA's factor is as low

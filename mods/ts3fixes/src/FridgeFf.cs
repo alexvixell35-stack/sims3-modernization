@@ -60,7 +60,7 @@ namespace Ts3Fixes
             return head != null && head != a;
         }
 
-        // Nobody sees the Sim at the fridge (fridgeshare's at-once test, FridgeShare.cs, docs/686 §41): camsafe's shared CsDecide when
+        // Nobody sees the Sim at the fridge (fridgeshare's at-once test, FridgeShare.cs, docs/686 §46): camsafe's shared CsDecide when
         // camsafe is on, else fridgeff's own tests. The selected Sim is never unseen.
         static bool FfUnseen(Fridge f, Sim a, params Vector3[] spots)
         {
@@ -114,7 +114,7 @@ namespace Ts3Fixes
                 try { go = !CheckForCancelAndCleanup() && ChosenRecipe != null && FfGo(Target, Actor, "food"); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { FfError(e); }
-                if (!go) return FrsWanted(Actor) ? FrsHave() : RunOrig();  // docs/686 §41 (FridgeShare.cs): fridgeshare's copy of EA's body
+                if (!go) return FrsWanted(Actor) ? FrsHave() : RunOrig();  // docs/686 §46 (FridgeShare.cs): fridgeshare's copy of EA's body
                 return FfHave();
             }
             public bool RunOrig() { return false; }  // receives Fridge_Have.Run's original body
@@ -165,7 +165,7 @@ namespace Ts3Fixes
                 try { go = ChosenContainer != null && ChosenContainer.HasFoodLeft() && FfGo(Target, Actor, "leftovers"); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { FfError(e); }
-                if (!go) return FrsWanted(Actor) ? FrsLeft() : RunOrig();  // docs/686 §41 (FridgeShare.cs)
+                if (!go) return FrsWanted(Actor) ? FrsLeft() : RunOrig();  // docs/686 §46 (FridgeShare.cs)
                 return FfLeft();
             }
             public bool RunOrig() { return false; }  // receives Fridge_EatLeftovers.Run's original body

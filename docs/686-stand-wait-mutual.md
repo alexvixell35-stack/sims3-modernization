@@ -2519,14 +2519,87 @@ moved into "Shotgun Style - 2br, 1ba": 1 toilet, 1 shower/bath, 2 sinks, 1 fridg
   needs and hitch differences are within noise. Not run: a forced repro of a player's queued order against a pre-pick
   (EA's own rule; counted as "dropped by a higher-priority add" 71-157 per on arm, the storm's pushes).
 
-## 41. Two Sims at one fridge, and a waiter at the fridge before a head still walking over (`fridgeshare`, `fridgesharehh`, `fridgesharelog`; 2026-11-27, `post/fridgeshare-1127`, built, default off, storm A/B s697)
+## 41. The household fixes as one system: shared grace, order test, claims and snaps (`HhShared.cs`, `HhSharedCore.cs`; 2026-11-27, design review of §8-§40 and docs/690, built, no switch of its own)
+
+Review of nextplan, facilityplan, fridgeline, privacyroom / bathroomwait, servingshare, clipwait / blockeduse /
+standwaitfix, doorseat / seatreach, sinkfree, camsafe and the fridgeshare draft: where two fixes act on the same event,
+keep their own claim, grace or fade machinery, could move an action the player ordered, or could look odd on screen.
+[verified in the source: hook lists, `ShortcutOn` sites, state tables]
+
+### 41.1 Findings, ranked
+
+1. **Three graces.** clipwait / simpass / petrelax read the tunable `kClipGraceMinutes` (2.5 sim-min), seatreach had its
+   own `kSrGraceMs = 2500` real ms, unstuck its own `kGraceMinutes = 2.5`, and a clipwait check helper a literal `2.5f`.
+   A player who tunes the grace changed only the first group. **Done:** one accessor, `HhGraceMin()` / `HhGraceMs()`,
+   over `kClipGraceMinutes` (`HhSharedCore.kGraceMin` is the default); every read goes through it.
+2. **Reservations outside nextplan's table.** nextplan's claim table (§38) is the only "this Sim is about to use that"
+   record, but it held only a Sim's next autonomous target (one per Sim, dropped by its next claim). Chairs and puddles
+   had none; sinkfree keeps pending hand-ins and facilityplan keeps uses with an ETA in tables of their own (those are
+   uses in progress, not reservations, and stay). **Done:** `NextPlanCore.Hold` / `Drop` (a reservation that the Sim's
+   next claim does not drop) with `HhHold` / `HhHolder` / `HhHeldByOther` / `HhDrop`; seatclash (§42) and mopclaim (§43)
+   use them, so nextplan's pick factor and every fix read one answer.
+3. **Snaps faded for seats only.** blockeduse's snap onto a closed slot and its snap back out moved the Sim in view
+   with no fade unless the case was a seatreach seat. **Done:** `HhSnapSeen` / `HhSnap`: every blockeduse snap is
+   faded out and in when the Sim, the place it leaves or the place it lands on can be seen (camsafe's on-screen answer
+   through `UcOnScreen`). A woohoosnap / pairsnap exit keeps its own timing (the pair is animated together).
+4. **"Is this the Sim's own pick" written four ways.** facilityplan and lineswitch read `Ia.Autonomous`, clipwait
+   `!Autonomous && IsPlayerSim`, bathroomwait and fridgeline their own. All mean the same rule: an action the Sim did
+   not pick itself is never moved to another object. **Done:** `HhDirected(ii)` / `HhPlayerOrder(ii)`; facilityplan,
+   lineswitch, clipwait, bathroomwait and fridgeline call them.
+5. **Scope rule written per fix.** doorseat, sharelanes, unseenskip and lineswitch each have a copy of "base switch =
+   NPCs, hh switch = household, both off = would". **Done for new fixes:** `HhSharedCore.Scope`; the older copies give
+   the same answers and stay until their files are next touched.
+6. **Two fixes on one event, checked, no change needed.** `GameObject.GetInUseAutonomyMultiplier` is swapped by
+   facilityplan and nextplan: both only lower the factor and nextplan never goes above the answer it received, so the
+   result is the lower of the two, not their product. `StandAndWaitCycleHandler` is swapped by standwaitfix and clipwait:
+   standwaitfix acts on blocked cycles, clipwait on elapsed time, and whichever ends the wait first leaves the other
+   nothing to do. seatreach runs inside blockeduse's failed-plan step (one walk, one snap).
+7. **For the other branches** (not changed here): sinkfree should ask `HhDirected` before a hand-in or a sink switch is
+   applied to an ordered "Wash dishes" on a named sink, take an `HhHold` on the sink it picked for the carry, and fade
+   through `HhSnap`-style on-screen tests (it already uses EA's fade). fridgeshare should take its "let in" Sims as
+   `HhHold`s on the fridge, read the grace from `HhGraceMin()`, use `HhSharedCore.Scope`, ask `HhDirected` for the head
+   that keeps its turn, and number its section §44.
+8. **Open, not changed:** nextplan treats every object without its own in-use rule as single-use, so a dining table, a
+   sofa or a platter with free places is scored as route-pending while one Sim's claim is open. EA's own rule does the
+   same once that Sim's route exists, so this only starts a little earlier; a per-part claim would be the better model.
+
+### 41.2 What is unchanged when the switches are off
+
+`HhShared.cs` has no switch and no hook. The grace accessor returns the value the old reads returned (negative or NaN
+tunables count as 0, as `ClipWaitCore.Due` already did); the order helpers return the same booleans; `Hold` adds
+entries only when a fix that is on calls it; the snap helper runs only inside blockeduse's snap, which needs
+blockeduse / seatsnap on. Selftests: `tools/selftest/hhshared` (11 checks), nextplan's hold cases (49 checks).
+
+### 41.3 The player's door locks (2026-11-27)
+
+The player's rule: "If its locked its manually locked, i think we shouldnt mess with that". EA has two separate
+mechanisms [verified, decompiled `CommonDoor`, `PrivacySituation`]: the door's own lock (`CommonDoor.tLock`: nobody,
+selected Sim, household, pets, owner list, VIP room; asked by the door through `CommonDoor.IsAllowedThrough`), set by
+the player, and the automatic privacy situation a Sim gets while it showers, bathes or uses the toilet (a room
+restriction plus a portal check for autonomous routes). Audit of the household fixes against the first:
+
+- clipwait / simpass / petrelax switch off `BlockedByPeople` only: Sims and pets, never a door. No bypass.
+- blockeduse / seatreach / reachuse / unstuck plan with `PassThroughObjects`: object footprints only; a locked door is
+  a portal restriction, the plan still fails there, and `BlockedUseCore.Kind` leaves "portal locked" plans to the game.
+  No bypass in the walk. The **snap** picked its slot by distance alone: a slot within 4 m behind a locked door could
+  be chosen when the plan failed for furniture. **Fixed:** `HhDoorLockedAgainst` (a room all of whose doors the
+  player locked against the Sim) keeps the game's result for a snap into another room.
+- doorseat changes the chair's placement test only (the door's keep-clear area), not who may pass the door.
+- nextplan, facilityplan, lineswitch, sinkfree, servingshare, fridgeline queue EA's own interactions; their routes ask
+  the door as always. sinkfree skips sinks in a privacy-locked room; it should ask `HhDoorLockedAgainst` as well so a
+  Sim is not sent to a sink it cannot reach (it would only fail at the door, as in EA's game).
+- standwaitlocked ends a wait at a privacy-locked room earlier; it opens nothing.
+- reachcache sets doors to `Nobody` for a moment and restores them in the same call (its own measurement; docs/688).
+- familybath (§44) changes the privacy situation's rule only and refuses any room the player locked.
+
+## 46. Two Sims at one fridge, and a waiter at the fridge before a head still walking over (`fridgeshare`, `fridgesharehh`, `fridgesharelog`; 2026-11-27, `post/fridgeshare-1127`, built, default off, storm A/B s697)
 
 Lead (s691b / s693b, 8-Sim "Pemberton Eight" in a 1-bath house, household fixes on): fridge waits 7-15 sim-min per
 Sim-day, p50 10-14 sim-min and several 26-28 sim-min time-outs, for uses of about 2 sim-min. s693b `fridgeline: Leo
 Northcott household: quiet soft fail (TimedOut, ObjectInUse), line Marco, users 0`: the head held the fridge 26 sim-min
 without using it.
 
-### 41.1 How the fridge serves [verified, decompiled `Fridge`, `SimQueue`, `Fridge_Have`, `Fridge_EatLeftovers`, `Fridge_CleanOutBadFood`, `ServingContainer`]
+### 46.1 How the fridge serves [verified, decompiled `Fridge`, `SimQueue`, `Fridge_Have`, `Fridge_EatLeftovers`, `Fridge_CleanOutBadFood`, `ServingContainer`]
 - `Fridge.RouteToOpen` asks `Fridge.Line` (`WaitForTurn`, `CutAheadOfLowerPrioritySims`, `kTimeToWaitInLine` 15) **before**
   the walk to `RoutingSlot_0`. A Sim that asks while the line is empty is `mQueue[0]` at once and keeps it through its whole
   walk; the head has no timeout and leaves only at `StandardExit` (`RemoveFromUseList` -> `RemoveFromQueue`) or its
@@ -2543,7 +2616,7 @@ without using it.
   the pushed follow-up, so the next Sim stands behind a Sim that no longer uses the fridge. No EA path keeps a cooking Sim in
   the line [inferred from §36.10 and the decompiled bodies]; the "head that cooks" case is this stand.
 
-### 41.2 What is built (`FridgeShare.cs`, `FridgeShareCore.cs`)
+### 46.2 What is built (`FridgeShare.cs`, `FridgeShareCore.cs`)
 With `fridgeshare` (NPCs) / `fridgesharehh` (household and selected Sims) on, `Fridge_Have` and `Fridge_EatLeftovers` run a
 copy of EA's Run (through fridgeff's swaps; fridgeff's unseen grab decides first) whose only changes are the line, the spot
 and the in-use test. Ingredients, the cooking process, skill, trait tips, "Has Made Food", commodity updates, EA's state
@@ -2589,14 +2662,14 @@ capped / kept for a player's order / shared from the line / dish wait / gave way
 run|result`, repro `fridgeshare-check`, selftest `tools/selftest/fridgeshare` (50). Swaps: `Fridge_CleanOutBadFood.Run` (new);
 rides `Fridge_Have.Run` / `Fridge_EatLeftovers.Run` (FridgeFf.cs) and `SimQueue.WaitForExitReasonOnSim` (LineSwitch.cs).
 
-### 41.3 Limits [inferred unless marked]
+### 46.3 Limits [inferred unless marked]
 - The at-once grab beside the slot plays EA's fridge clip 0.85 m off its slot (the door opens, the hand reaches past the
   door edge); it is used only off screen.
 - Rule 3 sees a head only through the waiters' 1 sim-min check: a give-way comes 2.5-3.5 sim-min after the head's turn.
 - The given-way head's walk was planned to the slot; it waits in EA's obstacle stand near the slot until the waiter is done,
   or beside the slot when that walk fails.
 
-### 41.4 Storm A/B s697 (Deck, Sunset Valley new game, seed 156, 25 min storm, s693 setup + a fridge rush every 4 min)
+### 46.4 Storm A/B s697 (Deck, Sunset Valley new game, seed 156, 25 min storm, s693 setup + a fridge rush every 4 min)
 Arms: a = planned household fixes + sinkfree(hh); b = a + fridgeshare(hh) (build before the stander fix); d (fr698d) = b
 with the stander fix and clean-out ordering. Household fridge waits from `hhwait.py` (linewait), 7.1-7.2 Sim-days each.
 
@@ -2606,7 +2679,7 @@ with the stander fix and clean-out ordering. Household fridge waits from `hhwait
 | b | 21 | 210.3 | 29.6 | 7.2 / 20.5 | 3 (+14 after the walk) | uses 92, beside 12, stepped in 18, gave way 2, timed out 14 |
 | d | 11 | 122.7 | 17.0 | 11.7 / 17.6 | 0 | uses 88, beside 7, stepped in 8, waited 4, timed out 0, clean-outs released 4, kept for a player's order 1 |
 
-- b found the stander bug (§41.2 item 6): every post-walk time-out had `users 0`, and each held the line so the Sims behind
+- b found the stander bug (§46.2 item 6): every post-walk time-out had `users 0`, and each held the line so the Sims behind
   it timed out too. d has none.
 - d vs a: -12 % fridge sim-min per Sim-day, no time-outs; within one-run noise, so **not proven** as a gain, proven safe
   (errors 0 in all arms, Bin pair restored in all arms).

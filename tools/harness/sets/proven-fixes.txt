@@ -13,7 +13,7 @@
 # -1 2026-11-25: seasonimposter moved to default ON as a rare-case fix after a static review (docs/44 §6.1, docs/51 §610), so no longer listed.
 
 # ---- excluded (default off, not in the set), by reason
-# docs/686 §41 fridgeshare (2026-11-27): two short fridge uses at once / beside the slot, waiter before a walking head; not proven yet, default off:
+# docs/686 §46 fridgeshare (2026-11-27): two short fridge uses at once / beside the slot, waiter before a walking head; not proven yet, default off:
 #   fridgeshare fridgesharehh fridgesharelog
 # perf experiments / sim-thread offload and caching (not EA gameplay fixes):
 #   autlivelate cachedreflection caneearly casmemo detailprio disposespread doormirror drivertaskasync failrepeat farthestsorted

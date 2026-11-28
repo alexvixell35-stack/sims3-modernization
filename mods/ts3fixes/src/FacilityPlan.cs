@@ -176,7 +176,7 @@ namespace Ts3Fixes
                 Sim other;
                 if (ShsDecide(forSim, o, kShsShower, out other) == ShowerShareCore.kGo) { join = true; return 0f; }
             }
-            // docs/686 §41 (FridgeShare.cs): a fridge with room for a second short use: forSim waits only for the user's rest (beside
+            // docs/686 §46 (FridgeShare.cs): a fridge with room for a second short use: forSim waits only for the user's rest (beside
             // the slot, no line); one answer to "busy until when" with fridgeshare's FrsRoom (nextplan's pick uses it too)
             if (kind == FacilityPlanCore.kFridge && user != null && FrsRoom(o, forSim)) return b;
             SimQueue line = o.SimLine;
@@ -322,7 +322,7 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             c[kFpChecks]++;
             if (!w.FpSeen) { w.FpSeen = true; c[kFpWaits]++; }
-            bool on = ShortcutOn("facilityplan"), human = LswHuman(sim), auto = w.Ia.Autonomous;
+            bool on = ShortcutOn("facilityplan"), human = LswHuman(sim), auto = !HhDirected(w.Ia);  // an ordered action keeps its object (HhShared.cs)
             bool scope = ShlScope(sim, ShortcutOn("facilityplanhh"));
             bool joinUnused; Sim user;
             float cur = FpBusy(w.Target, sim, kind, out joinUnused, out user);

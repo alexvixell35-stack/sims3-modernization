@@ -238,7 +238,7 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 int kept;
                 int d = PetRelaxCore.Pass(on, s.Case, out kept);
-                if (d != PetRelaxCore.kNone) d = ShareLanesCore.Timed(d, PrxGraceServed(sim, s.Sims) || ShlNearPortal(sim, s.Sims), 0f, Instantiator.kClipGraceMinutes);
+                if (d != PetRelaxCore.kNone) d = ShareLanesCore.Timed(d, PrxGraceServed(sim, s.Sims) || ShlNearPortal(sim, s.Sims), 0f, HhGraceMin());
                 if (d == ShareLanesCore.kDefer)
                 {
                     if (action) sPrxDeferred++;
@@ -276,8 +276,8 @@ namespace Ts3Fixes
                 int d = PetRelaxCore.Pass(on, s.Case, out kept);
                 if (d != PetRelaxCore.kNone)
                 {
-                    afterGrace = ShareLanesCore.GraceDue(k.ElapsedMin, Instantiator.kClipGraceMinutes);
-                    if (!afterGrace && ShareLanesCore.Timed(d, PrxGraceServed(sim, seen) || ShlNearPortal(sim, seen), k.ElapsedMin, Instantiator.kClipGraceMinutes) == ShareLanesCore.kDefer) return false;
+                    afterGrace = ShareLanesCore.GraceDue(k.ElapsedMin, HhGraceMin());
+                    if (!afterGrace && ShareLanesCore.Timed(d, PrxGraceServed(sim, seen) || ShlNearPortal(sim, seen), k.ElapsedMin, HhGraceMin()) == ShareLanesCore.kDefer) return false;
                 }
                 int[] c = PatchCounters();
                 if (d != PetRelaxCore.kGo)
@@ -372,7 +372,7 @@ namespace Ts3Fixes
         {
             sPrxPlanWaits++;
             DateAndTime start = SimClock.CurrentTime();
-            float grace = Instantiator.kClipGraceMinutes;
+            float grace = HhGraceMin();
             uint step = (uint)Math.Max(1L, SimClock.ConvertToTicks(0.5f, TimeUnit.Minutes));
             while (SimClock.ElapsedTime(TimeUnit.Minutes, start) < grace)
             {
@@ -424,7 +424,7 @@ namespace Ts3Fixes
             bool waited = false;
             for (int n = 0; n < kPrxMaxPlanJigs && jig != null; n++)
             {
-                if (!waited && ShareLanesCore.Timed(PetRelaxCore.kGo, ShlNearPortal(sim.LotCurrent, jig.Position), 0f, Instantiator.kClipGraceMinutes) == ShareLanesCore.kDefer)
+                if (!waited && ShareLanesCore.Timed(PetRelaxCore.kGo, ShlNearPortal(sim.LotCurrent, jig.Position), 0f, HhGraceMin()) == ShareLanesCore.kDefer)
                 {
                     if (!PrxPlanWait(sim)) { sPrxPlanStopped++; return false; }
                     waited = true;
@@ -602,7 +602,7 @@ namespace Ts3Fixes
             float cx, cz;
             bool ctlSpot = PetRelaxCore.Candidate(0, 10f, 10f, 9.5f, 10f, out cx, out cz) && Math.Abs(cx - 12f) < 0.01f && Math.Abs(cz - 10f) < 0.01f
                 && !PetRelaxCore.Near(cx, 0f, cz, 9.5f, 0f, 10f, 1.25f) && PetRelaxCore.Near(10f, 0f, 10f, 9.5f, 0f, 10f, 1.25f) && !PetRelaxCore.Near(10f, 3f, 10f, 9.5f, 0f, 10f, 1.25f);
-            float grace = Instantiator.kClipGraceMinutes;
+            float grace = HhGraceMin();
             bool ctlTimed = ShareLanesCore.Timed(PetRelaxCore.kGo, true, 0f, 2.5f) == PetRelaxCore.kGo && ShareLanesCore.Timed(PetRelaxCore.kGo, false, 1f, 2.5f) == ShareLanesCore.kDefer
                 && ShareLanesCore.Timed(PetRelaxCore.kGo, false, 2.5f, 2.5f) == PetRelaxCore.kGo;
             ctlTimed = ctlTimed && PetRelaxCore.PlanJig(true, true, false, true, true, out kept) == PetRelaxCore.kGo && PetRelaxCore.PlanJig(true, false, false, true, true, out kept) == PetRelaxCore.kNone;

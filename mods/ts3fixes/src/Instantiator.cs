@@ -516,7 +516,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kShowerPeePlanHh = false;  // showerpeeplanhh: household and selected Sims too
         [Tunable] public static bool kShowerDirty = false;  // showerdirty (docs/686 §36.6): a shower that also filled the bladder ends at Hygiene 76, a shared one at 80 (user-approved cost)
         [Tunable] public static bool kFridgeFf = true;  // fridgeff (docs/686 §36.11): an NPC whose Fridge_Have / Fridge_EatLeftovers starts at a busy fridge and that nobody sees takes its food at once (EA's own steps, no walk, line or animation)
-        [Tunable] public static bool kFridgeShare = false;  // fridgeshare (docs/686 §41): NPC short fridge uses overlap (two at most: at once off screen, beside the slot then a step in on screen), a Sim at the fridge goes before a line head still walking over, a clean-out leaves the fridge before the walk to the can
+        [Tunable] public static bool kFridgeShare = false;  // fridgeshare (docs/686 §46): NPC short fridge uses overlap (two at most: at once off screen, beside the slot then a step in on screen), a Sim at the fridge goes before a line head still walking over, a clean-out leaves the fridge before the walk to the can
         [Tunable] public static bool kFridgeShareHh = false;  // fridgesharehh: the same for household and selected Sims (with fridgeshare)
         [Tunable] public static bool kFridgeShareLog = false;  // fridgesharelog: one ts3native.log line per share, give-way and release
         [Tunable] public static bool kFridgeFfUnseen = false;  // fridgeffunseen: the same for household Sims other than the selected Sim, off screen and away from viewers (the player's opt-in)

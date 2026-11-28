@@ -241,7 +241,7 @@ namespace Ts3Fixes
             w.Due = true;
             if (w.Target.HasBeenDestroyed || sim.HasExitReason()) return false;  // the game's own exit comes first
             bool on = ShortcutOn(w.Group == UnseenSkipCore.kGroupPc ? "lineswitchpc" : w.Group == UnseenSkipCore.kGroupGym ? "gymtwin" : "lineswitch");
-            bool human = LswHuman(sim), auto = w.Ia.Autonomous;
+            bool human = LswHuman(sim), auto = !HhDirected(w.Ia);  // an ordered action keeps its object (HhShared.cs)
             InteractionInstance repl = null;
             bool refused = false;
             GameObject to = human && auto ? LswFind(sim, w, out repl, out refused) : null;
@@ -307,7 +307,7 @@ namespace Ts3Fixes
                     catch (ResetException) { throw; }
                     catch (Exception e) { UnsError(e); }
                 }
-                // docs/686 §41 (FridgeShare.cs): a fridge waiter shares the fridge or goes before a head still walking over
+                // docs/686 §46 (FridgeShare.cs): a fridge waiter shares the fridge or goes before a head still walking over
                 if (sim != null && minutesToWait > 0f)
                 {
                     bool now = false;

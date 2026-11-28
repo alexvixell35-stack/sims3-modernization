@@ -1,5 +1,5 @@
 // Offline self-check of the game-independent rules of fridgeshare
-// (mods/ts3fixes/src/FridgeShareCore.cs, docs/686 §41). Windows (.NET Framework csc), or TS3_CSC on Linux.
+// (mods/ts3fixes/src/FridgeShareCore.cs, docs/686 §46). Windows (.NET Framework csc), or TS3_CSC on Linux.
 //   node tools/selftest/fridgeshare/run.ts
 import { execFileSync, CSC } from '../csc-shim.ts';
 import { mkdirSync } from 'node:fs';

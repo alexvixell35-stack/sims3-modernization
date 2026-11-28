@@ -1,6 +1,6 @@
 namespace Ts3Fixes
 {
-    // Game-independent rules of FridgeShare.cs (fridgeshare / fridgesharehh, docs/686 §41), checked offline by
+    // Game-independent rules of FridgeShare.cs (fridgeshare / fridgesharehh, docs/686 §46), checked offline by
     // tools/selftest/fridgeshare.
     //
     // EA's fridge has one line (Fridge.Line, a SimQueue of 3, 15 sim-min) and one routing slot. The Sim at the head keeps the

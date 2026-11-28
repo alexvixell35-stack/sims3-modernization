@@ -2,7 +2,7 @@ using System;
 
 namespace Ts3Fixes
 {
-    // Offline checks of FridgeShareCore (docs/686 §41).
+    // Offline checks of FridgeShareCore (docs/686 §46).
     public static class FridgeShareTest
     {
         static int sFail, sRun;
