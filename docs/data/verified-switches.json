@@ -542,6 +542,7 @@
   ],
   "knownIssues": [
     "Apex Radiance 4.0.1 with its RTX Remix bridge can crash on a backbuffer error; fixed in Apex PR #89, not released yet.",
+    "Fixed in this build, please retest: the garden script error from harvestextras and chessdefeated (no MethodInfo.Invoke on a swapped method), imported from Dalexlol PR #739. twopointjj reported it still happening on v0.3.3-exp.20261126; report back if it still happens.",
     "Apex LightEval5 misalignment: Apex issue, fix in Apex PR #92, not released yet.",
     "Experimental builds have passed self-tests and the per-switch correctness tests listed above, not the full release check (save matrix, soaks) a stable release gets."
   ]
