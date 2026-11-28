@@ -167,7 +167,17 @@ namespace Ts3Fixes
                 GameObject lastBlocker = null;
                 while (true)
                 {
+                    Vector3 from = vector;
                     vector = MuClosest(lot, vector, skipped);
+                    // mopclaim (MopClaim.cs, docs/686 §43): not a puddle another Sim mops; the next nearest that nobody holds
+                    List<Vector3> held = null;
+                    for (int n = 0; n < 32 && vector != Vector3.Invalid && McSkipMu(this, actor, lot, vector, n == 0); n++)
+                    {
+                        if (held == null) held = new List<Vector3>(skipped);
+                        held.Add(vector);
+                        vector = MuClosest(lot, from, held);
+                    }
+                    McTakenMu(actor, lot, vector, held != null);
                     if (vector == Vector3.Invalid) break;
                     int r;
                     Sim.RouteFailFrequency keep = actor.PlayRouteFailFrequency;
