@@ -26,6 +26,9 @@ namespace Ts3Agent
             Dispatcher.Register("tool_select", ToolSelect);
             Dispatcher.Register("tool_drag", ToolDrag);
             Dispatcher.Register("build_level", BuildLevel);
+            Dispatcher.Register("floor_grid", FloorGrid);
+            Dispatcher.Register("stair_lots", StairLots);
+            Dispatcher.Register("destroy_object", DestroyObject);
             Dispatcher.Register("build_presets", BuildPresets);
             Dispatcher.Register("auto_roof", AutoRoof);
         }
@@ -128,6 +131,90 @@ namespace Ts3Agent
         }
 
         // ------------------------------------------------------------ tiles
+
+        // floor_grid {level, x0, z0, x1, z1}: one string per row z of the home lot, '#' = World.HasSolidFloor, '.' = none,
+        // 'S' = a Stairs object's tile on that level (object level), so a repro can see where a level has floor.
+        static object FloorGrid(Args a)
+        {
+            Lot lot = HomeLot();
+            int L = (int)a.Long("level", 0), x0 = (int)a.Long("x0", 0), z0 = (int)a.Long("z0", 0), x1 = (int)a.Long("x1", 20), z1 = (int)a.Long("z1", 20);
+            List<object> rows = new List<object>();
+            for (int z = z0; z <= z1; z++)
+            {
+                char[] row = new char[x1 - x0 + 1];
+                for (int x = x0; x <= x1; x++)
+                {
+                    LotLocation h = new LotLocation(x, z, (sbyte)L, 0);
+                    bool f = World.HasSolidFloor(lot.LotId, h);
+                    bool w = World.WallExistsBetween(lot.LotId, h, new LotLocation(x + 1, z, (sbyte)L, 0))
+                        || World.WallExistsBetween(lot.LotId, h, new LotLocation(x, z + 1, (sbyte)L, 0));
+                    row[x - x0] = f ? (w ? 'W' : '#') : (w ? 'w' : '.');
+                }
+                rows.Add(z.ToString("00") + " " + new string(row));
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["level"] = L;
+            r["rows"] = rows;
+            return r;
+        }
+
+        // stair_lots: residential lots without a household whose Stairs run from level 0 (no foundation under the bottom end)
+        // to level 1: lot id, name, value and each such flight's bottom / top lot tiles (a basement can go under it).
+        static object StairLots(Args a)
+        {
+            List<object> res = new List<object>();
+            bool home = a.Bool("home", false);
+            foreach (Lot lot in LotManager.AllLots)
+            {
+                if (home)
+                {
+                    if (lot != HomeLot()) continue;
+                    foreach (Sims3.Gameplay.Core.Stairs st in lot.GetObjects<Sims3.Gameplay.Core.Stairs>())
+                    {
+                        Vector3 b0 = st.GetPositionOfSlot(Sims3.Gameplay.Core.Stairs.RoutingSlots.Stairs_Bottom0);
+                        Vector3 t0 = st.GetPositionOfSlot(Sims3.Gameplay.Core.Stairs.RoutingSlots.Stairs_Top0);
+                        LotLocation lb = LotLocation.Invalid, lt = LotLocation.Invalid;
+                        World.GetLotLocation(b0, ref lb);
+                        World.GetLotLocation(t0, ref lt);
+                        res.Add(st.ObjectId.Value.ToString() + " L" + lb.mLevel + " " + lb.mX + "," + lb.mZ + " -> L" + lt.mLevel + " " + lt.mX + "," + lt.mZ);
+                    }
+                    continue;
+                }
+                if (lot == null || !lot.IsResidentialLot || lot.Household != null) continue;
+                List<object> fl = new List<object>();
+                foreach (Sims3.Gameplay.Core.Stairs st in lot.GetObjects<Sims3.Gameplay.Core.Stairs>())
+                {
+                    Vector3 b = st.GetPositionOfSlot(Sims3.Gameplay.Core.Stairs.RoutingSlots.Stairs_Bottom0);
+                    Vector3 t = st.GetPositionOfSlot(Sims3.Gameplay.Core.Stairs.RoutingSlots.Stairs_Top0);
+                    LotLocation lb = LotLocation.Invalid, lt = LotLocation.Invalid;
+                    World.GetLotLocation(b, ref lb);
+                    World.GetLotLocation(t, ref lt);
+                    if (lb.mLevel != 0 || lt.mLevel != 1) continue;
+                    if (World.IsDeckFoundationAtLotLoc(lot.LotId, b.x, b.z, 0)) continue;
+                    fl.Add(lb.mX + "," + lb.mZ + " -> " + lt.mX + "," + lt.mZ);
+                }
+                if (fl.Count == 0) continue;
+                Dictionary<string, object> e = Util.Obj();
+                e["id"] = lot.LotId.ToString();
+                e["name"] = lot.Name;
+                e["flights"] = fl;
+                res.Add(e);
+            }
+            return res;
+        }
+
+        // destroy_object {id}: GameObject.Destroy on any object (a repro taking out a lot's own stairs: the sledgehammer
+        // needs a pick on the object, as build_cc_cycle's fallback does)
+        static object DestroyObject(Args a)
+        {
+            GameObject o = GameObject.GetObject(new ObjectGuid(ulong.Parse(a.Str("id"))));
+            if (o == null) throw new McpException("no object " + a.Str("id"));
+            string t = o.GetType().Name;
+            o.Destroy();
+            Dictionary<string, object> r = Util.Obj();
+            r["destroyed"] = t;
+            return r;
+        }
 
         static object TileInfo(Args a)
         {
@@ -255,8 +342,34 @@ namespace Ts3Agent
             bool tiles = a.Bool("tiles", false);
             Lot tileLot = tiles ? HomeLot() : null;
             int frames = (int)a.Long("frames", 3);
+            List<double[]> raw2px = new List<double[]>();
             List<double[]> world = new List<double[]>();
             double plane = double.NaN; // tiles: the displayed level's floor height, so the fit ignores other planes
+            // screen: true (with tiles): pixels from World.GetScreenSpacePos, the game's own projection (as build_layout), at
+            // the tile corner [lx, lz] plus [dx, dz] metres along the lot axes (default 0.5, 0.5 = the tile centre), height = the
+            // displayed level's floor (+ dy). Needs no floor picks, so it works on bare ground and in build mode.
+            if (tiles && a.Bool("screen", false))
+            {
+                double ox = a.Double("dx", 0.5), oz = a.Double("dz", 0.5), oy = a.Double("dy", 0);
+                foreach (object o in raw)
+                {
+                    IList p = (IList)o;
+                    double x = Convert.ToDouble(p[0], CultureInfo.InvariantCulture), z = Convert.ToDouble(p[1], CultureInfo.InvariantCulture);
+                    int ix = (int)Math.Floor(x), iz = (int)Math.Floor(z);
+                    sbyte lv = (sbyte)tileLot.CurrentLotDisplayLevel;
+                    Vector3 c0 = Vector3.Zero, cx = Vector3.Zero, cz = Vector3.Zero;
+                    World.GetWorldPosition(tileLot.LotId, new LotLocation(ix, iz, lv, 0), ref c0);
+                    World.GetWorldPosition(tileLot.LotId, new LotLocation(ix + 1, iz, lv, 0), ref cx);
+                    World.GetWorldPosition(tileLot.LotId, new LotLocation(ix, iz + 1, lv, 0), ref cz);
+                    double fx = x - ix + ox, fz = z - iz + oz;
+                    Vector3 w = new Vector3((float)(c0.x + (cx.x - c0.x) * fx + (cz.x - c0.x) * fz), (float)(c0.y + oy),
+                                            (float)(c0.z + (cx.z - c0.z) * fx + (cz.z - c0.z) * fz));
+                    Vector2 sp;
+                    if (!World.GetScreenSpacePos(w, out sp)) throw new McpException("no screen position for tile " + x + "," + z);
+                    raw2px.Add(new double[] { sp.x, sp.y });
+                }
+                pixels = true;
+            }
             foreach (object o in raw)
             {
                 IList p = (IList)o;
@@ -272,7 +385,8 @@ namespace Ts3Agent
                 world.Add(new double[] { x, z });
             }
             List<double[]> px = new List<double[]>();
-            foreach (double[] p in world) px.Add(pixels ? p : ToPixels(p[0], p[1], plane));
+            if (raw2px.Count > 0) { px = raw2px; world = raw2px; }
+            else foreach (double[] p in world) px.Add(pixels ? p : ToPixels(p[0], p[1], plane));
             double checkM = 0;
             if (!pixels)
             {
@@ -295,6 +409,22 @@ namespace Ts3Agent
             }
             uint button = (uint)a.Long("button", 1000);
             uint mods = (uint)a.Long("modifiers", 0);
+            if (raw2px.Count > 0)
+            {
+                // screen mode: build_layout's drag (a hover first, then down, 8 moves, up, each a game tick apart)
+                uint dwell = (uint)a.Long("dwell", 10);
+                List<double[]> sp = raw2px;
+                RunAsync("tool drag screen " + sp.Count + " pts", delegate
+                {
+                    UIManager.GetSceneWindow().StartForwardingEventsToUserTools();
+                    Drag(sp[0], sp[sp.Count - 1], dwell, mods);
+                });
+                Dictionary<string, object> rs = Util.Obj();
+                List<object> o2 = new List<object>();
+                foreach (double[] p in sp) o2.Add(new double[] { Math.Round(p[0], 1), Math.Round(p[1], 1) });
+                rs["pixels"] = o2;
+                return rs;
+            }
             RunAsync("tool drag " + px.Count + " pts", delegate
             {
                 UIManager.GetSceneWindow().StartForwardingEventsToUserTools();
