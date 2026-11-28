@@ -15,7 +15,7 @@
 // The caller's loop locals sit at the return slot + 0x44 (16 pushed DWORDs and the return address): count +0x20, i +0x28,
 // step +0x3C. The 8 bytes at 0x75C05C are checked first (refused and logged when they differ), then the call bytes.
 // shortcut: the shadow compares answers (al), not the candidate records; the records are computed from the compared inputs.
-static const DWORD GG_RING_CALL = 0x0075C246, GG_RING = 0x0075B610, GG_COUNT_STORE = 0x0075C05C, GG_VAL_RET = 0x0075BD8B;
+static const DWORD GG_RING_CALL = TS3A(0x0075C246), GG_RING = TS3A(0x0075B610), GG_COUNT_STORE = TS3A(0x0075C05C), GG_VAL_RET = TS3A(0x0075BD8B);
 static const u8 kGgCount[8] = {0xC7, 0x44, 0x24, 0x20, 0x01, 0x00, 0x00, 0x00};  // mov dword [esp+0x20], 1
 static void* g_ggOrig = (void*)(uintptr_t)GG_RING;  // the selftest points it at a fake ring builder
 static DWORD g_ggValRet = GG_VAL_RET;               // the selftest's own validation call site

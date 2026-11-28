@@ -1,0 +1,400 @@
+{
+ "note": "mono-jitfault-correct-1116: copy of mono-jitfault-correct-1115-mm.json repinned to master-1116 (0.36.265-m1116); rewind auto (chain-followup-1116.sh runs rewind-pilot-1116 first; TS3_REWIND=off if the pilot fails). mono-jitfault-correct-1115-mm: copy of mono-jitfault-correct-1115.json, repinned to master-mono-1115 (0.36.264-mono1). mono-jitfault-1115 correctness (PREPARED, NOT RUN; needs the mono-jitfault-1115 asi, game-copy/ts3native.asi.mono-jitfault-1115): [MonoJit] FaultRecover (docs/537 §29), default 1 with the JIT (Rodney 2026-11-15); this queue is its ship gate. Jobs: bp-jitfault-forced (test hook: one compiled method faults on call 1000, must be recovered), then bp/ip/sv-jitfault-on (normal JIT-on, no fault may occur). Faults outside the JIT region are never touched (selftest TestMonoJitFaultRecover; no safe way to force one in game). 4 jobs x ~12 min = ~50 min. Read: node tools/harness/run-verdict.ts mono-jitfault-correct-1115.",
+ "rewind": "auto",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-jitfault-forced",
+   "asi": "game-copy/ts3native.asi.master-1116",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116",
+   "pinReason": "repinned 2026-11-16 to the master-1116 set (merge/master-1116, 0.36.265-m1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh). Was: ts3native.asi.master-mono-1115 (repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build)",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "save": "Baseline-BP-Spring",
+   "note": "Forced-fault arm (test-only hook): [MonoJit] FaultTest=RuntimeTypeHandle.get_Value FaultTestN=1000, so call 1000 of that method's normal body reads address 0. PASS = no crash, the fault recovered exactly once (frRecovered 1, frPassed 0, one \"jit: fault recovered\" line naming get_Value word 0), the method back in EA's interpreter (frTestCalls stops at 1000), 0 script errors, jitMismatch 0, switches read back. Household Sims untouched: the JIT is exact and the recovered call runs in EA's interpreter, so no Sim changes; check the who/lot lines of the household are as in a JIT-on run. [Binder] TypeHandleDirect=0 in this arm: master turned it on (b0507f79), and with it Type.GetTypeFromHandle no longer calls get_Value, so get_Value is never compiled (0 of 101 TD-on job logs compile it; the 2026-11-15 13:49 UTC run failed the early gate with frTestCalls=0). The binder patch is not under test here. If the armed line is missing (method not compiled on this build), pick another listed method that runs from interpreted callers and rerun.",
+   "ini": {
+    "MonoJit.Enabled": 1,
+    "MonoJit.Mode": 1,
+    "MonoJit.FaultRecover": 1,
+    "MonoJit.FaultTest": "RuntimeTypeHandle.get_Value",
+    "MonoJit.FaultTestN": 1000,
+    "Binder.TypeHandleDirect": 0
+   },
+   "logRequire": {
+    "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": 1,
+    "^jit: FaultTest armed on .*RuntimeTypeHandle\\.get_Value: call 1000 ": 1,
+    "^jit: fault recovered: 0x[0-9A-F]{8} at eip [0-9A-F]{8} in .*RuntimeTypeHandle\\.get_Value word 0: ": 1
+   },
+   "logForbid": {
+    "^jit: fault passed on": 0,
+    "SKIP mono jit": 0,
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit clause lazy": 0,
+    "^OK   binder type handle direct": 0
+   },
+   "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered>=1,@frRecovered<=1,@frPassed<=0,@frTestCalls>=1000,@frTestCalls<=1000,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0",
+   "earlyGates": [
+    {
+     "afterSec": 300,
+     "counter": "frTestCalls",
+     "op": ">",
+     "value": 0,
+     "why": "the FaultTest method never ran compiled: hook not armed or the method is not reached from interpreted code"
+    }
+   ],
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "regexCases": {
+    "^OK   binder type handle direct": {
+     "match": [
+      "OK   binder type handle direct (docs/537 §20.3): Type.GetTypeFromHandle's EA body 0xDB0940 reads the handle at 0x00DB095E, no 0xD8A8E0 call to RuntimeTypeHandle.get_Value"
+     ],
+     "noMatch": [
+      "SKIP binder type handle direct: bytes at 0x00DB0940 differ (another owner or another exe): not installed"
+     ]
+    },
+    "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=0"
+     ]
+    },
+    "^jit: FaultTest armed on .*RuntimeTypeHandle\\.get_Value: call 1000 ": {
+     "match": [
+      "jit: FaultTest armed on System.RuntimeTypeHandle.get_Value: call 1000 of its normal body faults (test only)"
+     ],
+     "noMatch": [
+      "jit: FaultTest=RuntimeTypeHandle.get_Value FaultTestN=1000: that method's normal body faults once (test only)"
+     ]
+    },
+    "^jit: fault recovered: 0x[0-9A-F]{8} at eip [0-9A-F]{8} in .*RuntimeTypeHandle\\.get_Value word 0: ": {
+     "match": [
+      "jit: fault recovered: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value word 0: EA's interpreter runs that instruction, the method is off for the session"
+     ],
+     "noMatch": [
+      "jit: fault passed on: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value: in the lazy body (no frame to hand to EA); the method is off for the session, the game's handlers get the fault"
+     ]
+    },
+    "^jit: fault passed on": {
+     "match": [
+      "jit: fault passed on: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value: in the lazy body (no frame to hand to EA); the method is off for the session, the game's handlers get the fault"
+     ],
+     "noMatch": [
+      "jit: fault recovered: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value word 0: EA's interpreter runs that instruction, the method is off for the session"
+     ]
+    },
+    "SKIP mono jit": {
+     "match": [
+      "SKIP mono jit: not the Steam 1.67 exe"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH in List`1.get_Item: word 12 differs"
+     ],
+     "noMatch": [
+      "jit verify: List`1.get_Item off for the session (its ret at word 12, 1 mismatches so far)"
+     ]
+    },
+    "^FAIL mono jit clause lazy": {
+     "match": [
+      "FAIL mono jit clause lazy: fault 0xC0000005 at eip 0A41F3C2: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ]
+    }
+   },
+   "iniBase": "game-copy/ts3native.ini.master-1116"
+  },
+  {
+   "id": "bp-jitfault-on",
+   "asi": "game-copy/ts3native.asi.master-1116",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116",
+   "pinReason": "repinned 2026-11-16 to the master-1116 set (merge/master-1116, 0.36.265-m1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh). Was: ts3native.asi.master-mono-1115 (repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build)",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "save": "Baseline-BP-Spring",
+   "note": "Normal JIT-on run (BP, 10 min), the shipped JIT set from the repo ini plus FaultRecover=1, no FaultTest. PASS = no crash, 0 script errors, FaultRecover read back (frOn 1), no fault seen at all (frRecovered 0, frPassed 0, no \"jit: fault\" line), jitMismatch / jitFaults / clFaults 0. A recovered fault here is a compiler bug to triage (method named in the line), not a pass. Household Sims untouched: the JIT is exact; no Sim behaviour change expected.",
+   "ini": {
+    "MonoJit.Enabled": 1,
+    "MonoJit.Mode": 1,
+    "MonoJit.FaultRecover": 1
+   },
+   "logRequire": {
+    "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": 1
+   },
+   "logForbid": {
+    "jit: fault": 0,
+    "SKIP mono jit": 0,
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit clause lazy": 0
+   },
+   "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered<=0,@frPassed<=0,@frTestCalls<=0,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0,jitCalls>=1000",
+   "earlyGates": [
+    {
+     "afterSec": 240,
+     "counter": "jitCalls",
+     "op": ">",
+     "value": 0,
+     "why": "no call into compiled code: the JIT did not install or compiled nothing"
+    }
+   ],
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "regexCases": {
+    "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=0"
+     ]
+    },
+    "jit: fault": {
+     "match": [
+      "jit: fault recovered: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value word 0: EA's interpreter runs that instruction, the method is off for the session",
+      "jit: fault passed on: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value: in the lazy body (no frame to hand to EA); the method is off for the session, the game's handlers get the fault"
+     ],
+     "noMatch": [
+      "jit: FaultTest armed on System.RuntimeTypeHandle.get_Value: call 1000 of its normal body faults (test only)"
+     ]
+    },
+    "SKIP mono jit": {
+     "match": [
+      "SKIP mono jit: not the Steam 1.67 exe"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH in List`1.get_Item: word 12 differs"
+     ],
+     "noMatch": [
+      "jit verify: List`1.get_Item off for the session (its ret at word 12, 1 mismatches so far)"
+     ]
+    },
+    "^FAIL mono jit clause lazy": {
+     "match": [
+      "FAIL mono jit clause lazy: fault 0xC0000005 at eip 0A41F3C2: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ]
+    }
+   },
+   "iniBase": "game-copy/ts3native.ini.master-1116"
+  },
+  {
+   "id": "ip-jitfault-on",
+   "asi": "game-copy/ts3native.asi.master-1116",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116",
+   "pinReason": "repinned 2026-11-16 to the master-1116 set (merge/master-1116, 0.36.265-m1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh). Was: ts3native.asi.master-mono-1115 (repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build)",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "save": "Baseline-IP-Spring",
+   "note": "Normal JIT-on run (IP, 10 min), the shipped JIT set from the repo ini plus FaultRecover=1, no FaultTest. PASS = no crash, 0 script errors, FaultRecover read back (frOn 1), no fault seen at all (frRecovered 0, frPassed 0, no \"jit: fault\" line), jitMismatch / jitFaults / clFaults 0. A recovered fault here is a compiler bug to triage (method named in the line), not a pass. Household Sims untouched: the JIT is exact; no Sim behaviour change expected.",
+   "ini": {
+    "MonoJit.Enabled": 1,
+    "MonoJit.Mode": 1,
+    "MonoJit.FaultRecover": 1
+   },
+   "logRequire": {
+    "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": 1
+   },
+   "logForbid": {
+    "jit: fault": 0,
+    "SKIP mono jit": 0,
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit clause lazy": 0
+   },
+   "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered<=0,@frPassed<=0,@frTestCalls<=0,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0,jitCalls>=1000",
+   "earlyGates": [
+    {
+     "afterSec": 240,
+     "counter": "jitCalls",
+     "op": ">",
+     "value": 0,
+     "why": "no call into compiled code: the JIT did not install or compiled nothing"
+    }
+   ],
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "regexCases": {
+    "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=0"
+     ]
+    },
+    "jit: fault": {
+     "match": [
+      "jit: fault recovered: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value word 0: EA's interpreter runs that instruction, the method is off for the session",
+      "jit: fault passed on: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value: in the lazy body (no frame to hand to EA); the method is off for the session, the game's handlers get the fault"
+     ],
+     "noMatch": [
+      "jit: FaultTest armed on System.RuntimeTypeHandle.get_Value: call 1000 of its normal body faults (test only)"
+     ]
+    },
+    "SKIP mono jit": {
+     "match": [
+      "SKIP mono jit: not the Steam 1.67 exe"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH in List`1.get_Item: word 12 differs"
+     ],
+     "noMatch": [
+      "jit verify: List`1.get_Item off for the session (its ret at word 12, 1 mismatches so far)"
+     ]
+    },
+    "^FAIL mono jit clause lazy": {
+     "match": [
+      "FAIL mono jit clause lazy: fault 0xC0000005 at eip 0A41F3C2: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ]
+    }
+   },
+   "iniBase": "game-copy/ts3native.ini.master-1116"
+  },
+  {
+   "id": "sv-jitfault-on",
+   "asi": "game-copy/ts3native.asi.master-1116",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116",
+   "pinReason": "repinned 2026-11-16 to the master-1116 set (merge/master-1116, 0.36.265-m1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh). Was: ts3native.asi.master-mono-1115 (repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build)",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "save": "Baseline-SV-Spring",
+   "note": "Normal JIT-on run (SV, 10 min), the shipped JIT set from the repo ini plus FaultRecover=1, no FaultTest. PASS = no crash, 0 script errors, FaultRecover read back (frOn 1), no fault seen at all (frRecovered 0, frPassed 0, no \"jit: fault\" line), jitMismatch / jitFaults / clFaults 0. A recovered fault here is a compiler bug to triage (method named in the line), not a pass. Household Sims untouched: the JIT is exact; no Sim behaviour change expected.",
+   "ini": {
+    "MonoJit.Enabled": 1,
+    "MonoJit.Mode": 1,
+    "MonoJit.FaultRecover": 1
+   },
+   "logRequire": {
+    "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": 1
+   },
+   "logForbid": {
+    "jit: fault": 0,
+    "SKIP mono jit": 0,
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit clause lazy": 0
+   },
+   "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered<=0,@frPassed<=0,@frTestCalls<=0,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0,jitCalls>=1000",
+   "earlyGates": [
+    {
+     "afterSec": 240,
+     "counter": "jitCalls",
+     "op": ">",
+     "value": 0,
+     "why": "no call into compiled code: the JIT did not install or compiled nothing"
+    }
+   ],
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "regexCases": {
+    "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=0"
+     ]
+    },
+    "jit: fault": {
+     "match": [
+      "jit: fault recovered: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value word 0: EA's interpreter runs that instruction, the method is off for the session",
+      "jit: fault passed on: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value: in the lazy body (no frame to hand to EA); the method is off for the session, the game's handlers get the fault"
+     ],
+     "noMatch": [
+      "jit: FaultTest armed on System.RuntimeTypeHandle.get_Value: call 1000 of its normal body faults (test only)"
+     ]
+    },
+    "SKIP mono jit": {
+     "match": [
+      "SKIP mono jit: not the Steam 1.67 exe"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH in List`1.get_Item: word 12 differs"
+     ],
+     "noMatch": [
+      "jit verify: List`1.get_Item off for the session (its ret at word 12, 1 mismatches so far)"
+     ]
+    },
+    "^FAIL mono jit clause lazy": {
+     "match": [
+      "FAIL mono jit clause lazy: fault 0xC0000005 at eip 0A41F3C2: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+     ]
+    }
+   },
+   "iniBase": "game-copy/ts3native.ini.master-1116"
+  }
+ ]
+}

@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { CONTRIB, FIX_HEAD, NAT_HEAD, fixRow, natRow, section } from './registry.ts';
+import { CONTRIB, FIX_HEAD, NAT_HEAD, contribFrom, fixRow, inRanges, natRow, section } from './registry.ts';
 
 type Kind = 'range' | 'doc' | 'ledger' | 'registry' | 'version' | 'conflict' | 'index' | 'check' | 'note';
 export interface Finding { kind: Kind; problem: boolean; text: string }
@@ -112,17 +112,24 @@ export function analyze(x: Input): Finding[] {
     for (const [v, f] of named) bad('version', `${f} names ts3native ${v}, which ${x.baseName} has used since this branch started (now ${vstr(vBase)})`);
   }
   if (x.ranges) {
-    const [d0, d1] = CONTRIB.doc, [l0, l1] = CONTRIB.ledger, [f0, f1] = CONTRIB.fixes, v0 = CONTRIB.nativeV;
+    // each kind is a list of blocks (CONTRIB); "next free" is past the highest number in them, a run never straddles a block end
+    const { doc: dr, ledger: lr, fixes: fxr, nativeV: v0 } = CONTRIB;
     const note = (k: string) => `outside the contributor range (docs/registry.md "Contributor ranges"); ${k}`;
+    const free = (n: number, s: string) => n < 0 ? 'none left (ranges full; ask the maintainers)' : s;
     // docs
-    let nd = Math.max(d0 - 1, ...[...baseNums.keys(), ...newDocs.map(p => docNum(p)!), ...x.openClaims.keys()].filter(n => n >= d0 && n <= d1)) + 1;
-    for (const p of newDocs.sort()) { const n = docNum(p)!; if (n < d0 || n > d1) bad('range', `${p}: ${n} is ${note(`next free: ${nd++} (node tools/registry.ts reserve --contributor doc --for <topic>)`)}`); }
+    let nd = Math.max(dr[0][0] - 1, ...[...baseNums.keys(), ...newDocs.map(p => docNum(p)!), ...x.openClaims.keys()].filter(n => inRanges(n, dr)));
+    for (const p of newDocs.sort()) { const n = docNum(p)!; if (!inRanges(n, dr)) { nd = contribFrom(dr, nd); bad('range', `${p}: ${n} is ${note(`next free: ${free(nd, `${nd} (node tools/registry.ts reserve --contributor doc --for <topic>)`)}`)}`); } }
     // docs/51
-    let nl = Math.max(l0, ...[...baseL.keys(), ...headL.keys(), ...baseRes.filter(r => r.kind === 'ledger').map(r => r.to)].filter(n => n >= l0 && n <= l1).map(n => n + 1));
-    for (const [n, title] of headL) if (!mbL.has(n) && (n < l0 || n > l1)) bad('range', `docs/51 §${n} "${title.slice(0, 40)}": ${note(`next free: §${nl++} (reserve --contributor ledger --for <topic>)`)}`);
+    let nl = Math.max(lr[0][0] - 1, ...[...baseL.keys(), ...headL.keys(), ...baseRes.filter(r => r.kind === 'ledger').map(r => r.to)].filter(n => inRanges(n, lr)));
+    for (const [n, title] of headL) if (!mbL.has(n) && !inRanges(n, lr)) { nl = contribFrom(lr, nl); bad('range', `docs/51 §${n} "${title.slice(0, 40)}": ${note(`next free: ${free(nl, `§${nl} (reserve --contributor ledger --for <topic>)`)}`)}`); }
     // ts3fixes slots and ts3native counters versions
-    let nf = Math.max(f0, ...[...baseR.fixes.values(), ...headR.fixes.values(), ...baseRes.filter(r => r.kind === 'fixes').map(r => [r.from, r.to] as [number, number])].filter(([a]) => a >= f0).map(([, b]) => b + 1));
-    for (const [line, [a, b]] of headR.fixes) if (!mbR.fixes.has(line) && (a < f0 || b > f1)) { bad('range', `ts3fixes slots ${a}-${b}: ${note(`next free: ${nf}-${nf + b - a} (reserve --contributor fixes <n> --by <who> --what <text>)`)}`); nf += b - a + 1; }
+    const inBlock = ([a, b]: readonly number[]) => fxr.some(([x0, x1]) => a >= x0 && b <= x1); // rows that will move (outside or straddling) do not count
+    let lf = Math.max(fxr[0][0] - 1, ...[...baseR.fixes.values(), ...headR.fixes.values(), ...baseRes.filter(r => r.kind === 'fixes').map(r => [r.from, r.to] as [number, number])].filter(inBlock).map(([, b]) => b));
+    for (const [line, [a, b]] of headR.fixes) if (!mbR.fixes.has(line) && !inBlock([a, b])) {
+      const nf = contribFrom(fxr, lf, b - a + 1);
+      bad('range', `ts3fixes slots ${a}-${b}: ${note(`next free: ${free(nf, `${nf}-${nf + b - a} (reserve --contributor fixes <n> --by <who> --what <text>)`)}`)}`);
+      if (nf >= 0) lf = nf + b - a;
+    }
     let nv = Math.max(v0, ...[...baseR.native.values(), ...headR.native.values(), ...baseRes.filter(r => r.kind === 'native').map(r => r.version!)].filter(v => v >= v0).map(v => v + 1));
     for (const [line, v] of headR.native) if (!mbR.native.has(line) && v < v0) bad('range', `ts3native counters v${v}: ${note(`next free: v${nv++} (reserve --contributor native <n> --by <who> --what <text>)`)}`);
     // ts3native version string: maintainers assign it at merge
@@ -273,6 +280,12 @@ async function selfCheck() {
     g('checkout', '-qb', 'outrange', 'inrange'); put({ 'docs/20-z.md': '# z\n' }); g('add', '-A'); g('commit', '-qm', 'out');
     const orr = analyze({ ...gather(dir, 'main', 'outrange', new Map()), ranges: true });
     t(orr.some(i => i.problem && i.text.includes('docs/20-z.md: 20 is outside') && i.text.includes('next free: 502')), 'range: next free doc skips 500-501 the branch uses');
+    // second/third blocks: doc 700 is in range; slots 2798-2801 straddle 2799/2800 and are flagged; next free 2005-2008 (past the highest in-block row 2004)
+    g('checkout', '-qb', 'blocks', 'inrange');
+    put({ 'docs/700-w.md': '# w\n', [REGISTRY]: reg(['| 0-3 | a | x |', '| 4-6 | them | z |', '| 2000-2004 | c | c |', '| 2798-2801 | c | s |'], ['| v1 | a | 0x0000-0x0010 | x |', '| v2 | them | 0x0014-0x0030 | z |', '| v900 | c | 0x0034-0x0040 | c |']) });
+    g('add', '-A'); g('commit', '-qm', 'blocks');
+    const br = analyze({ ...gather(dir, 'main', 'blocks', new Map()), ranges: true }), brr = br.filter(i => i.problem && i.kind === 'range');
+    t(!brr.some(i => i.text.includes('docs/700')) && brr.some(i => i.text.includes('ts3fixes slots 2798-2801') && i.text.includes('next free: 2005-2008')), 'range: doc 700 fine, slots straddling 2799/2800 flagged, next free 2005-2008');
     // no clash: the branch rebased on main
     g('checkout', '-qb', 'clean', 'main'); put({ 'docs/13-ok.md': '# ok\n' }); g('add', '-A'); g('commit', '-qm', 'ok');
     const f2 = analyze(gather(dir, 'main', 'clean', new Map()));

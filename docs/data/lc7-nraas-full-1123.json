@@ -1,0 +1,274 @@
+{
+ "_doc": "Set lc7-nraas-full-1123 (queue lc7-desc-correct-1124 job bp-lc7-nraas-full, docs/336 §13): the popular NRaas mods from the 2026-11-22 downloads (Rodney saved the zips by hand; nraas.net asks for no automated downloads), over the test install (ErrorTrap + Overwatch). Vector is not in the downloads. Build: node tools/mod-set.ts build docs/data/lc7-nraas-full-1123.json. Never re-hosted.",
+ "set": "lc7-nraas-full-1123",
+ "out": "game-copy/mod-sets/lc7-nraas-full-1123",
+ "sources": {
+  "nraas": "game-copy/mod-sets/downloads/nraas-1122"
+ },
+ "mods": [
+  {
+   "name": "NRaas StoryProgression",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_StoryProgression_V269.zip"
+   ],
+   "why": "SP core: Pregnancies.Start, AttachLostFathers, SafeStore / CareerManagerEx copies"
+  },
+  {
+   "name": "NRaas StoryProgression Career module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_StoryProgression_Career_V269.zip"
+   ],
+   "why": "NewBossScenario.SetBoss, AssignSchoolScenario (mJob)"
+  },
+  {
+   "name": "NRaas StoryProgression Skill module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_StoryProgression_Skill_V269.zip"
+   ],
+   "why": "ChessPushScenario (chess)"
+  },
+  {
+   "name": "NRaas StoryProgression Money module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_StoryProgression_Money_V269.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas StoryProgression Population module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_StoryProgression_Population_V269.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas StoryProgression Relationship module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V267",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_StoryProgression_Relationship_V267.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas Woohooer",
+   "page": "https://www.nraas.net/community/Woohooer",
+   "version": "V130",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Woohooer_V130.zip"
+   ],
+   "why": "Pregnancies.Start, MaleHaveBabyHomeEx, PregnancyProxy, SafeStore"
+  },
+  {
+   "name": "NRaas MasterController",
+   "page": "https://www.nraas.net/community/MasterController",
+   "version": "V135",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_MasterController_V135.zip"
+   ],
+   "why": "Pregnancies.Start (own build), ChooseCareerOption (mJob), SafeStore"
+  },
+  {
+   "name": "NRaas MasterController Integration",
+   "page": "https://www.nraas.net/community/MasterController",
+   "version": "V135",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_MasterController_Integration_V135.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas Careers",
+   "page": "https://www.nraas.net/community/Careers",
+   "version": "V87",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Careers_V87.zip"
+   ],
+   "why": "OmniCareer proxies, SchoolBooter.Enroll (mJob), SafeStore"
+  },
+  {
+   "name": "NRaas Register",
+   "page": "https://www.nraas.net/community/Register",
+   "version": "V81",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Register_V81.zip"
+   ],
+   "why": "SafeStore"
+  },
+  {
+   "name": "NRaas Traveler",
+   "page": "https://www.nraas.net/community/Traveler",
+   "version": "V90",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Traveler_V90.zip"
+   ],
+   "why": "MergeTravelInformation (mJob), CareerManagerEx, SafeStore"
+  },
+  {
+   "name": "NRaas Retuner",
+   "page": "https://www.nraas.net/community/Retuner",
+   "version": "V10",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Retuner_V10.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas Relativity",
+   "page": "https://www.nraas.net/community/Relativity",
+   "version": "V23",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Relativity_V23.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas Hybrid",
+   "page": "https://www.nraas.net/community/Hybrid",
+   "version": "V11",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Hybrid_V11.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas Selector",
+   "page": "https://www.nraas.net/community/Selector",
+   "version": "V14",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Selector_V14.zip"
+   ],
+   "why": "SafeStore"
+  },
+  {
+   "name": "NRaas Consigner",
+   "page": "https://www.nraas.net/community/Consigner",
+   "version": "V22",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Consigner_V22.zip"
+   ],
+   "why": "SafeStore"
+  },
+  {
+   "name": "NRaas GoHere",
+   "page": "https://www.nraas.net/community/GoHere",
+   "version": "V46",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_GoHere_V46.zip"
+   ],
+   "why": "SafeStore"
+  },
+  {
+   "name": "NRaas Shooless",
+   "page": "https://www.nraas.net/community/Shooless",
+   "version": "V18",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Shooless_V18.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas Decensor",
+   "page": "https://www.nraas.net/community/Decensor",
+   "version": "V14",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Decensor_V14.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas Porter",
+   "page": "https://www.nraas.net/community/Porter",
+   "version": "V42",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Porter_V42.zip"
+   ],
+   "why": "CareerManagerEx, SafeStore"
+  },
+  {
+   "name": "NRaas Animator",
+   "page": "https://www.nraas.net/community/Animator",
+   "version": "V10",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Animator_V10.zip"
+   ],
+   "why": "no writer"
+  },
+  {
+   "name": "NRaas Mover",
+   "page": "https://www.nraas.net/community/Mover",
+   "version": "V28",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Mover_V28.zip"
+   ],
+   "why": "CareerManagerEx, SafeStore"
+  },
+  {
+   "name": "NRaas Dresser",
+   "page": "https://www.nraas.net/community/Dresser",
+   "version": "V38",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Dresser_V38.zip"
+   ],
+   "why": "no writer"
+  }
+ ]
+}

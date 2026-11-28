@@ -7,12 +7,15 @@
 // Config [verified apex_paths.cpp, apex_presets.cpp]: <Documents>\Electronic Arts\The Sims 3\Apex Radiance\ApexRadiance.toml,
 // one [patches.<Name>] table per switch with `enabled = true|false`; a missing table or key = the switch's default.
 
-enum { AXF_OBJECT_INDEX = 1, AXF_FAST_CACHE = 2, AXF_MEMORY_GUARD = 4, AXF_RES_LOOKUP = 8, AXF_FILE_LIST = 16, AXF_LOT = 32 };
+enum { AXF_OBJECT_INDEX = 1, AXF_FAST_CACHE = 2, AXF_MEMORY_GUARD = 4, AXF_RES_LOOKUP = 8, AXF_FILE_LIST = 16, AXF_LOT = 32, AXF_FAST_MEMORY = 64 };
 struct ApexSwitch { const char* name; int bit; bool def; };
 static const ApexSwitch kApexSwitch[] = {
     {"ObjectLookupIndex", AXF_OBJECT_INDEX, true}, {"FastCacheCompression", AXF_FAST_CACHE, true},
     {"MemoryGuard", AXF_MEMORY_GUARD, true},       {"ResourceLookupCache", AXF_RES_LOOKUP, true},
     {"FileListCache", AXF_FILE_LIST, true},
+    // the EA allocator (spin count, big-block release worker, trim): Apex owns it (docs/148 §6 #9, §7); enabledByDefault = true,
+    // Steam only [verified apex-src-3.0.0 performance_patches.cpp FastMemoryPatch]
+    {"FastMemory", AXF_FAST_MEMORY, true},
     // the lot streaming group: enabledByDefault = false in performance_patches.cpp [verified]
     {"LotLodStreaming", AXF_LOT, false},   {"LotObjectThrottle", AXF_LOT, false}, {"LotVisibilityOverride", AXF_LOT, false},
     {"LotActiveThreshold", AXF_LOT, false}, {"LotDetailRange", AXF_LOT, false}};
@@ -23,6 +26,12 @@ static bool g_apexStandDown = true;   // [Compat] ApexStandDown
 static int g_apexFound;               // bits: 1 ApexRadiance.asi, 2 zzApexRadiance.asi, 4 instance mutex
 static int g_apexOn;                  // AXF_* bits of the Apex switches that are on
 static volatile LONG g_apexStood;     // modules (and Verify probes) that stood down
+// counters v202 ap* (docs/148 §7 "counters", lane L9 2026-11-15): what the log lines say, readable from /native
+static void ApexCounters(bool late) {
+    Ts3nCounters& k = ts3native_counters;
+    k.apFound = g_apexFound, k.apOn = g_apexOn, k.apStood = g_apexStood, k.apStandDown = g_apexStandDown ? 1 : 0;
+    if (late) k.apLate = 1;
+}
 
 // <Documents>\Electronic Arts\The Sims 3 (the folder SHGetFolderPath(CSIDL_PERSONAL) returns; OneDrive moves it)
 static void UserSims3Dir(wchar_t* out) {
@@ -30,10 +39,22 @@ static void UserSims3Dir(wchar_t* out) {
     DWORD sz = sizeof(docs);
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders", L"Personal",
                      RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ, NULL, docs, &sz) != ERROR_SUCCESS) {
-        if (!GetEnvironmentVariableW(L"USERPROFILE", docs, MAX_PATH)) docs[0] = 0;
-        wcscat_s(docs, MAX_PATH, L"\\Documents");
+        // docs/323 L9 refuted [measured, TestOverflowSmall]: these flags succeed on Windows 11 and return the expanded folder
+        wchar_t prof[MAX_PATH];
+        const DWORD n = GetEnvironmentVariableW(L"USERPROFILE", prof, MAX_PATH);
+        if (!n || n >= MAX_PATH) prof[0] = 0;
+        if (!prof[0]) docs[0] = 0;  // no profile: "" below, never a drive-root path
+        else PathFmt(docs, L"%s\\Documents", prof);  // docs/323: was wcscat_s, a kill past MAX_PATH
     }
-    swprintf_s(out, MAX_PATH, L"%s\\Electronic Arts\\The Sims 3", docs);
+    PathFmt(out, MAX_PATH, L"%s\\Electronic Arts\\The Sims 3", docs);  // "" when too long
+}
+// g_apexToml = <user>\Apex Radiance\ApexRadiance.toml; "" when missing or too long (docs/323 L4: was wcscat_s, a kill)
+static void ApexTomlPath() {
+    wchar_t user[MAX_PATH];
+    UserSims3Dir(user);
+    if (!user[0] || !PathFmt(g_apexToml, L"%s\\Apex Radiance\\ApexRadiance.toml", user) ||
+        GetFileAttributesW(g_apexToml) == INVALID_FILE_ATTRIBUTES)
+        g_apexToml[0] = 0;
 }
 
 static int ApexProbe() {
@@ -41,7 +62,7 @@ static int ApexProbe() {
     for (int i = 0; i < 2; i++)
         if (GetModuleHandleW(g_apexModules[i])) f |= 1 << i;
     wchar_t m[64];
-    swprintf_s(m, L"Local\\ApexRadiance.%lu", GetCurrentProcessId());
+    PathFmt(m, L"Local\\ApexRadiance.%lu", GetCurrentProcessId());
     if (HANDLE h = OpenMutexW(SYNCHRONIZE, FALSE, m)) { CloseHandle(h); f |= 4; }
     return f;
 }
@@ -61,7 +82,7 @@ static int ApexSwitchesOn(const char* t) {
             cur = -1;
             for (int i = 0; i < n; i++) {
                 char h[64];
-                const int hl = sprintf_s(h, "[patches.%s]", kApexSwitch[i].name);
+                const int hl = SFmt(h, "[patches.%s]", kApexSwitch[i].name);
                 if (e - s >= hl && !strncmp(s, h, hl)) cur = i;
             }
         } else if (cur >= 0 && !strncmp(s, "enabled", 7)) {
@@ -75,6 +96,9 @@ static int ApexSwitchesOn(const char* t) {
     int bits = 0;
     for (int i = 0; i < n; i++)
         if (on[i]) bits |= kApexSwitch[i].bit;
+#ifdef TS3A_TABLE
+    bits &= ~AXF_FAST_MEMORY;  // FastMemory is a Steam-only Apex patch (supportedVersions = VERSION_STEAM)
+#endif
     return bits;
 }
 
@@ -93,7 +117,7 @@ static int ApexReadToml() {
 static void ApexLogFound(const char* when) {
     char names[256] = "";
     for (const ApexSwitch& s : kApexSwitch)
-        if ((g_apexOn & s.bit) && strlen(names) + strlen(s.name) + 2 < sizeof(names)) strcat_s(names, " "), strcat_s(names, s.name);
+        if ((g_apexOn & s.bit) && strlen(names) + strlen(s.name) + 2 < sizeof(names)) SCat(names, " "), SCat(names, s.name);
     Log("compat: Apex Radiance found %s (%s%s%s), %s, owned switches on:%s; ApexStandDown=%d", when,
         (g_apexFound & 1) ? "ApexRadiance.asi " : "", (g_apexFound & 2) ? "zzApexRadiance.asi " : "",
         (g_apexFound & 4) ? "mutex" : "", g_apexToml[0] ? "ApexRadiance.toml read" : "no ApexRadiance.toml: defaults", names[0] ? names : " none",
@@ -104,11 +128,11 @@ static void ApexLogFound(const char* when) {
 static void ApexDetect(const wchar_t* ini) {
     g_apexStandDown = GetPrivateProfileIntW(L"Compat", L"ApexStandDown", 1, ini) != 0;
     g_apexFound = ApexProbe();
+    ApexCounters(false);
     if (!g_apexFound) { Log("compat: Apex Radiance not loaded at start"); return; }
-    UserSims3Dir(g_apexToml);
-    wcscat_s(g_apexToml, L"\\Apex Radiance\\ApexRadiance.toml");
-    if (GetFileAttributesW(g_apexToml) == INVALID_FILE_ATTRIBUTES) g_apexToml[0] = 0;
+    ApexTomlPath();
     g_apexOn = ApexReadToml();
+    ApexCounters(false);
     ApexLogFound("at start");
 }
 
@@ -119,24 +143,24 @@ static bool ApexStandsDown(int bits, const char* what, const char* site) {
     const char* feat = "?";
     for (const ApexSwitch& s : kApexSwitch)
         if (g_apexOn & bits & s.bit) { feat = s.name; break; }
-    InterlockedIncrement(&g_apexStood);
+    ts3native_counters.apStood = InterlockedIncrement(&g_apexStood);
     Log("compat: stood down for Apex %s: %s not installed (%s, docs/148 §6)", feat, what, site);
     return true;
 }
 
-// Apex switch bits that own a [Verify] probe site (docs/148 §6 #4-#6), 0 = none
+// Apex switch bits that own a [Verify] probe site (docs/148 §6 #4-#6), 0 = none; TS3A: kVf[].at is this build's address (docs/260 §4.3)
 static int ApexVerifySite(DWORD at) {
     switch (at) {
-    case 0x00939100: case 0x00939170: case 0x00938D00: case 0x00C60D30: return AXF_OBJECT_INDEX;
-    case 0x004AFFC0: return AXF_RES_LOOKUP;
-    case 0x004B2D00: return AXF_RES_LOOKUP | AXF_FILE_LIST;
-    case 0x004B1AE0: return AXF_FILE_LIST;
-    case 0x00ABFAC0: case 0x00AC1130: case 0x00AC20E0: case 0x00C6C290: case 0x007D2DB0: return AXF_LOT;
+    case TS3A(0x00939100): case TS3A(0x00939170): case TS3A(0x00938D00): case TS3A(0x00C60D30): return AXF_OBJECT_INDEX;
+    case TS3A(0x004AFFC0): return AXF_RES_LOOKUP;
+    case TS3A(0x004B2D00): return AXF_RES_LOOKUP | AXF_FILE_LIST;
+    case TS3A(0x004B1AE0): return AXF_FILE_LIST;
+    case TS3A(0x00ABFAC0): case TS3A(0x00AC1130): case TS3A(0x00AC20E0): case TS3A(0x00C6C290): case TS3A(0x007D2DB0): return AXF_LOT;
     default: return 0;
     }
 }
 
-static bool SaveWriteYieldToApex(DWORD site = 0x00AB12AF);  // savewrite.cpp
+static bool SaveWriteYieldToApex(DWORD site = TS3A(0x00AB12AF));  // savewrite.cpp
 
 // Late check (zzApexRadiance.asi: its DllMain runs after ours). Apex installs its game code after the first Present + 1 s
 // [verified apex_main.cpp], so a site given back before then is seen as the game's. Only the [SaveWrite] timing call at
@@ -145,13 +169,13 @@ static DWORD WINAPI ApexLateThread(LPVOID) {
     for (int i = 0; i < 300; i++) {  // 100 ms steps, 30 s
         Sleep(100);
         if (!(g_apexFound = ApexProbe())) continue;
-        UserSims3Dir(g_apexToml);
-        wcscat_s(g_apexToml, L"\\Apex Radiance\\ApexRadiance.toml");
-        if (GetFileAttributesW(g_apexToml) == INVALID_FILE_ATTRIBUTES) g_apexToml[0] = 0;
+        ApexTomlPath();
         g_apexOn = ApexReadToml();
+        ApexCounters(true);
         ApexLogFound("after our start");
         if ((g_apexOn & AXF_MEMORY_GUARD) && SaveWriteYieldToApex()) {
             InterlockedIncrement(&g_apexStood);
+            ts3native_counters.apStood = g_apexStood;
             Log("compat: stood down for Apex MemoryGuard: [SaveWrite] call 0xAB12AF given back (late), write phase not timed");
         }
         const struct { bool on; int bit; const char* what; } late[] = {
@@ -159,7 +183,8 @@ static DWORD WINAPI ApexLateThread(LPVOID) {
             {ts3native_counters.compressReady != 0, AXF_FAST_CACHE, "[SaveCompress]"},
             {ts3native_counters.lsReady != 0, AXF_LOT, "[LotStream]"},
             {(ts3native_counters.vfReady | ts3native_counters.vfReady2 | ts3native_counters.vfReady3) != 0,
-             AXF_OBJECT_INDEX | AXF_RES_LOOKUP | AXF_FILE_LIST | AXF_LOT, "[Verify]"}};
+             AXF_OBJECT_INDEX | AXF_RES_LOOKUP | AXF_FILE_LIST | AXF_LOT, "[Verify]"},
+            {ts3native_counters.allocReady != 0, AXF_FAST_MEMORY, "[Alloc]"}};
         for (const auto& l : late)
             if (l.on && (g_apexOn & l.bit)) Log("compat: Apex loaded after ts3native: %s stays installed; Apex's switch on the same site stays off", l.what);
         return 0;

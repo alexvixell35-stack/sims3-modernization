@@ -116,3 +116,14 @@ Offline proof: the shared helper check of docs/145 §5.1 (`tools/selftest/nraas-
 ## 7. Ledger
 
 docs/51 §210: I-146-1 .. I-146-5.
+
+## 8. 2026-11-20: recheck on v0.3.0 + Apex + bridge (ON since v0.1.5)
+
+Queue `spread-recheck-1120`, job `bp-errortrap-ab-1120` (repro `hitch-errortrap-check`, 8 firings ABBA of the load-up inventory check, rc-1119b = rel030, Baseline-BP-Spring, Bin state apex-rewind): PASS, 0 script errors, `etspread_passes` / `etspread_theirs` 4 each, `etspread_failed` 0, per-firing read-back `Theirs` / `Ours`.
+
+| Arm | Firings | Frames >= 300 ms | Longest frame | Longest ErrorTrap step |
+|---|---|---|---|---|
+| off (ErrorTrap's one tick) | 4 | 4 | 860 ms | 799 ms |
+| on (`errortrapspread`) | 4 | 0 | 97 ms | 10 ms |
+
+[measured] The inventory part of the load-up stall is still 0.7-0.8 s per run on this build (with `kErrorTrapLookup` on), and the spread removes it. The dereference pass (the other quarter) cannot be re-run in one load and was not part of this check. Upstream comment text for PR #46: drafted for Rodney (not posted).

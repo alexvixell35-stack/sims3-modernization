@@ -25,6 +25,28 @@ namespace Ts3Fixes
     // [2011] of those, waits whose helper's swap callback EA dropped (SwapCbHook below).
     // Whether the native swap needs the Sim in view (docs/224 §5): [2012] stale waits whose Sim was on screen when the wait
     // went stale, [2013] stale waits whose Sim was on screen when the wait ended; the end is logged (first 10 lines).
+    // outfitwaitend (docs/583 §1, kOutfitWaitEnd, off by default): the native swap of a Sim with no animation instance (off
+    // screen, low LOD) is re-posted until the Sim is drawn (docs/224 §5), so EA's loop holds the Sim's task for hours: a
+    // Bridgeport NPC sat 18 sim-hours in "Switch To Outfit", another 11 h in a meet-up route's GoingOffLot change, motives
+    // frozen. With the switch on, a live NPC's own-cause wait (pending outfit still the helper's) past kOutfitWaitEndMinutes,
+    // off screen and not inside the helper's ChangeOutfit, is ended the way EA ends a change it does not animate: Abort
+    // (EA's cancel of the delayed swap), then Sim.SwitchToOutfitWithoutSpin(category, index) (EA's instant switch), the
+    // laundry and carried-toddler steps of ChangeOutfit, and mNoChange set so the caller's spin and ChangeOutfit do nothing.
+    // Household, selected, selectable and unknown-scope Sims keep EA's loop. Read once per sim-minute past the mark.
+    // [2124] waits ended, [2125] waits that would end with the switch off, [2126] waits past the mark kept (on screen, other
+    // cause, household, inside ChangeOutfit; once per wait), [2127] errors.
+    // Household rule (docs/580 §15): a live player Sim (IsPlayerSim: household, selected, selectable, unknown) keeps EA's
+    // per-tick loop past the mark; only NPC and gone-Sim waits are polled. [3544] waits kept on EA's loop by the rule.
+    // outfitwaitend (docs/601 §1, kOutfitWaitEnd, off by default): the native swap of a Sim with no animation instance (off
+    // screen, low LOD) is re-posted until the Sim is drawn (docs/224 §5), so EA's loop holds the Sim's task for hours: a
+    // Bridgeport NPC sat 18 sim-hours in "Switch To Outfit", another 11 h in a meet-up route's GoingOffLot change, motives
+    // frozen. With the switch on, a live NPC's own-cause wait (pending outfit still the helper's) past kOutfitWaitEndMinutes,
+    // off screen and not inside the helper's ChangeOutfit, is ended the way EA ends a change it does not animate: Abort
+    // (EA's cancel of the delayed swap), then Sim.SwitchToOutfitWithoutSpin(category, index) (EA's instant switch), the
+    // laundry and carried-toddler steps of ChangeOutfit, and mNoChange set so the caller's spin and ChangeOutfit do nothing.
+    // Household, selected, selectable and unknown-scope Sims keep EA's loop. Read once per sim-minute past the mark.
+    // [2124] waits ended, [2125] waits that would end with the switch off, [2126] waits past the mark kept (on screen, other
+    // cause, household, inside ChangeOutfit; once per wait), [2127] errors.
     public static partial class Fixes
     {
         const float kOutfitWaitStaleMinutes = 60f;
@@ -38,6 +60,9 @@ namespace Ts3Fixes
         static readonly FieldInfo sSohCategory = typeof(Sim.SwitchOutfitHelper).GetField("mCategory", kInstAll);
         static readonly FieldInfo sSohIndex = typeof(Sim.SwitchOutfitHelper).GetField("mIndex", kInstAll);
         static readonly FieldInfo sSimPending = typeof(Sim).GetField("mPendingOutfitInfo", kInstAll);
+        // Sim.OutfitInfo (the pending field's struct): Category, Index
+        static readonly FieldInfo sOiCategory = sSimPending != null ? sSimPending.FieldType.GetField("Category", kInstAll) : null;
+        static readonly FieldInfo sOiIndex = sSimPending != null ? sSimPending.FieldType.GetField("Index", kInstAll) : null;
         static readonly Type sAlarmOneShot = typeof(AlarmManager).GetNestedType("AlarmOneShot", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sOneShotTimer = sAlarmOneShot != null ? sAlarmOneShot.GetField("mTimer", kInstAll) : null;
 
@@ -46,23 +71,41 @@ namespace Ts3Fixes
             public void WaitHook(bool idleIfNecessary)
             {
                 object h = this; // `this` is really a Sim.SwitchOutfitHelper
-                if (sSohReady == null || sSohStarted == null || sSohDisposed == null || sSohNoChange == null || sSohSim == null || !ShortcutOn("outfitwaitpoll"))
+                if (sSohReady == null || sSohStarted == null || sSohDisposed == null || sSohNoChange == null || sSohSim == null
+                    || (!ShortcutOn("outfitwaitpoll") && !ShortcutOn("outfitwaitend") && !ShortcutOn("npcstallend")))
                 {
                     WaitOrig(idleIfNecessary);
                     return;
                 }
+                // npcstallend (NpcStallEnd.cs, docs/649): while this task is inside the wait, the stall pass leaves its Sim alone
+                Sim nseSim = sSohSim.GetValue(h) as Sim;
+                NseOutfitWait(nseSim, true);
+                try
+                {
                 // EA's Wait up to its loop, in EA's order
                 if ((bool)sSohDisposed.GetValue(h)) return;
                 if (!(bool)sSohStarted.GetValue(h)) ((Sim.SwitchOutfitHelper)h).Start();
                 if ((bool)sSohNoChange.GetValue(h)) return;
                 if (idleIfNecessary && !(bool)sSohReady.GetValue(h)) ((Sim)sSohSim.GetValue(h)).LoopIdle();
                 long t0 = SimClock.CurrentTicks, staleAfter = SimClock.ConvertToTicks(kOutfitWaitStaleMinutes, TimeUnit.Minutes);
+                long endAfter = SimClock.ConvertToTicks(Instantiator.kOutfitWaitEndMinutes, TimeUnit.Minutes), endNext = endAfter;
                 uint minute = (uint)SimClock.ConvertToTicks(1f, TimeUnit.Minutes);
-                bool stale = false;
+                bool stale = false, hhKept = false, endKept = false, endSeenOff = false;
                 while (!(bool)sSohReady.GetValue(h))
                 {
                     long waited = SimClock.CurrentTicks - t0;
-                    uint sleep = OutfitWaitCore.SleepTicks(waited, staleAfter, minute, waited >= staleAfter && ShortcutOn("outfitwaitpoll"));
+                    if (waited >= endNext)
+                    {
+                        endNext = waited + minute;  // once per sim-minute past the mark
+                        if (OutfitWaitEndTry(h, waited, endAfter, ref endKept, ref endSeenOff)) return;
+                    }
+                    bool poll = waited >= staleAfter && ShortcutOn("outfitwaitpoll");
+                    if (poll && !OutfitWaitPollable(h))
+                    {
+                        poll = false;
+                        if (!hhKept) { hhKept = true; PatchCounters()[3544]++; }
+                    }
+                    uint sleep = OutfitWaitCore.SleepTicks(waited, staleAfter, minute, poll);
                     if (sleep > 1)
                     {
                         if (!stale)
@@ -94,6 +137,8 @@ namespace Ts3Fixes
                         if (sOwLines.Count < 30) sOwLines.Add(line);
                     }
                 }
+                }
+                finally { NseOutfitWait(nseSim, false); }
             }
             public void WaitOrig(bool idleIfNecessary) { } // receives Sim.SwitchOutfitHelper.Wait's original header
         }
@@ -122,6 +167,17 @@ namespace Ts3Fixes
                 if (sOwLines.Count < 30) sOwLines.Add(line);
             }
             return true;
+        }
+
+        // docs/580 §15: scope check before the minute poll (read at each wake past the mark, so a Sim that joins the household
+        // mid-wait goes back to EA's per-tick loop). A household, selected, selectable or unknown-scope live Sim is exempt;
+        // a gone Sim is not (the issue #40 dead-wait end needs the poll path). [3544] waits kept on EA's loop by the rule
+        // (counted once per wait in WaitHook).
+        static bool OutfitWaitPollable(object h)
+        {
+            Sim s = sSohSim.GetValue(h) as Sim;
+            bool live = s != null && !s.HasBeenDestroyed;
+            return OutfitWaitCore.PollAllowed(live, live && IsPlayerSim(s));
         }
 
         static int sOwEndLines;
@@ -161,15 +217,15 @@ namespace Ts3Fixes
         {
             try
             {
-                if (s == null || sSimPending == null || sSohCategory == null || sSohIndex == null) return "cause unread";
-                object pend = sSimPending.GetValue(s); // Sim.OutfitInfo (a struct): Category, Index
-                OutfitCategories pc = (OutfitCategories)pend.GetType().GetField("Category").GetValue(pend);
-                int pi = (int)pend.GetType().GetField("Index").GetValue(pend);
+                if (s == null || sSimPending == null || sOiCategory == null || sOiIndex == null || sSohCategory == null || sSohIndex == null) return "cause unread";
+                object pend = sSimPending.GetValue(s);
+                OutfitCategories pc = (OutfitCategories)sOiCategory.GetValue(pend);
+                int pi = (int)sOiIndex.GetValue(pend);
                 OutfitCategories hc = (OutfitCategories)sSohCategory.GetValue(h);
                 int hi = (int)sSohIndex.GetValue(h);
                 object act = sSimActiveSoh != null ? sSimActiveSoh.GetValue(s) : null;
-                bool aborted = sSohAborted != null && (bool)sSohAborted.GetValue(h);
-                int cause = OutfitWaitCore.StaleCause(aborted, object.ReferenceEquals(act, h), (int)pc, pi, (int)hc, hi, (int)OutfitCategories.None);
+                int cause = OutfitWaitCauseCode(h, s);
+                if (cause < 0) return "cause unread";
                 if (cause != OutfitWaitCore.kCauseAborted) PatchCounters()[2002 + cause]++;
                 WeakReference dcb;
                 bool dropped = sCbDropped.TryGetValue(s.ObjectId.Value, out dcb) && dcb != null && object.ReferenceEquals(dcb.Target, h);
@@ -182,6 +238,108 @@ namespace Ts3Fixes
                     + (cur != null ? cur.GetType().Name : "nothing") + ", transform buff " + tf + ", in world " + s.InWorld + ", by " + Callers();
             }
             catch (Exception e) { return "cause unread (" + e.GetType().Name + ")"; }
+        }
+
+        // docs/224 §5 class of a wait (OutfitWaitCore.StaleCause), -1 when unreadable
+        static int OutfitWaitCauseCode(object h, Sim s)
+        {
+            if (s == null || sSimPending == null || sOiCategory == null || sOiIndex == null || sSohCategory == null || sSohIndex == null || sSimActiveSoh == null) return -1;
+            object pend = sSimPending.GetValue(s);
+            bool aborted = sSohAborted != null && (bool)sSohAborted.GetValue(h);
+            return OutfitWaitCore.StaleCause(aborted, object.ReferenceEquals(sSimActiveSoh.GetValue(s), h), (int)(OutfitCategories)sOiCategory.GetValue(pend),
+                (int)sOiIndex.GetValue(pend), (int)(OutfitCategories)sSohCategory.GetValue(h), (int)sSohIndex.GetValue(h), (int)OutfitCategories.None);
+        }
+
+        // ---- outfitwaitend (docs/583 §1) ----
+        static readonly FieldInfo sSohLaundry = typeof(Sim.SwitchOutfitHelper).GetField("mPlaceLaundryPile", kInstAll);
+        static readonly MethodInfo sSimToddlerSpin = typeof(Sim).GetMethod("DoCarriedToddlerSpinIfNeeded", kInstAll, null, new Type[] { typeof(Sim.ClothesChangeReason), typeof(bool) }, null);
+        static int sOeLines;
+
+        // true when the wait was ended (the caller returns from Wait). Past the mark only, once per sim-minute.
+        static bool OutfitWaitEndTry(object h, long waited, long endAfter, ref bool kept, ref bool seenOff)
+        {
+            int[] c = PatchCounters();
+            try
+            {
+                Sim s = sSohSim.GetValue(h) as Sim;
+                bool live = s != null && !s.HasBeenDestroyed && s.SimDescription != null;
+                bool npc = live && !IsPlayerSim(s);  // household rule (PlayerSims.cs): unknown scope counts as household
+                bool onScreen = live && World.IsObjectOnScreen(s.ObjectId);
+                int cause = npc ? OutfitWaitCauseCode(h, s) : -1;
+                bool inChange = npc && (cause == OutfitWaitCore.kCauseOwn || cause == OutfitWaitCore.kCauseCleared) && OutfitWaitInChangeOutfit();
+                bool own = OutfitWaitCore.EndNow(true, waited, endAfter, npc, onScreen, cause, inChange);
+                // npcstallend (docs/649 §3): with that switch on, a cleared-cause wait (no pending outfit, the ready callback never
+                // came) ends the same way; with it off such a wait is kept, as before
+                bool cleared = !own && ShortcutOn("npcstallend")
+                    && NpcStallEndCore.EndClearedWait(true, waited, endAfter, npc, onScreen, cause, OutfitWaitCore.kCauseCleared, inChange);
+                if (!own && !cleared)
+                {
+                    if (!kept) { kept = true; c[2126]++; }
+                    return false;
+                }
+                if (own && !ShortcutOn("outfitwaitend"))
+                {
+                    if (!seenOff) { seenOff = true; c[2125]++; }
+                    return false;
+                }
+                Sim.SwitchOutfitHelper helper = (Sim.SwitchOutfitHelper)h;
+                OutfitCategories cat = (OutfitCategories)sSohCategory.GetValue(h), from = s.GetCurrentOutfitCategoryFromOutfitInGameObject();
+                int idx = (int)sSohIndex.GetValue(h);
+                bool laundry = sSohLaundry == null || (bool)sSohLaundry.GetValue(h);
+                helper.Abort();                   // EA's cancel: active helper, pending outfit and the native delayed swap cleared
+                sSohNoChange.SetValue(h, true);   // the caller's spin and ChangeOutfit now do nothing (EA's state for "no change")
+                bool switched = s.SwitchToOutfitWithoutSpin(cat, idx);  // EA's instant switch (its own age / trait / outfit checks)
+                if (switched)
+                {
+                    Sims3.Gameplay.Controllers.LaundryManager.OnClothesChanged(s, from, cat, laundry);  // as ChangeOutfit
+                    if (sSimToddlerSpin != null) sSimToddlerSpin.Invoke(s, new object[] { helper.Reason, true });
+                }
+                c[2124]++;
+                if (cleared) c[4106]++;
+                if (sOeLines++ < 10)
+                {
+                    string line = "outfitwaitend: " + s.FullName + " outfit wait ended after " + SimClock.ConvertFromTicks(waited, TimeUnit.Minutes).ToString("0")
+                        + " sim-minutes" + (cleared ? " (cleared cause, npcstallend)" : "") + " with EA's instant switch to " + cat + "/" + idx + " (switched " + switched + "); task " + OutfitWaitCaller();
+                    ShortcutLog(line);
+                    if (sOwLines.Count < 30) sOwLines.Add(line);
+                }
+                return true;
+            }
+            catch (Exception) { c[2127]++; return false; }
+        }
+
+        // the wait runs inside the helper's ChangeOutfit (its Wait(false) before DoOutfitDelayedSwap): never ended there
+        static bool OutfitWaitInChangeOutfit()
+        {
+            System.Diagnostics.StackTrace st = new System.Diagnostics.StackTrace(1, false);
+            for (int i = 0; i < st.FrameCount && i < 6; i++)
+            {
+                MethodBase m = st.GetFrame(i).GetMethod();
+                if (m != null && m.Name == "ChangeOutfit" && m.DeclaringType == typeof(Sim.SwitchOutfitHelper)) return true;
+            }
+            return false;
+        }
+
+        // OutfitWaitEndCheck run: pure EndNow with controls (docs/583 §1); "result": counters 2124-2127 and the live path.
+        public static object OutfitWaitEndCheck(string what)
+        {
+            string miss = EpJoin(sSohCategory == null ? "mCategory" : "", sSimPending == null ? "mPendingOutfitInfo" : "");
+            string counters = B582Counters("outfitwaitend", 2124, new[] { "ended", "would end (switch off)", "kept past the mark", "errors" }, miss);
+            if (what == "result") return counters;
+            if (what != "run") return "outfitwaitend <run|result>";
+            bool on = ShortcutOn("outfitwaitend");
+            const long mark = 30 * 37;
+            int own = OutfitWaitCore.kCauseOwn;
+            bool fixedNow = OutfitWaitCore.EndNow(on, mark, mark, true, false, own, false);
+            bool controls = !OutfitWaitCore.EndNow(true, mark - 1, mark, true, false, own, false)       // before the mark
+                && !OutfitWaitCore.EndNow(true, mark, mark, false, false, own, false)                  // household / gone
+                && !OutfitWaitCore.EndNow(true, mark, mark, true, true, own, false)                    // on screen
+                && !OutfitWaitCore.EndNow(true, mark, mark, true, false, OutfitWaitCore.kCauseAborted, false)
+                && !OutfitWaitCore.EndNow(true, mark, mark, true, false, OutfitWaitCore.kCauseReplaced, false)
+                && !OutfitWaitCore.EndNow(true, mark, mark, true, false, OutfitWaitCore.kCauseCleared, false)
+                && !OutfitWaitCore.EndNow(true, mark, mark, true, false, own, true);                   // inside ChangeOutfit
+            return B582Line("outfitwaitend", on, "off-screen NPC own-cause wait past the mark ended", fixedNow,
+                "early/household/on screen/aborted/replaced/cleared/in ChangeOutfit keep EA's loop=" + controls, controls, miss, counters);
         }
 
         static Sim.SwitchOutfitHelper sOwHelper;
@@ -221,6 +379,8 @@ namespace Ts3Fixes
             sRflCmds.Clear();
             sStuckQueue.Clear();
             sUfCamLot = null; sUfCamLotTick = -1;
+            OdWorldQuit();  // unseenoutfitdefer (UnseenOutfitDefer.cs): object ids of the old world
+            LeaksWorldQuit();  // docs/323 lane D (WorldQuitLeaks.cs)
         }
         public class SwapCbHook
         {
@@ -282,12 +442,12 @@ namespace Ts3Fixes
         {
             object pi = sSimPending != null ? sSimPending.GetValue(sim) : null;
             if (pi == null) return "?";
-            FieldInfo c = pi.GetType().GetField("Category", kInstAll | BindingFlags.Public), i = pi.GetType().GetField("Index", kInstAll | BindingFlags.Public);
-            return (c != null ? c.GetValue(pi) : "?") + "/" + (i != null ? i.GetValue(pi) : "?");
+            return (sOiCategory != null ? sOiCategory.GetValue(pi) : "?") + "/" + (sOiIndex != null ? sOiIndex.GetValue(pi) : "?");
         }
 
         static bool sOwReplReady; // the replace check's second swap called back
         static string sOwAbortSaw, sOwWaitEnd; // sOwWaitEnd null = task 1 still in Wait (GetProxy is null for a script Task)
+        const int kOwStartWaitTicks = 6000; // test task 2: Sleep(1) rounds it waits for the helper to start before giving up
         static readonly List<string> sOwLines = new List<string>(); // first 20 stale-wait lines this session (check "log")
 
         // Agent checks for #115 (repro outfit-wait-stale-check), EA's abort-in-the-loop path. The test Sim's outfit does not
@@ -303,6 +463,8 @@ namespace Ts3Fixes
         //            an outfit), which resets the pending outfit without the helper: the "cleared" stale cause (docs/224 §5).
         //   "state": what task 2 saw, the helper's flags, whether task 1 still runs (else how its Wait ended), counters [680-682].
         //   "log":   the first 20 stale-wait lines of the session (Sim, aborted flag, waiting task).
+        //   "scope": pure, docs/580 §15: a household Sim's stale wait keeps EA's per-tick loop; an NPC's and a gone Sim's
+        //            are polled once per sim-minute as before (controls), and nothing changes before the 60-minute mark.
         //   "ready": sets mReady, as a late Ready callback would; on, task 1 returns within a sim-minute; off, within a tick.
         //   "stop":  destroys both tasks and aborts the helper (which cancels a pending swap; neither swap is completed).
         //   "start dead": issue #40. As "start" on a Sim outside the active household (never a selectable one); task 2 aborts the
@@ -326,8 +488,10 @@ namespace Ts3Fixes
                     // in the world in a normal outfit with no helper of its own, an active-household one first
                     bool dead = what == "start dead";
                     foreach (Sim c in Sims3.Gameplay.Queries.GetObjects<Sim>())
-                        if (dead && (c.Household == Household.ActiveHousehold || c.IsSelectable)) continue;
+                        if (dead && IsPlayerSim(c)) continue;  // the dead test only on NPCs (PlayerSims.cs)
                         else if (c.InWorld && c.SimDescription != null && sSimActiveSoh.GetValue(c) == null && Array.IndexOf(kinds, c.CurrentOutfitCategory) >= 0
+                            // with another category to change into: a household pet has one only (2026-11-17: the check took the dog and never started)
+                            && Array.Exists(kinds, delegate(OutfitCategories k) { return k != c.CurrentOutfitCategory && c.SimDescription.GetOutfitCount(k) > 0; })
                             && (sim == null || (c.Household == Household.ActiveHousehold && sim.Household != Household.ActiveHousehold))) sim = c;
                     if (sim == null) return "no Sim in the world in a normal outfit without an outfit helper";
                     OutfitCategories cur = sim.CurrentOutfitCategory, pick = OutfitCategories.None;
@@ -351,7 +515,12 @@ namespace Ts3Fixes
                     if (what != "start control")
                         sOwAbort = Simulator.AddObject(new LoopTask(delegate
                         {
-                            while (!(bool)sSohStarted.GetValue(helper)) Simulator.Sleep(1);
+                            int startWait = 0;  // bounded: a helper that never starts must not keep this test task alive
+                            while (!(bool)sSohStarted.GetValue(helper))
+                            {
+                                if (++startWait > kOwStartWaitTicks) { sOwAbortSaw = "helper not started after " + kOwStartWaitTicks + " ticks; stop and start again"; return; }
+                                Simulator.Sleep(1);
+                            }
                             if ((bool)sSohReady.GetValue(helper)) { sOwAbortSaw = "ready before task 2 (swap was immediate); stop and start again"; return; }
                             if (what == "start replace")
                             {
@@ -399,6 +568,20 @@ namespace Ts3Fixes
                 }
                 case "log":
                     return sOwLines.Count + " stale-wait lines: " + string.Join(" | ", sOwLines.ToArray());
+                case "scope": // pure (docs/580 §15): the household rule on the minute poll; nothing in the world is touched
+                {
+                    bool on = ShortcutOn("outfitwaitpoll");
+                    const long stale = 60 * 37; const uint minute = 37;
+                    uint npc = OutfitWaitCore.SleepTicks(stale, stale, minute, on && OutfitWaitCore.PollAllowed(true, false));
+                    uint hh = OutfitWaitCore.SleepTicks(stale, stale, minute, on && OutfitWaitCore.PollAllowed(true, true));
+                    uint gone = OutfitWaitCore.SleepTicks(stale, stale, minute, on && OutfitWaitCore.PollAllowed(false, true));
+                    uint early = OutfitWaitCore.SleepTicks(stale - 1, stale, minute, on && OutfitWaitCore.PollAllowed(true, false));
+                    bool fixedNow = hh == 1u;
+                    bool controls = npc == (on ? minute : 1u) && gone == (on ? minute : 1u) && early == 1u;
+                    return "outfitwaitpoll scope (switch " + (on ? "on" : "off") + "): household Sim past the mark sleeps " + hh + " tick(s) (EA's loop)="
+                        + fixedNow + "; control: NPC sleeps " + npc + ", gone Sim (issue #40) sleeps " + gone + ", NPC before the mark sleeps " + early
+                        + "; controls ok=" + controls + "; household waits kept on EA's loop 1109=" + PatchCounters()[3544];
+                }
                 case "counts": // no start needed (repro outfit-wait-view-log)
                 {
                     int[] c = PatchCounters();
@@ -417,7 +600,7 @@ namespace Ts3Fixes
                     if (sOwHelper != null) sOwHelper.Abort(); // cancels a swap still pending (the replace check's second one too)
                     sOwHelper = null;
                     return "stopped";
-                default: return "unknown check " + what + " (start, start replace, start clear, start control, start dead, state, dead, log, ready, stop)";
+                default: return "unknown check " + what + " (start, start replace, start clear, start control, start dead, state, dead, log, scope, counts, ready, stop)";
             }
         }
     }

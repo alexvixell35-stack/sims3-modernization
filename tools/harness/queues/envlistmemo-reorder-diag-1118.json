@@ -1,0 +1,110 @@
+{
+ "note": "envlistmemo-reorder-diag-1118 (branch feature/envlistmemo-reorder-diag-1118, PREPARED, NOT RUN, correctness/diagnostic, dry-run checked; est ~30 min game time): docs/274 §8.6. bp-dying (chain-1118a) logged 7 wrong hits, all pure reorders; the scan is order-dependent (first-match Sim reaction gates, float sum order), so a reorder is a real wrong answer. This build logs per wrong hit: first moved index with both objects (Type, room, sim, child, ...), whether the Sims relative order moved (simorder moved|same), the lot event count (ev) and ticks (age) since the list was last seen equal. Includes IP (ip-dying never ran). Gate: envlistmemo_calls/scans >= 1, exc 0, 0 script errors; wrong hits do NOT fail the job (the lines are the data; hit_wrong read from the row). Counts only: game lists always used, household / selected / seen Sims untouched by construction. Apex + bridge (Bin state apex).",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-reorder",
+   "note": "BP 10 min, envlistmemo dry only: counters read back > 0, exc 0, 0 script errors; wrong hits logged with the reorder diag (no FAIL on them).",
+   "asi": "game-copy/ts3native.asi.master-1117c",
+   "iniBase": "game-copy/ts3native.ini.master-1117c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-reorder-1118",
+   "pinReason": "master-1117c native set + ts3fixes.package.envlistmemo-reorder-1118 (feature/envlistmemo-reorder-diag-1118: R1 dying bump + reorder diag log; managed only)",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0.36.271-mc1117 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemo",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1",
+     "fixesReport": "envlistmemo_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0.36.271-mc1117 ": {
+     "match": [
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.269-mb1117 2026-11-17 10:00:00",
+      "ts3native 0.36.270-ddc1 2026-11-17 12:00:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   },
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "ip-reorder",
+   "note": "IP 10 min, envlistmemo dry only: counters read back > 0, exc 0, 0 script errors; wrong hits logged with the reorder diag (no FAIL on them).",
+   "asi": "game-copy/ts3native.asi.master-1117c",
+   "iniBase": "game-copy/ts3native.ini.master-1117c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-reorder-1118",
+   "pinReason": "master-1117c native set + ts3fixes.package.envlistmemo-reorder-1118 (feature/envlistmemo-reorder-diag-1118: R1 dying bump + reorder diag log; managed only)",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0.36.271-mc1117 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemo",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1",
+     "fixesReport": "envlistmemo_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0.36.271-mc1117 ": {
+     "match": [
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.269-mb1117 2026-11-17 10:00:00",
+      "ts3native 0.36.270-ddc1 2026-11-17 12:00:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   }
+  }
+ ]
+}

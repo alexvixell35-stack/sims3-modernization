@@ -20,6 +20,7 @@ namespace Ts3Fixes
             Patch(typeof(ScriptCore.Route), "Replan", typeof(RouteBackoffHook), "ReplanHook", "ReplanOrig");
             Patch(typeof(ScriptCore.Route), "PlanFromPoint", typeof(RouteBackoffHook), "PlanFromPointHook", "PlanFromPointOrig");
             Patch(typeof(ScriptCore.Route), "ReplanFromPoint", typeof(RouteBackoffHook), "ReplanFromPointHook", "ReplanFromPointOrig");
+            ApplyJobYieldRoad();  // step-asides at five more plan sites (JobYieldRoad.cs, docs/800)
         }
 
         // Route-failure backoff (docs/11 recommendation 3): a failed plan expands every reachable node, then runs a native
@@ -34,12 +35,23 @@ namespace Ts3Fixes
                 DoorMirror.SyncRoute(this, Vector3.Invalid); // doormirror: push the start/goal lots' doors to ts3native (DoorMirror.cs)
                 uint rflT0 = SrcNowUs(); // routefaillog (RouteFailLog.cs)
                 RouteSrcCall src = RouteSrcBegin(this, 0, Vector3.Invalid); // routesrc: source of this plan (RouteSources.cs, docs/151)
-                RoutePlanResult r = UfPlan(0, Vector3.Invalid); // docs/202 unseenfbplan wraps the whole plan (UnseenFallback.cs)
+                RoutePlanResult iam;
+                if (IaAnswer(0, Vector3.Invalid, out iam)) { NotePlanResult(Follower, false, this, true); RouteSrcEnd(this, src, false); return iam; }  // iafailmemo: the detectors still count the failure
+                ActPlanBegin(); // actdelay (ActDelay.cs, docs/684): read-only
+                byte urx = UrxBegin();
+                RoutePlanResult r;
+                if (RcBefore(this, 0)) r = FailFast(RoutePlanResultType.FailedBecauseDestinationPortalLocked);  // reachcache (ReachCache.cs, docs/688): every destination room is behind a locked portal
+                else { try { r = UfPlan(0, Vector3.Invalid); } finally { if (urx != 0) UrxEnd(urx); } RcAfter(this, r); } // docs/202 unseenfbplan wraps the whole plan (UnseenFallback.cs)
                 if (!UfTakeNotFail()) NotePlanResult(Follower, r.mType == RoutePlanResultType.Succeeded, this); // the stuck watchdog's route-fail count and success memo (RouteFixes.cs); docs/202: not for a cut plan
                 StuckCheckPlanned(r.mType == RoutePlanResultType.Succeeded); // docs/163 §10 stuck-check outcome counters (FewerPlans.cs)
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 0, rflT0, r);
-                return r;
+                if (urx != 0) UrxAfter(urx, 0, Vector3.Invalid, r);
+                if (ShortcutOn("boattrip")) { try { r = BtAfter(0, Vector3.Invalid, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
+                IaNote(0, Vector3.Invalid, r, rflT0);  // after BtAfter: iafailmemo sees the final result (boattrip may turn a failed boat plan into a working one)  // note: start and ms are read after BtAfter
+                r = LfsAfterPlan(0, Vector3.Invalid, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
+                return BuAfterPlan(this, 0, r);  // blockeduse's way out (BlockedUse.cs, docs/686 §10), off by default
             }
 
             // marked: this plan carries unseenfbplan's cut mark (an argument, not a static: UfPre's holds sleep before they plan)
@@ -50,6 +62,8 @@ namespace Ts3Fixes
                 IScriptProxy proxy = Follower;
                 Sims3.Gameplay.Actors.Sim sim = proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null;
                 if (sim != null && ShortcutOn("unseenboat")) UbTrip(sim, marked);  // docs/248: the plan below runs from where it leaves the Sim
+                RoutePlanResult ubl;
+                if (sim != null && ShortcutOn("unseenboatland") && UblLand(sim, out ubl)) return ubl;  // docs/687: land first when no boat trip is much shorter
                 if (ShortcutOn("failrepeat") && sim != null) return PlanFailRepeat(sim);
                 return PlanBackoffBody(sim);
             }
@@ -130,8 +144,11 @@ namespace Ts3Fixes
                     : ForeignEligible() && PreCb(0, ref pre) && GetOption2((Sims3.SimIFace.Route.RouteOption2)kArStart);
                 if (!started)
                 {
-                    StepAside();
-                    r = PlanOrig();
+                    if (ReferenceEquals(sUfMarked, this) && UfNoSync(sim, out r)) return r;  // unseenfbnosync (docs/202 §3.10): a marked unseen plan about to run on the sim thread
+                    int ts = UfSyncStart();
+                    StepAside("Plan");
+                    if (!GvuDefer(0, out r)) r = PlanOrig();
+                    UfSyncEnd(ts);
                 }
                 else
                 {
@@ -155,6 +172,7 @@ namespace Ts3Fixes
                     e.Until = now + kBackoffTicks;
                     e.Type = r.mType;
                     sBackoff[key] = e;
+                    CapHw(kCBackoffHw, sBackoff.Count);  // docs/321 lane 0
                     c[25]++;
                 }
                 return r;
@@ -254,14 +272,36 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 c[56]++;
                 RflAsyncMark(); // routefaillog: this plan waits on a ts3native job
-                for (int i = 0; !GetOption2(kAsyncReady); i++)
+                ulong splitTask = Simulator.CurrentTask.Value;
+                bool splitOn = sUfSplits.ContainsKey(splitTask);
+                // jobyieldready (ON since import 2026-11-19; needs jobyield): no READY poll while JOBBUSY says a job of the sim thread still runs.
+                // READY's DiscPollReady forces a DiscDrain once the oldest deferred footprint is >= 250 ms old, and that drain
+                // waits for the running job with the sim thread stopped. JOBBUSY returns in ts3native's GetOptionHook before
+                // DiscPoll / DiscPollReady and only serves one pending managed call of the job, as READY does, so the job keeps
+                // moving and the READY poll that follows finds it done: the same drain, no wait. Same poll cap. Cost: a job of
+                // another task that starts right after ours delays this task's collect until it ends. Timing only, no Sim
+                // scope (same as jobyield's StepAside). Counters [1275] polls skipped, [1276] waits with one.
+                bool jr = ShortcutOn("jobyieldready"), skipped = false;
+                int t0 = System.Environment.TickCount, i = 0, tp = t0, maxPoll = 0;
+                uint adT0 = SrcNowUs(); // actdelay (ActDelay.cs)
+                for (; ; i++)
                 {
+                    if (jr && sYieldProbe.GetOption2(kJobBusy)) { c[1275]++; skipped = true; }
+                    else if (GetOption2(kAsyncReady)) break;
                     // shortcut: a fixed cap (~10-20 s real time); past it the plan waits natively and is then made
                     // again synchronously. Upgrade to a time-based cap if long searches ever reach it.
-                    if (i >= kAsyncMaxPolls) { c[58]++; StepAside(); break; }
+                    if (i >= kAsyncMaxPolls) { c[58]++; StepAside("poll cap"); break; }
                     c[57]++;
                     Simulator.Sleep(0);
+                    // ufplansplit / spotwaitattr (docs/641): the longest single poll = the longest game frame this task slept through
+                    if (splitOn) { int now = System.Environment.TickCount; if (unchecked(now - tp) > maxPoll) maxPoll = unchecked(now - tp); tp = now; }
                 }
+                ActJobWaited(adT0);
+                // ufplansplit (log only): this task's entry (other Sims' plans ran during the polls; they keep their own)
+                UfSplit su;
+                if (splitOn && sUfSplits.TryGetValue(splitTask, out su))
+                { su.WaitStart = t0; su.WaitMs = unchecked(System.Environment.TickCount - t0); su.Polls = i; su.MaxPollMs = maxPoll; su.Seen = true; sUfSplits[splitTask] = su; }
+                if (skipped) c[1276]++;
             }
 
             // docs/185 §5: the original Plan/Replan runs Route.AboutToPlanCallback only after the async job (it is called after
@@ -278,9 +318,11 @@ namespace Ts3Fixes
             // The watchdog's A1 job (WdA1Here) always takes the pre-call: its verdict is acted on (OkAt skips the Sim a sim-day), and
             // without the callback the job missed locked/forbidden doors, closed venues and tombs the sync check applies
             // (wdasync-fix2-1110: shadow mismatch A1 True vs sync False on residential lots).
-            bool PreCb(int kind, ref bool pre)
+            bool PreCb(int kind, ref bool pre) { return PreCb(kind, ref pre, false); }
+            // force: routableasync's job takes the pre-call as the watchdog's A1 does (same check, same door / tomb rules)
+            bool PreCb(int kind, ref bool pre, bool force)
             {
-                if (pre || !(ShortcutOn("preplancb") || WdA1Here())) return true;
+                if (pre || !(force || ShortcutOn("preplancb") || WdA1Here() || SpotAsyncHere())) return true;
                 pre = true;
                 Sims3.SimIFace.Route.AboutToPlanDelegate cb = Sims3.SimIFace.Route.AboutToPlanCallback;
                 if (cb == null || DestObjectInvalid()) return true;
@@ -319,16 +361,26 @@ namespace Ts3Fixes
             {
                 uint rflT0 = SrcNowUs(); // routefaillog (RouteFailLog.cs)
                 RouteSrcCall src = RouteSrcBegin(this, 1, Vector3.Invalid);
-                RoutePlanResult r = UfPlan(1, Vector3.Invalid);
+                RoutePlanResult iam;
+                if (IaAnswer(1, Vector3.Invalid, out iam)) { RouteSrcEnd(this, src, false); return iam; }
+                ActPlanBegin();
+                byte urx = UrxBegin();
+                RoutePlanResult r;
+                if (RcBefore(this, 1)) r = FailFast(RoutePlanResultType.FailedBecauseDestinationPortalLocked);  // reachcache (ReachCache.cs, docs/688)
+                else { try { r = UfPlan(1, Vector3.Invalid); } finally { if (urx != 0) UrxEnd(urx); } RcAfter(this, r); }
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 1, rflT0, r);
-                return r;
+                IaNote(1, Vector3.Invalid, r, rflT0);
+                if (urx != 0) UrxAfter(urx, 1, Vector3.Invalid, r);
+                r = LfsAfterPlan(1, Vector3.Invalid, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
+                return BuAfterPlan(this, 1, r);  // blockeduse's way out (BlockedUse.cs, docs/686 §10), off by default
             }
             RoutePlanResult ReplanAsync()
             {
                 DoorMirror.SyncRoute(this, Vector3.Invalid);
                 bool pre = false;
-                if (!AsyncKindStart(1, Vector3.Origin, ref pre)) return ReplanOrig();
+                if (!AsyncKindStart(1, Vector3.Origin, ref pre)) { RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(1, out d)) d = ReplanOrig(); UfSyncEnd(ts); return d; }
                 try
                 {
                     AsyncWait();
@@ -345,16 +397,43 @@ namespace Ts3Fixes
             {
                 uint rflT0 = SrcNowUs(); // routefaillog (RouteFailLog.cs)
                 RouteSrcCall src = RouteSrcBegin(this, 2, startPosition);
-                RoutePlanResult r = UfPlan(2, startPosition);
+                RoutePlanResult iam;
+                if (IaAnswer(2, startPosition, out iam)) { RouteSrcEnd(this, src, false); return iam; }
+                ActPlanBegin();
+                byte urx = UrxBegin();
+                RoutePlanResult r;
+                try { r = UfPlan(2, startPosition); } finally { if (urx != 0) UrxEnd(urx); }
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
+                SemCapture(r);  // docs/636 spotedgememo: which goal EA's full routability plan reached
                 RflPlan(this, 2, rflT0, r);
-                return r;
+                if (urx != 0) UrxAfter(urx, 2, startPosition, r);
+                if (ShortcutOn("boattrip")) { try { r = BtAfter(2, startPosition, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
+                IaNote(2, startPosition, r, rflT0);  // after BtAfter, as above
+                r = LfsAfterPlan(2, startPosition, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
+                return BuAfterPlan(this, 2, r);  // blockeduse's way out (BlockedUse.cs, docs/686 §10), off by default
             }
             RoutePlanResult PlanFromPointAsync(Vector3 startPosition)
             {
                 DoorMirror.SyncRoute(this, startPosition);
                 bool pre = false;
-                if (!AsyncKindStart(2, startPosition, ref pre)) return PlanFromPointOrig(startPosition);
+                // docs/635 spotcut: a spotasync check's job carries the unseen-fallback MARK, so ts3native gives it the
+                // [UnseenFallback] job deadline instead of the watchdog tag's uncut KdUncutCeilMs (ts3native.cpp: a marked job's
+                // t_fbCapUs = ufUs whatever its tag); a cut check answers no verdict (SpotVerdict null, not cached)
+                bool spotMark = SpotCutMark() && UfSend(1);
+                if (spotMark) PatchCounters()[3803]++;
+                try { return PlanFromPointAsyncBody(startPosition, ref pre); }
+                finally { if (spotMark && UfSend(2)) SpotCutNote(); }
+            }
+            RoutePlanResult PlanFromPointAsyncBody(Vector3 startPosition, ref bool pre)
+            {
+                if (!AsyncKindStart(2, startPosition, ref pre))
+                {
+                    // docs/635 spotbusydefer: a spotasync check whose tagged START was refused (the worker holds the routing lock
+                    // for another job) answers "no verdict now" instead of a sync plan that waits on that lock on the sim thread
+                    if (SpotBusyDeferNow() || WdBusyDeferNow()) return FailFast(RoutePlanResultType.FailedBecauseNoPathToDestination);
+                    RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(2, out d)) d = PlanFromPointOrig(startPosition); UfSyncEnd(ts); return d;
+                }
                 try
                 {
                     AsyncWait();
@@ -371,17 +450,26 @@ namespace Ts3Fixes
             {
                 uint rflT0 = SrcNowUs(); // routefaillog (RouteFailLog.cs)
                 RouteSrcCall src = RouteSrcBegin(this, 3, fromPt);
-                RoutePlanResult r = UfPlan(3, fromPt);
+                RoutePlanResult iam;
+                if (IaAnswer(3, fromPt, out iam)) { RouteSrcEnd(this, src, false); return iam; }
+                ActPlanBegin();
+                byte urx = UrxBegin();
+                RoutePlanResult r;
+                try { r = UfPlan(3, fromPt); } finally { if (urx != 0) UrxEnd(urx); }
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 3, rflT0, r);
-                return r;
+                IaNote(3, fromPt, r, rflT0);
+                if (urx != 0) UrxAfter(urx, 3, fromPt, r);
+                r = LfsAfterPlan(3, fromPt, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
+                return BuAfterPlan(this, 3, r);  // blockeduse's way out (BlockedUse.cs, docs/686 §10), off by default
             }
             RoutePlanResult ReplanFromPointAsync(Vector3 fromPt)
             {
                 UbCountReplan();  // docs/248
                 DoorMirror.SyncRoute(this, fromPt);
                 bool pre = false;
-                if (!AsyncKindStart(3, fromPt, ref pre)) return ReplanFromPointOrig(fromPt);
+                if (!AsyncKindStart(3, fromPt, ref pre)) { RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(3, out d)) d = ReplanFromPointOrig(fromPt); UfSyncEnd(ts); return d; }
                 try
                 {
                     AsyncWait();
@@ -407,21 +495,36 @@ namespace Ts3Fixes
                 // ts3native 0.36.239 [RouteAsync] WatchdogKind2: the PlanFromPoint START carries the watchdog tag (kProbe 0x10400, as
                 // OwnerTaskStart's kind 0), and ts3native starts an own kind-2 START without Kinds bit 2 only with it; it labels the
                 // job (v179 wdJob*). CheckIdle picks A1 only when ts3native answers q 9 (RouteFixes.cs WdA1Would).
-                bool wd = WdA1Here() && ForeignEligible();
+                bool a1 = WdA1Here(), spot = !a1 && kind == 2 && SpotAsyncHere();  // docs/616 spotasync: SafeSpot's check takes A1's tagged path
+                bool wd = (a1 || spot) && ForeignEligible();
+                // routableasync (docs/584 §3, default ON; for an A/B with [RouteAsync] Kinds=2): a PlanFromPoint START only from
+                // EA's Sim.IsPointInLotSafelyRoutable (RoutableCacheHook, sInRoutableCheck; our SpotVerdict's calls go through it
+                // too) for an unseen NPC (UfWhy 0: never household, selected or unknown scope); every other PlanFromPoint stays
+                // sync, as with Kinds=0. [2736] STARTs let through, [2737] refused here, [2738] let through but not started.
+                bool rtGate = kind == 2 && !wd && ShortcutOn("routableasync");
+                if (rtGate)
+                {
+                    Sims3.Gameplay.Actors.Sim rs = proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null;
+                    if (!sInRoutableCheck || sInWdCheck || rs == null || rs.SimDescription == null || rs.SimDescription.IsPet || UfWhy(rs) != 0)
+                    { PatchCounters()[2737]++; return false; }
+                    PatchCounters()[2736]++;
+                }
                 bool own = wd || AsyncEligible(proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null, "asyncreplan");
                 if (!own && !(ShortcutOn("asyncreplan") && ShortcutOn("asyncreplanforeign") && ForeignEligible())) return false;
-                PreCb(kind, ref pre);
+                PreCb(kind, ref pre, rtGate);
                 if (kind >= 2) { AsyncPoint(0, p.x); AsyncPoint(1, p.y); AsyncPoint(2, p.z); }
-                if (wd) { PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
+                if (wd) { if (a1) PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
                 bool started = GetOption2((Sims3.SimIFace.Route.RouteOption2)((own ? kArStart : kArStart | kArForeign) | (ulong)kind << 56));
-                if (wd) { if (started) PatchCounters()[873]++; }
+                if (wd && spot) { SpotAsyncStarted(started); if (!started) SpotStartRefused(); }
+                else if (wd) { if (started) PatchCounters()[873]++; else WdStartRefused(proxy); }  // docs/662 §3 watchdogbusydefer
                 else if (!own)
                 {
                     int[] c = PatchCounters();
                     c[246]++;
                     if (started) c[247]++;
                 }
-                if (!started) StepAside();  // the kind's sync plan follows
+                if (!started) StepAside(kind == 1 ? "Replan" : kind == 2 ? "PlanFromPoint" : "ReplanFromPoint");  // the kind's sync plan follows
+                if (rtGate && !started) PatchCounters()[2738]++;
                 return started;
             }
 
@@ -429,8 +532,56 @@ namespace Ts3Fixes
             // route job the worker runs, blocking the whole sim thread for the rest of it. Instead this task sleeps a tick at a
             // time while ts3native answers JOBBUSY (a job runs, this is the sim thread at the task's root state), then plans
             // with no job left to wait for. Off: one switch read. Without ts3native's [RouteAsync] JobYield the game answers
-            // false (bit 63 has no name) and nothing changes. Switch "jobyield" (default off). Counters: [248] step-asides,
+            // false (bit 63 has no name) and nothing changes. Switch "jobyield" (default ON). Counters: [248] step-asides,
             // [249] ticks slept, [250] gave up at the cap (the plan then waits natively, as before).
+            // docs/183 §7 (2026-11-21): the poll goes to the plan's own route, so ts3native can (1) hold that route's records
+            // (refusal reason, scope answer, stuck-check and UnseenFallback marks) while this task sleeps and put them back
+            // for the plan, and (2) answer "not busy" for a route that is being followed. The sleep ends with exactly one
+            // closing message (StepAsideCore.cs): the "not busy" answer itself, kJobBusyEnd at the cap, kJobBusyDrop when an
+            // exception leaves the sleep (a reset: no plan follows). An older ts3native ignores the low word and the handle.
+            // No step-aside while the task's Sim or the route's Sim holds an unplaced social jig (asyncjigsync, docs/240):
+            // that plan is kept synchronous so the partner cannot run before AddToWorld, and a sleep here would undo it.
+            // No counter slot: the "jobyield:" log line carries the session counts (asides, kept sync for a jig, resets).
+            void StepAside(string ic)
+            {
+                if (!ShortcutOn("jobyield") || !MayYield()) return;
+                IScriptProxy fp = Follower, tp = Simulator.GetProxy(Simulator.CurrentTask);
+                Sims3.Gameplay.Actors.Sim rs = fp != null ? fp.Target as Sims3.Gameplay.Actors.Sim : null;
+                Sims3.Gameplay.Actors.Sim ts = tp != null ? tp.Target as Sims3.Gameplay.Actors.Sim : null;
+                if (!GetOption2(kJobBusy)) return;
+                if (StepAsideCore.KeepSync(JigPending(ts), rs != ts ? JigPending(rs) : 0))
+                {
+                    sJyJig++;
+                    GetOption2(kJobBusy | (Sims3.SimIFace.Route.RouteOption2)(ulong)StepAsideLoop.kOpEnd);  // the busy answer took the records
+                    return;
+                }
+                int[] c = PatchCounters();
+                c[248]++;
+                int t0 = System.Environment.TickCount;
+                StepAsideLoop l = default(StepAsideLoop);
+                l.Begin(t0, kStepAsideMaxMs);
+                try
+                {
+                    for (;;)
+                    {
+                        c[249]++;
+                        Simulator.Sleep(0);
+                        // shortcut: a fixed real-time cap; a job queue that stays busy longer than this gets the old native wait
+                        if (!l.AfterSleep(System.Environment.TickCount)) { c[250]++; break; }
+                        if (!l.Answer(GetOption2(kJobBusy))) break;
+                    }
+                }
+                finally
+                {
+                    int op = l.FinalOp();
+                    if (op == StepAsideLoop.kOpDrop) sJyReset++;
+                    if (op != StepAsideLoop.kOpNone) GetOption2(kJobBusy | (Sims3.SimIFace.Route.RouteOption2)(ulong)op);
+                }
+                StepAsideNote(ic, l, unchecked(System.Environment.TickCount - t0), rs, ts, fp);
+            }
+            // The step-asides with no route of their own (JobYieldRoad.cs spawn / turn-in-place / road / traffic sites,
+            // BoatTrip.cs boarding): the poll goes through sYieldProbe (handle 0), so ts3native holds no records for them and
+            // the old loop stays as it was.
             static void StepAside()
             {
                 if (!ShortcutOn("jobyield") || !MayYield() || !sYieldProbe.GetOption2(kJobBusy)) return;
@@ -444,6 +595,27 @@ namespace Ts3Fixes
                     // shortcut: a fixed real-time cap; a job queue that stays busy longer than this gets the old native wait
                     if (unchecked(System.Environment.TickCount - t0) >= kStepAsideMaxMs) { c[250]++; return; }
                 } while (sYieldProbe.GetOption2(kJobBusy));
+            }
+            static int sJyJig, sJyReset, sJyLogMinute, sJyLogged;
+            const int kJyLinesPerMin = 30;
+            // log only, after the closing message (the lines go through a route with handle 0, never this route's records)
+            static void StepAsideNote(string ic, StepAsideLoop l, int ms, Sims3.Gameplay.Actors.Sim rs, Sims3.Gameplay.Actors.Sim ts, IScriptProxy fp)
+            {
+                int minute = System.Environment.TickCount / 60000;
+                if (minute != sJyLogMinute) { sJyLogMinute = minute; sJyLogged = 0; }
+                if (sJyLogged++ >= kJyLinesPerMin) return;
+                try
+                {
+                    object ft = fp != null ? fp.Target : null;
+                    string who = rs != null ? rs.FullName : ft != null ? ft.GetType().Name : "no follower";
+                    string task = ts == null ? "a non-Sim task" : ts == rs ? "own task" : ts.FullName + "'s task";
+                    Sims3.Gameplay.Interactions.InteractionInstance ia = rs != null ? rs.CurrentInteraction : null;
+                    int[] c = PatchCounters();
+                    DiagLine("jobyield: " + ic + ", " + l.Ticks + " ticks " + ms + " ms, " + StepAsideCore.EndName(l.End) + ", " + who + " in " + task
+                        + ", " + (ia != null ? ia.GetType().Name : "no interaction") + "; session: asides " + c[248] + " capped " + c[250]
+                        + ", kept sync for a jig " + sJyJig + ", resets " + sJyReset);
+                }
+                catch (Exception) { }
             }
             const int kStepAsideMaxMs = 10000;
             static readonly Sims3.SimIFace.Route.RouteOption2 kJobBusy = unchecked((Sims3.SimIFace.Route.RouteOption2)0x8500000000000000UL);
@@ -486,6 +658,157 @@ namespace Ts3Fixes
                 return res;
             }
             static FieldInfo[] sStartFields;
+
+            // ---- iafailmemo (contributor, default off, townies only) ----
+            // A townie whose plan failed with an empty path asks again for the same interaction from the same lot to the same lot
+            // (AI pushes, GoHome retries, routing loops of a failing interaction). The failure is remembered by Sim, interaction type
+            // name, start lot, goal lot (0 = street / open world) and route options (IaOpts); the same ask within IaFailMemo.kWindowMs
+            // (120 s real time) from any spot on that lot to any spot on that lot gets the remembered failure without planning
+            // (FailFast, as failrepeat does). The Sim still fails its interaction as before, without the repeat plan. Plans with no
+            // interaction and street goals are never remembered. Active-household, selected and no-household Sims are never
+            // remembered or answered. Counters [4080] remembered, [4081] answered, [4082] ms of the remembered plans the answers
+            // stood for. First 20 lines logged.
+            static readonly IaFailMemo sIaMemo = new IaFailMemo();
+            static int sIaLogged;
+            Sims3.Gameplay.Actors.Sim IaSim(int kind, Vector3 from, out Vector3 start, out Vector3 goal)
+            {
+                start = Vector3.Invalid; goal = Vector3.Invalid;
+                IScriptProxy f = Follower;
+                Sims3.Gameplay.Actors.Sim sim = f != null ? f.Target as Sims3.Gameplay.Actors.Sim : null;
+                if (sim == null || !IaFailMemo.Eligible(sim.IsSelectable, sim.Household != null, sim.Household == Household.ActiveHousehold)) return null;
+                start = kind >= 2 ? from : sim.Position;
+                goal = GetApproximateOriginalDestination();
+                return sim;
+            }
+            static string IaName(Sims3.Gameplay.Actors.Sim sim)
+            {
+                Sims3.Gameplay.Interactions.InteractionInstance ia = sim.CurrentInteraction;
+                return ia != null ? ia.GetType().Name : null;
+            }
+            static ulong IaLot(Vector3 v)
+            {
+                Lot lot = v != Vector3.Invalid ? LotManager.GetLotAtPoint(v) : null;
+                return lot != null && !lot.IsWorldLot ? lot.LotId : 0UL;
+            }
+            // the route options that change what a plan can reach (part of the memo key)
+            static ulong IaOpts(ScriptCore.Route r)
+            {
+                ulong b = 0;
+                if (r.GetOption(Sims3.SimIFace.Route.RouteOption.EnableWaterPlanning)) b |= 1;
+                if (r.GetOption(Sims3.SimIFace.Route.RouteOption.EnablePondPlanning)) b |= 2;
+                if (r.GetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat)) b |= 4;
+                if (r.GetOption2(Sims3.SimIFace.Route.RouteOption2.BeginAsBoat)) b |= 8;
+                if (r.GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat)) b |= 16;
+                if (r.GetOption2(Sims3.SimIFace.Route.RouteOption2.DisablePlanningOnLand)) b |= 32;
+                if (r.GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater)) b |= 64;
+                if (r.GetOption2(Sims3.SimIFace.Route.RouteOption2.RouteAsMermaid)) b |= 128;
+                if (r.GetOption(Sims3.SimIFace.Route.RouteOption.RouteAsGhost)) b |= 256;
+                if (r.GetOption(Sims3.SimIFace.Route.RouteOption.EnablePlanningAsCar)) b |= 512;
+                if (r.GetOption(Sims3.SimIFace.Route.RouteOption.BeginAsCar)) b |= 1024;
+                if (r.GetOption(Sims3.SimIFace.Route.RouteOption.DisablePlanningAsPedestrian)) b |= 2048;
+                if (r.GetOption(Sims3.SimIFace.Route.RouteOption.EnableSubwayPlanning)) b |= 4096;
+                if (r.GetOption(Sims3.SimIFace.Route.RouteOption.EnableUFOPlanning)) b |= 8192;
+                return b;
+            }
+            static void IaLog(string what, string ia, Sims3.Gameplay.Actors.Sim sim, int kind, Vector3 start, Vector3 goal, int ms, RoutePlanResult r)
+            {
+                if (sIaLogged >= 20) return;
+                sIaLogged++;
+                DiagLine("iafailmemo: " + what + " " + ia + ", " + sim.FullName + ", " + kRflKind[kind & 3] + " " + r.mType + " blocker " + r.mBlockerType + ", " + ms + " ms, start " + V(start) + ", goal " + V(goal));
+            }
+            bool IaAnswer(int kind, Vector3 from, out RoutePlanResult res)
+            {
+                res = default(RoutePlanResult);
+                if (!ShortcutOn("iafailmemo") || sIaMemo.Count == 0) return false;
+                try
+                {
+                    Vector3 start, goal;
+                    Sims3.Gameplay.Actors.Sim sim = IaSim(kind, from, out start, out goal);
+                    if (sim == null || !sIaMemo.HasSim(sim.ObjectId.Value)) return false;
+                    string ia = IaName(sim);
+                    object o;
+                    int ms;
+                    if (!sIaMemo.Answer(sim.ObjectId.Value, ia, IaLot(start), IaLot(goal), IaOpts(this), System.Environment.TickCount, out o, out ms)) return false;
+                    int[] c = PatchCounters();
+                    c[4081]++;
+                    c[4082] += ms;
+                    res = FailFast((RoutePlanResult)o);
+                    IaLog("answered", ia, sim, kind, start, goal, ms, res);
+                    return true;
+                }
+                catch (Exception) { return false; }  // on any doubt the Sim plans as usual
+            }
+            void IaNote(int kind, Vector3 from, RoutePlanResult r, uint t0)
+            {
+                if (r.mType == RoutePlanResultType.Succeeded || !ShortcutOn("iafailmemo")) return;
+                try
+                {
+                    Vector3 start, goal;
+                    Sims3.Gameplay.Actors.Sim sim = IaSim(kind, from, out start, out goal);
+                    if (sim == null) return;
+                    string ia = IaName(sim);
+                    ulong gl = IaLot(goal);
+                    if (!IaFailMemo.Remembers(true, r.mDistanceTotal, ia, gl)) return;
+                    int ms = unchecked((int)((SrcNowUs() - t0) / 1000));
+                    sIaMemo.Remember(sim.ObjectId.Value, ia, IaLot(start), gl, IaOpts(this), System.Environment.TickCount, ms, r);
+                    PatchCounters()[4080]++;
+                    IaLog("remembered", ia, sim, kind, start, goal, ms, r);
+                }
+                catch (Exception) { }
+            }
+
+            // ---- unseenrelax (contributor, ON since import 2026-11-20, townies only) ----
+            // For an unseen townie (UfWhy 0; never a selectable, active-household or no-household Sim; not a stuck-check, own-check,
+            // routability probe or unseen-fallback leg plan) the plan runs without three route options, put back right after it
+            // (finally): ReplanToFindObstacleWhenPathPlanFails 0x100 (a failing plan runs again only to name the blocker for the
+            // route-fail reaction nobody sees), BlockedByPeople 0x4 and BlockedByDynamicFootprints 0x1000. Counters [4078] relaxed
+            // plans (at least one bit was set and cleared), [4079] relaxed plans that still failed (first 10 logged).
+            static int sUrxLogged;
+            byte UrxBegin()
+            {
+                if (!ShortcutOn("unseenrelax")) return 0;
+                try
+                {
+                    IScriptProxy f = Follower;
+                    Sims3.Gameplay.Actors.Sim sim = f != null ? f.Target as Sims3.Gameplay.Actors.Sim : null;
+                    if (sim == null || sim.IsSelectable || sim.Household == null || sim.Household == Household.ActiveHousehold) return 0;
+                    if (sStuckIn || sInOwnCheck || sInRoutableCheck || sUfInLeg || UfWhy(sim) != 0) return 0;
+                    bool a = GetOption(Sims3.SimIFace.Route.RouteOption.ReplanToFindObstacleWhenPathPlanFails), p = GetOption(Sims3.SimIFace.Route.RouteOption.BlockedByPeople),
+                        d = GetOption(Sims3.SimIFace.Route.RouteOption.BlockedByDynamicFootprints);
+                    byte bits = (byte)((a ? 1 : 0) | (p ? 2 : 0) | (d ? 4 : 0));
+                    if (bits == 0) return 0;
+                    if (a) SetOption(Sims3.SimIFace.Route.RouteOption.ReplanToFindObstacleWhenPathPlanFails, false);
+                    if (p) SetOption(Sims3.SimIFace.Route.RouteOption.BlockedByPeople, false);
+                    if (d) SetOption(Sims3.SimIFace.Route.RouteOption.BlockedByDynamicFootprints, false);
+                    PatchCounters()[4078]++;
+                    return bits;
+                }
+                catch (Exception) { return 0; }
+            }
+            // always (finally): the bits go back to what they were
+            void UrxEnd(byte m)
+            {
+                if ((m & 1) != 0) SetOption(Sims3.SimIFace.Route.RouteOption.ReplanToFindObstacleWhenPathPlanFails, true);
+                if ((m & 2) != 0) SetOption(Sims3.SimIFace.Route.RouteOption.BlockedByPeople, true);
+                if ((m & 4) != 0) SetOption(Sims3.SimIFace.Route.RouteOption.BlockedByDynamicFootprints, true);
+            }
+            void UrxAfter(byte m, int kind, Vector3 from, RoutePlanResult r)
+            {
+                if (r.mType == RoutePlanResultType.Succeeded) return;
+                try
+                {
+                    PatchCounters()[4079]++;
+                    if (sUrxLogged >= 10) return;
+                    sUrxLogged++;
+                    IScriptProxy f = Follower;
+                    Sims3.Gameplay.Actors.Sim sim = f != null ? f.Target as Sims3.Gameplay.Actors.Sim : null;
+                    if (sim == null) return;
+                    Vector3 start = kind >= 2 ? from : sim.Position, goal = GetApproximateOriginalDestination();
+                    DiagLine("unseenrelax: relaxed plan failed " + r.mType + " blocker " + r.mBlockerType + ", path " + r.mDistanceTotal.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m, "
+                        + sim.FullName + ", " + kRflKind[kind & 3] + ", cleared " + (((m & 1) != 0 ? "replan " : "") + ((m & 2) != 0 ? "people " : "") + ((m & 4) != 0 ? "dynamic" : "")).TrimEnd() + ", start " + V(start) + ", goal " + V(goal));
+                }
+                catch (Exception) { }
+            }
         }
 
         [StructLayout(LayoutKind.Explicit)]
@@ -516,7 +839,7 @@ namespace Ts3Fixes
             foreach (KeyValuePair<BackoffKey, BackoffEntry> kv in sBackoff)
                 if (now >= kv.Value.Until || kv.Value.From > now) dead.Add(kv.Key);
             foreach (BackoffKey k in dead) sBackoff.Remove(k);
-            if (sBackoff.Count >= kMaxBackoffEntries) sBackoff.Clear();
+            if (sBackoff.Count >= kMaxBackoffEntries) { sBackoff.Clear(); CapCount(kCBackoffClears); }
         }
 
         const float kBackoffMinutes = 30f, kBackoffMinDistance = 5f;

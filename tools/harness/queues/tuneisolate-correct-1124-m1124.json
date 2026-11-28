@@ -1,0 +1,248 @@
+{
+ "note": "m1124 repin (2026-11-24, merge/rc-1124): copy of tuneisolate-correct-1124.json pinned to master set m1124 (0.36.301-m1124); version read-backs and their regexCases moved to 0.36.301-m1124. [previous] tuneisolate-correct-1124 (docs/339, 2026-11-23, NOT RUN): [IlPatch] ilp_tuneisolate, the EA-bug fix for one broken script mod (an add-on without its base) stopping EA's tuning loop for every mod after it. Correctness only, Bin state apex. Build tuneiso1 (0.36.300-tuneiso1 asi + repo ini + ts3fixes.package.tuneiso1); the agent package is the checkout's build/ts3agent.package (rebuild it from this branch or master after the merge: its ts3agent.started marker keeps ts3fixes' late-init line honest). Job 1 is the bug repro and is EXPECTED to FAIL (agent silent at the menu: 'agent answering: not reached within 300 s', as compat-overlap-1122-rerun5 ip-overlap-bisect-e-icarus); jobs 2-3 must PASS. Startup-only change: no Sim is touched, so no household check.",
+ "jobs": [
+  {
+   "id": "ip-tuneiso-off",
+   "note": "[est 6-8 min] EXPECTED FAIL (the repro): IP, mod set compat-overlap-1122-e-icarus (the WoodFireOven add-on without its base), ilp_tuneisolate OFF. Expect the agent silent (cycle.ts 'agent answering: not reached'), no 'il patch: tune-isolate' line. The 'broken script mod' line appears only when EA's loop reached ts3fixes before the add-on [inferred order, it did in rerun5]; read it by hand, not required.",
+   "save": "Baseline-IP",
+   "asi": "game-copy/ts3native.asi.m1124",
+   "iniBase": "game-copy/ts3native.ini.m1124",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124",
+   "pinReason": "branch build tuneiso1 (bugfix/tune-assemblies-isolate-1123), 0.36.300-tuneiso1",
+   "releaseDefaults": true,
+   "modSet": "game-copy/mod-sets/compat-overlap-1122-e-icarus",
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 20,
+   "ini": {
+    "IlPatch.Enabled": 0,
+    "IlPatch.ilp_tuneisolate": 0
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.301-m1124 ": 1
+   },
+   "logForbid": {
+    "^il patch: tune-isolate": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.301-m1124 ": {
+     "match": [
+      "ts3native 0.36.301-m1124 2026-11-24 01:02:03"
+     ],
+     "noMatch": [
+      "ts3native 0.36.300-tuneiso1 2026-11-24 01:02:03"
+     ]
+    },
+    "^il patch: tune-isolate": {
+     "match": [
+      "il patch: tune-isolate-tuning armed ([IlPatch] ilp_tuneisolate=1): x"
+     ],
+     "noMatch": [
+      "il patch: b89-fixup-no-inventory armed ([IlPatch] ilp_fixupnoinventory=1): x"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-tuneiso-on",
+   "note": "[est 6-8 min] the fix: same set and save, ilp_tuneisolate ON. Pass: the agent answers (the job runs), both specs applied with the converter's hash, the 'broken script mod' line naming the add-on and its missing base, the world-load 'script assemblies' line, no late-init line (EA's loop reached both our mods), 0 script errors.",
+   "save": "Baseline-IP",
+   "asi": "game-copy/ts3native.asi.m1124",
+   "iniBase": "game-copy/ts3native.ini.m1124",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124",
+   "pinReason": "branch build tuneiso1 (bugfix/tune-assemblies-isolate-1123), 0.36.300-tuneiso1",
+   "releaseDefaults": true,
+   "modSet": "game-copy/mod-sets/compat-overlap-1122-e-icarus",
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 20,
+   "ini": {
+    "IlPatch.Enabled": 1,
+    "IlPatch.ilp_tuneisolate": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.301-m1124 ": 1,
+    "^il patch: tune-isolate-tuning armed \\(\\[IlPatch\\] ilp_tuneisolate=1\\)": 1,
+    "^il patch: tune-isolate-tuning applied to Sims3\\.Gameplay\\.Tuning\\.TuningControl::TuneAssemblies\\(System\\.Reflection\\.Assembly\\[\\],bool\\) \\((ea-1\\.67|simler90-242), 321 -> 345 bytes": 1,
+    "^il patch: tune-isolate-persist applied to Sims3\\.SimIFace\\.PersistStatic::GameplayInitialize\\(\\) \\((ea-1\\.67|simler90-242), 559 -> 607 bytes": 1,
+    "^ts3fixes: tuning: broken script mod icarusallsorts\\.WOBakeWithAnyIngredient: GetTypes failed, missing assembly icarusallsorts\\.CookWithAnyIngredient; skipped \\(ilp_tuneisolate\\)": 1,
+    "^ts3fixes: script assemblies \\(\\d+\\): ": 1
+   },
+   "logForbid": {
+    "^ts3fixes: tuning: late init": 0,
+    "^il patch: tune-isolate-\\w+: .*(refused|mismatch|fault)": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.301-m1124 ": {
+     "match": [
+      "ts3native 0.36.301-m1124 2026-11-24 01:02:03"
+     ],
+     "noMatch": [
+      "ts3native 0.36.300-tuneiso1 2026-11-24 01:02:03"
+     ]
+    },
+    "^il patch: tune-isolate-tuning armed \\(\\[IlPatch\\] ilp_tuneisolate=1\\)": {
+     "match": [
+      "il patch: tune-isolate-tuning armed ([IlPatch] ilp_tuneisolate=1): Sims3.Gameplay.Tuning.TuningControl::TuneAssemblies(System.Reflection.Assembly[],bool), 2 known build(s), 1 edit(s)"
+     ],
+     "noMatch": [
+      "il patch: tune-isolate-persist armed ([IlPatch] ilp_tuneisolate=1): x"
+     ]
+    },
+    "^il patch: tune-isolate-tuning applied to Sims3\\.Gameplay\\.Tuning\\.TuningControl::TuneAssemblies\\(System\\.Reflection\\.Assembly\\[\\],bool\\) \\((ea-1\\.67|simler90-242), 321 -> 345 bytes": {
+     "match": [
+      "il patch: tune-isolate-tuning applied to Sims3.Gameplay.Tuning.TuningControl::TuneAssemblies(System.Reflection.Assembly[],bool) (simler90-242, 321 -> 345 bytes, max stack 6 -> 6, 2 clauses, patched sha256 9f9c63b08a91 as the converter's)"
+     ],
+     "noMatch": [
+      "il patch: tune-isolate-tuning: Sims3.Gameplay.Tuning.TuningControl::TuneAssemblies(System.Reflection.Assembly[],bool) is 300 bytes, sha256 0011: not a build this fix knows, left alone"
+     ]
+    },
+    "^il patch: tune-isolate-persist applied to Sims3\\.SimIFace\\.PersistStatic::GameplayInitialize\\(\\) \\((ea-1\\.67|simler90-242), 559 -> 607 bytes": {
+     "match": [
+      "il patch: tune-isolate-persist applied to Sims3.SimIFace.PersistStatic::GameplayInitialize() (ea-1.67, 559 -> 607 bytes, max stack 3 -> 3, 1 clauses, patched sha256 d8cbdcb58831 as the converter's)"
+     ],
+     "noMatch": [
+      "il patch: tune-isolate-persist applied to Sims3.SimIFace.PersistStatic::GameplayShutdown() (ea-1.67, 559 -> 607 bytes"
+     ]
+    },
+    "^ts3fixes: tuning: broken script mod icarusallsorts\\.WOBakeWithAnyIngredient: GetTypes failed, missing assembly icarusallsorts\\.CookWithAnyIngredient; skipped \\(ilp_tuneisolate\\)": {
+     "match": [
+      "ts3fixes: tuning: broken script mod icarusallsorts.WOBakeWithAnyIngredient: GetTypes failed, missing assembly icarusallsorts.CookWithAnyIngredient; skipped (ilp_tuneisolate), the script mods after it are tuned"
+     ],
+     "noMatch": [
+      "ts3fixes: tuning: broken script mod icarusallsorts.WOBakeWithAnyIngredient: GetTypes failed, missing assembly icarusallsorts.CookWithAnyIngredient; EA's tuning stops here: script mods after it get no tuning (ts3native [IlPatch] ilp_tuneisolate, docs/339)"
+     ]
+    },
+    "^ts3fixes: script assemblies \\(\\d+\\): ": {
+     "match": [
+      "ts3fixes: script assemblies (9): Ts3Fixes 1.0.0.0 1a2b3c4d"
+     ],
+     "noMatch": [
+      "ts3fixes: script assemblies: none"
+     ]
+    },
+    "^ts3fixes: tuning: late init": {
+     "match": [
+      "ts3fixes: tuning: late init of ts3agent (tuning loop aborted?)",
+      "ts3fixes: tuning: late init of ts3fixes by ts3agent (tuning loop aborted?): C# default settings until the tuning is read again"
+     ],
+     "noMatch": [
+      "ts3fixes: tuning: broken script mod x: GetTypes failed (y)"
+     ]
+    },
+    "^il patch: tune-isolate-\\w+: .*(refused|mismatch|fault)": {
+     "match": [
+      "il patch: tune-isolate-persist: fault 0xC0000005 while reading x: off for the session"
+     ],
+     "noMatch": [
+      "il patch: tune-isolate-persist applied to Sims3.SimIFace.PersistStatic::GameplayInitialize() (ea-1.67, 559 -> 607 bytes",
+      "il patch: tune-isolate-tuning: Sims3.Gameplay.Tuning.TuningControl::TuneAssemblies(System.Reflection.Assembly[]) is 120 bytes, sha256 0011: not a build this fix knows, left alone"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-tuneiso-normal",
+   "note": "[est 15-18 min] no-regression: BP 10 min play, the normal harness mods (no extra set), ilp_tuneisolate ON. Pass: both specs applied, no 'broken script mod' and no late-init line, 0 script errors, no crash.",
+   "save": "Baseline-BP",
+   "asi": "game-copy/ts3native.asi.m1124",
+   "iniBase": "game-copy/ts3native.ini.m1124",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124",
+   "pinReason": "branch build tuneiso1 (bugfix/tune-assemblies-isolate-1123), 0.36.300-tuneiso1",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "ini": {
+    "IlPatch.Enabled": 1,
+    "IlPatch.ilp_tuneisolate": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.301-m1124 ": 1,
+    "^il patch: tune-isolate-tuning applied to Sims3\\.Gameplay\\.Tuning\\.TuningControl::TuneAssemblies\\(System\\.Reflection\\.Assembly\\[\\],bool\\) \\((ea-1\\.67|simler90-242), 321 -> 345 bytes": 1,
+    "^il patch: tune-isolate-persist applied to Sims3\\.SimIFace\\.PersistStatic::GameplayInitialize\\(\\) \\((ea-1\\.67|simler90-242), 559 -> 607 bytes": 1,
+    "^ts3fixes: script assemblies \\(\\d+\\): ": 1
+   },
+   "logForbid": {
+    "^ts3fixes: tuning: (late init|broken script mod)": 0,
+    "^il patch: tune-isolate-\\w+: .*(refused|mismatch|fault)": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.301-m1124 ": {
+     "match": [
+      "ts3native 0.36.301-m1124 2026-11-24 01:02:03"
+     ],
+     "noMatch": [
+      "ts3native 0.36.300-tuneiso1 2026-11-24 01:02:03"
+     ]
+    },
+    "^il patch: tune-isolate-tuning applied to Sims3\\.Gameplay\\.Tuning\\.TuningControl::TuneAssemblies\\(System\\.Reflection\\.Assembly\\[\\],bool\\) \\((ea-1\\.67|simler90-242), 321 -> 345 bytes": {
+     "match": [
+      "il patch: tune-isolate-tuning applied to Sims3.Gameplay.Tuning.TuningControl::TuneAssemblies(System.Reflection.Assembly[],bool) (ea-1.67, 321 -> 345 bytes, max stack 6 -> 6, 2 clauses, patched sha256 d51df4b3234e as the converter's)"
+     ],
+     "noMatch": [
+      "il patch: tune-isolate-tuning applied to Sims3.Gameplay.Tuning.TuningControl::TuneAssemblies(System.Reflection.Assembly[]) (ea-1.67, 100 -> 120 bytes"
+     ]
+    },
+    "^il patch: tune-isolate-persist applied to Sims3\\.SimIFace\\.PersistStatic::GameplayInitialize\\(\\) \\((ea-1\\.67|simler90-242), 559 -> 607 bytes": {
+     "match": [
+      "il patch: tune-isolate-persist applied to Sims3.SimIFace.PersistStatic::GameplayInitialize() (simler90-242, 559 -> 607 bytes, max stack 3 -> 3, 1 clauses, patched sha256 d8cbdcb58831 as the converter's)"
+     ],
+     "noMatch": [
+      "il patch: tune-isolate-persist applied to Sims3.SimIFace.PersistStatic::GameplayInitialize() (ea-1.69, 559 -> 607 bytes"
+     ]
+    },
+    "^ts3fixes: script assemblies \\(\\d+\\): ": {
+     "match": [
+      "ts3fixes: script assemblies (9): Ts3Fixes 1.0.0.0 1a2b3c4d"
+     ],
+     "noMatch": [
+      "ts3fixes: script assemblies: none"
+     ]
+    },
+    "^ts3fixes: tuning: (late init|broken script mod)": {
+     "match": [
+      "ts3fixes: tuning: broken script mod A: GetTypes failed (x)",
+      "ts3fixes: tuning: late init of ts3agent (tuning loop aborted?)"
+     ],
+     "noMatch": [
+      "ts3fixes: tuned: tuning-gated patches at app startup"
+     ]
+    },
+    "^il patch: tune-isolate-\\w+: .*(refused|mismatch|fault)": {
+     "match": [
+      "il patch: tune-isolate-persist: fault 0xC0000005 while reading x: off for the session"
+     ],
+     "noMatch": [
+      "il patch: tune-isolate-persist applied to Sims3.SimIFace.PersistStatic::GameplayInitialize() (ea-1.67, 559 -> 607 bytes",
+      "il patch: tune-isolate-tuning: Sims3.Gameplay.Tuning.TuningControl::TuneAssemblies(System.Reflection.Assembly[]) is 120 bytes, sha256 0011: not a build this fix knows, left alone"
+     ]
+    }
+   }
+  }
+ ]
+}

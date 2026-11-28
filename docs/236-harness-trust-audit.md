@@ -34,10 +34,10 @@ Kinds: **FP** = false PASS, **FF** = false FAIL, **FC** = wrong crash attributio
 | 16 | Restores are not read back: Default.ini, Sims3Performance.ini, S3SS.toml, dxvk.conf and ts3native.ini are written back with no hash compare. `restoreContent` moves files back with no size check and skips files missing from the stash without counting them. | FP (next run on the wrong config) | queue.ts:1940-1943, :535, :2435; cycle.ts:57/80 | fixed cbbd07e |
 | 17 | Features with no "it ran" rule: about 26 of 48 rows in feature-repros.json have no `nativeRequire`, and gc/avoidro have only `<=0` rules. | FP | feature-repros.json | listed (round 2 coverage table); rules not added |
 | 18 | Waits with only a long timeout, no progress check: cycle.ts `until` ('world state' 60 s, 24 retries), save-matrix.ts case timeout 900 s, repro.ts `until` 300 s, ts3probe.py 300 s attach loop, children run without jobGuard (install-fixes undo, cache clear: 10 min). | FF (slow), wasted time | cycle.ts:34/114/148, save-matrix.ts:287, repro.ts:123, ts3probe.py:175, queue.ts:1945/1974/1981 | cycle/save-matrix/repro fixed 679433b; ts3probe.py start-up dialog loop and unguarded queue.ts children: round 3 (below) |
-| 19 | `scriptErrorsMax` counts only files with mtime >= job start in USER. A ScriptError written elsewhere, or a failed readdir, gives "PASS: 0 new script errors". | FP | queue.ts:2353 | open (low) |
+| 19 | `scriptErrorsMax` counts only files with mtime >= job start in USER. A ScriptError written elsewhere, or a failed readdir, gives "PASS: 0 new script errors". | FP | queue.ts:2353 | fixed 2026-11-15 (lane L1: `newScriptErrors`) |
 | 20 | `killEaRelaunch` treats every `-test` GAME_EXE process as EA's crash relaunch, but every xcpt on the EA laptop on 2026-11-02 has `Commandline: ... Sims3Launcher.exe -test`, including the harness's own launches. It runs only after the game is gone, so it is safe today, but the "-test = relaunch" premise is unproven. | FC (latent) | game-exe.ts:31 | fixed 280909a |
-| 21 | run-verdict.ts `subPass` passes a repro window on exit 0 with no FAIL line. | FP (low) | run-verdict.ts:84 | open |
-| 22 | verify-verdicts.ts on /native below v20 only prints an error, and `live()` with no `before` credits load-time counts to play. | FP (low) | verify-verdicts.ts:189 | open |
+| 21 | run-verdict.ts `subPass` passes a repro window on exit 0 with no FAIL line. | FP (low) | run-verdict.ts:84 | fixed 2026-11-15 (lane L1: `subPass`) |
+| 22 | verify-verdicts.ts on /native below v20 only prints an error, and `live()` with no `before` credits load-time counts to play. | FP (low) | verify-verdicts.ts:189 | fixed 2026-11-15 (lane L1: skipped without --force) |
 
 ## What each fix does
 
@@ -148,7 +148,7 @@ Every child that waits on a running game (`cycle.ts --save`, save-matrix.ts, pro
 3. Steam: 552809d (safe default plus the `accept` argument) reaches main with the 11-06 merge. Until then, Steam runs keep the old accept default and c8a4dac changes nothing.
 4. Finding 18 remainder: done in round 3. Not covered: the `answer_startup_dialog` loop only checks that the game is there, not that the dialog was seen.
 5. scriptErrorsMax source (19), run-verdict subPass (21), verify-verdicts below v20 (22).
-6. A relaunched game that gameRunning() saw before the triage still counts as "this run". Recording a first-seen time per PID would close that.
+6. (Done 2026-11-15, lane L1: `noteSeen` in game-exe.ts.) A relaunched game that gameRunning() saw before the triage still counts as "this run". Recording a first-seen time per PID would close that.
 
 ## Vanilla harness baseline (2026-11-02, plan only, nothing run)
 

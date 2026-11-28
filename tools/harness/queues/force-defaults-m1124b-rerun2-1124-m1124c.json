@@ -1,0 +1,155 @@
+{
+  "note": "force-defaults-m1124b-rerun2-1124-m1124c (2026-11-24): rerun of force-defaults-m1124b-rerun1-1124 pinned to the final RC set m1124c. lineswitch-force (hollow, rerun1 FAIL 2.9 min): Judy's menu on Bargain John still empty 8 s after the teleports, do_interaction use failed; the earlier try had Birthday Party pushes ahead of Judy's Use (kept 0). Fix bugfix/lineswitch-reactoverlay-repro-1124: set_aging off first, until Use is on the menu. reactoverlay-force (harness rule, rerun1 FAIL 7.2 min): reactoverlay_later=2 came from npc Marty Keaton (in scope, fix working), not Bea; want <1 on world-wide counters dropped, household exemption proven per forced call by mustMatch.",
+  "rewind": "off",
+  "stopQueueOnFail": false,
+  "regexCases": {},
+  "jobs": [
+    {
+      "id": "lineswitch-force",
+      "note": "[est 12 min] Release defaults (no ini or switch overrides; only the repro's log switches): kLineSwitch on, kLineSwitchHh off, read back in the ts3fixes settings line. Repro lineswitch-force-defaults: the forced case is a household Sim, so the exemption must hold and the switch must still see it (counters lineswitch_kept>=1,lineswitch_switched<1,lineswitch_errors<1). 0 script errors. rerun2: aging off first (Lisa Bunch has her birthday on day 15: Have Birthday / Birthday Party pushes blocked the line) and the setup polls Judy's menu until Use is enabled (60 s cap) instead of a fixed 8 s. rerun2b: the kept line is logged as \"ts3fixes: lineswitch: kept, ...\" (userdiag.cpp logs every ts3fixes DiagLine with that prefix), so the logRequire carries it.",
+      "asi": "game-copy/ts3native.asi.m1124c",
+      "iniBase": "game-copy/ts3native.ini.m1124c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124c",
+      "pinReason": "final RC set m1124c (merge/m1124c 705b33b87; asi d03869b4f9bf = 0.36.303-m1124b bytes, ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 hookflat, agent 891a73c45f1a); Dalexlol #715 lineswitch, #716 reactoverlay ON",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.303-m1124b ": 1,
+        "^ts3fixes: settings on: (.*, )?kLineSwitch(, |$)": 1,
+        "^ts3fixes: lineswitch: kept, household without lineswitchhh: household Judy Bunch, ": 1
+      },
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5,
+          "repro": "lineswitch-force-defaults",
+          "fixesRequire": "lineswitch_kept>=1,lineswitch_switched<1,lineswitch_errors<1"
+        }
+      },
+      "timeoutMin": 20,
+      "regexCases": {
+        "^ts3native 0\\.36\\.303-m1124b ": {
+          "match": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        },
+        "^ts3fixes: settings on: (.*, )?kLineSwitch(, |$)": {
+          "match": [
+            "ts3fixes: settings on: kAgeUpAbort, kLineSwitch, kZzz",
+            "ts3fixes: settings on: kLineSwitch"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kLineSwitchHh, kZzz",
+            "ts3fixes: settings on: kLineSwitchLog",
+            "ts3fixes: settings off: kLineSwitch"
+          ]
+        },
+        "^ts3fixes: settings on: (.*, )?kLineSwitchHh(, |$)": {
+          "match": [
+            "ts3fixes: settings on: kAgeUpAbort, kLineSwitchHh, kZzz",
+            "ts3fixes: settings on: kLineSwitchHh"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kLineSwitchHhHh, kZzz",
+            "ts3fixes: settings on: kLineSwitchHhLog",
+            "ts3fixes: settings off: kLineSwitchHh"
+          ]
+        },
+        "^ts3fixes: lineswitch: kept, household without lineswitchhh: household Judy Bunch, ": {
+          "match": [
+            "ts3fixes: lineswitch: kept, household without lineswitchhh: household Judy Bunch, UseToilet ToiletCheap, waited 4.9 sim-min"
+          ],
+          "noMatch": [
+            "ts3fixes: lineswitch: switched: household Judy Bunch, UseToilet ToiletCheap -> ToiletModerate (other room, 8.7 m, waited 2.0 sim-min)",
+            "ts3fixes: lineswitch: kept, player's action: household Lisa Bunch, UseToilet ToiletCheap, waited 2.1 sim-min",
+            "lineswitch: kept, household without lineswitchhh: household Judy Bunch, UseToilet ToiletCheap, waited 4.9 sim-min"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0,
+      "logForbid": {
+        "^ts3fixes: settings on: (.*, )?kLineSwitchHh(, |$)": 0
+      }
+    },
+    {
+      "id": "reactoverlay-force",
+      "note": "[est 12 min] Release defaults (no ini or switch overrides; only the repro's log switches): kReactOverlay on, kReactOverlayHh off, read back in the ts3fixes settings line. Repro reactoverlay-force-defaults: the forced case is a household Sim, so the exemption must hold and the switch must still see it (counters reactoverlay_queued>=1,reactoverlay_errors<1; the household proof is the mustMatch on each forced Bea reaction: overlaid now 0, would 0, queued 1. now / later / dropped are world-wide and NPCs are in scope: rerun1 later=2 was npc Marty Keaton, PumpFist during PlayGame, overlaid from the queue after 484 ms). 0 script errors.",
+      "asi": "game-copy/ts3native.asi.m1124c",
+      "iniBase": "game-copy/ts3native.ini.m1124c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124c",
+      "pinReason": "final RC set m1124c (merge/m1124c 705b33b87; asi d03869b4f9bf = 0.36.303-m1124b bytes, ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 hookflat, agent 891a73c45f1a); Dalexlol #715 lineswitch, #716 reactoverlay ON",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.303-m1124b ": 1,
+        "^ts3fixes: settings on: (.*, )?kReactOverlay(, |$)": 1
+      },
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5,
+          "repro": "reactoverlay-force-defaults",
+          "fixesRequire": "reactoverlay_queued>=1,reactoverlay_errors<1"
+        }
+      },
+      "timeoutMin": 20,
+      "regexCases": {
+        "^ts3native 0\\.36\\.303-m1124b ": {
+          "match": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        },
+        "^ts3fixes: settings on: (.*, )?kReactOverlay(, |$)": {
+          "match": [
+            "ts3fixes: settings on: kAgeUpAbort, kReactOverlay, kZzz",
+            "ts3fixes: settings on: kReactOverlay"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kReactOverlayHh, kZzz",
+            "ts3fixes: settings on: kReactOverlayLog",
+            "ts3fixes: settings off: kReactOverlay"
+          ]
+        },
+        "^ts3fixes: settings on: (.*, )?kReactOverlayHh(, |$)": {
+          "match": [
+            "ts3fixes: settings on: kAgeUpAbort, kReactOverlayHh, kZzz",
+            "ts3fixes: settings on: kReactOverlayHh"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kReactOverlayHhHh, kZzz",
+            "ts3fixes: settings on: kReactOverlayHhLog",
+            "ts3fixes: settings off: kReactOverlayHh"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0,
+      "logForbid": {
+        "^ts3fixes: settings on: (.*, )?kReactOverlayHh(, |$)": 0
+      }
+    }
+  ]
+}

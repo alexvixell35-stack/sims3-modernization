@@ -23,11 +23,13 @@
 // Runtime switch: exported ts3native_footprintMode (0 = the game's scan, 1 = index), start value [FootprintIndex] Mode.
 // One log line per save from the World_Save call 0xAAC320.
 
-static const DWORD FP_FN_LO = 0x006663C0, FP_FN_HI = 0x00666740, FP_FN_FNV = 0xF2CDC1C1;  // LotLevel_SaveFootprints body
-static const DWORD FP_SCAN_SITE = 0x00666488;
+static const DWORD FP_FN_LO = TS3A(0x006663C0), FP_FN_HI = TS3A(0x00666740);  // LotLevel_SaveFootprints body
+// EA 1.69.47 / retail 1.67: same code, moved (docs/232 "FootprintIndex on 1.69", docs/273: tools/retail-port-check.ts)
+static const DWORD FP_FN_FNV = TS3A_PICK(0xF2CDC1C1, 0xCA5029BC, 0xDDEC5CA0);
+static const DWORD FP_SCAN_SITE = TS3A(0x00666488);
 static const u8 kFpScanBytes[6] = {0x8B, 0x53, 0x20, 0x8B, 0x4A, 0x24};  // mov edx,[ebx+0x20] ; mov ecx,[edx+0x24]
-static const DWORD FP_LOT_SITE = 0x0082C940, FP_LOT = 0x0063C690;      // RoutingWorld_SaveLot -> LotRouting_SaveLevels
-static const DWORD FP_SAVE_SITE = 0x00AAC320, FP_SAVE = 0x00C6D460;    // Save_WritePackage -> World_Save (thiscall, ret 8)
+static const DWORD FP_LOT_SITE = TS3A(0x0082C940), FP_LOT = TS3A(0x0063C690);      // RoutingWorld_SaveLot -> LotRouting_SaveLevels
+static const DWORD FP_SAVE_SITE = TS3A(0x00AAC320), FP_SAVE = TS3A(0x00C6D460);    // Save_WritePackage -> World_Save (thiscall, ret 8)
 
 extern "C" __declspec(dllexport) volatile LONG ts3native_footprintMode = 0;
 
@@ -247,9 +249,9 @@ static void __cdecl FpSaveEnd(DWORD us) {
     g_fpGen++;  // drop the index: the next save rebuilds
     g_fs.saveUs = us;
     char v[48];
-    if (!g_fpVerify || ts3native_footprintMode != 1) sprintf_s(v, "off");
-    else if (g_fs.mismatches) sprintf_s(v, "mismatches %ld", g_fs.mismatches);
-    else sprintf_s(v, "ok");
+    if (!g_fpVerify || ts3native_footprintMode != 1) SFmt(v, "off");
+    else if (g_fs.mismatches) SFmt(v, "mismatches %ld", g_fs.mismatches);
+    else SFmt(v, "ok");
     Log("footprint: levels %ld entries %ld matched %ld calls %ld ms %lld verify %s (mode %ld fallbacks %ld worldSave ms %lld)",
         g_fs.levels, g_fs.entries, g_fs.matched, g_fs.builds, g_fs.us / 1000, v, ts3native_footprintMode, g_fs.fallbacks,
         g_fs.saveUs / 1000);

@@ -1,0 +1,36 @@
+{
+  "id": "idleparams-lazy-array",
+  "switch": "ilp_idleparams",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.ActorSystems.IdleManager::TestIdleInfo(Sims3.Gameplay.ActorSystems.IdleInfo,bool,bool)",
+  "builds": {
+    "ea-1.67": {
+      "size": 400,
+      "sha256": "f8c35f26567af842fc927fa3d8b58d88bf505aa9f55c6db8d13a0afe8d10e882",
+      "tokens": {
+        "class [mscorlib]System.Reflection.MethodInfo Sims3.Gameplay.ActorSystems.IdleInfo::ProceduralTest": "0x0400ba9c"
+      },
+      "patchedSha256": "b3533482925fbb0cd7c9bb50ffff360baaa2311cdf8b80950b058e56857b1b0b"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x13C",
+      "mode": "insert",
+      "entry": "incoming",
+      "expect": [
+        "ldc.i4.1",
+        "newarr",
+        "stloc.s"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.1",
+        "ldfld class [mscorlib]System.Reflection.MethodInfo Sims3.Gameplay.ActorSystems.IdleInfo::ProceduralTest",
+        "brfalse @0x16f"
+      ]
+    }
+  ],
+  "ilHashG6": "f28991ef1e9ae5d3"
+}

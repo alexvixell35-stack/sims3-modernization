@@ -1,0 +1,110 @@
+{
+ "note": "envlistmemo-wronghit-1117 (lane feature/mono-laneb-1117, PREPARED, NOT RUN, correctness/diagnosis, dry-run checked; est ~30 min game time): docs/274 §8.4 R1 gate. env-bcast-dry-probe-1116 gave hit rates 70.8% BP / 73.8% IP (>= 40% passes) but envlistmemo_hit_wrong 5 / 15 (must be 0). This queue reruns the R1 dry probe alone (bcposdry off: R2 parked on cost) on BP and IP, 10 min each, so the first 20 `EnvListMemo: wrong hit lot .. room .. list .. n ..` lines per job land in the row (fixesApplied, needs the queue.ts filter from feature/mono-laneb-1117). Counts only: the game lists are always used, so household, selected and seen Sims are untouched by construction. Gate for an R1 apply build: hit/calls >= 40% on BP and IP and hit_wrong = 0 after the invalidation fix; the wrong-hit lines name the missed change. Apex + bridge (Bin state apex).",
+ "rewind": "auto",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-wronghit",
+   "note": "BP 10 min, envlistmemo dry only: counters read back > 0, exc 0, 0 script errors; the row keeps the wrong-hit lines. A FAIL stops the queue.",
+   "asi": "game-copy/ts3native.asi.master-1117c",
+   "iniBase": "game-copy/ts3native.ini.master-1117c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "master-1117c set (0.36.271-mc1117, merge/harness-1117; the docs/274 probes are on master since master-1117b, managed only); queue.ts fixesApplied keeps the EnvListMemo wrong-hit lines from feature/mono-laneb-1117 on",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0.36.271-mc1117 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemo",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1",
+     "fixesReport": "envlistmemo_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0.36.271-mc1117 ": {
+     "match": [
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.269-mb1117 2026-11-17 10:00:00",
+      "ts3native 0.36.270-ddc1 2026-11-17 12:00:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   },
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "ip-wronghit",
+   "note": "IP 10 min, envlistmemo dry only: as bp-wronghit.",
+   "asi": "game-copy/ts3native.asi.master-1117c",
+   "iniBase": "game-copy/ts3native.ini.master-1117c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "master-1117c set (0.36.271-mc1117, merge/harness-1117; the docs/274 probes are on master since master-1117b, managed only); queue.ts fixesApplied keeps the EnvListMemo wrong-hit lines from feature/mono-laneb-1117 on",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0.36.271-mc1117 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemo",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1",
+     "fixesReport": "envlistmemo_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0.36.271-mc1117 ": {
+     "match": [
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.269-mb1117 2026-11-17 10:00:00",
+      "ts3native 0.36.270-ddc1 2026-11-17 12:00:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   }
+  }
+ ]
+}

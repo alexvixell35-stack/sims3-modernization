@@ -1,0 +1,27 @@
+{
+  "note": "docs/267 F1/F2 (merged to master 7cd4fe66, build master-lanes-1115b, NOT RUN): unseen teleport goal check (unseenfbteleport, on by default) refuses tomb / hidden / closed rooms; load cleanup moves only NPCs our teleport put in a closed room. Correctness only (BP, 10 min, paused repro). Pass: repro unseen-tp-goal-closed steps (goal active PASS, clean left 1 then moved 1 after mark), switch read back on, 0 script errors, household Sims untouched (who/lot lines unchanged for household).",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-unseen-tp-goal",
+      "note": "Correctness (10 min): repro unseen-tp-goal-closed on Baseline-BP (Trawler Lodge hidden room). Read the UnseenTpCheck lines in the agent log.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115b (builds.json, master 7cd4fe66): branch merged; ts3fixes + ts3agent rebuilt, asi stays master-lanes-1115; repinned from lane-f1f2-1115 2026-11-15",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "unseen-tp-goal-closed"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    }
+  ]
+}

@@ -33,6 +33,18 @@
 //   K8 (docs/94 §13.3): the planner above the world search (PathPlan_WithRetries 0x661B50 -> 0x65E0D0: lot exits, closest
 //      waypoints, lot legs, water legs, node passes) on live W vs PcAcquire's W' over K6's world with the REPLAY world's lots,
 //      the live data on no-access pages; the world manager, terrain, physics and partition queries faked (g_k8Sites).
+//   PT. [PlaceTestRO] (placero.cpp, docs/670): the game's placement footprint check 0xB41120 vs PtRun on random polygons
+//      (SectionPT; `set SRT_ONLY=PT` runs it alone).
+//   EP. [EditPathRO] (epro.cpp, docs/670 §8): the game's RouteFollow_EditPath 0x85F5A0 in the route form (start != goal, no
+//      exclude vector) vs EpRun on random segments (SectionEP; `set SRT_ONLY=EP` runs it alone).
+//   GVH. [GoalValidRO] Hits (gvhits.cpp, docs/670 §11): GoalPoint_Validate's own code from its query on (record, 0x82EDB0, the
+//      hit loop, both ways out) vs the same code with the call site on GvThunk / GvStub (SectionGVH; `set SRT_ONLY=GVH`).
+//  CN. [ConnRoomsRO] (docs/670 §15): the game's IC 0x7929F0 from its entry with a fake script host, the game's 0x63DCB0 vs the
+//      parked clone answer handed out by CnStub (SectionCN; `set SRT_ONLY=CN`).
+//  OA. [ObstructAtRO] (docs/670 §21-§22): the game's RouteObstructionAtPoint 0x655880 vs OaRun (both class flags, with and
+//      without a context / ignore list), then its detour: job, shadow, the job's own route, QL busy (SectionOA; `set SRT_ONLY=OA`).
+//  B2. [Blocker2dRO] (docs/670 §24): the game's RoutingWorld_BlockerCheck2d 0x82E340 in the IC's form vs B2Run (rtoro.cpp's
+//      RtoBlock behind the stub's phase 1) on random segments, options and targets (SectionB2; `set SRT_ONLY=B2`).
 // Built by build.cmd, not run there (needs the exe):  out\steerro-test.exe ["<path>\TS3W.exe"] [cases, default 400] [seed]
 #define TS3NATIVE_NO_DLLMAIN
 #include "ts3native.cpp"
@@ -2369,6 +2381,1018 @@ static long RkCoverRemove() {
     return n;
 }
 
+// PT. [PlaceTestRO] (placero.cpp, docs/670): the game's placement footprint check 0xB41120 (through 0x82F470, 0x632060,
+// QueryPolygon 0x667560, the polygon walk 0x6641B0 with the cell clip 0x66AB70 on the global scratch 0x1158580 and the
+// collector 0x669CD0) vs PtRun (our walk on the game's iterator helpers, the clip 0x67C070 on our scratch, SrVisit, the type
+// rule) on the random worlds: random polygons of 3-6 points over and around the lot, both lots in the table and the one
+// that is not, levels with and without a quadtree, the placed object's id drawn from the footprints' ids, both flag bytes;
+// a third of the footprints get a type from the whole range first (the worlds' own list has no 0x12 / 0x15). The same
+// answer (al) for every case the clone does not give up on, references balanced after the game's call.
+// It draws from its own generator and puts the world back, so the sections after it see g_seed's worlds as before.
+static long g_ptN, g_ptCmp, g_ptOk[2], g_ptObjs, g_ptGaveUp;
+static void SectionPT(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 6700417;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(callsTo(kPtSite.site, kPtSite.target) && callsTo(0x00B41190, 0x0082F470) && callsTo(0x0082F5D6, 0x00632060) &&
+           callsTo(0x006320AC, 0x00667560) && callsTo(0x00667596, 0x006641B0) && callsTo(0x0066422D, 0x0066AB70) &&
+           callsTo(0x006642AA, 0x0066AB70) && callsTo(0x0066AC48, 0x0067C6A0) && callsTo(0x0067C6B1, 0x0067C070));
+    static const u8 kScratch[] = {0xB9, 0x80, 0x85, 0x15, 0x01};  // 0x66AC37: mov ecx, 0x1158580 (the game's one clip scratch)
+    assert(Matches((const void*)(uintptr_t)0x0066AC37, kScratch, sizeof(kScratch)));
+    static const u8 kTypeIdx[0x17] = {0, 3, 0, 3, 3, 3, 3, 0, 3, 3, 0, 0, 3, 3, 3, 0, 1, 2, 3, 0, 3, 0, 2};
+    static const DWORD kTypeGo[4] = {0x00B41201, 0x00B4121C, 0x00B411F8, 0x00B41223};
+    assert(!memcmp((const void*)(uintptr_t)0x00B41290, kTypeIdx, sizeof(kTypeIdx)) && !memcmp(kTypeIdx, kPtTypeIdx, sizeof(kTypeIdx)) &&
+           !memcmp((const void*)(uintptr_t)0x00B41280, kTypeGo, sizeof(kTypeGo)));
+    typedef DWORD(__cdecl* GameFn)(const u8* rec, void* x);
+    alignas(16) static u8 rec[0x100], obj[0x20];
+    static float pts[12];
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) {
+            BuildWorld();
+            for (int k = 0; k < W.nfp; k++)
+                if (Rnd(3) == 0) W.fps[k][0x35] = (u8)Rnd(0x20);
+        }
+        memset(rec, 0, sizeof(rec));
+        const int np = 3 + (int)Rnd(4);
+        const bool small = Rnd(2) == 0;  // half of them a few cells wide, half across the lot
+        const float cx = Rf(-6, 70), cy = Rf(-6, 70), ext = small ? Rf(0.2f, 6) : Rf(6, 50);
+        for (int k = 0; k < np; k++) pts[k * 2] = cx + Rf(-ext, ext), pts[k * 2 + 1] = cy + Rf(-ext, ext);
+        *(float**)(rec + 0xA0) = pts, *(float**)(rec + 0xA4) = pts + np * 2, *(float**)(rec + 0xA8) = pts + 12;
+        *(u8**)rec = obj;
+        *(DWORD*)(obj + 8) = 0x1000 + Rnd(40), *(DWORD*)(obj + 0xC) = Rnd(3) ? 0 : 7;
+        *(u8**)(rec + 4) = W.lots[Rnd(8) == 0 ? 2 : Rnd(2)];
+        *(LONG*)(rec + 0x24) = (LONG)Rnd(3);
+        rec[0x30] = 1;
+        rec[0x84] = (u8)Rnd(2);
+        W.world[0x30] = (u8)Rnd(2);
+        g_ptN++;
+        // the clone first (it must not change anything the game's call reads)
+        DWORD b = 1;
+        int n = 0;
+        const int why = PtRun(rec, false, &b, &n);
+        const DWORD a = ((GameFn)(uintptr_t)0x00B41120)(rec, NULL);
+        RefsOk();
+        if (why) { g_ptGaveUp++; continue; }
+        g_ptCmp++, g_ptObjs += n, g_ptOk[(u8)a != 0]++;
+        if (((u8)a != 0) != (b != 0)) {
+            printf("PT case %d: game %u, clone %lu (%d footprints), lot %08lX level %ld, %d points, flags %u %u\n", i, (unsigned)(u8)a, b, n,
+                   *(DWORD*)(*(u8**)(rec + 4) + 0x48), *(LONG*)(rec + 0x24), np, (unsigned)rec[0x84], (unsigned)W.world[0x30]);
+            assert(false);
+        }
+    }
+    printf("PT: %ld placement checks, %ld compared equal (blocked %ld, free %ld; %ld footprints gathered), clone gave up %ld; call "
+           "edges 0xB462B7 .. 0x67C070, the global scratch load and the type tables match\n", g_ptN, g_ptCmp, g_ptOk[0], g_ptOk[1],
+           g_ptObjs, g_ptGaveUp);
+    assert(g_ptCmp > g_ptN / 2 && g_ptOk[0] > g_ptN / 50 && g_ptOk[1] > g_ptN / 50 && g_ptObjs > g_ptN);
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
+// EP. [EditPathRO] (epro.cpp, docs/670 §8): the game's RouteFollow_EditPath 0x85F5A0 in the form RouteFollow_EditPathForRoute
+// 0x85FF30 calls it (start = a path node, goal = its far end, no exclude vector, empty ignore lists; through 0x82F0B0,
+// 0x631E20, the segment walk 0x667400 / 0x663B20, the collector, 0x62EF30 and the footprints' level-0 segment test) vs EpRun
+// on the random worlds: segments inside one lot, across two lots, into the lot that is not in the table and off every lot
+// (so the goal-lot, start-lot-with-swap and no-lot branches all run), start == goal, levels that differ between the two
+// points, ids already in the caller's vector. The same appended ids in the same order for every case the clone does not
+// give up on, references balanced after the game's call. Own generator; the world is put back as in PT.
+static long g_epN, g_epCmp, g_epWithIds, g_epIds, g_epObjs, g_epNoLot, g_epSwap, g_epGaveUp[9];
+static void SectionEP(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 8600311;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(callsTo(kEpSite.site, kEpSite.target) && callsTo(0x0085FFA8, 0x0081D7A0) && callsTo(0x0085F6C6, 0x0082F0B0) &&
+           callsTo(0x0082F30A, 0x00631E20) && callsTo(0x00631E4B, 0x00628A90) && callsTo(0x00631E65, 0x0062FB10) &&
+           callsTo(0x00631E7A, 0x0062ED40) && callsTo(0x00631E8D, 0x0062ED40) && callsTo(0x00631EDA, 0x00667400) &&
+           callsTo(0x0066745D, 0x00663B20) && callsTo(0x0085F768, 0x0062EF30) && callsTo(0x0085F7A4, 0x0062EF30));
+    static const u8 kVisit1[] = {0xB8, 0xD0, 0x2D, 0x66, 0x00};  // 0x667418: mov eax, 0x662DD0 (the mode 1 visitor)
+    assert(Matches((const void*)(uintptr_t)0x00667418, kVisit1, sizeof(kVisit1)));
+    static const u8 kFarEnd[] = {0xF3, 0x0F, 0x10, 0x41, 0x20, 0x0F, 0x28, 0x49, 0x10};  // 0x81D7A6: movss xmm0,[ecx+0x20]; movaps xmm1,[ecx+0x10]
+    assert(Matches((const void*)(uintptr_t)0x0081D7A6, kFarEnd, sizeof(kFarEnd)));
+    alignas(16) static float start[4], goal[4];
+    static SrOut out;
+    static SrCtx ctx;
+    static DWORD before[512];
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) BuildWorld();
+        const int lot = (int)Rnd(2);
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(lot, Rf(-4, 68), Rf(-4, 68), &x, &z);
+        if (lot == 0 && x >= 0) x = -0.5f;  // keep it in lot 0's rectangle
+        if (lot == 1 && x < 0) x = 0.5f;
+        const DWORD where = Rnd(8);
+        if (where == 0) x += lot == 0 ? 50 : 150;  // lot 1 seen from lot 0's frame, or lot 2 (not in the table)
+        if (where == 1) x = Rf(210, 260);          // off every lot
+        start[0] = x, start[1] = Rf(0, 2), start[2] = z, start[3] = (float)(Rnd(5) == 0 ? 1 : 0);
+        const DWORD kind = Rnd(10);
+        const float len = kind == 0 ? 0.0f : kind < 6 ? Rf(0.1f, 4) : Rf(4, 60);
+        const float ang = Rf(-3.14159f, 3.14159f);
+        goal[0] = x + len * cosf(ang), goal[1] = start[1], goal[2] = z + len * sinf(ang);
+        goal[3] = Rnd(6) == 0 ? 1.0f - start[3] : start[3];  // the game gives the goal the start's level
+        if (kind == 9) goal[0] = Rf(210, 260);  // the goal off every lot: the start's lot with the two points swapped
+        const DWORD opt = Rnd(0x10000);
+        IdVec ids;
+        NewIds(&ids, (int)Rnd(4));
+        const int n0 = (int)(ids.e - ids.b) / 2;
+        memcpy(before, ids.b, (size_t)n0 * 8);
+        g_epN++;
+        // the clone first (it must not change anything the game's call reads)
+        bool noLot = false;
+        const int why = EpRun(W.wm, W.world, W.p, before, n0, start, goal, NULL, 0, NULL, 0, &out, &ctx, false, &noLot);
+        const bool swap = !FkLotLookup(NULL, NULL, goal[0], goal[2]) && FkLotLookup(NULL, NULL, start[0], start[2]);
+        ((EpFn)(uintptr_t)0x0085F5A0)(W.wm, W.world, W.p, (u8*)&ids, start, goal, opt, NULL, NULL, 0, NULL, 0);
+        RefsOk();
+        const int added = (int)(ids.e - ids.b) / 2 - n0;
+        if (why) {
+            g_epGaveUp[why < 9 ? why : 0]++;
+            _aligned_free(ids.b);
+            continue;
+        }
+        if (added != out.nIds || (added && memcmp(ids.b + n0 * 2, out.ids, (size_t)added * 8) != 0)) {
+            Dump("EP MISMATCH appended ids", ids.b + n0 * 2, added, &out.ids[0][0], out.nIds);
+            printf("EP case %d: start (%.3f, %.3f) level %g, goal (%.3f, %.3f) level %g, n0 %d, gathered %d, no lot %d, swap %d\n", i, start[0],
+                   start[2], start[3], goal[0], goal[2], goal[3], n0, ctx.n, (int)noLot, (int)swap);
+            assert(false);
+        }
+        g_epCmp++, g_epWithIds += added > 0, g_epIds += added, g_epObjs += ctx.n, g_epNoLot += noLot, g_epSwap += swap;
+        _aligned_free(ids.b);
+    }
+    // the stub: another thread or an exclude vector -> the game's call, nothing counted but the other form
+    {
+        EditPathRoCounters& k = ts3native_editpathro;
+        const LONG calls0 = k.epCalls, other0 = k.epOtherForm, mode0 = k.epMode;
+        const DWORD owner0 = g_async.owner;
+        IdVec a, b;
+        NewIds(&a, 0);
+        NewIds(&b, 0);
+        k.epMode = 1;
+        g_async.owner = GetCurrentThreadId() + 1;  // not the owner thread
+        EpStub(W.wm, W.world, W.p, (u8*)&a, start, goal, 0, NULL, NULL, 0, NULL, 0);
+        ((EpFn)(uintptr_t)0x0085F5A0)(W.wm, W.world, W.p, (u8*)&b, start, goal, 0, NULL, NULL, 0, NULL, 0);
+        assert(a.e - a.b == b.e - b.b && !memcmp(a.b, b.b, (size_t)(a.e - a.b) * 4) && k.epCalls == calls0);
+        g_async.owner = GetCurrentThreadId();
+        DWORD vec[4] = {0, 0, 0, kSrVecTag};
+        a.e = a.b;
+        EpStub(W.wm, W.world, W.p, (u8*)&a, start, goal, 0, vec, NULL, 0, NULL, 0);  // an exclude vector: not the route form
+        assert(k.epOtherForm == other0 + 1 && k.epCalls == calls0 && a.e - a.b == b.e - b.b);
+        g_async.owner = owner0;
+        k.epMode = mode0, k.epOtherForm = other0;
+        RefsOk();
+        _aligned_free(a.b);
+        _aligned_free(b.b);
+    }
+    printf("EP: %ld EditPath route-form calls, %ld compared equal (%ld appended ids, %ld ids; %ld footprints gathered; no lot %ld, start-lot "
+           "swap %ld), clone gave up: lot not in table %ld, deferred %ld, polygon cache %ld, shape %ld, other %ld; call edges 0x85FFC2 .. "
+           "0x663B20, the mode 1 visitor and the far-end helper match\n", g_epN, g_epCmp, g_epWithIds, g_epIds, g_epObjs, g_epNoLot, g_epSwap,
+           g_epGaveUp[SR_FB_LOTMISS], g_epGaveUp[SR_FB_DEFERRED], g_epGaveUp[SR_FB_CACHE], g_epGaveUp[SR_FB_SHAPE],
+           g_epGaveUp[0] + g_epGaveUp[SR_FB_STATE] + g_epGaveUp[SR_FB_TRY] + g_epGaveUp[SR_FB_DIRTY] + g_epGaveUp[SR_FB_TRIP]);
+    assert(g_epCmp > g_epN / 2 && g_epWithIds > g_epN / 20 && g_epObjs > g_epN / 4 && g_epNoLot > 0 && g_epSwap > 0);
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
+// --- B2. [Blocker2dRO] (rtoro.cpp, docs/670 §24): the game's RoutingWorld_BlockerCheck2d 0x82E340 as the IC 0x74E110 calls it
+// (out, the start's lot object, start {x, y, z, x} with the level at +0x24, goal {x, z}, an options object built by the
+// game's own constructor 0x81CB60, a target or none, an ignore id, the five byte arguments, the option word) against B2Run
+// on random worlds. The game's whole path runs: the option tests and copy, both lot transforms 0x62EF30, the segment gather
+// 0x631E20 (Contains, the cell graph, the walk with the record and its visitor), the per-footprint rules through the
+// footprints' own slots, the merge 0x829250. Compared: out[0], out[2], out[3]; out[1] stays as it was; references balanced.
+// Not covered here: the physics samples (no physics world in this process: 0x686A90 returns 0 for both sides), the Sim
+// list +0x2C0 (none), options 0x80000 / 0x100000 (they read the target's components), a lot the table does not hold
+// (the clone gives it back; the game's insert is not run on the fake table).
+static long g_b2N, g_b2Cmp, g_b2Code[9], g_b2Objs, g_b2WithTarget, g_b2Bytes, g_b2GaveUp[9], g_b2OptIds, g_b2TailN;
+static void SectionB2(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 7460261;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(callsTo(kB2Site.site, kB2Site.target) && callsTo(0x0074E247, 0x0081CB60) && callsTo(0x0074E14F, 0x00C68990) &&
+           callsTo(0x0082E506, 0x00814C30) && callsTo(0x0082E513, 0x0081D3C0) && callsTo(0x0082E52B, 0x0081C810) &&
+           callsTo(0x0082E691, 0x0062EF30) && callsTo(0x0082E6C2, 0x0062EF30) && callsTo(0x0082E6EB, 0x00631E20) &&
+           callsTo(0x0082E8E1, 0x0081C970) && callsTo(0x0082EB07, 0x00829250) && callsTo(0x0082EB5E, 0x00686A90) &&
+           callsTo(0x0062EF75, 0x0062EAB0) && callsTo(0x00631E4B, 0x00628A90) && callsTo(0x00631EDA, 0x00667400));
+    static const u8 kRet[] = {0xC2, 0x34, 0x00};  // 0x82ED9E: ret 0x34 (13 stack arguments)
+    static const u8 kIcRet[] = {0x8B, 0x44, 0x24, 0x40};  // 0x74E272: mov eax,[esp+0x40] (the IC returns out[0])
+    assert(Matches((const void*)(uintptr_t)0x0082ED9E, kRet, sizeof(kRet)) && Matches((const void*)(uintptr_t)0x0074E272, kIcRet, sizeof(kIcRet)));
+    assert(!*g_b2DebugDraw && !*(const DWORD*)(uintptr_t)0x011CF490);  // no debug draw, no physics world: both sides skip them
+    Blocker2dRoCounters& k = ts3native_blocker2dro;
+    const LONG tail0 = k.b2Tail, runs0 = k.b2TailRuns;
+    k.b2Tail = 1;
+    alignas(16) static float start[12];
+    static float goal[3];
+    static RtoIn in;
+    alignas(16) static u8 opts[0x80];
+    static u8 target[0x20];
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) {
+            BuildWorld();
+            // types the generator does not draw: portal (1; +0x20 stays 0, so no portal object), 0x10, 0x1D
+            for (int j = 0; j < W.nfp; j++) {
+                const DWORD t = Rnd(12);
+                if (t < 3) W.fps[j][0x35] = t == 0 ? 1 : t == 1 ? 0x10 : 0x1D;
+            }
+        }
+        const DWORD where = Rnd(16);
+        const int lot = where == 0 ? 2 : (int)Rnd(2);  // lot 2 is not in the table
+        const int frame = lot == 2 ? 0 : lot;
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(frame, Rf(-4, 68), Rf(-4, 68), &x, &z);
+        memset(start, 0, sizeof(start));
+        start[0] = x, start[1] = Rf(0, 2), start[2] = z, start[3] = x;
+        *(LONG*)&start[9] = Rnd(6) == 0 ? (LONG)Rnd(4) - 1 : 0;  // level: mostly 0, sometimes -1, 1 or 2 (no cell graph: nothing gathered)
+        const DWORD kind = Rnd(10);
+        const float len = kind == 0 ? 0.0f : kind < 6 ? Rf(0.1f, 4) : Rf(4, 60);
+        const float ang = Rf(-3.14159f, 3.14159f);
+        goal[0] = x + len * cosf(ang), goal[1] = z + len * sinf(ang), goal[2] = 0.0f;
+        // the options object, by the game's constructor: bits 1, 2, 4 and the word-b bits 4, 0x800 at random, others as noise
+        const DWORD a = (Rnd(2) ? Rnd(8) : 0) | (Rnd(4) ? 0 : Rnd(0x10000) << 3 & ~0x180000u), b = (Rnd(3) ? 0 : 0x800) | (Rnd(4) ? 0 : 4);
+        ((void(__fastcall*)(u8*, void*, DWORD, DWORD, DWORD, DWORD))(uintptr_t)0x0081CB60)(opts, NULL, a, b, Rnd(0x10000), Rnd(0x10000));
+        const u8* someFp = W.fps[Rnd(W.nfp)];
+        if (Rnd(4) == 0) {  // one or two ids in the options' own list (0x81C970): a footprint's id and a stranger
+            DWORD* ids = (DWORD*)_aligned_malloc(16, 16);
+            ids[0] = *(const DWORD*)(someFp + 0x14), ids[1] = *(const DWORD*)(someFp + 0x18), ids[2] = 0x4242, ids[3] = 0;
+            *(DWORD**)(opts + 0x38) = ids, *(DWORD**)(opts + 0x3C) = ids + 4, *(DWORD**)(opts + 0x40) = ids + 4;
+            g_b2OptIds++;
+        }
+        const bool withTarget = Rnd(3) != 0;
+        memset(target, 0, sizeof(target));
+        const u8* tFp = W.fps[Rnd(W.nfp)];
+        *(DWORD*)(target + 8) = Rnd(2) ? *(const DWORD*)(tFp + 0x14) : 0x7000 + Rnd(16);
+        *(DWORD*)(target + 0xC) = Rnd(2) ? *(const DWORD*)(tFp + 0x18) : 0;
+        DWORD ign[2] = {0, 0};
+        if (Rnd(3) == 0) { const u8* f = W.fps[Rnd(W.nfp)]; ign[0] = *(const DWORD*)(f + 0x14), ign[1] = *(const DWORD*)(f + 0x18); }
+        const bool bytes = Rnd(4) == 0;  // the IC passes five zeros; the other callers' forms now and then
+        const DWORD b24 = bytes && Rnd(2), b28 = bytes && Rnd(2), b2c = bytes && Rnd(2), b30 = bytes && Rnd(2), b34 = bytes && Rnd(4) == 0;
+        const DWORD opt = Rnd(3) == 0 ? Rnd(0x10000) : Rnd(2);
+        u8* tg = withTarget ? target : NULL;
+        g_b2N++;
+        // the clone first (it must not change anything the game's call reads)
+        DWORD c[4] = {};
+        const int why = B2Run(false, in, W.world, W.lots[lot], start, goal, opts, tg, ign, b24, b28, b2c, b30, b34, opt, c);
+        if (why == SR_FB_LOTMISS) {  // the game would insert the lot into the fake table: not run
+            assert(lot == 2);
+            g_b2GaveUp[SR_FB_LOTMISS]++;
+            ((void(__fastcall*)(u8*, void*))(uintptr_t)0x0081CBE0)(opts, NULL);
+            continue;
+        }
+        assert(lot != 2);
+        DWORD out[4] = {0xEEEEEEEE, 0xEEEEEEEE, 0xEEEEEEEE, 0xEEEEEEEE};
+        DWORD* r = ((B2Fn)(uintptr_t)0x0082E340)(W.world, NULL, out, W.lots[lot], start, goal, opts, tg, ign, b24, b28, b2c, b30, b34, opt);
+        RefsOk();
+        assert(r == out && out[1] == 0xEEEEEEEE);
+        ((void(__fastcall*)(u8*, void*))(uintptr_t)0x0081CBE0)(opts, NULL);
+        if (why) {
+            g_b2GaveUp[why > 0 && why < 9 ? why : 0]++;
+            continue;
+        }
+        if (out[0] != c[0] || out[2] != c[2] || out[3] != c[3]) {
+            printf("B2 MISMATCH case %d: game %lu %08lX:%08lX, clone %lu %08lX:%08lX; lot %d start (%.3f, %.3f) level %ld goal (%.3f, %.3f) "
+                   "opts %08lX / %08lX target %d %08lX:%08lX ign %08lX:%08lX bytes %lu%lu%lu%lu%lu opt %08lX, gathered %d\n", i, out[0], out[3],
+                   out[2], c[0], c[3], c[2], lot, start[0], start[2], *(LONG*)&start[9], goal[0], goal[1], a, b, (int)withTarget,
+                   *(DWORD*)(target + 0xC), *(DWORD*)(target + 8), ign[1], ign[0], b24, b28, b2c, b30, b34, opt, g_rtoG.n);
+            assert(false);
+        }
+        g_b2Cmp++, g_b2Objs += g_rtoG.n, g_b2WithTarget += withTarget, g_b2Bytes += bytes;
+        if (c[0] < 9) g_b2Code[c[0]]++;
+    }
+    g_b2TailN = k.b2TailRuns - runs0;
+    // the stub: another thread -> the game's call, nothing counted; switch on with no job and no shadow -> the game's call
+    {
+        const LONG calls0 = k.b2Calls, mode0 = k.b2Mode, shadow0 = k.b2Shadow;
+        const DWORD owner0 = g_async.owner;
+        ((void(__fastcall*)(u8*, void*, DWORD, DWORD, DWORD, DWORD))(uintptr_t)0x0081CB60)(opts, NULL, 0, 0, 0, 0);
+        DWORD ign[2] = {0, 0}, o1[4] = {9, 9, 9, 9}, o2[4] = {9, 9, 9, 9}, o3[4] = {9, 9, 9, 9};
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(0, 10, 10, &x, &z);
+        memset(start, 0, sizeof(start));
+        start[0] = start[3] = x, start[2] = z;
+        WorldPoint(0, 50, 50, &goal[0], &goal[1]);
+        k.b2Mode = 1, k.b2Shadow = 0;
+        g_async.owner = GetCurrentThreadId() + 1;
+        B2Stub(W.world, NULL, o1, W.lots[0], start, goal, opts, NULL, ign, 0, 0, 0, 0, 0, 0);
+        ((B2Fn)(uintptr_t)0x0082E340)(W.world, NULL, o2, W.lots[0], start, goal, opts, NULL, ign, 0, 0, 0, 0, 0, 0);
+        assert(!memcmp(o1, o2, sizeof(o1)) && k.b2Calls == calls0);
+        g_async.owner = GetCurrentThreadId();
+        const LONG state0 = g_async.state;
+        g_async.state = A_IDLE;
+        B2Stub(W.world, NULL, o3, W.lots[0], start, goal, opts, NULL, ign, 0, 0, 0, 0, 0, 0);
+        assert(!memcmp(o3, o2, sizeof(o3)) && k.b2Calls == calls0 + 1 && k.b2Taken == 0);
+        // shadow on the game's code: one run, no mismatch
+        k.b2Mode = 0, k.b2Shadow = 1;
+        const LONG sr0 = k.b2ShadowRuns, mm0 = k.b2ShadowMismatch;
+        B2Stub(W.world, NULL, o3, W.lots[0], start, goal, opts, NULL, ign, 0, 0, 0, 0, 0, 0);
+        assert(!memcmp(o3, o2, sizeof(o3)) && k.b2ShadowRuns == sr0 + 1 && k.b2ShadowMismatch == mm0 && !g_rgOffSimOpen);
+        g_async.state = state0, g_async.owner = owner0;
+        k.b2Mode = mode0, k.b2Shadow = shadow0, k.b2Calls = calls0, k.b2ShadowRuns = sr0;
+        ((void(__fastcall*)(u8*, void*))(uintptr_t)0x0081CBE0)(opts, NULL);
+        RefsOk();
+    }
+    k.b2Tail = tail0, k.b2TailRuns = runs0;
+    printf("B2: %ld BlockerCheck2d calls in the IC's form, %ld compared equal (code 0 %ld, 1 %ld, 3 %ld, 4 %ld, 6 %ld, 7 %ld; %ld footprints "
+           "gathered; with a target %ld, with byte arguments %ld, options with an id list %ld, tails reached %ld), clone gave up: lot not in "
+           "table %ld, deferred %ld, polygon cache %ld, shape %ld, other %ld; 15 call edges, ret 0x34 and the IC's result load match; the "
+           "stub passes through off-thread and with no job, shadow 1 run 0 mismatch\n", g_b2N, g_b2Cmp, g_b2Code[0], g_b2Code[1], g_b2Code[3],
+           g_b2Code[4], g_b2Code[6], g_b2Code[7], g_b2Objs, g_b2WithTarget, g_b2Bytes, g_b2OptIds, g_b2TailN, g_b2GaveUp[SR_FB_LOTMISS],
+           g_b2GaveUp[SR_FB_DEFERRED], g_b2GaveUp[SR_FB_CACHE], g_b2GaveUp[SR_FB_SHAPE],
+           g_b2GaveUp[0] + g_b2GaveUp[SR_FB_STATE] + g_b2GaveUp[SR_FB_TRY] + g_b2GaveUp[SR_FB_DIRTY] + g_b2GaveUp[SR_FB_TRIP]);
+    assert(g_b2Cmp > g_b2N / 2 && g_b2Objs > g_b2N / 4 && g_b2Code[0] > 0 && g_b2Code[4] > 0 && g_b2Code[6] > 0 && g_b2Code[7] > 0 &&
+           g_b2Code[3] > 0 && g_b2Code[1] > 0);
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
+// --- GVH. [GoalValidRO] Hits (gvhits.cpp, docs/670 §11): the game's own GoalPoint_Validate code from 0x75A5B7 (the query's
+// record, the call 0x75A647, the hit loop 0x75A672..0x75A92E, both ways out) on a frame built here, run twice per case on
+// the same state: with the call site as the game has it (0x82EDB0, its vector, the game's loop) and with the site on
+// GvThunk while a "job" runs (GvStub: the loop on the clone, the writes replayed, the return address moved for LEAVE).
+// Compared: how the validator left (LEAVE = its return 1; the loop's end = a landing pad on 0x75A996), the blocker id and the
+// cost. Then HitsShadow on the same cases: the observers on 0x75A950 / 0x75AACB against the game's loop, mismatch 0.
+static u8 *g_gvhaOwner, *g_gvhaOpts, *g_gvhaSelf, *g_gvhaOut, *g_gvhaWm, *g_gvhaSvc, *g_gvhaWorld;
+static const float* g_gvhaPt;
+static float* g_gvhaCost;
+static DWORD g_gvhaOpt, g_gvhaF13, g_gvhaF16, g_gvhaF17;
+static __declspec(naked) void GvhLand() {  // 0x75A996: the validator goes on after the loop; here it ends, eax 2
+    __asm {
+        mov eax, 2
+        pop edi
+        pop esi
+        pop ebx
+        mov esp, ebp
+        pop ebp
+        ret 0x20
+    }
+}
+static __declspec(naked) void GvhFrameIn() {  // GoalPoint_Validate's prologue, its frame's locals, then its own code
+    __asm {
+        push ebp
+        mov ebp, esp
+        and esp, 0xFFFFFFF0
+        sub esp, 0xF4
+        push ebx
+        push esi
+        push edi
+        mov eax, g_gvhaOwner
+        mov dword ptr [esp + 0x80], eax
+        mov eax, g_gvhaWm
+        mov dword ptr [esp + 0x58], eax
+        mov eax, g_gvhaSvc
+        mov dword ptr [esp + 0x9C], eax
+        mov eax, g_gvhaWorld
+        mov dword ptr [esp + 0x98], eax
+        mov eax, g_gvhaF13
+        mov byte ptr [esp + 0x13], al
+        mov eax, g_gvhaF16
+        mov byte ptr [esp + 0x16], al
+        mov eax, g_gvhaF17
+        mov byte ptr [esp + 0x17], al
+        mov esi, dword ptr [ebp + 0x14]
+        xor ebx, ebx
+        mov eax, 0x0075A5B7
+        jmp eax
+    }
+}
+static __declspec(naked) DWORD GvhEnter() {  // the validator's eight stack arguments (ret 0x20), three of them unused by the loop
+    __asm {
+        push g_gvhaCost
+        push g_gvhaOut
+        push 0
+        push g_gvhaSelf
+        push g_gvhaOpts
+        push g_gvhaPt
+        push 0
+        push g_gvhaOpt
+        call GvhFrameIn
+        ret
+    }
+}
+static long g_gvhN, g_gvhCmp, g_gvhEnd, g_gvhLeave, g_gvhBlk, g_gvhCostN, g_gvhBack, g_gvhEmpty, g_gvhShadowN;
+static void SectionGVH(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 7591133;
+    Ts3nCounters& k = ts3native_counters;
+    GoalHitsRoCounters& h = ts3native_goalhitsro;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(GvhCodeOk());  // the loop, both ways out and the switch tables are the bytes read (FNV), sub esp, 0xF4
+    assert(callsTo(kGvSite.site, kGvSite.target) && callsTo(kGvhObservers[0].site, kGvhObservers[0].target) &&
+           callsTo(kGvhObservers[1].site, kGvhObservers[1].target) && callsTo(0x0075A6CB, 0x0081C970) && callsTo(0x0075A710, 0x00939560) &&
+           callsTo(0x0075A788, 0x00C68990) && callsTo(0x0075A7A0, 0x00AB88A0) && callsTo(0x0075A752, 0x00620CA0) &&
+           callsTo(0x0075AABF, 0x0055CFA0) && callsTo(0x0075AAD7, 0x00643420));
+    static const u8 kLeaveAt[] = {0x8D, 0x8C, 0x24, 0x84, 0x00, 0x00, 0x00, 0xE8};  // 0x75AAC4: lea ecx, [esp+0x84]; call
+    static const u8 kSwitch[0x17] = {0, 1, 3, 3, 3, 3, 3, 3, 2, 3, 3, 1, 1, 3, 3, 3, 1, 3, 3, 2, 3, 3, 1};  // type - 1 -> case
+    static const DWORD kCases[4] = {0x0075A6FD, 0x0075A8C0, 0x0075A87E, 0x0075A901};
+    assert(Matches((const void*)(uintptr_t)GVH_LEAVE_AT, kLeaveAt, sizeof(kLeaveAt)) && !memcmp((const void*)(uintptr_t)0x0075AF5C, kSwitch, sizeof(kSwitch)) &&
+           !memcmp((const void*)(uintptr_t)0x0075AF4C, kCases, sizeof(kCases)));
+    // slots +0x5C / +0xD4 of every class the worlds use, and the child class
+    for (DWORD vt : kClasses) {
+        const DWORD* v = (const DWORD*)(uintptr_t)vt;
+        assert(v[0x5C / 4] == GVH_SLOT_FALSE && (v[0xC0 / 4] == GVH_SLOT_FALSE || v[0xD4 / 4] == OR_SLOT_PT));
+    }
+    assert(((const DWORD*)(uintptr_t)0x00FEBF90)[0x5C / 4] == GVH_SLOT_TRUE && ((const DWORD*)(uintptr_t)0x00FEBF90)[0xC0 / 4] == GVH_SLOT_FALSE);
+    u8 land[5], site[5], obs[2][5];
+    memcpy(land, (const void*)(uintptr_t)0x0075A996, 5);
+    memcpy(site, (const void*)(uintptr_t)kGvSite.site, 5);
+    memcpy(obs[0], (const void*)(uintptr_t)kGvhObservers[0].site, 5);
+    memcpy(obs[1], (const void*)(uintptr_t)kGvhObservers[1].site, 5);
+    Jmp(0x0075A996, (const void*)GvhLand);
+    float* const radius = (float*)(uintptr_t)0x0106E33C;  // the query's radius, 0.1: two worlds in three get a wider one (more footprints per loop)
+    const float radius0 = *radius;
+    assert(radius0 > 0.09f && radius0 < 0.11f);
+    const LONG mode0 = k.gvMode, shadow0 = k.gvShadow, owner0 = (LONG)g_async.owner, rgOwner0 = k.rgOwnerTid;
+    g_async.owner = GetCurrentThreadId();
+    k.rgOwnerTid = 0;
+    alignas(16) static float pt[16];
+    static u8 sims[80][0x20];  // object service objects: vtable (never called: the count stays above 0), count, id, next
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) {
+            BuildWorld();
+            *radius = Rnd(3) == 0 ? radius0 : Rf(0.5f, 6);
+            for (int f = 0; f < W.nfp; f++)  // the worlds have no Sim footprints (type 1): a third of them here
+                if (Rnd(3) == 0) W.fps[f][0x35] = 1;
+            for (int l = 0; l < 3; l++) {  // the lot objects' own transform (0xAB88A0: position +0x190, angle +0x1A0)
+                float x = 0.0f, z = 0.0f;
+                WorldPoint(l < 2 ? l : 0, 0, 0, &x, &z);
+                float* t = (float*)(W.lots[l] + 0x190);
+                t[0] = x + Rf(-6, 6), t[1] = 0, t[2] = z + Rf(-6, 6), t[3] = 0, t[4] = Rnd(3) ? 0.0f : Rf(-3.1f, 3.1f);
+            }
+            g_gvhaSvc = (u8*)A(0x1040);  // the table at +0x10: 0x409 buckets by id low word % 0x409, chain +0x10, end value +0x1034
+            memset(sims, 0, sizeof(sims));
+            for (int o = 0; o < 80; o++) {  // ids 0x1000..0x1027 x {0, 7}: about half of them exist
+                if (Rnd(2)) continue;
+                const DWORD lo = 0x1000 + (DWORD)(o % 40), hi = o < 40 ? 0 : 7;
+                u8* ob = sims[o];
+                *(LONG*)(ob + 4) = 50, *(DWORD*)(ob + 8) = lo, *(DWORD*)(ob + 0xC) = hi;
+                DWORD* b = (DWORD*)(g_gvhaSvc + 0x10 + (lo % 0x409) * 4);
+                *(DWORD*)(ob + 0x10) = *b;
+                *b = (DWORD)(uintptr_t)ob;
+            }
+        }
+        const int lot = (int)Rnd(2);
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(lot, Rf(-2, 66), Rf(-2, 66), &x, &z);
+        if (lot == 0 && x >= 0) x = -0.5f;  // keep it in the lot's rectangle (the lot lookup fake)
+        if (lot == 1 && x < 0) x = 0.5f;
+        if (Rnd(12) == 0) x = Rf(210, 260);  // off every lot: al 0, no loop
+        memset(pt, 0, sizeof(pt));
+        pt[0] = x, pt[1] = Rf(0, 2), pt[2] = z;
+        *(LONG*)&pt[9] = (LONG)(Rnd(5) == 0);
+        auto anId = [](DWORD* lo, DWORD* hi) { *lo = 0x1000 + Rnd(40), *hi = Rnd(3) ? 0 : 7; };
+        g_gvhaOwner = (u8*)A(0x80), g_gvhaOpts = (u8*)A(0x60), g_gvhaSelf = (u8*)A(0x40), g_gvhaOut = (u8*)A(0x40);
+        anId((DWORD*)(g_gvhaOwner + 0x50), (DWORD*)(g_gvhaOwner + 0x54));
+        anId((DWORD*)(g_gvhaSelf + 0x20), (DWORD*)(g_gvhaSelf + 0x24));
+        for (int w = 0; w < 4; w++) *(DWORD*)(g_gvhaOpts + 0x28 + w * 4) = Rnd(4) ? 0 : (Rnd(0x10000) << 16 | Rnd(0x10000));
+        const int nIgn = (int)Rnd(4);
+        DWORD* ign = (DWORD*)A(8 * 4);
+        for (int j = 0; j < nIgn; j++) anId(&ign[j * 2], &ign[j * 2 + 1]);
+        *(DWORD**)(g_gvhaOpts + 0x38) = ign, *(DWORD**)(g_gvhaOpts + 0x3C) = ign + nIgn * 2;
+        DWORD blk0[2] = {0, 0};
+        if (Rnd(4) == 0) anId(&blk0[0], &blk0[1]);
+        const float cost0 = Rf(0, 5);
+        float cost = cost0;
+        g_gvhaPt = pt, g_gvhaCost = &cost, g_gvhaWm = W.wm, g_gvhaWorld = W.world;
+        g_gvhaOpt = Rnd(0x10000), g_gvhaF13 = Rnd(2), g_gvhaF16 = Rnd(2), g_gvhaF17 = Rnd(4) == 0;
+        struct Res { DWORD ret, blk[2]; float cost; };
+        auto run = [&]() {
+            *(DWORD*)(g_gvhaOut + 0x20) = blk0[0], *(DWORD*)(g_gvhaOut + 0x24) = blk0[1];
+            cost = cost0;
+            Res r;
+            r.ret = GvhEnter() & 0xFF;
+            r.blk[0] = *(DWORD*)(g_gvhaOut + 0x20), r.blk[1] = *(DWORD*)(g_gvhaOut + 0x24), r.cost = cost;
+            return r;
+        };
+        g_gvhN++;
+        // the clone first (it must not change anything the game's run reads): the site on GvThunk, a job running
+        const LONG rel = (LONG)((uintptr_t)(void*)GvThunk - (kGvSite.site + 5));
+        memcpy((u8*)(uintptr_t)kGvSite.site + 1, &rel, 4);
+        k.gvMode = 1, k.gvShadow = 0, h.gvhMode = 1, h.gvhShadow = 0, h.gvhReady = 1;
+        const LONG taken0 = h.gvhTaken, leave0 = h.gvhLeave, blkN0 = h.gvhBlocker, costN0 = h.gvhCost, gvTaken0 = k.gvTaken;
+        Job(true);
+        const Res c = run();
+        Job(false);
+        RefsOk();
+        h.gvhReady = 0, k.gvMode = 0;
+        // the game: its own call, vector and loop
+        memcpy((u8*)(uintptr_t)kGvSite.site, site, 5);
+        const Res g = run();
+        RefsOk();
+        if (c.ret != g.ret || c.blk[0] != g.blk[0] || c.blk[1] != g.blk[1] || memcmp(&c.cost, &g.cost, 4) != 0) {
+            printf("GVH MISMATCH case %d at (%.3f, %.3f) level %ld: game ret %lu blocker %08lX:%08lX cost %g, clone ret %lu blocker %08lX:%08lX cost %g "
+                   "(answered %ld, flags %lu %lu %lu, blocker before %08lX:%08lX)\n", i, x, z, *(LONG*)&pt[9], g.ret, g.blk[1], g.blk[0], g.cost,
+                   c.ret, c.blk[1], c.blk[0], c.cost, h.gvhTaken - taken0, g_gvhaF13, g_gvhaF16, g_gvhaF17, blk0[1], blk0[0]);
+            assert(false);
+        }
+        assert(g.ret == 1 || g.ret == 2);
+        if (h.gvhTaken != taken0) {
+            g_gvhCmp++, g_gvhLeave += h.gvhLeave - leave0, g_gvhEnd += g.ret == 2, g_gvhBlk += h.gvhBlocker - blkN0, g_gvhCostN += h.gvhCost - costN0;
+            assert((g.ret == 1) == (h.gvhLeave != leave0));
+        } else if (k.gvTaken != gvTaken0) g_gvhEmpty++;  // no lot or nothing near the point: [GoalValidRO]'s own answer
+        else g_gvhBack++;
+        // HitsShadow: no job, the game's call and loop; the prediction is checked by the observers
+        if (i % 4 == 0) {
+            memcpy((u8*)(uintptr_t)kGvSite.site + 1, &rel, 4);
+            LONG r0 = (LONG)((uintptr_t)(void*)GvhEndStub - (kGvhObservers[0].site + 5)), r1 = (LONG)((uintptr_t)(void*)GvhLeaveStub - (kGvhObservers[1].site + 5));
+            memcpy((u8*)(uintptr_t)kGvhObservers[0].site + 1, &r0, 4);
+            memcpy((u8*)(uintptr_t)kGvhObservers[1].site + 1, &r1, 4);
+            h.gvhReady = 2, h.gvhShadow = 1, h.gvhMode = 0;
+            const LONG runs0 = h.gvhShadowRuns;
+            const Res sres = run();
+            assert(sres.ret == g.ret && sres.blk[0] == g.blk[0] && sres.blk[1] == g.blk[1] && !memcmp(&sres.cost, &g.cost, 4));
+            assert(h.gvhShadowMismatch == 0 && h.gvhShadowLost == 0 && !g_gvhPend.valid);
+            g_gvhShadowN += h.gvhShadowRuns - runs0;
+            h.gvhReady = 0, h.gvhShadow = 0;
+            memcpy((u8*)(uintptr_t)kGvSite.site, site, 5);
+            memcpy((u8*)(uintptr_t)kGvhObservers[0].site, obs[0], 5);
+            memcpy((u8*)(uintptr_t)kGvhObservers[1].site, obs[1], 5);
+            RefsOk();
+        }
+        for (int o = 0; o < 80; o++) assert(!*(DWORD*)(sims[o] + 8) || *(LONG*)(sims[o] + 4) == 50);  // the game's smart pointers balanced
+    }
+    memcpy((void*)(uintptr_t)0x0075A996, land, 5);
+    *radius = radius0;
+    printf("GVH: %ld validator runs from 0x75A5B7 (the game's record, query and hit loop vs GvThunk / GvStub with a job): %ld answered by the "
+           "loop clone and equal (loop ended %ld, point rejected %ld; blocker id written %ld, cost written %ld; %ld footprints, max %ld), "
+           "%ld answered empty / no lot, %ld given back (frame %ld, alias %ld, slot %ld, count %ld, cache %ld, full %ld, lot index %ld, other "
+           "%ld; the rest [GoalValidRO]'s own doubts), 0 differ; shadow observers: %ld predictions checked, mismatch %ld\n",
+           g_gvhN, g_gvhCmp, g_gvhEnd, g_gvhLeave, g_gvhBlk, g_gvhCostN, h.gvhFootprints, h.gvhMaxN, g_gvhEmpty, g_gvhBack, h.gvhFb[GVH_FB_FRAME],
+           h.gvhFb[GVH_FB_ALIAS], h.gvhFb[GVH_FB_SLOT], h.gvhFb[GVH_FB_REF], h.gvhFb[GVH_FB_CACHE], h.gvhFb[GVH_FB_OVER], h.gvhFb[GVH_FB_LOTIDX],
+           h.gvhFb[GVH_FB_OTHER], g_gvhShadowN, h.gvhShadowMismatch);
+    assert(g_gvhCmp > g_gvhN / 5 && g_gvhEnd > g_gvhN / 50 && g_gvhLeave > g_gvhN / 50 && g_gvhBlk > g_gvhN / 100 && g_gvhCostN > g_gvhN / 100 &&
+           g_gvhShadowN > g_gvhN / 20 && h.gvhFb[GVH_FB_FRAME] == 0 && h.gvhFb[GVH_FB_ALIAS] == 0);
+    k.gvMode = mode0, k.gvShadow = shadow0, g_async.owner = (DWORD)owner0, k.rgOwnerTid = rgOwner0;
+    memset(&h, 0, sizeof(h));
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
+// --- OA. [ObstructAtRO] (gvro.cpp, docs/670 §21-§22): the game's own RouteObstructionAtPoint 0x655880 (its lot lookup, level,
+// height, lot transform 0x62EF30, obstacle query 0x82EDB0, ignore list 0x8294E0 / 0x81C970 and loop) against OaRun on random
+// worlds, points, contexts (none; own id; ignore list or none) and both class flags; then the detour on the mapped
+// 0x655880: job -> clone, no job -> the game's code, shadow, an ignore list inside the job's route, QL busy. Fakes: the
+// level 0xADD860, 0xB015B0 and the height 0x74A8F0 (they read lot objects and terrain), which also record what they were
+// handed. The no-lot path (0x62D0D0) is not run: the clone gives those calls back before any routing read.
+struct OAF {
+    struct Seen { const u8* lot; DWORD pt[4]; int levels, heights; float hx, hz; LONG hLevel; DWORD hOne, hFlag; };
+    static Seen seen;
+    static void __cdecl Level(const u8* lot, const float* pt, float* io) {
+        seen.lot = lot;
+        memcpy(seen.pt, pt, 16);
+        seen.levels++;
+        I::Level(lot, pt, io);
+    }
+    static u8 __cdecl Inside(const u8*, const float* io) { return (u8)(*(const LONG*)&io[2] & 1); }
+    // a height far from the caller's y: the query must not read the point's y
+    static float __cdecl Height(float x, float z, LONG level, DWORD one, DWORD flag) {
+        seen.heights++, seen.hx = x, seen.hz = z, seen.hLevel = level, seen.hOne = one, seen.hFlag = flag & 0xFF;
+        return 1000.0f + x - z;
+    }
+};
+OAF::Seen OAF::seen;
+static void SectionOA(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 6558801;
+    ObstructAtCounters& k = ts3native_obstructat;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(Matches((const void*)(uintptr_t)OA_FN, kOrPro, sizeof(kOrPro)));
+    // the function's call edges the clone mirrors, and its two callers
+    assert(callsTo(0x0065591C, 0x008292D0) && callsTo(0x0065592F, 0x008294E0) && callsTo(0x0065598B, 0x00C68990) &&
+           callsTo(0x006559C0, 0x00ADD860) && callsTo(0x006559FF, 0x00B015B0) && callsTo(0x00655A4D, 0x0074A8F0) &&
+           callsTo(0x00655AB9, 0x0062EF30) && callsTo(0x00655AF6, 0x0082EDB0) && callsTo(0x00655BE5, 0x0081C970) &&
+           callsTo(0x00655CF2, 0x0062D0D0) && callsTo(0x007519D9, OA_FN) && callsTo(0x006437AF, OA_FN));
+    static const u8 kIgnOf[] = {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0, 0x74, 0x06, 0x8B, 0x40, 0x28, 0xC2, 0x04, 0x00};  // 0x8294E0: ctx ? ctx+0x28 : 0
+    static const u8 kIgnHas[] = {0x8B, 0x51, 0x3C, 0x8B, 0x41, 0x38, 0x3B, 0xC2};  // 0x81C970: ids in [list+0x38, list+0x3C)
+    static const u8 kOwn[] = {0x8B, 0x4E, 0x0C, 0x8B, 0x16, 0x89, 0x44, 0x24, 0x4C, 0x8B, 0x46, 0x08};  // 0x655934: ctx +0xC, +0, (list), +8
+    static const u8 kFlag[] = {0x80, 0x7D, 0x18, 0x00};  // 0x655B2E: cmp byte [ebp+0x18], 0 (the class flag is a byte)
+    static const u8 kRet[] = {0xC2, 0x14, 0x00};         // ret 0x14
+    assert(Matches((const void*)(uintptr_t)0x008294E0, kIgnOf, sizeof(kIgnOf)) && Matches((const void*)(uintptr_t)0x0081C970, kIgnHas, sizeof(kIgnHas)) &&
+           Matches((const void*)(uintptr_t)0x00655934, kOwn, sizeof(kOwn)) && Matches((const void*)(uintptr_t)0x00655B2E, kFlag, sizeof(kFlag)) &&
+           Matches((const void*)(uintptr_t)0x00655E93, kRet, sizeof(kRet)));
+    static const DWORD kFakeAt[4] = {0x00ADD860, 0x00B015B0, 0x0074A8F0, 0x0074B2C0};
+    u8 savedFn[4][5], savedPro[sizeof(kOrPro)];
+    for (int i = 0; i < 4; i++) memcpy(savedFn[i], (const void*)(uintptr_t)kFakeAt[i], 5);
+    memcpy(savedPro, (const void*)(uintptr_t)OA_FN, sizeof(savedPro));
+    Jmp(0x00ADD860, (void*)OAF::Level);
+    Jmp(0x00B015B0, (void*)OAF::Inside);
+    Jmp(0x0074A8F0, (void*)OAF::Height);
+    Jmp(0x0074B2C0, (void*)I::Route);
+    static u8 rmObj[0x10];
+    u8* const rm0 = *(u8**)(uintptr_t)0x011D40C4;
+    u8* const route0 = I::route;
+    *(u8**)(uintptr_t)0x011D40C4 = rmObj;
+    I::route = (u8*)A(0x200);  // the job's route: an ignore list inside it is the job's own
+    float* const radius = (float*)(uintptr_t)0x0106E8A8;  // the query's radius, 0.25: two worlds in three get a wider one
+    const float radius0 = *radius;
+    assert(radius0 > 0.24f && radius0 < 0.26f && g_orRadius == radius);
+    const DWORD owner0 = g_async.owner, handle0 = g_async.handle;
+    const LONG rgOwner0 = ts3native_counters.rgOwnerTid;
+    const ObstructAtCounters k0 = k;
+    g_async.owner = GetCurrentThreadId();
+    g_async.handle = 0x25000001;
+    ts3native_counters.rgOwnerTid = 0;
+    static u8 self[0x10], ctxBuf[0x30], ignObj[0x40];
+    static DWORD ign[8];
+    struct Call { const u8* ctx; float x, y, z; DWORD flag; };
+    auto newCase = [&](int i, Call* c) {
+        if (i % 8 == 0) {
+            BuildWorld();
+            *radius = Rnd(3) == 0 ? radius0 : Rf(0.5f, 6);
+            for (int f = 0; f < W.nfp; f++)  // Sims and type 1 among the classes with the +0x35 type
+                if (Rnd(2)) W.fps[f][0x35] = (u8)(Rnd(3) ? 0x14 : 1);
+            for (int l = 0; l < 3; l++)  // the height's flag reads the lot's +0x408 / +0x40C
+                if (Rnd(3) == 0) *(DWORD*)(W.lots[l] + 0x408) = 1, *(DWORD*)(W.lots[l] + 0x40C) = Rnd(2) ? 0x50 : 0x51;
+            *(u8**)(self + 8) = W.p;
+            *(u8**)(self + 0xC) = W.wm;
+        }
+        const int lot = (int)Rnd(2);
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(lot, Rf(-4, 68), Rf(-4, 68), &x, &z);
+        if (lot == 0 && x >= 0) x = -0.5f;  // keep it in the lot's rectangle (the lot lookup fake)
+        if (lot == 1 && x < 0) x = 0.5f;
+        const DWORD where = Rnd(16);
+        if (where < 2) x += lot == 0 ? 50 : 150;  // another lot's frame, or lot 2 (not in the table: the game inserts it)
+        if (where == 2) x = Rf(210, 260);         // off every lot
+        c->x = x, c->y = Rf(0, 2), c->z = z;
+        c->flag = Rnd(4) == 0 ? 0xABCDEF01 : 0x13579B00;  // the low byte only
+        c->ctx = Rnd(6) ? ctxBuf : NULL;
+        memset(ctxBuf, 0, sizeof(ctxBuf));
+        *(DWORD*)ctxBuf = Rnd(0x10000);
+        const u8* own = W.fps[Rnd(W.nfp)];  // the caller's own Sim: one of the ids in play, sometimes
+        *(DWORD*)(ctxBuf + 8) = Rnd(3) ? *(const DWORD*)(own + 0x14) : 0x7777;
+        *(DWORD*)(ctxBuf + 0xC) = Rnd(3) ? *(const DWORD*)(own + 0x18) : 0;
+        ctxBuf[0x24] = 1;
+        const int ni = (int)Rnd(4);
+        for (int j = 0; j < ni; j++) { ign[j * 2] = 0x1000 + Rnd(40); ign[j * 2 + 1] = Rnd(3) ? 0 : 7; }
+        u8* list = Rnd(5) == 0 ? NULL : Rnd(4) == 0 ? I::route + 0x158 : ignObj;
+        if (list) *(DWORD**)(list + 0x38) = ign, *(DWORD**)(list + 0x3C) = ign + ni * 2;
+        *(u8**)(ctxBuf + 0x28) = list;
+    };
+    auto game = [&](const Call& c) { return ((OaFn)(uintptr_t)OA_FN)(self, NULL, c.ctx, c.x, c.y, c.z, c.flag); };
+    auto jobs = [&](const Call& c) { return c.ctx && *(u8* const*)(c.ctx + 0x28) == I::route + 0x158; };
+    long n = 0, cmp = 0, ids = 0, flagEq = 0, noLot = 0, flagHits = 0, inserts = 0, fb[16] = {};
+    for (int i = 0; i < cases; i++) {
+        Call c;
+        newCase(i, &c);
+        n++;
+        u64 mine = 0x5555;
+        const int l0 = OAF::seen.levels, h0 = OAF::seen.heights;
+        const int why = OaRun(self, c.ctx, c.x, c.y, c.z, (u8)c.flag != 0, false, &mine);  // the clone first: it must not change what the game reads
+        RefsOk();
+        if (why == OA_WHY_NOLOT) {  // before any routing read; the game's other path is not run here
+            assert(!FkLotLookup(NULL, NULL, c.x, c.z) && OAF::seen.levels == l0 && mine == 0);
+            noLot++;
+            continue;
+        }
+        const OAF::Seen cl = OAF::seen;
+        assert(cl.levels == l0 + 1 && cl.heights == h0);
+        if (why == OA_WHY_HITS) {  // class flag with footprints: the game's loop reads slot +8 with ctx, not cloned
+            const u64 g = game(c);
+            RefsOk();
+            assert((u8)c.flag && mine == 0 && (g == 0 || g == 1));
+            flagHits++;
+            continue;
+        }
+        const u8* const lotAt = FkLotLookup(NULL, NULL, c.x, c.z);
+        const u64 g = game(c);
+        RefsOk();  // the game's references are balanced
+        // the game handed its callees what the clone handed them: the lot, the point {x, y, z, x}; one height call with (x, z, level, 1, flag)
+        assert(OAF::seen.levels == l0 + 2 && OAF::seen.heights == h0 + 1 && OAF::seen.lot == cl.lot && cl.lot == lotAt &&
+               !memcmp(OAF::seen.pt, cl.pt, 16) && !memcmp(&OAF::seen.hx, &c.x, 4) && !memcmp(&OAF::seen.hz, &c.z, 4) && OAF::seen.hOne == 1);
+        assert(!memcmp(&cl.pt[0], &c.x, 4) && !memcmp(&cl.pt[1], &c.y, 4) && !memcmp(&cl.pt[2], &c.z, 4) && cl.pt[3] == cl.pt[0]);
+        if (why) {
+            fb[why < 16 ? why : 0]++;
+            inserts += why == SR_FB_LOTMISS;
+            assert(mine == 0);
+            continue;
+        }
+        if (g != mine) {
+            printf("OA MISMATCH case %d at (%.3f, %.3f) flag %lu ctx %d: game %08lX:%08lX, clone %08lX:%08lX\n", i, c.x, c.z, c.flag & 0xFF,
+                   (int)(c.ctx != NULL), (DWORD)(g >> 32), (DWORD)g, (DWORD)(mine >> 32), (DWORD)mine);
+            assert(false);
+        }
+        cmp++, ids += g != 0, flagEq += (u8)c.flag != 0;
+    }
+    const long back = n - cmp;
+    long other = back - noLot - flagHits;
+    other -= fb[SR_FB_LOTMISS] + fb[SR_FB_DEFERRED] + fb[SR_FB_CACHE] + fb[SR_FB_SHAPE];
+    printf("OA: %ld calls of the game's 0x655880 vs OaRun: %ld compared equal (%ld name an object, %ld with the class flag and no "
+           "footprint), 0 differ, %ld given back: no lot %ld, class flag with footprints %ld, lot not in the table %ld, deferred %ld, "
+           "polygon cache %ld, shape %ld, other %ld; references balanced; the point and the callees' arguments match\n", n, cmp, ids,
+           flagEq, back, noLot, flagHits, fb[SR_FB_LOTMISS], fb[SR_FB_DEFERRED], fb[SR_FB_CACHE], fb[SR_FB_SHAPE], other);
+    assert(cmp > n / 2 && ids > n / 20 && flagEq > 0 && noLot > 0 && flagHits > 0 && inserts > 0 && other == 0);
+    // the detour on the mapped 0x655880: job -> clone, no job -> the game's code (the trampoline)
+    const int hn = cases < 4000 ? cases : 4000;
+    memset(&k, 0, sizeof(k));
+    g_oaOrig = (OaFn)InstallDetour("RouteObstructionAtPoint", OA_FN, kOrPro, sizeof(kOrPro), (void*)OaHook, &g_oaOrig);
+    assert(g_oaOrig);
+    k.oaMode = 1;
+    long taken = 0, jobRoute = 0;
+    for (int i = 0; i < hn; i++) {
+        Call c;
+        newCase(i, &c);
+        if (!FkLotLookup(NULL, NULL, c.x, c.z)) continue;  // the game's other path
+        const LONG t0 = k.oaTaken, r0 = k.oaFb[OA_FB_ROUTE], calls0 = k.oaCalls;
+        Job(true);
+        const u64 a = game(c);
+        Job(false);
+        assert(k.oaCalls == calls0 + 1 && (!jobs(c) || (k.oaTaken == t0 && k.oaFb[OA_FB_ROUTE] == r0 + 1)));
+        taken += k.oaTaken - t0, jobRoute += k.oaFb[OA_FB_ROUTE] - r0;
+        const u64 b = game(c);  // no job: the trampoline (a lot the first call inserted is in the table for both)
+        assert(a == b && k.oaTaken - t0 <= 1);
+        RefsOk();
+    }
+    assert(taken > hn / 3 && jobRoute > 0 && k.oaHits > 0 && k.oaHits < k.oaTaken && k.oaShadowRuns == 0);
+    k.oaMode = 0, k.oaShadow = 1;
+    for (int i = 0; i < hn; i++) {
+        Call c;
+        newCase(i, &c);
+        if (!FkLotLookup(NULL, NULL, c.x, c.z)) continue;
+        game(c);
+    }
+    assert(k.oaShadowRuns > hn / 2 && k.oaShadowMismatch == 0 && g_rgOffSimOpen == 0);
+    k.oaShadow = 0, k.oaMode = 1;
+    // a worker writer holds QL: the hook gives the call back to the game's code, same answer
+    struct Hold { HANDLE in, go; };
+    static Hold hold;
+    hold.in = CreateEventW(NULL, FALSE, FALSE, NULL);
+    hold.go = CreateEventW(NULL, FALSE, FALSE, NULL);
+    HANDLE qh = CreateThread(NULL, 0, [](void*) -> DWORD {
+        AcquireSRWLockExclusive(&g_ql);
+        SetEvent(hold.in);
+        WaitForSingleObject(hold.go, 30000);
+        ReleaseSRWLockExclusive(&g_ql);
+        return 0;
+    }, NULL, 0, NULL);
+    WaitForSingleObject(hold.in, INFINITE);
+    long busy = 0, busyN = 0;
+    for (int i = 0; i < 80; i++) {
+        Call c;
+        newCase(i, &c);
+        if (!FkLotLookup(NULL, NULL, c.x, c.z) || jobs(c)) continue;
+        const LONG f0 = k.oaFb[OA_FB_TRY], t0 = k.oaTaken;
+        Job(true);
+        const u64 a = game(c);
+        Job(false);
+        busyN++, busy += k.oaFb[OA_FB_TRY] - f0;
+        assert(k.oaTaken == t0);
+        k.oaMode = 0;
+        assert(a == game(c));  // switch off: the trampoline
+        k.oaMode = 1;
+    }
+    SetEvent(hold.go);
+    WaitForSingleObject(qh, INFINITE);
+    CloseHandle(qh);
+    CloseHandle(hold.in);
+    CloseHandle(hold.go);
+    assert(busy == busyN && busyN > 40);
+    printf("OA: hook on the mapped 0x655880: %ld read-only answers in a job equal to the game's (%ld name an object), %ld given back for "
+           "the job's own route; shadow %ld runs, 0 mismatches; QL busy %ld x -> the game's call\n", taken, k.oaHits, jobRoute,
+           k.oaShadowRuns, busy);
+    memcpy((void*)(uintptr_t)OA_FN, savedPro, sizeof(savedPro));
+    for (int i = 0; i < 4; i++) memcpy((void*)(uintptr_t)kFakeAt[i], savedFn[i], 5);
+    *(u8**)(uintptr_t)0x011D40C4 = rm0;
+    I::route = route0;
+    *radius = radius0;
+    g_oaOrig = NULL;
+    k = k0;
+    g_async.owner = owner0, g_async.handle = handle0;
+    ts3native_counters.rgOwnerTid = rgOwner0;
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
+// --- CN: [ConnRoomsRO] (connro.cpp, docs/670 §15) against the game's own IC_World_GetConnectedRoomsImpl 0x7929F0 ---
+// The IC runs from its entry twice per case on the same world, with a fake script host that records the array it is asked
+// to build: once with the call at 0x792A55 on CnStub and no job (the game's 0x63DCB0; CnShadow compares the clone on the way),
+// once with a "job" running and CnGate called on the IC's return slot the way RgEnter calls it (the parked answer, CnFill).
+static LONG g_cnN, g_cnCmp, g_cnEmpty, g_cnRoomsN, g_cnMaxN, g_cnNeg, g_cnBack[3];
+struct CnHostRec { LONG made, copied, n; LONG v[kCnCap + 8]; DWORD handle; };
+static CnHostRec g_cnRec;
+// host slot +0x8C (thiscall: out handle*, count; ret 8) and +0xA4 (thiscall: handle*, src, 0, count; ret 0x10) as the IC calls them
+static void __fastcall CnHostNew(void*, void*, DWORD* out, LONG n) {
+    g_cnRec.made++;
+    g_cnRec.n = n;
+    *out = 0x5000 + (DWORD)n;
+}
+static void __fastcall CnHostCopy(void*, void*, const DWORD* handle, const LONG* src, DWORD zero, LONG n) {
+    assert(*handle == 0x5000 + (DWORD)n && zero == 0 && n == g_cnRec.n && n <= kCnCap);
+    g_cnRec.copied++;
+    g_cnRec.handle = *handle;
+    memcpy(g_cnRec.v, src, (size_t)n * 4);
+}
+static bool g_cnGateSaid;
+static bool __cdecl CnTestGate(const DWORD* slot) { return g_cnGateSaid = CnGate(slot, GetCurrentThreadId()); }
+// the IC called as the icall trampoline calls it; gate != 0: CnGate first, on the slot the call's return address will take
+static __declspec(naked) DWORD __cdecl CnCallIc(DWORD /*lo*/, DWORD /*hi*/, DWORD /*room*/, DWORD /*level*/, DWORD /*gate*/) {
+    __asm {
+        push dword ptr [esp + 0x10]
+        push dword ptr [esp + 0x10]
+        push dword ptr [esp + 0x10]
+        push dword ptr [esp + 0x10]
+        cmp dword ptr [esp + 0x24], 0
+        je nogate
+        lea eax, [esp - 4]
+        push eax
+        call CnTestGate
+        add esp, 4
+    nogate:
+        mov eax, 0x007929F0
+        call eax
+        add esp, 0x10
+        ret
+    }
+}
+static void SectionCN(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    g_seed = 9200417;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(callsTo(kCnSite.site, kCnSite.target) && callsTo(0x007929FB, 0x007692B0) && callsTo(0x00792A02, 0x008292D0) &&
+           callsTo(0x00792A11, 0x00829BC0) && callsTo(0x0063DCCB, 0x00628A90) && callsTo(0x0063DCDC, 0x0062EAB0) &&
+           callsTo(0x0063DD7F, 0x0063D2F0) && callsTo(0x0063DDFB, 0x006286F0) && callsTo(0x0063DE44, 0x006286F0) &&
+           callsTo(0x0063DE8C, 0x004E3F90) && callsTo(0x00792A9E, 0x004E3F70));
+    assert(Matches((const void*)(uintptr_t)(kRgSites[11].addr + 6), kCnFrame, sizeof(kCnFrame)) &&
+           Matches((const void*)(uintptr_t)(CN_SITE - sizeof(kCnArgs) - 8), kCnArgs, sizeof(kCnArgs)));
+    static const u8 kSetLess[] = {0x66, 0x3B, 0x79, 0x10, 0x8B, 0xC1, 0x0F, 0x9C, 0xC2};  // 0x628710: cmp di,[ecx+0x10]; mov eax,ecx; setl dl
+    static const u8 kOutSx[] = {0x0F, 0xBF, 0x4F, 0x10};                                   // 0x63DEE0: movsx ecx, word [edi+0x10]
+    static const u8 kFirstUse[] = {0x80, 0xBB, 0x8C, 0x00, 0x00, 0x00, 0x00};              // 0x63D300: cmp byte [ebx+0x8C], 0
+    static const u8 kFilled[] = {0x80, 0x3C, 0x8A, 0x00};                                  // 0x63D359: cmp byte [edx+ecx*4], 0
+    assert(Matches((const void*)(uintptr_t)0x00628710, kSetLess, sizeof(kSetLess)) && Matches((const void*)(uintptr_t)0x0063DEE0, kOutSx, sizeof(kOutSx)) &&
+           Matches((const void*)(uintptr_t)0x0063D300, kFirstUse, sizeof(kFirstUse)) && Matches((const void*)(uintptr_t)0x0063D359, kFilled, sizeof(kFilled)));
+    u8 saved[5];
+    memcpy(saved, (void*)(uintptr_t)kCnSite.site, 5);
+    *(LONG*)((u8*)(uintptr_t)kCnSite.site + 1) = (LONG)((const u8*)CnStub - ((const u8*)(uintptr_t)kCnSite.site + 5));
+    static DWORD hostVt[0x30];
+    static DWORD* host[1] = {hostVt};
+    hostVt[0x8C / 4] = (DWORD)(uintptr_t)CnHostNew, hostVt[0xA4 / 4] = (DWORD)(uintptr_t)CnHostCopy;
+    const DWORD host0 = *(DWORD*)(uintptr_t)0x011D4BBC;
+    *(DWORD*)(uintptr_t)0x011D4BBC = (DWORD)(uintptr_t)host;
+    ConnRoomsRoCounters& k = ts3native_connroomsro;
+    Ts3nCounters& kc = ts3native_counters;
+    memset(&k, 0, sizeof(k));
+    const LONG owner0 = (LONG)g_async.owner, rgOwner0 = kc.rgOwnerTid;
+    g_async.owner = GetCurrentThreadId();
+    kc.rgOwnerTid = 0;
+    k.cnMode = 1, k.cnShadow = 1;
+    int nRooms[2] = {0, 0};
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) {
+            BuildWorld();
+            for (int l = 0; l < 2; l++) {  // rooms and portals on both table lots
+                u8* e = W.entries[l];
+                const int nr = nRooms[l] = (int)Rnd(8) == 0 ? 0 : 1 + (int)Rnd(70);
+                u8* rooms = (u8*)A((size_t)nr * 0x44 + 16);
+                *(u8**)(e + 0x90) = rooms;
+                *(u8**)(e + 0x94) = rooms + nr * 0x44;
+                e[0x8C] = 1;
+                for (int r = 0; r < nr; r++) {
+                    u8* rec = rooms + r * 0x44;
+                    rec[0] = 1;
+                    const int np = (int)Rnd(4) == 0 ? 0 : (int)Rnd(14);
+                    u8** pv = (u8**)A((size_t)np * 4 + 16);
+                    for (int j = 0; j < np; j++) {
+                        u8* pt = (u8*)A(0x80);
+                        for (int w = 0; w < 2; w++) {
+                            const DWORD kind = Rnd(10);
+                            const DWORD v = kind == 0 ? 0xFFFF : kind == 1 ? (DWORD)r : kind == 2 ? Rnd(0x11) : kind == 3 ? 0x8000 + Rnd(0x7FF0) : Rnd((DWORD)nr + 6);
+                            *(WORD*)(pt + 0x48 + w * 2) = (WORD)v;
+                        }
+                        pt[0x58] = (u8)Rnd(256);
+                        if (Rnd(3)) pt[0x58] = (u8)(pt[0x58] & 0xFD);
+                        pv[j] = pt;
+                    }
+                    *(u8***)(rec + 4) = pv;
+                    *(u8***)(rec + 8) = pv + np;
+                }
+            }
+        }
+        const DWORD lk = Rnd(12);
+        const int lot = lk < 9 ? (int)(lk & 1) : -1;
+        const DWORD lo = lot >= 0 ? 0x10 + (DWORD)lot : lk == 9 ? 0x12 : lk == 10 ? 0 : 0xFFFFFFFF, hi = lk == 11 ? 0xFFFFFFFF : 0;
+        const int nr = lot >= 0 ? nRooms[lot] : 0;
+        const DWORD rk = Rnd(12);  // room 0 = by level (index level + 4); room > 0 = index room + 0x10
+        DWORD room = rk < 4 ? 0 : rk == 4 ? 0xFFFF : rk == 5 ? 0x8000 + Rnd(0x7FFF) : rk == 6 ? Rnd(0x8000) : (DWORD)nr > 0x11 ? 1 + Rnd((DWORD)nr - 0x10) : 1 + Rnd(4);
+        if (Rnd(4) == 0) room |= Rnd(0x10000) << 16;  // the IC passes the icall's whole slot; only the low word counts
+        DWORD level = Rnd((DWORD)nr + 2) - 4;
+        if (Rnd(10) == 0) level = Rnd(0x10000);
+        g_cnN++;
+        // doubts: the game's side would build the lot or fill the room on fakes, so only the clone is asked
+        const DWORD idx = CnRoomIndex(room, level);
+        const DWORD doubt = lot >= 0 && idx < (DWORD)nr ? Rnd(25) : 99;
+        if (doubt < 3) {
+            u8* e = W.entries[lot];
+            u8* rec = *(u8**)(e + 0x90) + idx * 0x44;
+            u8** pv = *(u8***)(rec + 4);
+            const bool hasPortal = pv != *(u8***)(rec + 8);
+            u8* const pv0 = hasPortal ? pv[0] : NULL;
+            if (doubt == 0) e[0x8C] = 0;
+            else if (doubt == 1) rec[0] = 0;
+            else if (hasPortal) pv[0] = NULL;
+            Job(true);
+            const LONG fb0 = k.cnFb[CN_FB_UNBUILT] + k.cnFb[CN_FB_UNFILLED] + k.cnFb[CN_FB_SHAPE];
+            DWORD slot[5] = {0, lo, hi, room, level};
+            const bool said = CnGate(slot, GetCurrentThreadId());
+            Job(false);
+            const bool active = *(DWORD*)(W.act + 0x48) == lo;  // Contains says no before any of it is read
+            if (doubt == 2 && !hasPortal) assert(said);  // nothing was changed
+            else assert(active ? said : (!said && k.cnFb[CN_FB_UNBUILT] + k.cnFb[CN_FB_UNFILLED] + k.cnFb[CN_FB_SHAPE] == fb0 + 1));
+            g_cnA.set = false;
+            if (!said) g_cnBack[doubt]++;
+            else k.cnTaken--, k.cnEmpty -= g_cnA.a.n == 0, k.cnRooms -= g_cnA.a.n;  // not an IC call: out of the totals
+            e[0x8C] = 1, rec[0] = 1;
+            if (hasPortal) pv[0] = pv0;
+            continue;
+        }
+        // 1. the game's body (no job: the stub runs 0x63DCB0 and the shadow compare)
+        memset(&g_cnRec, 0, sizeof(g_cnRec));
+        const LONG sh0 = k.cnShadowRuns;
+        const DWORD ret1 = CnCallIc(lo, hi, room, level, 0);
+        const CnHostRec game = g_cnRec;
+        assert(k.cnShadowRuns == sh0 + 1 && k.cnShadowMismatch == 0 && g_rgOffSimOpen == 0);
+        assert(game.made == game.copied && game.made <= 1 && (ret1 != 0) == (game.made == 1));
+        // 2. a job runs: the gate parks the clone's answer, the stub hands it out
+        memset(&g_cnRec, 0, sizeof(g_cnRec));
+        Job(true);
+        const LONG used0 = k.cnUsed, taken0 = k.cnTaken;
+        const DWORD ret2 = CnCallIc(lo, hi, room, level, 1);
+        Job(false);
+        assert(g_cnGateSaid && k.cnTaken == taken0 + 1 && k.cnUsed == used0 + 1 && k.cnStale == 0 && !g_cnA.set);
+        if (ret1 != ret2 || g_cnRec.made != game.made || g_cnRec.copied != game.copied || g_cnRec.n != game.n ||
+            memcmp(g_cnRec.v, game.v, (size_t)game.n * 4) != 0) {
+            printf("CN MISMATCH case %d: lot %08lX:%08lX room %08lX level %08lX: game ret %08lX n %ld (first %ld), clone ret %08lX n %ld (first %ld)\n", i,
+                   hi, lo, room, level, ret1, game.n, game.n ? game.v[0] : 0, ret2, g_cnRec.n, g_cnRec.n ? g_cnRec.v[0] : 0);
+            assert(false);
+        }
+        g_cnCmp++;
+        if (!game.made) g_cnEmpty++;
+        g_cnRoomsN += game.n;
+        if (game.n > g_cnMaxN) g_cnMaxN = game.n;
+        for (LONG j = 0; j < game.n; j++) g_cnNeg += game.v[j] < 0;
+        for (LONG j = 1; j < game.n; j++) assert(game.v[j - 1] < game.v[j]);
+    }
+    // a parked answer is used by the call it was read for only
+    {
+        Job(true);
+        DWORD slot[5] = {0, 0x10, 0, 0xFFFF, 0};
+        assert(CnGate(slot, GetCurrentThreadId()) && g_cnA.set);
+        Job(false);
+        memset(&g_cnRec, 0, sizeof(g_cnRec));
+        const LONG stale0 = k.cnStale;
+        CnCallIc(0x10, 0, 0xFFFF, 0, 0);  // another IC frame: the game's call
+        assert(k.cnStale == stale0 + 1 && !g_cnA.set);
+    }
+    printf("CN: %ld IC_World_GetConnectedRoomsImpl calls on the game's 0x7929F0, %ld compared equal with the parked clone answer (the "
+           "array asked of the host and the IC's result; %ld no rooms, %ld room numbers, up to %ld a call, %ld negative), shadow checks %ld "
+           "mismatch %ld; given back and not run on the game: lot not built %ld, room not filled %ld, null portal %ld; 11 call edges, the "
+           "IC's frame, the set's signed compare, the sign-extended copy and 0x63D2F0's two tests match the image\n",
+           g_cnN, g_cnCmp, g_cnEmpty, g_cnRoomsN, g_cnMaxN, g_cnNeg, k.cnShadowRuns, k.cnShadowMismatch, g_cnBack[0], g_cnBack[1], g_cnBack[2]);
+    assert(g_cnCmp > g_cnN * 3 / 4 && g_cnRoomsN > g_cnN && g_cnEmpty > g_cnN / 20 && g_cnCmp - g_cnEmpty > g_cnN / 8 && g_cnNeg > 0 && g_cnBack[0] > 0 && g_cnBack[1] > 0 &&
+           g_cnBack[2] > 0 && k.cnShadowMismatch == 0);
+    memcpy((void*)(uintptr_t)kCnSite.site, saved, 5);
+    *(DWORD*)(uintptr_t)0x011D4BBC = host0;
+    memset(&k, 0, sizeof(k));
+    g_async.owner = (DWORD)owner0, kc.rgOwnerTid = rgOwner0;
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    *(u8**)(uintptr_t)0x011D9128 = W.world;
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
 int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     AddVectoredExceptionHandler(1, [](EXCEPTION_POINTERS* e) -> LONG {
@@ -2466,6 +3490,19 @@ int main(int argc, char** argv) {
     // P4 part B (p4clone.cpp, 0.29.0): ApplyPendingUpdates and FlushDeferred are thiscall with no stack argument (both end in
     // a plain ret); the three display level writers carry the prologues P4InstallDl checks; the Los option test
     assert(Matches((const void*)(uintptr_t)0x0082C420, (const u8*)"\x57\x8B\xF9\x8B\x87\x5C\x09\x00\x00", 9));  // push edi; mov edi,ecx; mov eax,[edi+0x95C]
+    {  // docs/247 §13.1 L: FbApplySplit (ts3native.cpp) writes this body out, so every step it copies must still be here
+        assert(Matches((const void*)(uintptr_t)0x0082C429, (const u8*)"\x80\xB8\x0E\x01\x00\x00\x00", 7));  // cmp byte [eax+0x10E],0
+        assert(Matches((const void*)(uintptr_t)0x0082C432, (const u8*)"\x8B\x8F\x64\x09\x00\x00\x53\x56\x6A\x00", 10));  // ecx=[edi+0x964]; push 0
+        assert(callsTo(0x0082C43C, 0x00C68960) && Matches((const void*)(uintptr_t)0x00C68985, (const u8*)"\xC2\x04\x00", 3));
+        assert(Matches((const void*)(uintptr_t)0x0082C441, (const u8*)"\x8B\x30\x8B\x58\x04", 5));  // esi = begin, ebx = end (read once)
+        assert(Matches((const void*)(uintptr_t)0x0082C450, (const u8*)"\x8B\x06\x85\xC0\x74\x21", 6));  // NULL lot skipped
+        assert(Matches((const void*)(uintptr_t)0x0082C456, (const u8*)"\x8B\x50\x48\x8B\x40\x4C\x8B\x8F\x5C\x09\x00\x00", 12));  // [lot+0x48], [lot+0x4C], P re-read
+        assert(callsTo(0x0082C464, 0x00631A60) && Matches((const void*)(uintptr_t)0x00631A79, (const u8*)"\xC2\x08\x00", 3) &&
+               Matches((const void*)(uintptr_t)0x00631A90, (const u8*)"\xC2\x08\x00", 3));
+        assert(Matches((const void*)(uintptr_t)0x0082C46D, (const u8*)"\x8B\x0E\x51\x8B\xCF", 5) && callsTo(0x0082C472, 0x0082B590));
+        assert(Matches((const void*)(uintptr_t)0x0082C47E, (const u8*)"\x8B\x97\x5C\x09\x00\x00\x5E\xC6\x82\x0E\x01\x00\x00\x00\x5B", 15));  // P+0x10E = 0
+        printf("FbApplySplit: the 0x82C420 walk it copies matches\n");
+    }
     assert(Matches((const void*)(uintptr_t)0x00666A40, (const u8*)"\x55\x8B\xEC\x83\xE4\xF8", 6));
     for (int i = 0; i < 3; i++) assert(Matches((const void*)(uintptr_t)kP4Dl[i].at, kP4Dl[i].pro, kP4Dl[i].len));
     assert(callsTo(0x0075AB9C, 0x0081C880) && Matches((const void*)(uintptr_t)0x0075AB95, (const u8*)"\x68\x00\x00\x00\x02", 5));  // push 0x2000000
@@ -2537,6 +3574,14 @@ int main(int argc, char** argv) {
         g_subVt[v[2] == 0x00620E50] = s;
     }
     assert(g_subVt[0] && g_subVt[1]);
+    char only[8] = "";
+    GetEnvironmentVariableA("SRT_ONLY", only, sizeof(only));  // SRT_ONLY=PT: that section alone (cases x 10 checks)
+    if (!strcmp(only, "PT")) { SectionPT(cases * 10); return 0; }
+    if (!strcmp(only, "EP")) { SectionEP(cases * 10); return 0; }
+    if (!strcmp(only, "GVH")) { SectionGVH(cases * 10); return 0; }
+    if (!strcmp(only, "CN")) { SectionCN(cases * 10); return 0; }
+    if (!strcmp(only, "OA")) { SectionOA(cases * 10); return 0; }
+    if (!strcmp(only, "B2")) { SectionB2(cases * 10); return 0; }
 
     // D. lot transforms, bit for bit (lot table hit: no insert)
     for (int i = 0; i < 2000; i++) {
@@ -2551,6 +3596,13 @@ int main(int argc, char** argv) {
         assert(memcmp(&u, &o3[0], 4) == 0 && memcmp(&v, &o3[1], 4) == 0 && memcmp(&u, &ox, 4) == 0 && memcmp(&v, &oy, 4) == 0);
     }
     printf("transforms: 2000 x 2 bit-exact\n");
+
+    SectionPT(cases * 10);  // PT. [PlaceTestRO] (docs/670)
+    SectionEP(cases * 10);  // EP. [EditPathRO] (docs/670 §8)
+    SectionGVH(cases * 10);  // GVH. [GoalValidRO] Hits (docs/670 §11)
+    SectionCN(cases * 10);  // CN. [ConnRoomsRO] (docs/670 §15)
+    SectionOA(cases * 10);  // OA. [ObstructAtRO] (docs/670 §21-§22)
+    SectionB2(cases * 10);  // B2. [Blocker2dRO] (docs/670 §24)
 
     // A. the game's call vs the clone
     for (int i = 0; i < cases; i++) OneCase();
@@ -3706,6 +4758,7 @@ int main(int argc, char** argv) {
             assert(memcmp(g_arOrig[i], kP10Pro[i], 6) == 0);
         }
         static u8 res[0x48];
+        static u8* resAddr = res;  // pushed as a value: clang-cl 23 crashes on `push offset <static>`
         static DWORD iEsp0, iEsp1, iOut, iFn;
         static float fx = 1.5f, fy = -2.0f, fz = 3.25f;
         for (int i = 1; i < 4; i++) {
@@ -3716,7 +4769,7 @@ int main(int argc, char** argv) {
                 __asm {
                     mov iEsp0, esp
                     push 0x25000077
-                    push offset res
+                    push resAddr
                     call iFn
                     add esp, 8
                     mov iOut, eax
@@ -3729,7 +4782,7 @@ int main(int argc, char** argv) {
                     push fy
                     push fx
                     push 0x25000077
-                    push offset res
+                    push resAddr
                     call iFn
                     add esp, 20
                     mov iOut, eax

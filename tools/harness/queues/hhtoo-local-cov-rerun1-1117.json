@@ -1,0 +1,120 @@
+{
+  "note": "RERUN 1 of hhtoo-local-cov-1117 (both jobs FAILED at 13:11 2026-11-17: profile-world.ts \"not a patches switch: autt2lcov\", the agent names list lacked it; bugfix/agent-autt2lcov-switch-1117). Agent TS3_AGENT_PACKAGE=game-copy/ts3agent.package.agent-switches-1117. RUN FIRST (docs/276 rank 5 piece 1, branch feature/hhtoo-local-1117, NOT RUN). HouseholdToo local exact path go/no-go: which share of household local-phase C2 time sits in the ready local allow-list (autt2lcov, AutShadowLocalList, 238 definitions), plus the docs/276 rank 3 household search-rate probe (hhsearchprobe) that voided twice on SV (DoorMemoX self-check), here with [RouteSnap] DoorMemoX=0. All three switches are read-only: every Sim, household included, scores and acts as without them. 12 min natural play per world, Bin state apex, master-1117c asi + ini, branch ts3fixes + agent (TS3_AGENT_PACKAGE=game-copy/ts3agent.package.agent-switches-1117). PASS = 0 crashes, scriptErrors 0, switches read back on, aut_l0_exc 0, hhsearch_exc 0, aut_lcov_on_n_hh + aut_lcov_off_n_hh > 0. Read: coverage = aut_lcov_on_us_hh / (aut_lcov_on_us_hh + aut_lcov_off_us_hh) per world; gate for L2+ (handoff probe-out/householdtoo-handoff-1117.md): coverage x household local ms/s >= 3 ms/s on SV. L0 times (aut_l0_us_*) are inflated by the per-pair timer here; take them from a run without autt2lcov. Run: node tools/harness/queue.ts tools/harness/queues/hhtoo-local-cov-rerun1-1117.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0.36.271-mc1117 ": {
+      "match": [
+        "ts3native 0.36.271-mc1117 2026-11-17 08:06:01"
+      ],
+      "noMatch": [
+        "ts3native 0.36.269-mb1117 2026-11-17 01:00:00",
+        "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "sv-hhlcov",
+      "note": "SV-Spring 12 min, hhsearchprobe + autt2l0 + autt2lcov (read-only), DoorMemoX=0. PASS as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.hhtoo-local-1117",
+      "pinReason": "feature/hhtoo-local-1117 (builds.json ts3fixes.package.hhtoo-local-1117 + ts3agent.package.hhtoo-local-1117: master c372567f3 + autt2lcov) on the master-1117c asi + ini (0.36.271-mc1117); install agent ts3agent.package.agent-switches-1117 (TS3_AGENT_PACKAGE; master + autt2lcov in the patches names list) for the aut_lcov_* keys",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0.36.271-mc1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:aut_l0_n_hh",
+          "op": ">",
+          "value": 0,
+          "why": "no household local search counted: autt2l0 switch, B7 hook (AutShadow apply) or agent package"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "hhsearchprobe,autt2l0,autt2lcov",
+          "fixesReport": "hhsearch_,aut_l0_,aut_lcov_",
+          "fixesRequire": "hhsearch_n>=50,hhsearch_exc<1,aut_l0_exc<1,aut_lcov_off_n_hh>=1"
+        }
+      },
+      "ini": {
+        "RouteSnap.DoorMemoX": 0
+      }
+    },
+    {
+      "id": "bp-hhlcov",
+      "note": "BP-Spring 12 min, hhsearchprobe + autt2l0 + autt2lcov (read-only), DoorMemoX=0. PASS as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.hhtoo-local-1117",
+      "pinReason": "feature/hhtoo-local-1117 (builds.json ts3fixes.package.hhtoo-local-1117 + ts3agent.package.hhtoo-local-1117: master c372567f3 + autt2lcov) on the master-1117c asi + ini (0.36.271-mc1117); install agent ts3agent.package.agent-switches-1117 (TS3_AGENT_PACKAGE; master + autt2lcov in the patches names list) for the aut_lcov_* keys",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0.36.271-mc1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:aut_l0_n_hh",
+          "op": ">",
+          "value": 0,
+          "why": "no household local search counted: autt2l0 switch, B7 hook (AutShadow apply) or agent package"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "hhsearchprobe,autt2l0,autt2lcov",
+          "fixesReport": "hhsearch_,aut_l0_,aut_lcov_",
+          "fixesRequire": "hhsearch_n>=50,hhsearch_exc<1,aut_l0_exc<1,aut_lcov_off_n_hh>=1"
+        }
+      },
+      "ini": {
+        "RouteSnap.DoorMemoX": 0
+      }
+    }
+  ]
+}

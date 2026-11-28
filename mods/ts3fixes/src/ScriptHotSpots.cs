@@ -34,6 +34,7 @@ namespace Ts3Fixes
             sDetailPrioReady = Patch(typeof(Lot), "CalculateDetailPriority", Type.EmptyTypes, typeof(DetailPriorityHook), "CalcHook", "CalcOrig");
             sCaneEarlyReady = Patch(typeof(Sims3.Gameplay.Objects.Cane), "SimRequiresCaneWalk", new Type[] { typeof(Sim), typeof(Sim.WalkStyle) }, typeof(CaneEarlyOutHook), "RequiresHook", "RequiresOrig");
             sHoursMemoReady = Patch(typeof(Lot), "GetHoursOfOperation", new Type[] { typeof(float).MakeByRefType(), typeof(float).MakeByRefType() }, typeof(HoursMemoHook), "HoursHook", "HoursOrig");
+            ApplyInvCache();
             ApplyWildflower();
             // docs/74 I-74-7: was the tooltip task already running when the patches went in? Logged for the first load.
             try
@@ -117,14 +118,38 @@ namespace Ts3Fixes
 
         static bool sHoursMemoReady;
         static readonly HoursMemo sHours = new HoursMemo();
+        static int sHoursLogged;
 
-        // docs/74 §6.3, switch hoursmemo (tuning kHoursMemo). Lot.GetHoursOfOperation(ref open, ref close) is asked by
-        // IsOpenVenue (camera, autonomy, route plans, doors, venue visits) many times per tick per lot; each call reads the
-        // venue's meta-autonomy tuning and bar data and, on a bar, scans every live situation for a started bachelor party
-        // on the lot. The answer (and the hours when true) is kept per lot for one sim tick (TickStamp rules, nothing kept
-        // while paused); a hit writes the outputs only when the answer was true, as the game's method. Only difference: a
-        // bachelor party starting on that lot in the middle of a tick is seen one tick later; hoursmemoverify counts it.
-        // Counters: [85] memo hits, [86] misses (game's method run and stored), [87] verify mismatches.
+        // docs/74 §6.3, docs/276 §1.3, switch hoursmemo (tuning kHoursMemo). Lot.GetHoursOfOperation(ref open, ref close) is
+        // asked by IsOpenVenue (camera, autonomy, route plans, doors, venue visits) many times per tick per lot; each call reads
+        // the venue's meta-autonomy tuning and bar data and, on a bar, lists every live situation to look for a started
+        // bachelor party on the lot. The answer (and the hours when true) is kept per lot for one sim tick (TickStamp rules,
+        // nothing kept while paused); a hit writes the outputs only when the answer was true, as the game's method.
+        // Exact for every Sim and caller, household included [verified, decompiled GetHoursOfOperation, Bartending
+        // TryGetHoursOfOperation(Extended), MetaAutonomyTuning.TryGetHoursOfOperation]: the answer depends only on the lot
+        // type and meta-autonomy type (the entry's key: another key is a miss), static tuning, and, on a bar, whether a started
+        // BachelorParty is on the lot. That last input can change mid-tick (HouseParty.Start sets IsStarted, the party's
+        // Dispose drops it from Situation.sAllSituations), so a bar hit does the same check live, without the list copy.
+        // hoursmemoverify compares every hit with the game's method and returns the game's answer.
+        // Counters: [85] memo hits, [86] misses (game's method run and stored), [87] verify mismatches (first 8 logged in
+        // ts3fixes.applied), [1069] hits verified, [1070] bar hits with the live party check, [1071] misses because the lot's
+        // venue key changed within the tick, [1072] answers not kept (not the bar formula: another mod changed the method).
+        const int kCHoursChecked = 1069, kCHoursBar = 1070, kCHoursKey = 1071, kCHoursNoStore = 1072;
+
+        static int HoursKey(Lot lot) { return ((int)lot.LotType << 16) ^ (int)lot.GetMetaAutonomyType; }
+
+        // Bartending.TryGetHoursOfOperationExtended's party check on the live list: same order, same test, no copy
+        static bool BachelorStartedOn(Lot lot)
+        {
+            List<Sims3.Gameplay.Autonomy.Situation> all = Sims3.Gameplay.Autonomy.Situation.sAllSituations;
+            for (int i = 0; i < all.Count; i++)
+            {
+                Sims3.Gameplay.Situations.BachelorParty p = all[i] as Sims3.Gameplay.Situations.BachelorParty;
+                if (p != null && p.Lot == lot && p.Started) return true;
+            }
+            return false;
+        }
+
         public class HoursMemoHook
         {
             public bool HoursHook(ref float openHour, ref float closingHour)
@@ -132,30 +157,90 @@ namespace Ts3Fixes
                 if (OnWorker()) return HoursOrig(ref openHour, ref closingHour);  // docs/128 G-M3: no memo or stamp writes off the sim thread
                 if (!sHoursMemoReady || Paused() || !ShortcutOn("hoursmemo")) { sHours.Stamp.Reset(); return HoursOrig(ref openHour, ref closingHour); }
                 if (sHours.Stamp.Renew(Simulator.TicksElapsed(), null, System.Environment.TickCount)) sHours.Clear();
-                ulong id = ((Lot)(object)this).LotId;
+                Lot lot = (Lot)(object)this;
+                ulong id = lot.LotId;
+                int key = HoursKey(lot);
                 int[] c = PatchCounters();
                 float open = openHour, close = closingHour;
-                bool res;
-                if (sHours.TryGet(id, ref open, ref close, out res))
+                bool res, bar;
+                int got = sHours.TryGet(id, key, ref open, ref close, out res, out bar);
+                if (got == HoursMemo.kHit)
                 {
                     c[85]++;
-                    if (VerifyNow("hoursmemoverify"))
+                    if (bar && res) { c[kCHoursBar]++; if (BachelorStartedOn(lot)) close = Sims3.Gameplay.Skills.Bartending.TimeOfPartyEnd; }
+                    if (ShortcutOn("hoursmemoverify"))
                     {
+                        c[kCHoursChecked]++;
                         float gOpen = openHour, gClose = closingHour;
                         bool g = HoursOrig(ref gOpen, ref gClose);
-                        if (g != res || gOpen != open || gClose != close) c[87]++;
+                        if (g != res || gOpen != open || gClose != close)
+                        {
+                            c[87]++;
+                            if (sHoursLogged < 8) { sHoursLogged++; AppliedLog().Add("hoursmemo mismatch: lot " + id.ToString("x") + " key " + key.ToString("x") + " bar " + bar + " memo " + res + " " + open + "-" + close + " game " + g + " " + gOpen + "-" + gClose); }
+                        }
                         openHour = gOpen; closingHour = gClose;
                         return g;
                     }
                     openHour = open; closingHour = close;
                     return res;
                 }
+                if (got == HoursMemo.kKeyChanged) c[kCHoursKey]++;
                 c[86]++;
                 res = HoursOrig(ref openHour, ref closingHour);
-                sHours.Store(id, res, openHour, closingHour);
+                float bOpen = 0f, bClose = 0f;
+                bool barOk = Sims3.Gameplay.Skills.Bartending.TryGetHoursOfOperation(lot, ref bOpen, ref bClose);
+                if (!sHours.Store(id, key, res, openHour, closingHour, barOk, bOpen, bClose, Sims3.Gameplay.Skills.Bartending.TimeOfPartyEnd)) c[kCHoursNoStore]++;
                 return res;
             }
             public bool HoursOrig(ref float openHour, ref float closingHour) { return false; } // receives Lot.GetHoursOfOperation(ref float, ref float)'s original header
+        }
+
+        // docs/115, switch invcache (tuning kPortalInvocationCache, default off) + invcacheverify. Lot.OnPortalPathPlan (World
+        // event 59, ~150 dispatches/s) calls GetInvocationList on the lot's handler field every dispatch: one clone per
+        // handler plus the array. The hook keeps the last 4 (field value -> list) pairs by reference (InvListCache) and
+        // dispatches exactly as the game: same args object, each handler in its own swallowing try/catch over a local
+        // array, Locked then Discouraged then Unlocked. Exact for every caller and Sim: only the two event accessors write
+        // the field and every change is a new reference (docs/105 I-105-10). Cleared at world load and when the switch is
+        // off. Off the sim thread: the game's method (docs/115 §4 condition). Counters: [99] dispatches from the kept list,
+        // [100] lists built, [101] verify mismatches (the fresh list is used).
+        static bool sInvReady, sInvUsed;
+        static FieldInfo sInvField;  // Lot.mOnPortalPathPlanHandler (private)
+        static readonly InvListCache sInv = new InvListCache();
+
+        static void ApplyInvCache()
+        {
+            sInvField = typeof(Lot).GetField("mOnPortalPathPlanHandler", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (sInvField == null) { AppliedLog().Add("invcache: Lot.mOnPortalPathPlanHandler not found, not patched"); return; }
+            sInvReady = Patch(typeof(Lot), "OnPortalPathPlan", new Type[] { typeof(Sim), typeof(Sims3.Gameplay.Abstracts.GameObject), typeof(int), typeof(int), typeof(bool) }, typeof(PortalInvCacheHook), "DispatchHook", "DispatchOrig");
+            if (sInvReady) World.OnWorldLoadFinishedEventHandler += delegate { InvClear(); };
+        }
+
+        static void InvClear() { if (sInvUsed) { sInv.Clear(); sInvUsed = false; } }
+
+        public class PortalInvCacheHook
+        {
+            public PortalLockedCallbackResults DispatchHook(Sim actor, Sims3.Gameplay.Abstracts.GameObject portalObj, int roomFrom, int roomTo, bool initialLocked)
+            {
+                if (!sInvReady || OnWorker()) return DispatchOrig(actor, portalObj, roomFrom, roomTo, initialLocked);
+                if (!ShortcutOn("invcache")) { InvClear(); return DispatchOrig(actor, portalObj, roomFrom, roomTo, initialLocked); }
+                Lot lot = (Lot)(object)this;
+                Delegate h = sInvField.GetValue(lot) as Delegate;
+                if (h == null) return PortalLockedCallbackResults.NoListeners;
+                int[] c = PatchCounters();
+                PortalPlanEventArgs e = new PortalPlanEventArgs(actor, portalObj, lot, roomFrom, roomTo, initialLocked); // before the list, as the game
+                sInvUsed = true;
+                Delegate[] list = sInv.Get(h, c, 99, 100);
+                if (VerifyNow("invcacheverify")) list = InvListCache.Check(h, list, c, 101);
+                for (int i = 0; i < list.Length; i++)
+                {
+                    PortalPathPlanHandler f = list[i] as PortalPathPlanHandler;
+                    try { f(e); } catch (Exception) { }
+                }
+                if (e.Locked) return PortalLockedCallbackResults.PortalLocked;
+                if (e.Discouraged) return PortalLockedCallbackResults.PortalDiscouraged;
+                return PortalLockedCallbackResults.PortalUnlocked;
+            }
+            public PortalLockedCallbackResults DispatchOrig(Sim actor, Sims3.Gameplay.Abstracts.GameObject portalObj, int roomFrom, int roomTo, bool initialLocked) { return PortalLockedCallbackResults.NoListeners; } // receives Lot.OnPortalPathPlan's original header
         }
 
         // docs/74 §6.1, switch detailprio (tuning kDetailPriorityCache). Every lot's Simulate pass hands the native world a
@@ -170,7 +255,11 @@ namespace Ts3Fixes
         {
             public LotDetailPriority CalcHook()
             {
-                if (!sDetailPrioReady || Paused() || !ShortcutOn("detailprio")) { sDetailStamp.Reset(); return CalcOrig(); }
+                if (!sDetailPrioReady || !SwOn(kSwDetailPrio) || Paused())
+                {
+                    sDetailStamp.Reset();
+                    return SwOn(kSwDetailPrioExact) ? DpExactAnswer((Lot)(object)this) : CalcOrig();
+                }
                 Lot lot = (Lot)(object)this;
                 Household hh = Household.ActiveHousehold;
                 if (hh == null) return LotDetailPriority.None;
@@ -192,6 +281,17 @@ namespace Ts3Fixes
                     return g;
                 }
                 return p;
+            }
+
+            // detailprioexact: EA's answer without its two lists; a member list EA would throw on goes to EA's own body.
+            LotDetailPriority DpExactAnswer(Lot lot)
+            {
+                int r;
+                try { r = DpExact(lot); }
+                catch (Exception) { PatchCounters()[2796]++; r = -1; }
+                if (r < 0) { PatchCounters()[2794]++; return CalcOrig(); }
+                PatchCounters()[2793]++;
+                return (LotDetailPriority)r;
             }
             public LotDetailPriority CalcOrig() { return LotDetailPriority.None; } // receives Lot.CalculateDetailPriority's original header
         }
@@ -297,6 +397,8 @@ namespace Ts3Fixes
                     // Stored anyway, the flower would count toward the 20 cap until its lifespan alarm removes it (docs/110 7.3)
                     if (WildflowerFire.MustStop(SaveInProgress(), GameStates.IsTravelling)) { WfFinish(flower, lot, f, start, false, "save"); return; }
                     Simulator.Sleep(0);
+                    // docs/205 §2.3c: paused, clock stopped or out of live mode: no try; a save or the world going away ends the wait
+                    SfWait(1739, true);
                     if (WildflowerFire.MustStop(SaveInProgress(), GameStates.IsTravelling)) { WfFinish(flower, lot, f, start, false, "save"); return; }
                     if (flower.HasBeenDestroyed || lot.HasBeenDestroyed || GameStates.IsWorldShuttingDown || !GameStates.IsInWorld())
                     { WfFinish(flower, lot, f, start, false, "world gone"); return; }

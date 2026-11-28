@@ -1,0 +1,239 @@
+{
+  "note": "cp4b-correct-1123 (2026-11-23, WRITTEN, NOT RUN): L3 GhostSweepLot + M8 ReplanDedupeLot + the shared game-state gate (docs/321 §11) correctness; cp4b2: the M8 A vs B lines (m8: ... / m8 B-gain: X% of lookups) at each world quit / load and the repro end, + no-leak + game-state check, bundle style (one BP load: lot unloads while playing, ~60 s paused, CAS and Build/Buy briefly, unpause drain, a France round trip, a save-reload). Build ts3native.asi.cp4b2-1123 (0.36.299-cp4b1 = cp34 + GhostSweepLot / ReplanDedupeLot / SimLiveNow) with ini cp4b2-1123 ([LaneA] all 0 as shipped; this job turns on every cp34 key but EarlyOut plus GhostSweepLot=2, GhostSweepLotVerify=1, ReplanDedupeLot=1) and ts3fixes.package.cp4b2-1123 (cp34 + LotHub.cs state task + LaneA.cs LaneAGate). Bin state apex, release defaults. Pass: every LaneAGate repro step as its mustMatch (no sweep / dedupe work while paused, in CAS or Build/Buy; the gate turned the waiting pass away; it drained after unpause; verify counters 0), per-lot sweep lines 'done' >= 1, every world event 'reset ok' (>= 3), no FAIL / SKIP lane a, no 'FAIL left' / 'given up', 0 script errors, 0 watchdogs, household untouched. ~35 min. ip-lanea-m8-pan (added 2026-11-23): the M8 A vs B measurement with a lot-event floor.",
+  "rewind": "auto",
+  "regexCases": {
+    "^ts3native 0\\.36\\.299-cp4b2 ": {
+      "match": [
+        "ts3native 0.36.299-cp4b2 2026-11-23 18:20:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.299-cp34 2026-11-23 18:40:00",
+        "ts3native 0.36.299-cp4b1 2026-11-23 15:00:00"
+      ]
+    },
+    "^OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd gsLot rdLot ": {
+      "match": [
+        "OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd gsLot rdLot (docs/321 §10; rows cleared on world change, dropped on lot remove)"
+      ],
+      "noMatch": [
+        "OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd (docs/321 §10; rows cleared on world change, dropped on lot remove)",
+        "lane a consumers: off ([LaneA] all 0)"
+      ]
+    },
+    "^m8: (report|world quit|world load), m8Hits \\d+, m8Misses \\d+, m8LotDrops \\d+, m8RowsDropped \\d+, m8WouldHit \\d+$": {
+      "match": [
+        "m8: report, m8Hits 12, m8Misses 340, m8LotDrops 3, m8RowsDropped 5, m8WouldHit 2"
+      ],
+      "noMatch": [
+        "m8: report, m8Hits 12, m8Misses 340",
+        "lane a: world quit, rows 0, reset ok; "
+      ]
+    },
+    "^m8 B-gain: [0-9]+\\.[0-9]{3}% of lookups \\(\\d+ of \\d+\\)$": {
+      "match": [
+        "m8 B-gain: 0.571% of lookups (2 of 350)",
+        "m8 B-gain: 0.000% of lookups (0 of 0)"
+      ],
+      "noMatch": [
+        "m8 B-gain: n/a",
+        "m8: report, m8Hits 0"
+      ]
+    },
+    "^OK   lane a ghost sweep per lot: mode 2 \\(1 count only, 2 remove\\), verify 1, ": {
+      "match": [
+        "OK   lane a ghost sweep per lot: mode 2 (1 count only, 2 remove), verify 1, 2048 nodes per tick; live mode only"
+      ],
+      "noMatch": [
+        "OK   lane a ghost sweep per lot: mode 1 (1 count only, 2 remove), verify 0, 2048 nodes per tick; live mode only",
+        "SKIP lane a ghost sweep per lot: no Simulate iteration hook"
+      ]
+    },
+    "^ghost sweep lot: lot [0-9A-F]{16} done, mode 2, ": {
+      "match": [
+        "ghost sweep lot: lot 00000000000A0001 done, mode 2, ghost ids 0, kept [P+0x3C] 0; totals: jobs 3 done 3, slices 190, removed 0, skipped not live 20, busy 4, max slice 412 us"
+      ],
+      "noMatch": [
+        "ghost sweep lot: lot 00000000000A0001 not in the routing lot table, mode 2, ghost ids 0, kept [P+0x3C] 0; totals: jobs 3 done 2, slices 190, removed 0, skipped not live 20, busy 4, max slice 412 us",
+        "ghost sweep lot: all lots 0000000000000000 done, mode 2, ghost ids 0, kept [P+0x3C] 0; totals: jobs 3 done 3, slices 190, removed 0, skipped not live 20, busy 4, max slice 412 us"
+      ]
+    },
+    "ghost sweep lot: .*(given up|FAIL left)|slice faulted": {
+      "match": [
+        "ghost sweep lot: lot 00000000000A0001 given up (map rehashed 8 times), mode 2, ghost ids 0, kept [P+0x3C] 0; totals: jobs 1 done 0, slices 9, removed 0, skipped not live 0, busy 0, max slice 300 us",
+        "ghost sweep lot: verify 00000000000A0001 done, dry pass found 2 ghost ids on the lot, 0 kept for [P+0x3C], FAIL left"
+      ],
+      "noMatch": [
+        "ghost sweep lot: verify 00000000000A0001 done, dry pass found 0 ghost ids on the lot, 0 kept for [P+0x3C], same"
+      ]
+    },
+    "^ts3fixes: lanea gate: (\\w+) (True|False)$": {
+      "match": [
+        "ts3fixes: lanea gate: still True",
+        "ts3fixes: lanea gate: drained False"
+      ],
+      "noMatch": [
+        "ts3fixes: lanea gate: still",
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"
+      ]
+    },
+    "^lane a: world quit, .*, reset ok; ": {
+      "match": [
+        "lane a: world quit, spDoor 12->0 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, reset ok; autshadow at the next cut"
+      ],
+      "noMatch": [
+        "lane a: world quit, spDoor 12->1 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, FAIL rows left; autshadow at the next cut"
+      ]
+    },
+    "^lane a: world load, .*, reset ok; ": {
+      "match": [
+        "lane a: world load, spDoor 0->0 (slots 14), doorHold 0->0, rd 0->0, eo 0->0, reset ok; autshadow at the next cut"
+      ],
+      "noMatch": [
+        "lane a: world quit, spDoor 12->0 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, reset ok; autshadow at the next cut"
+      ]
+    },
+    "^(FAIL|SKIP) lane a|FAIL rows left": {
+      "match": [
+        "SKIP lane a consumers: lot hub not installed (lhReady 0), tables as today",
+        "SKIP lane a ghost sweep per lot: no Simulate iteration hook"
+      ],
+      "noMatch": [
+        "OK   lane a ghost sweep per lot: mode 2 (1 count only, 2 remove), verify 1, 2048 nodes per tick; live mode only"
+      ]
+    },
+    "^OK   lot hub: ready 0x3 ": {
+      "match": [
+        "OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"
+      ],
+      "noMatch": [
+        "FAIL lot hub: ready 0x1 (lot generation counter + world event, docs/321 §8)"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not found at start; ApexStandDown=1"
+      ]
+    },
+    "^m8 B-gain: [0-9]+\\.[0-9]{3}% of lookups \\(\\d+ of ([2-9]\\d{2}|[1-9]\\d{3,})\\)$": {
+      "match": [
+        "m8 B-gain: 0.000% of lookups (0 of 200)",
+        "m8 B-gain: 1.250% of lookups (5 of 400)",
+        "m8 B-gain: 0.010% of lookups (1 of 10000)"
+      ],
+      "noMatch": [
+        "m8 B-gain: 0.000% of lookups (0 of 199)",
+        "m8 B-gain: 0.000% of lookups (0 of 0)",
+        "m8 B-gain: 0.000% of lookups (0 of 0200)",
+        "m8 B-gain: 50.000% of lookups (200 of 400) extra"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-lanea-gate-travel-reload",
+      "note": "[est 35 min] Bridgeport, one load, seed-12345 play with repro lanea-gate-travel-reload: community lot + pan (lot unloads while playing), one whole-map pass queued, ~60 s paused, CAS and Build/Buy briefly (window checks: no work), unpause (drained), France and home, pan, save to a scratch save and reload it, pan, verify counters 0. Correctness + no-leak + game-state gate only. M8 lines here are informational (few lot events on BP); the hollow floor lives in ip-lanea-m8-pan.",
+      "asi": "game-copy/ts3native.asi.cp4b2-1123",
+      "iniBase": "game-copy/ts3native.ini.cp4b2-1123",
+      "fixesPackage": "game-copy/ts3fixes.package.cp4b2-1123",
+      "pinReason": "feature/cp4b-ghost-m8-1123 (0.36.299-cp4b2): L3 GhostSweepLot + M8 ReplanDedupeLot + game-state gate on cp34; ts3fixes cp34 + LotHub state task + LaneAGate",
+      "releaseDefaults": true,
+      "ini": {
+        "LaneA.AsSimIds": 1,
+        "LaneA.AsTier": 1,
+        "LaneA.AsLotTier": 1,
+        "LaneA.AsLite": 1,
+        "LaneA.SpDoor": 1,
+        "LaneA.DoorHold": 1,
+        "LaneA.ReplanDedupe": 1,
+        "LaneA.GhostSweepLot": 2,
+        "LaneA.GhostSweepLotVerify": 1,
+        "LaneA.ReplanDedupeLot": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 60,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 33,
+          "noSamplers": true,
+          "repro": "lanea-gate-travel-reload",
+          "fixesOn": "laneaenvlist,lanealoop,laneatp,laneadoorgen",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-cp4b2 ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd gsLot rdLot ": 1,
+        "^OK   lane a ghost sweep per lot: mode 2 \\(1 count only, 2 remove\\), verify 1, ": 1,
+        "^ghost sweep lot: lot [0-9A-F]{16} done, mode 2, ": 1,
+        "^ts3fixes: lanea gate: (\\w+) (True|False)$": 10,
+        "^m8: (report|world quit|world load), m8Hits \\d+, m8Misses \\d+, m8LotDrops \\d+, m8RowsDropped \\d+, m8WouldHit \\d+$": 2,
+        "^m8 B-gain: [0-9]+\\.[0-9]{3}% of lookups \\(\\d+ of \\d+\\)$": 2,
+        "^lane a: world quit, .*, reset ok; ": 3,
+        "^lane a: world load, .*, reset ok; ": 3,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1
+      },
+      "logForbid": {
+        "^(FAIL|SKIP) lane a|FAIL rows left": 0,
+        "ghost sweep lot: .*(given up|FAIL left)|slice faulted": 0
+      }
+    },
+    {
+      "id": "ip-lanea-m8-pan",
+      "note": "[est 15 min] MEASUREMENT for the M8 A vs B decision (docs/321 §11.2): Isla Paradiso, speed 3, ~8 min of camera pans over the densest cluster and the 24 lots around it (lot adds / removes while NPCs replan), ReplanDedupe + ReplanDedupeLot on, nothing else of lane A. Reads the m8 B-gain line. Hollow floors (the row FAILs): raw lot events lhLotGen >= 20 over the job window (/native delta) and m8Hits + m8Misses >= 200 lookups (the report's B-gain line); m8LotDrops / m8WouldHit are informational, so a low B-gain can say keep A. Correctness gates as the BP job.",
+      "asi": "game-copy/ts3native.asi.cp4b2-1123",
+      "iniBase": "game-copy/ts3native.ini.cp4b2-1123",
+      "fixesPackage": "game-copy/ts3fixes.package.cp4b2-1123",
+      "pinReason": "feature/cp4b-ghost-m8-1123 (0.36.299-cp4b2): L3 GhostSweepLot + M8 ReplanDedupeLot + game-state gate on cp34; ts3fixes cp34 + LotHub state task + LaneAGate",
+      "releaseDefaults": true,
+      "ini": {
+        "LaneA.ReplanDedupe": 1,
+        "LaneA.ReplanDedupeLot": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "lanea-m8-ip-pan",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0,lhLotGen>=20",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-cp4b2 ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^m8 B-gain: [0-9]+\\.[0-9]{3}% of lookups \\(\\d+ of \\d+\\)$": 2,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^m8: (report|world quit|world load), m8Hits \\d+, m8Misses \\d+, m8LotDrops \\d+, m8RowsDropped \\d+, m8WouldHit \\d+$": 2,
+        "^m8 B-gain: [0-9]+\\.[0-9]{3}% of lookups \\(\\d+ of ([2-9]\\d{2}|[1-9]\\d{3,})\\)$": 1
+      },
+      "logForbid": {
+        "^(FAIL|SKIP) lane a|FAIL rows left": 0
+      }
+    }
+  ]
+}

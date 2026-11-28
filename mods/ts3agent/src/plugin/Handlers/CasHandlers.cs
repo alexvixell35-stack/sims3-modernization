@@ -27,6 +27,8 @@ namespace Ts3Agent
             Dispatcher.Register("cas_open", CasOpen);
             Dispatcher.Register("cas_category", CasCategory);
             Dispatcher.Register("cas_close", CasClose);
+            Dispatcher.Register("cas_click", CasClick);
+            Dispatcher.Register("cas_skin_probe", CasSkinProbe);
             Dispatcher.Register("cas_state", CasState);
             Dispatcher.Register("cas_bench", CasBench);
             Dispatcher.Register("buy_open", BuyOpen);
@@ -86,6 +88,7 @@ namespace Ts3Agent
                 finally
                 {
                     r["state"] = SubState();
+                    if (label == "buy_open" && sBuyRetries > 0) { r["retries"] = sBuyRetries; r["block"] = sBuyBlock; }
                     try
                     {
                         if (CasUp())
@@ -362,6 +365,113 @@ namespace Ts3Agent
             }, delegate { return SubState() == "LiveModeState"; }, null, 180000);
         }
 
+        // cas_skin_probe: read only, for the "body lighter than the face" CAS glitch (docs/658 §3, §8). Reports what decides the
+        // per-part tint and the skin: the model's HighlightIndex / SelectionIndex / HighlightMode, CASLogic's caches and
+        // their dirty flags (mode and index reach the native builder on the next CAS task tick), the controller's
+        // SimSelectionModeEnabled, the pick id decoded to a body type and region (SimBuilder.GetBodyTypeAndRegionFromPickData),
+        // the builder's skin key and index, LoadDB's default ramp (mSkinToneKey and the last ramp it enumerated; reading the
+        // SkinToneKey property would overwrite it, so the field is read), whether the human base ramp is installed, the
+        // current outfit category / index and the builder's worn parts by body type, and the lighting flags script can see
+        // (World.UpdateLightRigs). Never writes anything.
+        delegate object ProbeField(string name);
+        static object CasSkinProbe(Args a)
+        {
+            if (!CasUp()) throw new McpException("CAS is not open (state " + SubState() + ")");
+            Dictionary<string, object> r = Util.Obj();
+            CASLogic cas = CASLogic.GetSingleton();
+            ICASModel m = Responder.Instance.CASModel;
+            const BindingFlags kI = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            Type t = typeof(CASLogic);
+            ProbeField fld = delegate(string n) { FieldInfo f = t.GetField(n, kI); return f == null ? "(no field)" : f.GetValue(cas); };
+            r["highlight_index"] = m.HighlightIndex;
+            r["selection_index"] = m.SelectionIndex;
+            r["highlight_mode"] = m.HighlightMode.ToString();
+            r["highlight_mode_dirty"] = fld("mHighlightModeDirty");
+            r["highlight_index_dirty"] = fld("mHighlightIndexDirty");
+            CASController ctl = CASController.Singleton;
+            r["sim_selection_mode_enabled"] = ctl != null ? (object)ctl.SimSelectionModeEnabled : null;
+            SimBuilder b = t.GetField("mBuilder", kI).GetValue(cas) as SimBuilder;
+            if (b != null)
+            {
+                int bt = -1, region = -1;
+                if (m.HighlightIndex != 0) b.GetBodyTypeAndRegionFromPickData((int)m.HighlightIndex, ref bt, ref region);
+                r["highlight_body_type"] = bt >= 0 ? ((BodyTypes)bt).ToString() : null;
+                r["highlight_region"] = bt >= 0 ? (object)region : null;
+                r["selection_body_type"] = m.SelectionIndex != 0 ? ((BodyTypes)m.SelectionIndex).ToString() : null;
+                r["skin_tone_key"] = "0x" + b.SkinTone.InstanceId.ToString("X16");
+                r["skin_tone_index"] = b.SkinToneIndex;
+                List<string> worn = new List<string>();
+                foreach (object o in b.WornParts) if (o is CASPart) worn.Add(((CASPart)o).BodyType.ToString());
+                worn.Sort(StringComparer.Ordinal);
+                r["worn_body_types"] = worn;
+                r["species"] = b.Species.ToString();
+                r["age_gender"] = b.Age + " " + b.Gender;
+            }
+            object def = fld("mSkinToneKey");
+            r["default_ramp_field"] = def is ResourceKey ? "0x" + ((ResourceKey)def).InstanceId.ToString("X16") : def;
+            List<ResourceKey> ramps = t.GetField("mSkinToneRamps", kI).GetValue(cas) as List<ResourceKey>;
+            if (ramps != null)
+            {
+                r["ramps"] = ramps.Count;
+                r["ramp_last_enumerated"] = ramps.Count > 0 ? "0x" + ramps[ramps.Count - 1].InstanceId.ToString("X16") : null;
+                bool human = false;
+                foreach (ResourceKey k in ramps) if (k.InstanceId == (ulong)CASSkinTones.HumanSkinTone) human = true;
+                r["human_base_ramp_installed"] = human;
+            }
+            r["outfit_category"] = m.OutfitCategory.ToString();
+            r["outfit_index"] = m.OutfitIndex;
+            SimOutfit cur = cas.GetCurrentOutfit();
+            if (cur != null)
+            {
+                List<string> parts = new List<string>();
+                foreach (CASPart p in cur.Parts) parts.Add(p.BodyType.ToString());
+                parts.Sort(StringComparer.Ordinal);
+                r["stored_outfit_body_types"] = parts;
+                r["stored_outfit_skin"] = "0x" + cur.SkinToneKey.InstanceId.ToString("X16") + " @ " + cur.SkinToneIndex;
+            }
+            r["world_update_light_rigs"] = World.UpdateLightRigs;
+            CASState st = ctl != null ? ctl.CurrentState : default(CASState);
+            r["cas"] = st.mTopState + "/" + st.mMidState + "/" + st.mPhysicalState + "/" + st.mClothingState;
+            return r;
+        }
+
+        // cas_click {button: tops|bottoms|shoes|outfits|accessories|design|save|sort, key: left|right}: what a player's click on
+        // a CASClothingCategory button sends, through the game's own UI entry UIManager.ProcessEvent: MouseDown (event 6, arg1 =
+        // mouse key), then for the left key Click (kEventButtonClick 678582774). Every handler on the button runs, EA's and other
+        // mods' (NRaas MasterController adds a MouseDown handler to the type buttons). A left click on the type already selected
+        // opens the designer (Create-a-Style, CASClothingCategory activateDesigner), as in play. Repro cas-targetexc-check.
+        static object CasClick(Args a)
+        {
+            if (!CasUp()) throw new McpException("CAS is not open (state " + SubState() + ")");
+            WindowBase cc = Panel(typeof(CASClothingCategory)) as WindowBase;
+            if (cc == null || !cc.Visible) throw new McpException("no clothing panel shown (cas_category everyday first)");
+            string b = a.Str("button").Trim().ToLowerInvariant();
+            if (b.Length == 0) throw new McpException("button missing");
+            FieldInfo f = typeof(CASClothingCategory).GetField("m" + char.ToUpperInvariant(b[0]) + b.Substring(1) + "Button", kPriv);
+            Button btn = f != null ? f.GetValue(cc) as Button : null;
+            if (btn == null) throw new McpException("no button '" + b + "' on the clothing panel");
+            bool right = a.Str("key", "left").Trim().ToLowerInvariant() == "right";
+            MethodInfo pe = null;   // ProcessEvent has overloads (AmbiguousMatchException 2026-11-21): take (uint, uint, WindowBase, WindowBase, ...), the one CasSend passes; a uint-handle twin has 13 too
+            foreach (MethodInfo m in typeof(UIManager).GetMethods(kPriv | BindingFlags.Public | BindingFlags.Static)) { ParameterInfo[] ps = m.GetParameters(); if (m.Name == "ProcessEvent" && ps.Length == 13 && ps[2].ParameterType == typeof(WindowBase)) { pe = m; break; } }
+            if (pe == null) throw new McpException("UIManager.ProcessEvent not found");
+            Dictionary<string, object> r = Util.Obj();
+            r["button"] = b;
+            r["key"] = right ? "right" : "left";
+            r["mouse_down"] = CasSend(pe, btn, 6u, (int)(right ? MouseKeys.kMouseRight : MouseKeys.kMouseLeft));
+            if (!right) r["click"] = CasSend(pe, btn, 678582774u, 0);
+            r["designer"] = CASCompositorController.Instance != null && CASCompositorController.Instance.Visible;
+            return r;
+        }
+
+        // One event into UIManager.ProcessEvent(handle, type, src, dst, arg1, ref arg2, arg3, f1-f4, ref result, text): true = a handler ran.
+        static object CasSend(MethodInfo pe, WindowBase w, uint type, int arg1)
+        {
+            object h = typeof(WindowBase).GetProperty("WinHandle", kPriv | BindingFlags.Public).GetValue(w, null);  // internal
+            object[] args = { h, type, w, w, arg1, 0, 0, 0f, 0f, 0f, 0f, false, null };
+            try { return pe.Invoke(null, args); }
+            catch (TargetInvocationException e) { return "threw " + (e.InnerException != null ? e.InnerException.GetType().Name + ": " + e.InnerException.Message : e.Message); }
+        }
+
         // cas_state: in-world state, CAS tab, Buy catalog, whether a timing is running, and all recorded timings.
         static object CasState(Args a)
         {
@@ -521,7 +631,41 @@ namespace Ts3Agent
             if (SubState() != "LiveModeState") throw new McpException("not in live mode (state " + SubState() + ")");
             Lot lot = HomeLot();
             if (lot == null) throw new McpException("no home lot for the active household");
-            return Measure("buy_open", delegate { GameStates.TransitionToBuyMode(lot, null); }, BuyUp, BuyItems, 180000);
+            // GotoBuyMode returns silently while a sub-state switch is pending or Buy is disabled (InWorldState.GotoBuyMode); a
+            // player clicks again, so the wait re-asks every 3 s while still in live mode and keeps the gate values for the row.
+            int last = System.Environment.TickCount;
+            sBuyRetries = 0; sBuyBlock = null;
+            return Measure("buy_open", delegate { GameStates.TransitionToBuyMode(lot, null); }, delegate
+            {
+                if (BuyUp()) return true;
+                if (SubState() == "LiveModeState" && System.Environment.TickCount - last >= 3000)
+                {
+                    last = System.Environment.TickCount;
+                    sBuyRetries++;
+                    sBuyBlock = BuyBlock();
+                    GameStates.TransitionToBuyMode(lot, null);
+                }
+                return false;
+            }, BuyItems, 180000);
+        }
+
+        static int sBuyRetries;
+        static string sBuyBlock;
+
+        // The GotoBuyMode gates: mEnableBuyMode, sStateChangeDialogUp, the sub-state machine's pending state.
+        static string BuyBlock()
+        {
+            try
+            {
+                object gs = typeof(GameStates).GetField("sSingleton", kPriv).GetValue(null);
+                object iw = gs == null ? null : typeof(GameStates).GetField("mInWorldState", kPriv).GetValue(gs);
+                if (iw == null) return "no InWorldState";
+                StateMachine sm = typeof(InWorldState).GetField("mStateMachine", kPriv).GetValue(iw) as StateMachine;
+                return "enableBuy=" + typeof(InWorldState).GetField("mEnableBuyMode", kPriv).GetValue(iw)
+                    + " dialogUp=" + typeof(InWorldState).GetField("sStateChangeDialogUp", kPriv).GetValue(null)
+                    + " pending=" + (sm == null ? "?" : sm.PendingStateId.ToString()) + " cur=" + (sm == null ? "?" : sm.CurStateId.ToString());
+            }
+            catch (Exception e) { return "gate read failed: " + e.GetType().Name; }
         }
 
         static void FindTagged(WindowBase w, string tagType, List<Button> found, int depth)
@@ -548,6 +692,35 @@ namespace Ts3Agent
             string want = a.Str("category").Trim();
             object c = BuyCtl();
             Type t = typeof(BuyController);
+            // "@back": the catalog back button's own handler; "@catalog:<name>": a catalog button (by function, by room,
+            // collections, store, inventory: BuyController.Catalog name, exact or contained) through OnCatalogButtonClick.
+            // These reach ShowCatalogGrid(false) and SelectCatalog (docs/545 buyclearrecycle, buygridsweep).
+            if (want == "@back")
+                return Measure("buy_category @back", delegate
+                {
+                    t.GetMethod("OnCatalogBackButtonClick", kPriv).Invoke(c, new object[] { null, null });
+                }, BuyUp, BuyItems, 60000);
+            if (want.StartsWith("@catalog:"))
+            {
+                string cw = want.Substring(9);
+                List<Button> cbs = new List<Button>();
+                FindTagged((WindowBase)c, "Catalog", cbs, 0);
+                Button ch = null; List<string> cn = new List<string>();
+                foreach (Button b in cbs)
+                {
+                    Type ct = b.Tag.GetType();
+                    string name = ct.GetField("mName").GetValue(b.Tag) as string ?? "";
+                    string loc = ct.GetField("mLocalizedName").GetValue(b.Tag) as string ?? "";
+                    cn.Add(name);
+                    if (ch == null && (name.IndexOf(cw, StringComparison.OrdinalIgnoreCase) >= 0 || loc.IndexOf(cw, StringComparison.OrdinalIgnoreCase) >= 0)) ch = b;
+                }
+                if (ch == null) throw new McpException("no buy catalog '" + cw + "'; found: " + string.Join(", ", cn.ToArray()));
+                Button hitC = ch;
+                return Measure("buy_category " + want, delegate
+                {
+                    t.GetMethod("OnCatalogButtonClick", kPriv).Invoke(c, new object[] { hitC, null });
+                }, BuyUp, BuyItems, 60000);
+            }
             if (Convert.ToString(t.GetField("mCurrCatalogType", kPriv).GetValue(c)) != "ByCategory")
             {
                 Button byFunction = t.GetField("mCatalogCategoryModeButton", kPriv).GetValue(c) as Button;

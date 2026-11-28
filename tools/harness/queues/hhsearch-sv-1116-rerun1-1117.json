@@ -1,0 +1,101 @@
+{
+  "note": "Rerun of hhsearch-sv-1116 job sv-hhsearch (FAIL door memo x, 2026-11-16 19:39 UTC; docs/585 §6). Job 1 proves the fix: bugfix/doormemox-privacy-1117 (ts3native.asi.dmxp1117 0.36.268-dmxp1117 + ts3fixes.package.dmxp1117, master-1116c ini: DoorMemoX=3, doorgen on), SV, repro doormemox-privacy forces toilet + shower privacy situations on the household lot with townies routing. PASS = no 'FAIL door memo x', held asks > 0, memo still acting (hits > 0). The probe job itself (sv-hhsearch, hhsearchprobe) reruns from feature/hoursmemo-svprobe-1116 once rebased on bugfix/doormemox-privacy-1117 (its ts3fixes lacks DoorGenHold, so DoorMemoX=3 can void it again). Agent: any master-1116c agent (spawn_sims, do_interaction, set_speed, remove_sims). Correctness job, no timing. node tools/harness/queue.ts tools/harness/queues/hhsearch-sv-1116-rerun1-1117.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.268-dmxp1117 ": {
+      "match": [
+        "ts3native 0.36.268-dmxp1117 2026-11-17 09:12:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.267-mc1116 2026-11-16 19:39:43"
+      ]
+    },
+    "^OK   door memo x: DoorMemoX=3 ": {
+      "match": [
+        "OK   door memo x: DoorMemoX=3 (answers from other jobs, ts3fixes doorgen inputs in the generation (acts once armed)), max age 250 ms, unlocked answers only (switch dmxMode +0x5014, --ab doormemox)"
+      ],
+      "noMatch": [
+        "OK   door memo x: DoorMemoX=2 (shadow), max age 250 ms, unlocked answers only (switch dmxMode +0x5014, --ab doormemox)"
+      ]
+    },
+    "^door memo x: ts3fixes doorgen armed": {
+      "match": [
+        "door memo x: ts3fixes doorgen armed (DoorMemoX=3 inputs tracked)"
+      ],
+      "noMatch": [
+        "door memo x mode 3: armed 0, managed input bumps 0, asks before arming 0, hits 0 miss 0 inval 0 shadow 0 mismatch 0, household / unknown asks not answered from it 0"
+      ]
+    },
+    "^door memo x misses: .*door handler \\(live, not kept\\) [1-9]": {
+      "match": [
+        "door memo x misses: no row 8473, other generation 574, older than DoorMemoXMs 575; live answers not unlocked (not stored) 250; asks on lots with a privacy / mod door handler (live, not kept) 312"
+      ],
+      "noMatch": [
+        "door memo x misses: no row 8473, other generation 574, older than DoorMemoXMs 575; live answers not unlocked (not stored) 250; asks on lots with a privacy / mod door handler (live, not kept) 0",
+        "door memo x misses: no row 8473, other generation 574, older than DoorMemoXMs 575; live answers not unlocked (not stored) 250"
+      ]
+    },
+    "^door memo x mode 3: armed 1, .* hits [1-9]": {
+      "match": [
+        "door memo x mode 3: armed 1, managed input bumps 211, asks before arming 0, hits 8189 miss 9622 inval 1149 shadow 1635 mismatch 0, household / unknown asks not answered from it 980"
+      ],
+      "noMatch": [
+        "door memo x mode 3: armed 1, managed input bumps 0, asks before arming 0, hits 0 miss 0 inval 0 shadow 0 mismatch 0, household / unknown asks not answered from it 0"
+      ]
+    },
+    "^FAIL door memo x": {
+      "match": [
+        "FAIL door memo x: a memo answer differed from the live ask in mode 1: DoorMemoX off for this session"
+      ],
+      "noMatch": [
+        "door memo x shadow: answer 1, other job's 2 (79 ms before), key 8B52BB30 6C11001B 6A938280 F87500F5 5F050F00 6C110020 0001 0004 00"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "sv-doormemox-privacy",
+      "rerunOf": "sv-hhsearch",
+      "note": "SV-Spring, repro doormemox-privacy (forced toilet + shower on the household lot, 6 townies, ultra speed), DoorMemoX=3 + doorgen on the fix build. PASS = 0 crashes, 0 script errors, no FAIL door memo x, held asks > 0, hits > 0.",
+      "asi": "game-copy/ts3native.asi.dmxp1117",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.dmxp1117",
+      "pinReason": "bugfix/doormemox-privacy-1117 87d5a573 (builds.json ts3native.asi.dmxp1117 + ts3fixes.package.dmxp1117) on the master-1116c ini (DoorMemoX=3)",
+      "save": "Baseline-SV-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.268-dmxp1117 ": 1,
+        "^OK   door memo x: DoorMemoX=3 ": 1,
+        "^door memo x: ts3fixes doorgen armed": 1,
+        "^door memo x misses: .*door handler \\(live, not kept\\) [1-9]": 1,
+        "^door memo x mode 3: armed 1, .* hits [1-9]": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1
+      },
+      "logForbid": {
+        "^FAIL door memo x": 0
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "doormemox-privacy"
+        }
+      }
+    }
+  ]
+}

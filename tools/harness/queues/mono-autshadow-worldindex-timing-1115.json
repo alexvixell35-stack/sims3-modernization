@@ -1,0 +1,457 @@
+{
+  "note": "mono-autshadow-worldindex-timing-1115 (lane autshadow, PREPARED, NOT RUN; TIMING, needs a quiet machine): docs/122 §14.29 WorldIndex off vs on. Needs a quiet machine (no game queue, no build, Spotify closed; external-load rule: other CPU >= 10% or a clock drop = rerun). ABBA on BP, WorldIndexCheck=0 in the on arms, Audit/samplers as mono-cost17 (Mode R: the per-cut counters are the measurement, not sim ms/s noise). Judge per arm with node tools/harness/mono-cost-report.ts --tag mono-autshadow-worldindex-timing-1115: cut avg us, ListWalk walk us per cut (lwWalkUs, includes the index build) and wiUs per cut; pooled off vs on over both pairs. Expected [inferred I-488-1]: walk ~101 -> ~35-50 us a cut, cut -50..-65 us. wiMis 0 in the on arms (logForbid). Run after mono-autshadow-worldindex-1115 PASSes: node tools/harness/queue.ts tools/harness/queues/mono-autshadow-worldindex-timing-1115.json",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+      "match": [
+        "OK   sim loop: mono thread tick runs at the end of every Simulate iteration"
+      ],
+      "noMatch": [
+        "OK   sim loop: je at 0x00D81FFF -> SlpThunk, then 0x00D818C0 (every Simulate iteration)"
+      ]
+    },
+    "OK   mono thread P4": {
+      "match": [
+        "OK   mono thread P4: frame globals -> TLS 15/17 (fs:0xE4C/0xE54), blocks 0xF of 0xF"
+      ],
+      "noMatch": [
+        "OK   mono thread P3: sites 19"
+      ]
+    },
+    "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": {
+      "match": [
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8 (docs/122 §14.21, §14.26)"
+      ],
+      "noMatch": [
+        "autshadow cut: RunSkip=1 Transient=0 HostCls=0 ListWalk=0 ListWalkCheck=8 (docs/122 §14.21, §14.26)"
+      ]
+    },
+    "autshadow cut17: IdsDelta=1 IdsDeltaCheck=8 SimEvLearn=1 SimEvSeated=1 SimSeatIcs=0x25 TierClassMax=16 GoneLoose=1": {
+      "match": [
+        "autshadow cut17: IdsDelta=1 IdsDeltaCheck=8 SimEvLearn=1 SimEvSeated=1 SimSeatIcs=0x25 TierClassMax=16 GoneLoose=1 (docs/122 §14.28)"
+      ],
+      "noMatch": [
+        "autshadow cut17: IdsDelta=0 IdsDeltaCheck=8 SimEvLearn=0 SimEvSeated=0 SimSeatIcs=0x25 TierClassMax=0 GoneLoose=0 (docs/122 §14.28)"
+      ]
+    },
+    "autshadow cut29: WorldIndex=1 WorldIndexCheck=0": {
+      "match": [
+        "autshadow cut29: WorldIndex=1 WorldIndexCheck=0 (docs/122 §14.29)"
+      ],
+      "noMatch": [
+        "autshadow cut29: WorldIndex=1 WorldIndexCheck=1 (docs/122 §14.29)"
+      ]
+    },
+    "autshadow cut29: WorldIndex=1 WorldIndexCheck=1": {
+      "match": [
+        "autshadow cut29: WorldIndex=1 WorldIndexCheck=1 (docs/122 §14.29)"
+      ],
+      "noMatch": [
+        "autshadow cut29: WorldIndex=0 WorldIndexCheck=1 (docs/122 §14.29)"
+      ]
+    },
+    "autshadow world index miss": {
+      "match": [
+        "autshadow world index miss: lot 0x0000000700000001 index 3 ids, walk 4 (WorldIndex off)"
+      ],
+      "noMatch": [
+        "autshadow list walk miss: X lot 0x0000000700000001 room 3 (ListWalk off)"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-wit-smoke",
+      "note": "measurement smoke 4 min (on arm): cut29 line reads WorldIndex=1 WorldIndexCheck=0, wiLots > 0 in -native.json, noSamplers. A FAIL stops the queue.",
+      "asi": "game-copy/ts3native.asi.mono-autshadow-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-autshadow-1115",
+      "pinReason": "mono-autshadow-1115 (builds.json): feature/mono-autshadow-1115 = master aae8e1d6 + WorldIndex (native) + autliveseen (ts3fixes)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": 1,
+        "autshadow cut17: IdsDelta=1 IdsDeltaCheck=8 SimEvLearn=1 SimEvSeated=1 SimSeatIcs=0x25 TierClassMax=16 GoneLoose=1": 1,
+        "autshadow cut29: WorldIndex=1 WorldIndexCheck=0": 1
+      },
+      "logForbid": {
+        "autshadow world index miss": 0
+      },
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Transient": 1,
+        "AutShadow.HostCls": 1,
+        "AutShadow.ListWalk": 1,
+        "AutShadow.ListWalkCheck": 8,
+        "AutShadow.SimEvRows": 1,
+        "AutShadow.SimEvCheck": 8,
+        "AutShadow.SimEvIcs": 39,
+        "AutShadow.TierMoveLot": 1,
+        "AutShadow.ListAuditEvery": 2,
+        "AutShadow.GoneDelta": 1,
+        "AutShadow.GoneDeltaCheck": 8,
+        "AutShadow.IdsDelta": 1,
+        "AutShadow.IdsDeltaCheck": 8,
+        "AutShadow.SimEvLearn": 1,
+        "AutShadow.SimEvSeated": 1,
+        "AutShadow.SimSeatIcs": 37,
+        "AutShadow.TierClassMax": 16,
+        "AutShadow.GoneLoose": 1,
+        "AutShadow.WorldIndex": 1,
+        "AutShadow.WorldIndexCheck": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 4,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 24
+    },
+    {
+      "id": "bp-wit-a1-off",
+      "note": "A (off) 1/4. Needs a quiet machine (no game queue, no build, Spotify closed; external-load rule: other CPU >= 10% or a clock drop = rerun). ABBA on BP, WorldIndexCheck=0 in the on arms, Audit/samplers as mono-cost17 (Mode R: the per-cut counters are the measurement, not sim ms/s noise). Judge per arm with node tools/harness/mono-cost-report.ts --tag mono-autshadow-worldindex-timing-1115: cut avg us, ListWalk walk us per cut (lwWalkUs, includes the index build) and wiUs per cut; pooled off vs on over both pairs. Expected [inferred I-488-1]: walk ~101 -> ~35-50 us a cut, cut -50..-65 us. wiMis 0 in the on arms (logForbid).",
+      "asi": "game-copy/ts3native.asi.mono-autshadow-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-autshadow-1115",
+      "pinReason": "mono-autshadow-1115 (builds.json): feature/mono-autshadow-1115 = master aae8e1d6 + WorldIndex (native) + autliveseen (ts3fixes)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": 1,
+        "autshadow cut17: IdsDelta=1 IdsDeltaCheck=8 SimEvLearn=1 SimEvSeated=1 SimSeatIcs=0x25 TierClassMax=16 GoneLoose=1": 1
+      },
+      "logForbid": {
+        "autshadow world index miss": 0
+      },
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Transient": 1,
+        "AutShadow.HostCls": 1,
+        "AutShadow.ListWalk": 1,
+        "AutShadow.ListWalkCheck": 8,
+        "AutShadow.SimEvRows": 1,
+        "AutShadow.SimEvCheck": 8,
+        "AutShadow.SimEvIcs": 39,
+        "AutShadow.TierMoveLot": 1,
+        "AutShadow.ListAuditEvery": 2,
+        "AutShadow.GoneDelta": 1,
+        "AutShadow.GoneDeltaCheck": 8,
+        "AutShadow.IdsDelta": 1,
+        "AutShadow.IdsDeltaCheck": 8,
+        "AutShadow.SimEvLearn": 1,
+        "AutShadow.SimEvSeated": 1,
+        "AutShadow.SimSeatIcs": 37,
+        "AutShadow.TierClassMax": 16,
+        "AutShadow.GoneLoose": 1,
+        "AutShadow.WorldIndex": 0,
+        "AutShadow.WorldIndexCheck": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-wit-b1-on",
+      "note": "B (on) 2/4. Needs a quiet machine (no game queue, no build, Spotify closed; external-load rule: other CPU >= 10% or a clock drop = rerun). ABBA on BP, WorldIndexCheck=0 in the on arms, Audit/samplers as mono-cost17 (Mode R: the per-cut counters are the measurement, not sim ms/s noise). Judge per arm with node tools/harness/mono-cost-report.ts --tag mono-autshadow-worldindex-timing-1115: cut avg us, ListWalk walk us per cut (lwWalkUs, includes the index build) and wiUs per cut; pooled off vs on over both pairs. Expected [inferred I-488-1]: walk ~101 -> ~35-50 us a cut, cut -50..-65 us. wiMis 0 in the on arms (logForbid).",
+      "asi": "game-copy/ts3native.asi.mono-autshadow-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-autshadow-1115",
+      "pinReason": "mono-autshadow-1115 (builds.json): feature/mono-autshadow-1115 = master aae8e1d6 + WorldIndex (native) + autliveseen (ts3fixes)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": 1,
+        "autshadow cut17: IdsDelta=1 IdsDeltaCheck=8 SimEvLearn=1 SimEvSeated=1 SimSeatIcs=0x25 TierClassMax=16 GoneLoose=1": 1,
+        "autshadow cut29: WorldIndex=1 WorldIndexCheck=0": 1
+      },
+      "logForbid": {
+        "autshadow world index miss": 0
+      },
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Transient": 1,
+        "AutShadow.HostCls": 1,
+        "AutShadow.ListWalk": 1,
+        "AutShadow.ListWalkCheck": 8,
+        "AutShadow.SimEvRows": 1,
+        "AutShadow.SimEvCheck": 8,
+        "AutShadow.SimEvIcs": 39,
+        "AutShadow.TierMoveLot": 1,
+        "AutShadow.ListAuditEvery": 2,
+        "AutShadow.GoneDelta": 1,
+        "AutShadow.GoneDeltaCheck": 8,
+        "AutShadow.IdsDelta": 1,
+        "AutShadow.IdsDeltaCheck": 8,
+        "AutShadow.SimEvLearn": 1,
+        "AutShadow.SimEvSeated": 1,
+        "AutShadow.SimSeatIcs": 37,
+        "AutShadow.TierClassMax": 16,
+        "AutShadow.GoneLoose": 1,
+        "AutShadow.WorldIndex": 1,
+        "AutShadow.WorldIndexCheck": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-wit-b2-on",
+      "note": "B (on) 3/4. Needs a quiet machine (no game queue, no build, Spotify closed; external-load rule: other CPU >= 10% or a clock drop = rerun). ABBA on BP, WorldIndexCheck=0 in the on arms, Audit/samplers as mono-cost17 (Mode R: the per-cut counters are the measurement, not sim ms/s noise). Judge per arm with node tools/harness/mono-cost-report.ts --tag mono-autshadow-worldindex-timing-1115: cut avg us, ListWalk walk us per cut (lwWalkUs, includes the index build) and wiUs per cut; pooled off vs on over both pairs. Expected [inferred I-488-1]: walk ~101 -> ~35-50 us a cut, cut -50..-65 us. wiMis 0 in the on arms (logForbid).",
+      "asi": "game-copy/ts3native.asi.mono-autshadow-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-autshadow-1115",
+      "pinReason": "mono-autshadow-1115 (builds.json): feature/mono-autshadow-1115 = master aae8e1d6 + WorldIndex (native) + autliveseen (ts3fixes)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": 1,
+        "autshadow cut17: IdsDelta=1 IdsDeltaCheck=8 SimEvLearn=1 SimEvSeated=1 SimSeatIcs=0x25 TierClassMax=16 GoneLoose=1": 1,
+        "autshadow cut29: WorldIndex=1 WorldIndexCheck=0": 1
+      },
+      "logForbid": {
+        "autshadow world index miss": 0
+      },
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Transient": 1,
+        "AutShadow.HostCls": 1,
+        "AutShadow.ListWalk": 1,
+        "AutShadow.ListWalkCheck": 8,
+        "AutShadow.SimEvRows": 1,
+        "AutShadow.SimEvCheck": 8,
+        "AutShadow.SimEvIcs": 39,
+        "AutShadow.TierMoveLot": 1,
+        "AutShadow.ListAuditEvery": 2,
+        "AutShadow.GoneDelta": 1,
+        "AutShadow.GoneDeltaCheck": 8,
+        "AutShadow.IdsDelta": 1,
+        "AutShadow.IdsDeltaCheck": 8,
+        "AutShadow.SimEvLearn": 1,
+        "AutShadow.SimEvSeated": 1,
+        "AutShadow.SimSeatIcs": 37,
+        "AutShadow.TierClassMax": 16,
+        "AutShadow.GoneLoose": 1,
+        "AutShadow.WorldIndex": 1,
+        "AutShadow.WorldIndexCheck": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-wit-a2-off",
+      "note": "A (off) 4/4. Needs a quiet machine (no game queue, no build, Spotify closed; external-load rule: other CPU >= 10% or a clock drop = rerun). ABBA on BP, WorldIndexCheck=0 in the on arms, Audit/samplers as mono-cost17 (Mode R: the per-cut counters are the measurement, not sim ms/s noise). Judge per arm with node tools/harness/mono-cost-report.ts --tag mono-autshadow-worldindex-timing-1115: cut avg us, ListWalk walk us per cut (lwWalkUs, includes the index build) and wiUs per cut; pooled off vs on over both pairs. Expected [inferred I-488-1]: walk ~101 -> ~35-50 us a cut, cut -50..-65 us. wiMis 0 in the on arms (logForbid).",
+      "asi": "game-copy/ts3native.asi.mono-autshadow-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-autshadow-1115",
+      "pinReason": "mono-autshadow-1115 (builds.json): feature/mono-autshadow-1115 = master aae8e1d6 + WorldIndex (native) + autliveseen (ts3fixes)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": 1,
+        "autshadow cut17: IdsDelta=1 IdsDeltaCheck=8 SimEvLearn=1 SimEvSeated=1 SimSeatIcs=0x25 TierClassMax=16 GoneLoose=1": 1
+      },
+      "logForbid": {
+        "autshadow world index miss": 0
+      },
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Transient": 1,
+        "AutShadow.HostCls": 1,
+        "AutShadow.ListWalk": 1,
+        "AutShadow.ListWalkCheck": 8,
+        "AutShadow.SimEvRows": 1,
+        "AutShadow.SimEvCheck": 8,
+        "AutShadow.SimEvIcs": 39,
+        "AutShadow.TierMoveLot": 1,
+        "AutShadow.ListAuditEvery": 2,
+        "AutShadow.GoneDelta": 1,
+        "AutShadow.GoneDeltaCheck": 8,
+        "AutShadow.IdsDelta": 1,
+        "AutShadow.IdsDeltaCheck": 8,
+        "AutShadow.SimEvLearn": 1,
+        "AutShadow.SimEvSeated": 1,
+        "AutShadow.SimSeatIcs": 37,
+        "AutShadow.TierClassMax": 16,
+        "AutShadow.GoneLoose": 1,
+        "AutShadow.WorldIndex": 0,
+        "AutShadow.WorldIndexCheck": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

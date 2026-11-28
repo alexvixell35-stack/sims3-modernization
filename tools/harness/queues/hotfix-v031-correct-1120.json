@@ -1,0 +1,410 @@
+{
+  "note": "hotfix-v031-correct-1120 (PREPARED, NOT RUN; correctness, no timing): v0.3.1 hotfix set hf031 (ts3native 0.36.295a, branch hotfix/v0.3.1-ea-exe-crash) on Steam 1.67, Bin state apex = Apex Radiance 4.0.12 + bridge (tools/turbo-compat.ts snapshot -> state apex -> restore). Jobs: release smoke (copy of rc1119-smoke-rc-1119b), the [HostMapIterFix] ON repro (copy of hostmap-iter-correct-1120 bp-hostmapiter-on: TestRehash=20 forces 20 stale erases, all must be fixed, no crash), and the JIT fault-handler (Apex first-chance AV) check. Placement: after the tester-first hold (~00:30 PHT), before or after the c96 stress, Rodney schedules. node tools/harness/queue.ts <queue> --dry-run",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rc1119-smoke-hf031",
+      "note": "[hotfix v0.3.1, Bin state apex = Apex Radiance 4.0.12 (latest) + bridge] [docs/293: the RC set must load Baseline-BP-Spring with 0 saved-frame repairs (vanilla layout) and no crash] [rc-1119 set smoke, version 0.36.287-rc1118n] [natural play, no cheats] master-1117c (0.36.271-mc1117) smoke, Baseline-BP-Spring: Dalexlol batch switches ON; version, LostRemovalFix, GhostSweep=2 and RemovalFirst=1 read back, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "pinReason": "[pinned 2026-11-20 to the v0.3.1 hotfix set hf031: asi game-copy/ts3native.asi.hf031 (0.36.295a = v0.3.0 0.36.295-rc1119b + [HostMapIterFix] ON + EA .ooa host gate + JIT Apex-AV fault fix, branch hotfix/v0.3.1-ea-exe-crash) + ini game-copy/ts3native.ini.hf031 (v0.3.0 tested ini + [HostMapIterFix] Enabled=1 Repair=1) + ts3fixes game-copy/ts3fixes.package.rc-1119b (unchanged v0.3.0 package)] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [repinned 2026-11-19 to RC set rc-1119b (master with bugfix/save-ip-portable-1119, 0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^OK   lost removal fix": 1,
+        "ghost census at world load: GhostSweep=2": 1,
+        "removal first: mode 1": 1,
+        "^ts3native 0\\.36\\.295a ": 1,
+        "^OK   saved frame guard": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 15,
+      "regexCases": {
+        "^OK   lost removal fix": {
+          "match": [
+            "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+          ],
+          "noMatch": [
+            "SKIP lost removal fix: off"
+          ]
+        },
+        "ghost census at world load: GhostSweep=2": {
+          "match": [
+            "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+          ],
+          "noMatch": [
+            "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+          ]
+        },
+        "removal first: mode 1": {
+          "match": [
+            "footprint removal first: mode 1 parked 0 capped 0 max ticks 0"
+          ],
+          "noMatch": [
+            "footprint removal first: mode 0 parked 0 capped 0 max ticks 0"
+          ]
+        },
+        "^ts3native 0\\.36\\.295a ": {
+          "match": [
+            "ts3native 0.36.295a 2026-11-21 00:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.293-m1119s 2026-11-19 05:01:02",
+            "ts3native 0.36.292-rc1119a 2026-11-19 02:34:18",
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00"
+          ]
+        },
+        "^OK   saved frame guard": {
+          "match": [
+            "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+          ],
+          "noMatch": [
+            "OK   detour saved frame guard (TaskControl_SetTaskContext 0xD84360) at 0x00D84360",
+            "saved frame guard: 561 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 0 boundaries that follow no call (left alone)"
+          ]
+        },
+        "^ea fix: SavedFrameGuard: frame": {
+          "match": [
+            "ea fix: SavedFrameGuard: frame 6 of 10 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+          ],
+          "noMatch": [
+            "saved frame guard: 561 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 0 boundaries that follow no call (left alone)"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0,
+      "logForbid": {
+        "^ea fix: SavedFrameGuard: frame": 0
+      }
+    },
+    {
+      "id": "bp-hostmapiter-on-hf031",
+      "note": "[hotfix v0.3.1 asi; the hotfix ini already has Enabled=1 Repair=1, the job only adds TestRehash=20] [est 15 min] BP 10 min, repro hostmap-iter-stale, [HostMapIterFix] Enabled=1 Repair=1 TestRehash=20: the map is rehashed right before each of the first 20 erases at 0xD814B6, so each erase sees a stale slot; the fix must re-find it (lines \"re-found by id % buckets ... fixed\"), no crash, 0 script errors. Version and switch read back from the log.",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "pinReason": "[pinned 2026-11-20 to the v0.3.1 hotfix set hf031: asi game-copy/ts3native.asi.hf031 (0.36.295a = v0.3.0 0.36.295-rc1119b + [HostMapIterFix] ON + EA .ooa host gate + JIT Apex-AV fault fix, branch hotfix/v0.3.1-ea-exe-crash) + ini game-copy/ts3native.ini.hf031 (v0.3.0 tested ini + [HostMapIterFix] Enabled=1 Repair=1) + ts3fixes game-copy/ts3fixes.package.rc-1119b (unchanged v0.3.0 package)]",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "hostmap-iter-stale"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "HostMapIterFix.Enabled": 1,
+        "HostMapIterFix.Repair": 1,
+        "HostMapIterFix.TestRehash": 20,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295a ": 1,
+        "^OK   host map iter fix \\(docs/67 §43\\): .*; TestRehash: forced rehashes": 1,
+        "^host map iter: ProcessTaskState erase of id 0x[0-9A-F]{16} .*: re-found by (id % buckets|a scan of every chain); fixed; stale \\d+ of \\d+ erases": 1
+      },
+      "logForbid": {
+        "^SKIP host map iter fix": 0,
+        "^host map iter: .*in no chain": 0,
+        "^host map iter: .*unreadable": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.295a ": {
+          "match": [
+            "ts3native 0.36.295a 2026-11-21 08:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-21 08:00:00",
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00",
+            "ts3native 0.36.295-hostmapiter1 2026-11-20 10:00:00"
+          ]
+        },
+        "^OK   host map iter fix \\(docs/67 §43\\): .*; TestRehash: forced rehashes": {
+          "match": [
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; TestRehash: forced rehashes before the first erases (repro only)",
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; Repair=0: detector only, EA gets its own iterator; TestRehash: forced rehashes before the first erases (repro only)"
+          ],
+          "noMatch": [
+            "SKIP host map iter fix: bytes at 0x00D814B6 or erase 0x00D71E40 differ (another owner or another exe): not installed",
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460"
+          ]
+        },
+        "^host map iter: ProcessTaskState erase of id 0x[0-9A-F]{16} .*: re-found by (id % buckets|a scan of every chain); fixed; stale \\d+ of \\d+ erases": {
+          "match": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; fixed; stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ],
+          "noMatch": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; passed to EA (Repair=0); stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)",
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): in no chain (already erased): not erased again; fixed; stale 1 of 812 erases (by hash 0, by scan 0, gone 1, faults 0)"
+          ]
+        },
+        "^SKIP host map iter fix": {
+          "match": [
+            "SKIP host map iter fix: bytes at 0x00D814B6 or erase 0x00D71E40 differ (another owner or another exe): not installed"
+          ],
+          "noMatch": [
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; TestRehash: forced rehashes before the first erases (repro only)"
+          ]
+        },
+        "^host map iter: .*in no chain": {
+          "match": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): in no chain (already erased): not erased again; fixed; stale 1 of 812 erases (by hash 0, by scan 0, gone 1, faults 0)"
+          ],
+          "noMatch": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; fixed; stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ]
+        },
+        "^host map iter: .*unreadable": {
+          "match": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): unreadable; passed to EA (unreadable map); stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ],
+          "noMatch": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; fixed; stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b"
+    },
+    {
+      "id": "bp-jitff-forced-hf031",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "v0.3.1 hotfix candidate: release/v0.3.0 (rc-1119b ini + ts3fixes) + bugfix/jit-foreign-fault-1120 asi 0.36.295a (docs/537 §29a). Bin state apex (Apex latest + bridge), Steam.",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "save": "Baseline-BP-Spring",
+      "note": "[v0.3.1 hotfix asi hf031; copy of jit-foreign-fault-correct-1120] Real JIT faults still caught: [MonoJit] FaultTest=RuntimeTypeHandle.get_Value FaultTestN=1000 (test-only hook from mono-jitfault-correct-1115), so call 1000 of that compiled body reads address 0. PASS = exactly one \"jit: fault recovered\" in get_Value word 0, frRecovered 1, frPassed 0, no \"jit: fault passed on\", 0 script errors, version read back. Household untouched: the JIT is exact; the recovered call runs in EA's interpreter.",
+      "ini": {
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.FaultRecover": 1,
+        "MonoJit.FaultTest": "RuntimeTypeHandle.get_Value",
+        "MonoJit.FaultTestN": 1000,
+        "Binder.TypeHandleDirect": 0
+      },
+      "logRequire": {
+        "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": 1,
+        "^jit: FaultTest armed on .*RuntimeTypeHandle\\.get_Value: call 1000 ": 1,
+        "^jit: fault recovered: 0x[0-9A-F]{8} at eip [0-9A-F]{8} in .*RuntimeTypeHandle\\.get_Value word 0: ": 1,
+        "^ts3native 0\\.36\\.295a ": 1
+      },
+      "logForbid": {
+        "^jit: fault passed on": 0,
+        "SKIP mono jit": 0,
+        "jit verify MISMATCH": 0,
+        "^FAIL mono jit clause lazy": 0
+      },
+      "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered>=1,@frRecovered<=1,@frPassed<=0,@frTestCalls>=1000,@frTestCalls<=1000,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "frTestCalls",
+          "op": ">",
+          "value": 0,
+          "why": "the FaultTest method never ran compiled: hook not armed or the method is not reached from interpreted code"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "regexCases": {
+        "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=0"
+          ]
+        },
+        "^jit: FaultTest armed on .*RuntimeTypeHandle\\.get_Value: call 1000 ": {
+          "match": [
+            "jit: FaultTest armed on System.RuntimeTypeHandle.get_Value: call 1000 of its normal body faults (test only)"
+          ],
+          "noMatch": [
+            "jit: FaultTest=RuntimeTypeHandle.get_Value FaultTestN=1000: that method's normal body faults once (test only)"
+          ]
+        },
+        "^jit: fault recovered: 0x[0-9A-F]{8} at eip [0-9A-F]{8} in .*RuntimeTypeHandle\\.get_Value word 0: ": {
+          "match": [
+            "jit: fault recovered: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value word 0: EA's interpreter runs that instruction, the method is off for the session"
+          ],
+          "noMatch": [
+            "jit: fault passed on: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value: in the lazy body (no frame to hand to EA); the method is off for the session, the game's handlers get the fault"
+          ]
+        },
+        "^jit: fault passed on": {
+          "match": [
+            "jit: fault passed on: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value: in the lazy body (no frame to hand to EA); the method is off for the session, the game's handlers get the fault"
+          ],
+          "noMatch": [
+            "jit: fault recovered: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value word 0: EA's interpreter runs that instruction, the method is off for the session"
+          ]
+        },
+        "SKIP mono jit": {
+          "match": [
+            "SKIP mono jit: not the Steam 1.67 exe"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in List`1.get_Item: word 12 differs"
+          ],
+          "noMatch": [
+            "jit verify: List`1.get_Item off for the session (its ret at word 12, 1 mismatches so far)"
+          ]
+        },
+        "^FAIL mono jit clause lazy": {
+          "match": [
+            "FAIL mono jit clause lazy: fault 0xC0000005 at eip 0A41F3C2: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+          ]
+        },
+        "^ts3native 0\\.36\\.295a ": {
+          "match": [
+            "ts3native 0.36.295a 2026-11-20 23:40:12"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 23:40:12",
+            "ts3native 0.36.295-jitff1 2026-11-20 23:00:00"
+          ]
+        }
+      },
+      "iniBase": "game-copy/ts3native.ini.hf031"
+    },
+    {
+      "id": "bp-jitff-on-hf031",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "v0.3.1 hotfix candidate: release/v0.3.0 (rc-1119b ini + ts3fixes) + bugfix/jit-foreign-fault-1120 asi 0.36.295a (docs/537 §29a). Bin state apex (Apex latest + bridge), Steam.",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "save": "Baseline-BP-Spring",
+      "note": "[v0.3.1 hotfix asi hf031; copy of jit-foreign-fault-correct-1120] No method wrongly switched off: JIT on as shipped in v0.3.0 (rc-1119b ini), Apex AVs as usual (the crash log counts thousands per session at ApexRadiance.asi offsets). PASS = no \"jit: fault\" line of any kind, frPassed 0, frRecovered 0, 0 script errors, version read back. The foreign-fault count line may or may not appear (only when a compiled frame sits under an Apex AV); read it if it does (logged, not required).",
+      "ini": {
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.FaultRecover": 1
+      },
+      "logRequire": {
+        "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": 1,
+        "^ts3native 0\\.36\\.295a ": 1
+      },
+      "logForbid": {
+        "jit: fault": 0,
+        "SKIP mono jit": 0,
+        "jit verify MISMATCH": 0,
+        "^FAIL mono jit clause lazy": 0
+      },
+      "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered<=0,@frPassed<=0,@frTestCalls<=0,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0,jitCalls>=1000",
+      "earlyGates": [
+        {
+          "afterSec": 240,
+          "counter": "jitCalls",
+          "op": ">",
+          "value": 0,
+          "why": "no call into compiled code: the JIT did not install or compiled nothing"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "regexCases": {
+        "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=0"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault recovered: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value word 0: EA's interpreter runs that instruction, the method is off for the session",
+            "jit: fault passed on: 0xC0000005 at eip 0A41F3C2 in System.RuntimeTypeHandle.get_Value: in the lazy body (no frame to hand to EA); the method is off for the session, the game's handlers get the fault"
+          ],
+          "noMatch": [
+            "jit: FaultTest armed on System.RuntimeTypeHandle.get_Value: call 1000 of its normal body faults (test only)"
+          ]
+        },
+        "SKIP mono jit": {
+          "match": [
+            "SKIP mono jit: not the Steam 1.67 exe"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in List`1.get_Item: word 12 differs"
+          ],
+          "noMatch": [
+            "jit verify: List`1.get_Item off for the session (its ret at word 12, 1 mismatches so far)"
+          ]
+        },
+        "^FAIL mono jit clause lazy": {
+          "match": [
+            "FAIL mono jit clause lazy: fault 0xC0000005 at eip 0A41F3C2: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
+          ]
+        },
+        "^ts3native 0\\.36\\.295a ": {
+          "match": [
+            "ts3native 0.36.295a 2026-11-20 23:40:12"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 23:40:12",
+            "ts3native 0.36.295-jitff1 2026-11-20 23:00:00"
+          ]
+        }
+      },
+      "iniBase": "game-copy/ts3native.ini.hf031"
+    }
+  ]
+}

@@ -75,7 +75,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sOwSavedThrew) { sOwSavedThrew = true; AppliedLog().Add("outfitwaitsaved: pass threw " + e.Message); }
+                PassThrewOnce(ref sOwSavedThrew, "outfitwaitsaved", e);
             }
         }
     }

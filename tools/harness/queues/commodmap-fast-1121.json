@@ -1,0 +1,78 @@
+{
+  "note": "commodmap-fast-1121 (PREPARED, dry-run only, NOT RUN; docs/313). Bin state apex via tools/turbo-compat.ts (snapshot -> state apex -> restore); not while a chain or job runs (track.ts status idle). Pair: the kit k2 Steam asi + k2diag ini (no native change in this lane) + ts3fixes.package.cmf-1121 (commodmapfast / commodmapshadow both OFF; the jobs switch them). AGENT: install game-copy/ts3agent.package.cmf-1121 to build/ (or TS3_AGENT_PACKAGE): an older agent lacks the commodmap names in the patches read-back and the slot1500-1507 export, so fixesOn / fixesRequire fail as missing. Jobs 1-2 = correctness (BP repro with throwaway maps + mod-heavy shadow in play, 0 mismatches, 0 script errors; the household is untouched: the check only fills and empties throwaway maps, and the shadow arm keeps EA's result). Job 3 = timing, NEEDS A QUIET MACHINE: ABBA commodmapfast on the many-mods save, per-arm ms/s and hitch counts, smoke = job 2 (its counters prove the hook fires and the EA-vs-plan us split works). Pass for k3 ON: jobs 1-2 PASS (verdict EXACT x4, 1505 = 0); else the kit ships shadow.",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^ts3native 0\\.36\\.298-mkit2 ": {
+      "match": ["ts3native 0.36.298-mkit2 2026-11-20 21:00:00"],
+      "noMatch": ["ts3native 0.36.297-m1120t 2026-11-20 08:00:00"]
+    },
+    "commodmapfast: shadow mismatch": {
+      "match": ["ts3fixes: commodmapfast: shadow mismatch on Chair (commodity 12: entry 3 differs), commodmapfast/commodmapshadow off for the session"],
+      "noMatch": ["ts3fixes: commodmapfast: shadow RemoveObject Chair: EA 61 ms, plan 2 ms, 3 lists, 4100 entries looked at; totals EA 900 ms, plan 40 ms in 3000 calls"]
+    },
+    "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": {
+      "match": ["ts3fixes: script assemblies (412): Ts3Fixes, TwoBTech.Mods.MoarInteractions, NRaasMasterController"],
+      "noMatch": ["ts3fixes: script assemblies (386): Ts3Fixes, Ts3Agent"]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-commodmap-check",
+      "note": "[est 15 min] correctness: repro commodmap-fast-check (off / shadow / fast arms + a heavy mod-like run on throwaway maps of the real pairs of world objects). Pass: every step's mustMatch (verdict EXACT, hook path calls > 0 in shadow and fast, 1505 = 0), 0 script errors. The answers carry EA vs batch ms per removal (read them for docs/313 §4).",
+      "asi": "game-copy/ts3native.asi.mkit2-1121",
+      "iniBase": "game-copy/ts3native.ini.k2diag-1121",
+      "fixesPackage": "game-copy/ts3fixes.package.cmf-1121",
+      "pinReason": "feature/commodmap-fast-1121 = kit k2 (feature/coremod-kit2-1121 4cb38c984) + commodmapfast; native unchanged (mkit2 Steam build)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true, "repro": "commodmap-fast-check" } },
+      "logRequire": { "^ts3native 0\\.36\\.298-mkit2 ": 1 },
+      "logForbid": { "commodmapfast: shadow mismatch": 0 }
+    },
+    {
+      "id": "ip-mm-commodmap-shadow",
+      "note": "[est 20 min] correctness + measurement smoke: many-mods save, commodmapshadow ON for the whole run (EA's result kept), ModTime 50 Hz for the hitch owners. Pass: the hook fired (1504 >= 50), 0 mismatches (1505 = 0, no mismatch line), 0 script errors. slot1506 / slot1507 = EA us vs plan us over the same calls: the gain estimate.",
+      "asi": "game-copy/ts3native.asi.mkit2-1121",
+      "iniBase": "game-copy/ts3native.ini.k2diag-1121",
+      "fixesPackage": "game-copy/ts3fixes.package.cmf-1121",
+      "pinReason": "feature/commodmap-fast-1121 = kit k2 + commodmapfast; native unchanged (mkit2 Steam build)",
+      "save": "ManyMods-IP-aged",
+      "modSet": "game-copy/mod-sets/many-mods-s",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "ini": { "Diag.ModTime": 1, "Diag.ModTimeHz": 50 },
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true, "fixesOn": "commodmapshadow", "fixesReport": "slot150", "fixesRequire": "slot1504>=50,slot1505<1,slot1503<1" } },
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-mkit2 ": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": 1
+      },
+      "logForbid": { "commodmapfast: shadow mismatch": 0 }
+    },
+    {
+      "id": "ip-mm-commodmap-ab",
+      "note": "[est 25 min] TIMING, NEEDS A QUIET MACHINE: ABBA commodmapfast on/off in 1-min slices on the many-mods save, 20 min. Read per-arm ms/s of the sim thread, hitch counts >= 100 / 500 ms per arm, slot1507 (batch us) next to slot1506 (EA us, fallbacks only in the fast arm). Only after jobs 1-2 PASS.",
+      "asi": "game-copy/ts3native.asi.mkit2-1121",
+      "iniBase": "game-copy/ts3native.ini.k2diag-1121",
+      "fixesPackage": "game-copy/ts3fixes.package.cmf-1121",
+      "pinReason": "feature/commodmap-fast-1121 = kit k2 + commodmapfast; native unchanged (mkit2 Steam build)",
+      "save": "ManyMods-IP-aged",
+      "modSet": "game-copy/mod-sets/many-mods-s",
+      "noiseCheck": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "run": { "profile": { "minutes": 20, "seed": 12345, "noSamplers": true, "ab": "commodmapfast", "slice": 1, "fixesReport": "slot150", "fixesRequire": "slot1501>=50,slot1505<1,slot1503<1" } },
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-mkit2 ": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": 1
+      },
+      "logForbid": { "commodmapfast: shadow mismatch": 0 }
+    }
+  ]
+}

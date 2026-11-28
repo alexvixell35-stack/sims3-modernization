@@ -1,0 +1,1 @@
+Job files copied from loinyx/Sims3-ApexRadiance (MIT License, Copyright (c) 2026 loinyx), save field changed to West Arbor.

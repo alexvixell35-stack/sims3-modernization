@@ -69,11 +69,11 @@ static LONG g_spLogged;
 static const u8* g_spWorld;           // world of the current version
 
 // game entry points the cut calls (thiscall; the tests point them elsewhere)
-static LockAcquireFn g_spAcq = (LockAcquireFn)(uintptr_t)0x004E16F0;
+static LockAcquireFn g_spAcq = (LockAcquireFn)(uintptr_t)TS3A(0x004E16F0);
 typedef LONG(__fastcall* SpRelFn)(void* lock, void* edx);
-static SpRelFn g_spRel = (SpRelFn)(uintptr_t)0x004E17B0;
-static const u8* const* g_spWorldSlot = (const u8* const*)(uintptr_t)0x011D9128;  // routing world
-static const u8* const* g_spWmSlot = (const u8* const*)(uintptr_t)0x011ECBC4;     // world manager
+static SpRelFn g_spRel = (SpRelFn)(uintptr_t)TS3A(0x004E17B0);
+static const u8* const* g_spWorldSlot = (const u8* const*)(uintptr_t)TS3A(0x011D9128);  // routing world
+static const u8* const* g_spWmSlot = (const u8* const*)(uintptr_t)TS3A(0x011ECBC4);     // world manager
 static const u8* SpWorld() { return *g_spWorldSlot; }
 
 // --- images ---
@@ -683,7 +683,7 @@ static int StlClassify(const SnSite& s, const DWORD* slot, unsigned __int64* key
             case SL_W6:
                 // integration review (0.36.63): W6g (0x80CB40 / 0x806770, DoorRouting_AddDoorPortals) creates door portal
                 // objects lazily [docs/105]: a routing input with no proven nested lot-keyed leaf, so it stays world-level
-                if (s.at == 0x0080CB40 || s.at == 0x00806770) return SLW_W6;
+                if (s.at == TS3A(0x0080CB40) || s.at == TS3A(0x00806770)) return SLW_W6;
                 ts3native_counters.fplCov[0]++;
                 return SLW_W6 | SLW_COV;
             case SL_FPCORE: case SL_PRIVATE: case SL_FPREMOVE:
@@ -1090,6 +1090,7 @@ static bool SpCut(const u8* world, bool read = false) {
         s_cy0[0] = g_cyCut, s_cy0[1] = g_cyCopy, s_cy0[2] = g_cyRebase;
     }
     if (g_spAuditEvery && k.spCuts % (LONG)g_spAuditEvery == 0) SpAudit(v, world);
+    CapSee(CAP_SPMB, (LONG)(g_spBytes >> 20), (LONG)(g_spCapBytes >> 20));
     if (g_spBytes > g_spCapBytes) {  // memory cap (docs/94 §3.3): off for the rest of the session
         g_spOn = 0;
         k.spCapOff = 1;
@@ -1097,6 +1098,7 @@ static bool SpCut(const u8* world, bool read = false) {
         g_spCur = NULL;
         SpVerRel(v);
         Log("snap: images use %ld KB, above CapMB: switched off", g_spBytes >> 10);
+        CapFull(CAP_SPMB);
     }
     return true;
 }
@@ -1130,8 +1132,18 @@ static int g_spDoorN;
 static struct { DWORD lotLo, objLo, ownLo, hhLo, idLo, mEpoch; SpDoorLot* open; SpDoor cur; bool haveDoor; } g_spDm;  // sim only
 
 static SpDoorLot* SpDoorLotFor(u64 key, bool add) {
-    for (int i = 0; i < g_spDoorN; i++) if (g_spDoorLots[i].key == key) return &g_spDoorLots[i];
-    if (!add || g_spDoorN == kSpDoorLots) return NULL;
+    SpDoorLot* empty = NULL;  // docs/321 §10 [LaneA] SpDoor: a slot emptied by a lot remove or world change (key 0), buffers kept
+    for (int i = 0; i < g_spDoorN; i++) {
+        if (g_spDoorLots[i].key == key) return &g_spDoorLots[i];
+        if (!empty && !g_spDoorLots[i].key) empty = &g_spDoorLots[i];
+    }
+    if (!add) return NULL;
+    if (empty && key) {  // reuse the slot and its heap buffers: slots never exceed the most lots one world held (no leak)
+        empty->key = key, empty->valid = 0, empty->epoch = 0, empty->mEpoch = 0, empty->n = 0, empty->nIds = 0;
+        return empty;
+    }
+    if (g_spDoorN == kSpDoorLots) { CapFull(CAP_SPDOOR); return NULL; }
+    CapSee(CAP_SPDOOR, g_spDoorN + 1, kSpDoorLots);
     SpDoorLot* l = &g_spDoorLots[g_spDoorN++];
     memset(l, 0, sizeof(*l));
     l->key = key;

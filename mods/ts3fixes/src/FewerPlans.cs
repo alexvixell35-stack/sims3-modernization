@@ -15,6 +15,7 @@ namespace Ts3Fixes
         static void ApplyFewerPlans()
         {
             Patch(typeof(Sim), "IsPointInLotSafelyRoutable", typeof(RoutableCacheHook), "RoutableHook", "RoutableOrig");
+            SemHookWorld();  // docs/636 spotedgememo: drop the per-lot memo on world load / quit and lot add / remove
             Type helper = typeof(LotManager).GetNestedType("RunStuckCheckHelper", BindingFlags.NonPublic);
             if (helper == null) { AppliedLog().Add("LotManager.RunStuckCheckHelper: not found, skipped"); return; }
             Patch(helper, "RunStuckCheck", typeof(StuckCheckBusyHook), "RunHook", "RunOrig");
@@ -30,27 +31,35 @@ namespace Ts3Fixes
         // Sim with a parent (profile not exact). Our own checks (SpotVerdict, sInOwnCheck) pass straight through.
         // Sim has no use for a subclass here, so the hook is a plain class (as BroadcasterPulseHook).
         // Switch "routablecache" (default off). Counters: [65] cache hits, [66] plans run and recorded.
+        // Every EA call below goes through SemRoutable (docs/636 spotedgememo, SpotEdgeMemo.cs; EA's own call when off).
         public class RoutableCacheHook
         {
             public bool RoutableHook(Lot lot, Vector3 pos)
             {
                 bool was = sInRoutableCheck;  // docs/202: unseenfbplan never marks these plans (a cut "false" sends the game to its safe-location logic)
                 sInRoutableCheck = true;
-                try { return RoutableCheck(lot, pos); }
-                finally { sInRoutableCheck = was; }
+                Vector3 rfpPrev;
+                bool rfpHad = RfpEnter(pos, out rfpPrev);  // routefailprobe (docs/627 §2): the spot this check plans from
+                try
+                {
+                    Sim sim = (Sim)(object)this;
+                    if (RsOwnPlan(sim)) return RsAdjust(sim, RoutableOrig(lot, pos), lot, pos);  // residentspawnslot (docs/582 B5 §8)
+                    return RsAdjust(sim, RoutableCheck(lot, pos), lot, pos);  // residentspawnwalk too (docs/582 B8 §8)
+                }
+                finally { sInRoutableCheck = was; RfpLeave(rfpHad, rfpPrev); }
             }
             bool RoutableCheck(Lot lot, Vector3 pos)
             {
                 Sim sim = (Sim)(object)this;
-                if (sInOwnCheck || lot == null || lot.IsWorldLot || !ShortcutOn("routablecache")) return RoutableOrig(lot, pos);
+                if (sInOwnCheck || lot == null || lot.IsWorldLot || !ShortcutOn("routablecache")) return SemRoutable(this, lot, pos);
                 RouteProfile p = ProfileOf(sim);
-                if (!p.Ok) return RoutableOrig(lot, pos);
+                if (!p.Ok) return SemRoutable(this, lot, pos);
                 SpotVerdicts v = Verdicts(lot);
                 VerdictKey key = KeyOf(p, pos);
                 int[] c = PatchCounters();
                 bool ok;
                 if (v.Cells.TryGetValue(key, out ok)) { c[65]++; return ok; }
-                ok = RoutableOrig(lot, pos);
+                ok = SemRoutable(this, lot, pos);
                 v.Cells[key] = ok;
                 c[66]++;
                 return ok;
@@ -75,6 +84,21 @@ namespace Ts3Fixes
                 {
                     PatchCounters()[67]++;
                     return;
+                }
+                // stuckhbskip (contributor 2026-11-13, ON since import 2026-11-20): on a houseboat the check's random lot points (any level 0-4, sea or
+                // lot terrain) are no goals in boat lot space, so nearly every plan fails (11-13: 113-236 probes a game, 85-90%
+                // NoDestination, 3-20 s of plans, all townies on the same boat), and 3 failed rounds reset a Sim that is not stuck. A
+                // townie on a houseboat that is not the household's lot ends the check as after a success (no re-arm; EA re-arms it
+                // each night). Household, selected and no-household Sims keep EA's check (YieldTownie, the shared household rule); the
+                // watchdog and Overwatch still catch a Sim really stuck. Counter: [4055] checks skipped.
+                if (ShortcutOn("stuckhbskip") && YieldTownie(sim))
+                {
+                    Lot on = sim.LotCurrent;
+                    if (on != null && on.IsHouseboatLot() && on != Household.ActiveHouseholdLot)
+                    {
+                        PatchCounters()[4055]++;
+                        return;
+                    }
                 }
                 // docs/202 §5.6 (4): an unseen Sim's check only re-arms (phase B), so do it here, not through the async queue:
                 // queued + drained, every re-arm counted as a queued check (4,343 vs 769 in v020-natural IP) and cost a drain tick
@@ -113,9 +137,19 @@ namespace Ts3Fixes
         // a sleeping drain check would mix the outcome counts (never seen: both need the alarm path and the drain at once)
         // §10.1: sStuckRound = mAttempt + 1 (0 = unknown), sent with every stuck-check START as the PROBE tag (RouteBackoff.cs
         // OwnerTaskStart) so ts3native's own long-job and own-job wait lines name the round
-        static bool sStuckIn, sStuckCap, sStuckLast;
+        static bool sStuckOn, sStuckCap, sStuckLast;
         static int sStuckPlans, sStuckOk, sStuckRound;
         static ObjectGuid sStuckRunTask = ObjectGuid.InvalidObjectGuid;
+        // docs/662 §2 stucktaskflag (tuning kStuckTaskFlag, default on): "a stuck check runs" holds only in the task that runs it.
+        // The check's probe plans can sleep on a route job; before, every other Sim's plan in that window read the flag too
+        // (UfPlanBody's ownCheck, UfSrc's "src stuckcheck", UnseenBoat / UnseenBoatLand skips). Counter [4244]: plans of other
+        // tasks inside a check's window (the old flag would have marked them), counted in UfPlanBody.
+        static bool sStuckIn
+        {
+            get { return sStuckOn && StutterSweepCore.StuckInTask(true, sStuckPerTask, sStuckRunTask.Value, Simulator.CurrentTask.Value); }
+        }
+        static bool sStuckPerTask = true;  // ShortcutOn("stucktaskflag"), read once per check in StuckCheckRun
+        static bool StuckLeakHere() { return StutterSweepCore.StuckLeak(sStuckOn, sStuckRunTask.Value, Simulator.CurrentTask.Value); }
 
         static void StuckCheckRun(StuckCheckBusyHook helper, Sim sim)
         {
@@ -130,7 +164,8 @@ namespace Ts3Fixes
             sStuckPlans = sStuckOk = 0;
             sStuckRunTask = Simulator.CurrentTask;
             sStuckCap = !last && ShortcutOn("stuckcheckcap") && ShortcutOn("stuckcheckown");
-            sStuckIn = true;
+            sStuckPerTask = ShortcutOn("stucktaskflag");
+            sStuckOn = true;
             try
             {
                 if (ShortcutOn("stuckchecknear") && StuckCheckNear(helper, sim)) return;
@@ -138,8 +173,9 @@ namespace Ts3Fixes
             }
             finally
             {
-                sStuckIn = sStuckCap = false;
+                sStuckOn = sStuckCap = false;
                 PatchCounters()[NoStartCore.StuckOutcome(sStuckPlans, sStuckOk, last)]++;
+                UnGameSignal(sim, sStuckPlans, sStuckOk);  // unstuck (Unstuck.cs, docs/686 §18): a Sim with no way is looked at on its next failed plan
                 OwProbeExit(id, task);
             }
         }
@@ -202,7 +238,7 @@ namespace Ts3Fixes
         // docs/134 §8: the stuck check's alarm runs inside the world lot's task (Lot.Simulate -> AlarmManager.Simulate, a plain
         // alarm, not YieldRequired). Its plans are foreign-task plans there, so with [RouteAsync] FallbackAsync=1 the world lot
         // task sleeps inside the alarm while the worker plans (up to 10 plans per Sim), holding back every later world alarm
-        // and the world lot's own updates; with FallbackAsync=0 they all run in one tick. Switch "stuckcheckasync" (default off):
+        // and the world lot's own updates; with FallbackAsync=0 they all run in one tick. Switch "stuckcheckasync" (default ON):
         // the alarm only queues the check; our one task runs the game's own RunStuckCheck (RunOrig, same helper object, so the
         // same position test, attempt count, reset or re-arm) for one Sim per tick. Its plans are still foreign-task plans (our
         // task is not the Sim's), so FallbackAsync sends them to the worker and only our task sleeps. The check runs >= 1 tick
@@ -237,6 +273,7 @@ namespace Ts3Fixes
                 while (sStuckQueue.Next(Sims3.Gameplay.Utilities.SimClock.CurrentTicks, out e))
                 {
                     c[131] = (int)(sStuckQueue.MaxWait * 60 / Math.Max(1L, Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(1f, Sims3.Gameplay.Utilities.TimeUnit.Minutes)));
+                    SfWait(1734);  // docs/205 §2.3c: paused, clock stopped or out of live mode: hold this check (EA's alarm does not fire there)
                     if (GameStates.IsWorldShuttingDown || GameStates.IsTravelling || e.Sim.HasBeenDestroyed) { c[129]++; continue; }
                     c[128]++;
                     try { StuckCheckRun(e.Helper, e.Sim); }

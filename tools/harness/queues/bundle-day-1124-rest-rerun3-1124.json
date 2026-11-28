@@ -1,0 +1,302 @@
+{
+  "note": "bundle-day-1124-rest-rerun3-1124: rerun2 (2026-11-24 12:46 PHT, same bundle1124b) passed the pause check (pgFrozenSpans +1, sUfFrozenSent False at the mark, sUfFrozenAt moved while paused, sUfFrozenNo False: loop alive) but was hollow on holds: pgFrozenHolds +0 because the 40 s walks had ended (ufwHolds 123 = releases 97+1+25). The repro now sends the crowd on a fresh walk to far2 10 s before the pause. Same builds, single job, ~10 min, run from worktree pausegate-unseen-diag-1124.",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.301-bundle1124 ": {
+      "match": [
+        "ts3native 0.36.301-bundle1124 2026-11-24 12:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.300-pausegateall1 2026-11-24 22:10:00",
+        "ts3native 0.36.299-cp4b2 2026-11-23 18:20:00",
+        "ts3native 0.36.299-vbowner4 2026-11-24 10:00:00",
+        "ts3native 0.36.299-cp34 2026-11-23 18:40:00",
+        "ts3native 0.36.301-bundle11245 2026-11-24 12:00:00"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1",
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start",
+        "compat: Apex Radiance not found at start; ApexStandDown=1"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+      "match": [
+        "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+      ],
+      "noMatch": [
+        "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+        "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+      ]
+    },
+    "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+      "match": [
+        "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+      ],
+      "noMatch": [
+        "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+      ]
+    },
+    "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+      "match": [
+        "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+      ],
+      "noMatch": [
+        "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+        "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+      ]
+    },
+    "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": {
+      "match": [
+        "ea fix: VbFreeDelay: first draw owner 0x34D6DC80 delayed (2000 ms; +0x70 was 0x00000000, now 0)"
+      ],
+      "noMatch": [
+        "ea fix: VbFreeDelay: queue full (8192), freeing early",
+        "ea fix: VbFreeDelay flush at world load: 0 freed, 0 still queued; totals: 0 wrappers, 0 owners (0 +0x70 cleared), 0 freed, high water 0, early 0"
+      ]
+    },
+    "^crash forensics: VB BAD": {
+      "match": [
+        "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0",
+        "crash forensics: VB BAD #9: wrapper destroyed"
+      ],
+      "noMatch": [
+        "crash forensics: VB late owner draw #1: NULL stream, owner 0x34D6DC80: inside of draw owner 0x34D6DC80"
+      ]
+    },
+    "^crash forensics: VB guard at AV": {
+      "match": [
+        "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+      ],
+      "noMatch": [
+        "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+      ]
+    },
+    "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+      "match": [
+        "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+      ],
+      "noMatch": [
+        "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+      ]
+    },
+    "^OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd ": {
+      "match": [
+        "OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd (docs/321 §10; rows cleared on world change, dropped on lot remove)"
+      ],
+      "noMatch": [
+        "OK   lane a consumers: asSimIds asTier (docs/321 §10; rows cleared on world change, dropped on lot remove)",
+        "lane a consumers: off ([LaneA] all 0)"
+      ]
+    },
+    "^lane a: world quit, .*, reset ok; ": {
+      "match": [
+        "lane a: world quit, spDoor 12->0 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, reset ok; autshadow at the next cut"
+      ],
+      "noMatch": [
+        "lane a: world load, spDoor 0->0 (slots 14), doorHold 0->0, rd 0->0, eo 0->0, reset ok; autshadow at the next cut",
+        "lane a: world quit, spDoor 12->1 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, FAIL rows left; autshadow at the next cut"
+      ]
+    },
+    "^lane a: world load, .*, reset ok; ": {
+      "match": [
+        "lane a: world load, spDoor 0->0 (slots 14), doorHold 0->0, rd 0->0, eo 0->0, reset ok; autshadow at the next cut"
+      ],
+      "noMatch": [
+        "lane a: world quit, spDoor 12->0 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, reset ok; autshadow at the next cut"
+      ]
+    },
+    "^lane a: autshadow reset at cut, .*, reset ok$": {
+      "match": [
+        "lane a: autshadow reset at cut, simIds 220->0, tier 180->0, lotTier 40->0, lite 60->0, reset ok"
+      ],
+      "noMatch": [
+        "lane a: autshadow reset at cut, simIds 220->3, tier 180->0, lotTier 40->0, lite 60->0, FAIL rows left"
+      ]
+    },
+    "^ts3fixes: lanea: world load, envlist 0/\\d+, tp \\d+/\\d+, loop 0/\\d+, .*, lots live True, subscribers 2$": {
+      "match": [
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 4/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2",
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live False, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lanea: world quit, .*, loop 0/\\d+, .*subscribers 2$": {
+      "match": [
+        "ts3fixes: lanea: world quit, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 40, envlist drops 0, lots live False, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lanea: .*, doorgen lots [1-9]\\d*, ": {
+      "match": [
+        "ts3fixes: lanea: world quit, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 40, envlist drops 0, lots live False, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lanea: .*, subscribers (?!2$)\\d+$": {
+      "match": [
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 4"
+      ],
+      "noMatch": [
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"
+      ]
+    },
+    "^(FAIL|SKIP) lane a|FAIL rows left": {
+      "match": [
+        "SKIP lane a consumers: lot hub not installed (lhReady 0), tables as today",
+        "lane a: world quit, spDoor 12->1 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, FAIL rows left; autshadow at the next cut",
+        "SKIP lane a ghost sweep per lot: no Simulate iteration hook"
+      ],
+      "noMatch": [
+        "OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd (docs/321 §10; rows cleared on world change, dropped on lot remove)",
+        "OK   lane a ghost sweep per lot: mode 2 (1 count only, 2 remove), verify 1, 2048 nodes per tick; live mode only"
+      ]
+    },
+    "^OK   lot hub: ready 0x3 ": {
+      "match": [
+        "OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"
+      ],
+      "noMatch": [
+        "FAIL lot hub: ready 0x1 (lot generation counter + world event, docs/321 §8)"
+      ]
+    },
+    "^OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd gsLot rdLot ": {
+      "match": [
+        "OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd gsLot rdLot (docs/321 §10; rows cleared on world change, dropped on lot remove)"
+      ],
+      "noMatch": [
+        "OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd (docs/321 §10; rows cleared on world change, dropped on lot remove)",
+        "lane a consumers: off ([LaneA] all 0)"
+      ]
+    },
+    "^m8: (report|world quit|world load), m8Hits \\d+, m8Misses \\d+, m8LotDrops \\d+, m8RowsDropped \\d+, m8WouldHit \\d+$": {
+      "match": [
+        "m8: report, m8Hits 12, m8Misses 340, m8LotDrops 3, m8RowsDropped 5, m8WouldHit 2"
+      ],
+      "noMatch": [
+        "m8: report, m8Hits 12, m8Misses 340",
+        "lane a: world quit, rows 0, reset ok; "
+      ]
+    },
+    "^m8 B-gain: [0-9]+\\.[0-9]{3}% of lookups \\(\\d+ of \\d+\\)$": {
+      "match": [
+        "m8 B-gain: 0.571% of lookups (2 of 350)",
+        "m8 B-gain: 0.000% of lookups (0 of 0)"
+      ],
+      "noMatch": [
+        "m8 B-gain: n/a",
+        "m8: report, m8Hits 0"
+      ]
+    },
+    "^OK   lane a ghost sweep per lot: mode 2 \\(1 count only, 2 remove\\), verify 1, ": {
+      "match": [
+        "OK   lane a ghost sweep per lot: mode 2 (1 count only, 2 remove), verify 1, 2048 nodes per tick; live mode only"
+      ],
+      "noMatch": [
+        "OK   lane a ghost sweep per lot: mode 1 (1 count only, 2 remove), verify 0, 2048 nodes per tick; live mode only",
+        "SKIP lane a ghost sweep per lot: no Simulate iteration hook"
+      ]
+    },
+    "^ghost sweep lot: lot [0-9A-F]{16} done, mode 2, ": {
+      "match": [
+        "ghost sweep lot: lot 00000000000A0001 done, mode 2, ghost ids 0, kept [P+0x3C] 0; totals: jobs 3 done 3, slices 190, removed 0, skipped not live 20, busy 4, max slice 412 us"
+      ],
+      "noMatch": [
+        "ghost sweep lot: lot 00000000000A0001 not in the routing lot table, mode 2, ghost ids 0, kept [P+0x3C] 0; totals: jobs 3 done 2, slices 190, removed 0, skipped not live 20, busy 4, max slice 412 us",
+        "ghost sweep lot: all lots 0000000000000000 done, mode 2, ghost ids 0, kept [P+0x3C] 0; totals: jobs 3 done 3, slices 190, removed 0, skipped not live 20, busy 4, max slice 412 us"
+      ]
+    },
+    "ghost sweep lot: .*(given up|FAIL left)|slice faulted": {
+      "match": [
+        "ghost sweep lot: lot 00000000000A0001 given up (map rehashed 8 times), mode 2, ghost ids 0, kept [P+0x3C] 0; totals: jobs 1 done 0, slices 9, removed 0, skipped not live 0, busy 0, max slice 300 us",
+        "ghost sweep lot: verify 00000000000A0001 done, dry pass found 2 ghost ids on the lot, 0 kept for [P+0x3C], FAIL left"
+      ],
+      "noMatch": [
+        "ghost sweep lot: verify 00000000000A0001 done, dry pass found 0 ghost ids on the lot, 0 kept for [P+0x3C], same"
+      ]
+    },
+    "^ts3fixes: lanea gate: (\\w+) (True|False)$": {
+      "match": [
+        "ts3fixes: lanea gate: still True",
+        "ts3fixes: lanea gate: drained False"
+      ],
+      "noMatch": [
+        "ts3fixes: lanea gate: still",
+        "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"
+      ]
+    },
+    "^m8 B-gain: [0-9]+\\.[0-9]{3}% of lookups \\(\\d+ of ([2-9]\\d{2}|[1-9]\\d{3,})\\)$": {
+      "match": [
+        "m8 B-gain: 0.000% of lookups (0 of 200)",
+        "m8 B-gain: 1.250% of lookups (5 of 400)",
+        "m8 B-gain: 0.010% of lookups (1 of 10000)"
+      ],
+      "noMatch": [
+        "m8 B-gain: 0.000% of lookups (0 of 199)",
+        "m8 B-gain: 0.000% of lookups (0 of 0)",
+        "m8 B-gain: 0.000% of lookups (0 of 0200)",
+        "m8 B-gain: 50.000% of lookups (200 of 400) extra"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "sv-pausegate-unseen-hold-pause",
+      "note": "[est 10 min] Baseline-SV-Spring, own load (only SV job). = pausegate-rerun-1124 sv-pausegate-unseen-hold-pause unchanged but the build and minutes 5 (repro 182 s). Repro pausegate-unseen-hold-pause (SV-Spring, 30 far walkers, FinishWalk on through ini + fixesOn). Pass: native_check steps hold (pgFrozenSpans >= 1 while paused 60 s; ufwRelease_3 +0 from the pause to 3 s after the unpause; pgFrozenHolds >= 1), household count unchanged (DeadRefCheck pausestate), ScriptErrors 0, no watchdog. FAIL ufwRelease_3 > 0 = a hold expired over the pause (BROKEN). pgFrozenHolds 0 = hollow (no hold at the pause): rerun before judging.",
+      "asi": "game-copy/ts3native.asi.bundle1124",
+      "iniBase": "game-copy/ts3native.ini.bundle1124",
+      "fixesPackage": "game-copy/ts3fixes.package.bundle1124b",
+      "pinReason": "test/bundle-day-1124 (not master): ts3native 0.36.301-bundle1124 = m1123c + bugfix/pausegate-all-1123 + bugfix/vb-owner-uaf-1123 (vbowner4) + bugfix/cp34-lanea-cut-rules-1124 (cp34b) + feature/cp4b-ghost-m8-1123 (cp4b2), counters v223 + v224; ts3fixes.package.bundle1124b (0ff263da4) and ts3agent.package.bundle1124",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "save": "Baseline-SV-Spring",
+      "ini": {
+        "UnseenFallback.Sites": 1,
+        "UnseenFallback.SiteWaitMs": 0,
+        "UnseenFallback.FinishWalk": 1
+      },
+      "nativeRequire": "ufcReady>=63,ufwReady>=1,ufwHolds>=1,pgFrozenSpans>=1,watchdogs<=0",
+      "timeoutMin": 15,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "pausegate-unseen-hold-pause",
+          "fixesOn": "unseenfbsites,unseenfbfinish",
+          "fixesRequire": "unseenfbsites_lists>=20"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.301-bundle1124 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      }
+    }
+  ]
+}

@@ -78,8 +78,8 @@ static LONG WpApply() {  // threads set
 // the inline default at 0x807508 (trap eip 0x80750D), then slot +0x48 0x626270 called at 0x807555 (trap eip 0x62627B, the
 // `ret 4`, so [esp] is its return 0x807557). Construction, not a writer: counted (wpCtor), not logged
 static bool WpCtorHit(DWORD eip, DWORD esp) {
-    if (eip == 0x80750D) return true;
-    return eip == 0x62627B && Readable((const void*)(uintptr_t)esp, 4) && *(const DWORD*)(uintptr_t)esp == 0x807557;
+    if (eip == TS3A(0x80750D)) return true;
+    return eip == TS3A(0x62627B) && Readable((const void*)(uintptr_t)esp, 4) && *(const DWORD*)(uintptr_t)esp == TS3A(0x807557);
 }
 
 // docs/539 §21 (0.36.235): a pass (WpApply) reaches the threads after the slot table changed, so a thread can still trap on an
@@ -136,7 +136,7 @@ static LONG CALLBACK WpVeh(EXCEPTION_POINTERS* e) {
         const DWORD tid = GetCurrentThreadId();
         char who[80] = "";  // the child now in the block (+0x14 / +0x18 id, +0xC parent): a reused block shows another child
         if (s.obj && Readable((const void*)(uintptr_t)s.obj, 0x1C))
-            sprintf_s(who, ", child id 0x%08lX%08lX parent 0x%08lX", *(const DWORD*)(uintptr_t)(s.obj + 0x18), *(const DWORD*)(uintptr_t)(s.obj + 0x14),
+            SFmt(who, ", child id 0x%08lX%08lX parent 0x%08lX", *(const DWORD*)(uintptr_t)(s.obj + 0x18), *(const DWORD*)(uintptr_t)(s.obj + 0x14),
                       *(const DWORD*)(uintptr_t)(s.obj + 0xC));
         Log("watchpoint DR%d hit %ld: 0x%08lX len %lu %s by eip 0x%08lX (value now 0x%08lX)%s, thread %lu%s, job %d, stack (%d) %08lX %08lX %08lX %08lX %08lX %08lX",
             i, n, s.addr, s.len, s.write ? "written" : "accessed", c->Eip, v, who, tid, g_workerTid && tid == g_workerTid ? " (route worker)" : "",
@@ -220,7 +220,7 @@ void WpDisarm(int slot) {
 // Lot=<id>: the first Arms child footprints (class 0xFEBF90) inserted live on that lot (W1 0x665C50 entry, replay.cpp
 // RpPreBody: the INS record's source) get a write watch on +0x10 (z), so the first write by any writer, hooked or not, logs
 // its eip and stack. Arming waits for the route worker thread (threads started after an arm are not watched, see above).
-static const DWORD kWpChildVt = 0xFEBF90;  // child footprint class (docs/157 §7.3)
+static const DWORD kWpChildVt = TS3A(0xFEBF90);  // child footprint class (docs/157 §7.3)
 static LONG g_wpArmMax = 1;                // [Watchpoint] Arms (1-4)
 static LONG g_wpArmed;
 static DWORD g_wpLotFp[64];                // footprints inserted on the lot (writer probe class 2); sim thread appends
@@ -295,7 +295,7 @@ static void WpLotRemove(DWORD lo, DWORD hi) {
 // Writers=1: count-only entry probes, 6-byte movss prologue moved to the trampoline (both bodies: movss xmm0,[esp+4];
 // movss [ecx+off],xmm0; ret 4). No argument or result changes.
 static const u8 kWrPro[] = {0xF3, 0x0F, 0x10, 0x44, 0x24, 0x04};
-static const DWORD kWrZAt = 0x626270, kWrP30At = 0x620D80;
+static const DWORD kWrZAt = TS3A(0x626270), kWrP30At = TS3A(0x620D80);
 static void* g_wrZTramp;
 static void* g_wrPTramp;
 static void WrCount(volatile LONG* c, DWORD fp) {

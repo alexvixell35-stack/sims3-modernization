@@ -53,8 +53,7 @@ namespace Ts3Fixes
         // NullReferenceException ("broken", switch off) or returned ("fixed", switch on).
         public static string NullServiceCheck(string what)
         {
-            const BindingFlags all = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            FieldInfo f = typeof(Services).GetField("sAllServices", all);
+            FieldInfo f = typeof(Services).GetField("sAllServices", kStaticAll);
             List<Service> l = f != null ? f.GetValue(null) as List<Service> : null;
             if (l == null) return "no Services.sAllServices list";
             int nulls = 0;
@@ -63,7 +62,7 @@ namespace Ts3Fixes
             if (what == "state") return state;
             bool expectThrow = what == "broken";
             if (!expectThrow && what != "fixed") return "unknown mode " + what + " (state, broken, fixed)";
-            MethodInfo reader = typeof(TownieMaker).GetMethod("GetModifiableServices", all);
+            MethodInfo reader = typeof(TownieMaker).GetMethod("GetModifiableServices", kStaticAll);
             if (reader == null) throw new InvalidOperationException("TownieMaker.GetModifiableServices not found");
             l.Add(null);
             string outcome;

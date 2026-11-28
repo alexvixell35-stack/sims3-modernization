@@ -11,7 +11,7 @@
 // driver with yields) against out\MonoHostTest.dll (HostTest.cs) and prints PASS/FAIL lines; exit code = failed checks.
 // It also runs the M2 stubs (docs/119 §12; "m13 <hostdata> m2" for the sweep alone) and the M5 proof (docs/120 §8: the
 // unchanged ts3native [MonoThread] code with a worker; both threads interpreting at once, docs/120 §9).
-// docs/139 (env, selftest mode): MONOHOST_MINT=count|threaded|nocheck, MONOHOST_MINTFUSE=sub, MONOHOST_MINTBENCH=<n>.
+// docs/139 (env, selftest mode): MONOHOST_MINT=count|threaded|nocheck, MONOHOST_MINTFUSE=sub|eatime, MONOHOST_MINTBENCH=<n>.
 // docs/207 §7 (env, selftest mode): MONOHOST_JIT=off|dump|on|verify method compiler prototype (monohost-jit.cpp).
 // Never point it at the installed game: the exe is only mapped, but keep EA files out of git (copy under game-copy/).
 #include <windows.h>
@@ -20,6 +20,7 @@
 #include <string.h>
 #include <limits.h>
 #include <intrin.h>  // _ReturnAddress (ts3native simloop.cpp SppHook)
+#include "../ts3native/ts3addr.h"  // TS3A() in the ts3native sources included below; no /DTS3A_TABLE here, so the host stays on Steam addresses
 
 typedef unsigned char u8;
 static const DWORD IMG_LO = 0x00400000, IMG_HI = 0x0125A000;  // SizeOfImage 0xE5A000 (Steam 1.67)
@@ -69,7 +70,7 @@ static int RunChild() {
     }
     ResumeThread(pi.hThread);
     DWORD rc = 2;
-    if (WaitForSingleObject(pi.hProcess, GetEnvironmentVariableA("MONOHOST_JIT", NULL, 0) ? 900000 : 120000) == WAIT_TIMEOUT) {  // fail fast: init takes seconds
+    if (WaitForSingleObject(pi.hProcess, GetEnvironmentVariableA("MONOHOST_JIT", NULL, 0) || GetEnvironmentVariableA("MONOHOST_EQFAST", NULL, 0) || GetEnvironmentVariableA("MONOHOST_LAYOUT", NULL, 0) ? 900000 : 120000) == WAIT_TIMEOUT) {  // fail fast: init takes seconds
         printf("child timed out after 120 s\n");
         TerminateProcess(pi.hProcess, 4);
     }
@@ -98,6 +99,25 @@ static LONG CALLBACK Veh(EXCEPTION_POINTERS* e) {
         if (!VirtualQuery(sp + i, &m, sizeof(m)) || m.State != MEM_COMMIT) break;
         DWORD v = sp[i];
         if (v > IMG_LO + 0x1000 && v < 0x00F95000) { Log(" %08lX", v); n++; }  // .text range of the exe
+    }
+    // host code (own image at 0x30000000, /FIXED) and JIT pool (private RWX) values with their stack slot, so a fault in the CRT
+    // or in a lazy body names its caller (2026-11-10: the strnlen fault had only exe values)
+    Log("\n  host/jit values on stack:");
+    n = 0;
+    for (int i = 0; i < 4096 && n < 64; i++) {
+        MEMORY_BASIC_INFORMATION m;
+        if (!VirtualQuery(sp + i, &m, sizeof(m)) || m.State != MEM_COMMIT) break;
+        const DWORD v = sp[i];
+        if (v > 0x30001000 && v < 0x30070000) {  // host .text: only values right after a call (return addresses)
+            const u8* r = (const u8*)(uintptr_t)v;
+            if (r[-5] == 0xE8 || (r[-2] == 0xFF && (r[-1] & 0x38) == 0x10) || (r[-3] == 0xFF && (r[-2] & 0x38) == 0x10) || (r[-6] == 0xFF && (r[-5] & 0x38) == 0x10)) {
+                Log(" +%X:h%05lX", i * 4, v - 0x30000000); n++;
+            }
+            continue;
+        }
+        if (v >= 0x01000000 && VirtualQuery((LPCVOID)(uintptr_t)v, &m, sizeof(m)) && m.State == MEM_COMMIT && m.Type == MEM_PRIVATE && m.Protect == PAGE_EXECUTE_READWRITE) {
+            Log(" +%X:j%08lX", i * 4, v); n++;
+        }
     }
     Log("\n");
     return EXCEPTION_CONTINUE_SEARCH;  // first chance: Mono or the exe may handle it; the unhandled filter ends the run
@@ -994,7 +1014,9 @@ namespace mt {
 #pragma warning(push)
 #pragma warning(disable : 4505)  // ts3native helpers the M5 code does not call here
 static DWORD g_mainTid;
-struct Ts3nCounters { LONG mtMode, mtReady, mtSimTid, mtSimRegistered, mtThreads, mtPushCalls, mtCtxFails, mtStacksPushed; };
+struct Ts3nCounters { LONG mtMode, mtReady, mtSimTid, mtSimRegistered, mtThreads, mtPushCalls, mtCtxFails, mtStacksPushed;
+    LONG sbLowHdr, sbVtGiveUp;  // satb.cpp (#352 Satb struct this, counters v185)
+    LONG r2cOn, r2cDrainMs, r2cCloses, r2cIdle, r2cDrainReq, r2cDrained, r2cAborted, r2cSatb, r2cWaitUs, r2cWaitMaxUs, r2cLate, r2cGateAborts, r2cHeld, r2cReopens; };  // autraces.cpp R2c drain (counters v187)
 static Ts3nCounters ts3native_counters;
 static DWORD* g_curState = (DWORD*)(uintptr_t)0x011F4170;  // ts3native's current-state pointer, repointed by MtInstallP4
 static void Log(const char* fmt, ...) {
@@ -1022,6 +1044,9 @@ static bool Write(void* addr, const void* bytes, size_t n) {
 // ts3native pieces the included files call (monothread-m5 arena guard detours, autshadow FPU state, locowin shims): host no-ops
 static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*) { return NULL; }
 template <class F> static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*, F*) { return NULL; }
+static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }  // ts3native.cpp's (QuitStop ini read)
+static bool S3mmStandsDown(const char*) { return false; }  // s3mm.cpp (docs/291): no other mod in the host
+#include "../ts3native/uaftag.h"  // UafTagSet in MtWorkerMain ([UafCheck] free tags; only a thread-local write here)
 #include "../ts3native/simloop.cpp"  // the per-iteration hook ApplyMonoThread adds (the host never runs Simulate)
 #include "../ts3native/monothread.cpp"
 // [AutShadow] (docs/122 §13-§14) on top of M5: routesnap's pieces it touches, as no-ops (no routing in the host)
@@ -1038,12 +1063,21 @@ static void* g_snJmp[1];
 struct McCtr { LONG mcSwitch, mcReady, mcCall, mcCallvirt, mcRet, mcBailCall, mcBailCallvirt, mcBailRet, mcVerified, mcMismatch, mcVSkipped, mcVerifyEvery, mcFirstBad; };
 static McCtr g_mcCtr;
 #define MC_CTR g_mcCtr
+#define MC_COUNTFAST  // fast mode counts fast calls (mcCall) and rets (mcRet) too: the fire rate on host inputs
 #include "../ts3native/mintcall.cpp"
 // [MintFuse] Sub (docs/139 §4)
 struct MfCtr { LONG mfReady, mfRuns, mfWhole, mfInner; };
 static MfCtr g_mfCtr;
 #define MF_CTR g_mfCtr
+static LONGLONG g_mfTicks;
+#define MF_TICKS g_mfTicks
 #include "../ts3native/mintfuse.cpp"
+// [EqualsFast] (docs/258 option C): the plan code, run against EA's own InternalEquals by the MONOHOST_EQFAST corpus
+struct EqCtr { LONG eqOn, eqMode, eqHits, eqPlans, eqRejects, eqFtNull, eqFtType, eqFtKind, eqFtNew, eqFtBusy, eqFtFull, eqRejGeneric, eqRejKind, eqRejMany, eqSmall; };
+static EqCtr g_eqCtr;
+#define EQ_CTR g_eqCtr
+#define EQ_NO_INSTALL
+#include "../ts3native/equalsfast.cpp"
 static void* g_ilpNext;  // [IlPatch] (ilpatch.cpp) is not in the host: satb.cpp keeps its own cold site 0
 static void (*g_ilpColdEnter)(int site, DWORD arg0);
 #include "../ts3native/autshadow.cpp"
@@ -1386,7 +1420,7 @@ static int AsG2() {
     mt::g_asMode = 1;  // R: reference on this thread, then the worker
     mt::MtTick();      // first Simulate entry: the AutShadowNative ICs register
     const int ver = I32(TA("Setup", 0, NULL));
-    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 34 && ver == 11 && p.workerState == 2,
+    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 35 && ver == 11 && p.workerState == 2,
                "guards %d (%ld descriptor ICs), AutShadowNative ICs %ld, Setup -> Version %d, worker state %ld", guards, k.descIcs,
                k.icRegistered, ver, p.workerState))
         return 160;
@@ -1742,7 +1776,8 @@ static bool InstallMint() {
 static bool InstallSubFuse() {  // docs/139 §4 (native/ts3native/mintfuse.cpp)
     char v[64] = "";
     GetEnvironmentVariableA("MONOHOST_MINTFUSE", v, sizeof(v));
-    return strcmp(v, "sub") || mt::MfInstall();
+    mt::g_mfEaTimed = !strcmp(v, "eatime");  // EA's matcher behind the same shim, timed: the transform-cost base (docs/139 §4.7)
+    return (strcmp(v, "sub") && !mt::g_mfEaTimed) || mt::MfInstall();
 }
 static const char* MintName(DWORD op, char* buf) {
     const char* const* names = (const char* const*)(uintptr_t)0x11949E0;
@@ -1753,6 +1788,7 @@ static const char* MintName(DWORD op, char* buf) {
 // log the top opcodes and pairs of this phase, append every non-zero pair to mint-pairs.csv next to the exe, reset
 static void MintDump(const char* phase) {
     if (mt::g_mfCtr.mfRuns) Log("mint %s: subfuse runs %ld, whole-run fusions %ld, inner fusions %ld\n", phase, mt::g_mfCtr.mfRuns, mt::g_mfCtr.mfWhole, mt::g_mfCtr.mfInner);
+    if (mt::g_mfCtr.mfRuns) { LARGE_INTEGER fq; QueryPerformanceFrequency(&fq); Log("mint %s: subfuse matcher time %.1f us total, %.0f ns per run (cumulative)\n", phase, 1e6 * mt::g_mfTicks / fq.QuadPart, 1e9 * mt::g_mfTicks / fq.QuadPart / mt::g_mfCtr.mfRuns); }
     if (g_mintMode != 1) return;
     unsigned long long tot = 0;
     for (DWORD i = 0; i < MINT_NOP; i++) tot += g_opN[i];
@@ -1897,11 +1933,218 @@ static void McBench() {
 #include "monohost-jit.cpp"  // docs/207 P0 method compiler (MONOHOST_JIT)
 static int M5PassBar() { return g_jitMode == 3 ? 4 : 10; }  // verify snapshots every call of a listed method: 15x fewer passes with Math.Min listed, same overlap
 
+// ---- docs/258 option C, MONOHOST_EQFAST=1: [EqualsFast] exactness corpus. HostTest.EqCorpusRun (EqCorpus.cs) boxes values of
+// every value type it can build from the game's assemblies and hands each pair to EqIc.Check = EqCheckIc: EA's InternalEquals
+// 0xE7A590 (no detour in the host), then the [EqualsFast] hook twice (the first call may learn the class through EA's field walk,
+// the second answers from its plan). A different answer, or a plan answer where EA boxed a field, is a mismatch.
+static LONG g_eqPairs, g_eqHitPairs, g_eqBad, g_eqEnumHits;
+static bool g_eqTrace;  // MONOHOST_EQTRACE=1: one line per pair before EA's call (finds a hang)
+static int __cdecl EqCheckIc(const u8* a, const u8* b) {
+    if (g_eqTrace) {
+        const u8* k = **(const u8* const* const*)a;
+        Log("eq pair %s.%s\n", *(const char* const*)(k + 0x38), *(const char* const*)(k + 0x34));
+    }
+    void* f0 = (void*)1;
+    const bool r0 = ((mt::EqFn)(uintptr_t)mt::EQ_ICALL)(a, b, &f0);
+    g_eqPairs++;
+    bool hit = false;
+    for (int rep = 0; rep < 2; rep++) {
+        void* f1 = (void*)1;
+        const LONG h0 = mt::g_eqCtr.eqHits;
+        const bool r1 = mt::EqHook(a, b, &f1);
+        hit = mt::g_eqCtr.eqHits != h0;
+        if (r1 != r0 || (hit && (f1 != NULL || f0 != NULL))) {
+            if (g_eqBad++ < 20) {
+                const u8* k = **(const u8* const* const*)a;
+                Log("EQ MISMATCH %s.%s call %d: EA %d (fields %p), fast %d (fields %p, plan answer %d)\n", *(const char* const*)(k + 0x38),
+                    *(const char* const*)(k + 0x34), rep + 1, r0, f0, r1, f1, hit);
+            }
+            return -1;
+        }
+    }
+    if (hit) {
+        g_eqHitPairs++;
+        if ((**(const u8* const* const*)a)[0x14] & 0x10) g_eqEnumHits++;  // klass+0x14 bit 4 = enumtype [inferred, mono-glue-map 0xE6B700]
+    }
+    return hit ? 1 : 0;
+}
+static bool EqQuickRun() {
+    char v[4] = "";
+    if (!GetEnvironmentVariableA("MONOHOST_EQFAST", v, sizeof(v)) || v[0] != '1') return false;
+    ((AddInternalCall)0xE82550)("MonoHostTest.EqIc::Check", (const void*)EqCheckIc);
+    g_eqTrace = GetEnvironmentVariableA("MONOHOST_EQTRACE", v, sizeof(v)) && v[0] == '1';
+    int st = -1;
+    void* img = LoadImageByName("MonoHostTest.dll");
+    if (img) ((AsmLoadFromFull)0xE68290)(img, "MonoHostTest.dll", &st, 0);
+    g_testK = Cls(img, "MonoHostTest", "HostTest");
+    mt::g_eqOrig = (mt::EqFn)(uintptr_t)mt::EQ_ICALL;
+    mt::g_eqCtr.eqMode = 1;
+    int seed = 12345, w0 = 0, w1 = 1, w2 = 2, w3 = 3;
+    void* a0[1] = {&w0}; void* a1[1] = {&w1}; void* a2[1] = {&w2}; void* a3[1] = {&w3};
+    const int nAsm = I32(T("EqCorpusInfo", 1, a3));
+    int n = 0;
+    for (int asmI = -1; asmI < nAsm; asmI++) {  // -1: the generic instances; then one game / BCL assembly per call
+        const DWORD t0 = GetTickCount();
+        void* args[2] = {&seed, &asmI};
+        const int got = I32(T("EqCorpusRun", 2, args));
+        n += got > 0 ? got : 0;
+        Log("eqfast corpus: assembly %d: %d pairs, %lu ms (total %ld checked, %ld plan answers, %ld mismatches)\n", asmI, got,
+            GetTickCount() - t0, g_eqPairs, g_eqHitPairs, g_eqBad);
+    }
+    int w4 = 4;
+    void* a4[1] = {&w4};
+    const int types = I32(T("EqCorpusInfo", 1, a0)), skipped = I32(T("EqCorpusInfo", 1, a1)), managedBad = I32(T("EqCorpusInfo", 1, a2));
+    const int ptrSkipped = I32(T("EqCorpusInfo", 1, a4));
+    const mt::EqCtr& k = mt::g_eqCtr;
+    Log("eqfast corpus: %d value types (%d skipped, %d with pointer fields left out), %d pairs from managed, %ld checked, %ld answered from a plan (%ld enum pairs), "
+        "%ld mismatches; plans %ld, not eligible %ld (not VALUETYPE %ld, field kind %ld, > 8 fields %ld); fall-through new %ld, "
+        "not eligible %ld, other vtable %ld, null %ld, busy %ld, full %ld\n", types, skipped, ptrSkipped, n, g_eqPairs, g_eqHitPairs, g_eqEnumHits,
+        g_eqBad, k.eqPlans, k.eqRejects, k.eqRejGeneric, k.eqRejKind, k.eqRejMany, k.eqFtNew, k.eqFtKind, k.eqFtType, k.eqFtNull,
+        k.eqFtBusy, k.eqFtFull);
+    Check("EQ-corpus-exact", n > 0 && g_eqBad == 0 && managedBad == 0, "%ld pairs, %ld mismatches (managed %d)", g_eqPairs, g_eqBad, managedBad);
+    Check("EQ-corpus-hits", g_eqHitPairs > 0 && g_eqEnumHits > 0 && k.eqPlans > 0 && k.eqRejects > 0,
+          "%ld plan answers (%ld enum), %ld plans, %ld not eligible", g_eqHitPairs, g_eqEnumHits, k.eqPlans, k.eqRejects);
+    return true;
+}
+
+
+// MONOHOST_LAYOUT=<file> (selftest mode, docs/293): transform every method LayoutDump.cs lists (all loaded assemblies,
+// closed generic bases included) and write "name <tab> words <tab> code words" per method, then stop. Two runs under
+// different feature switches (MONOHOST_MINTFUSE, _MINTCALL, _JIT, ...) diff into "which switch moves instruction
+// boundaries": the saved coroutine frames keep a raw word index (TaskFrame.mIPOffset). Columns 4 and 5: the callee's
+// inline shape (below) and the runtime's own method name (JitMethodName, what ts3native logs).
+//
+// The callee shapes EA's transform inlines at a call site instead of emitting a call [verified, capstone of GenerateCode
+// 0xE5DE08-0xE5E3A9]: 1 = body starts with ret (the arguments are popped), 2 = ldsfld; ret, 3 = ldarg.0; ldfld; ret,
+// 4 = ldarg.0; ldarg.1; stfld; ret, 5 = volatile. ldsfld; ret, 6 = ldsfld; ldfld; ret. 0 = a call is emitted.
+// ts3fixes ports the same test (Fixes.InlineShape): a swap of such a method moves its callers' instruction boundaries.
+static int LayoutInlShape(void* m) {
+    __try {
+        const u8* hdr = ((const u8*(__cdecl*)(void*))(uintptr_t)0xE85390)(m);
+        const u8* sig = ((const u8*(__cdecl*)(void*))(uintptr_t)0xE85040)(m);
+        if (!hdr || !sig) return 0;
+        const u8* il = *(const u8* const*)(hdr + 4);
+        if (il[0] == 0x2A) return 1;
+        if (*(const unsigned short*)(hdr + 0x10) || (*(const DWORD*)(hdr + 0xC) & 0x7FFF)) return 0;
+        const DWORD size = *(const DWORD*)hdr, pc = *(const unsigned short*)(sig + 4);
+        if (size == 6 && pc == 0 && il[0] == 0x7E && il[5] == 0x2A) return 2;
+        if (size == 7 && pc == 0 && il[0] == 2 && il[1] == 0x7B && il[6] == 0x2A) return 3;
+        if (size == 8 && pc == 1 && il[0] == 2 && il[1] == 3 && il[2] == 0x7D && il[7] == 0x2A) return 4;
+        if (size == 8 && pc == 0 && il[0] == 0xFE && il[1] == 0x13 && il[2] == 0x7E && il[7] == 0x2A) return 5;
+        if (size == 11 && pc == 0 && il[0] == 0x7E && il[5] == 0x7B && il[10] == 0x2A) return 6;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    return 0;
+}
+
+#include "../ts3native/saveframes-core.h"
+static int LayoutLen(const unsigned short* p) { return *p == 0xE8 ? JitSwitchLen(p) : JitLen(p); }
+// SF-roundtrip (docs/293): the bug class and the guard on code EA's own transform makes. Layout A = the getter inlined
+// (what the game without the mod builds), layout B = the getter called (what a swap of the getter gives). A frame parked
+// behind a call saves its return index; loaded under the other layout that index is inside an instruction, and
+// SfClassify must give the other layout's index for the same call back, in both directions.
+static void LayoutRoundTrip(void* domain) {
+    void* k = Cls(Served("MonoHostTest.dll"), "MonoHostTest", "LayoutCase");
+    u8* getter = (u8*)Meth(k, "get_Chance", 0);
+    u8* big = (u8*)Meth(k, "ChanceBig", 0);
+    void* ma = Meth(k, "LayA", 0);
+    void* mb = Meth(k, "LayB", 0);
+    if (!Check("SF-methods", getter && big && ma && mb, "LayoutCase methods %p %p %p %p", getter, big, ma, mb)) return;
+    static DWORD fakeCtx[64];
+    fakeCtx[0] = (DWORD)(uintptr_t)domain;
+    void* ctx = TlsGetValue(*(DWORD*)(uintptr_t)0x11F4160);
+    if (!ctx) ctx = fakeCtx;
+    const int shGetter = LayoutInlShape(getter), shBig = LayoutInlShape(big);
+    u8* ra = (u8*)((RuntimeMethodFn)(uintptr_t)0xE51F20)(ma);
+    void* ea = *(void**)ra ? NULL : ((void*(__cdecl*)(u8*, void*))(uintptr_t)0xE643B0)(ra, ctx);
+    u8 saved[40];
+    memcpy(saved, getter, 40);
+    memcpy(getter, big, 0x18);                       // ts3fixes SwapMethod: the header without the name word
+    memcpy(getter + 0x1C, big + 0x1C, 40 - 0x1C);
+    u8* rb = (u8*)((RuntimeMethodFn)(uintptr_t)0xE51F20)(mb);
+    void* eb = *(void**)rb ? NULL : ((void*(__cdecl*)(u8*, void*))(uintptr_t)0xE643B0)(rb, ctx);
+    memcpy(getter, saved, 40);
+    const unsigned short* ca = *(const unsigned short* const*)ra;
+    const unsigned short* cb = *(const unsigned short* const*)rb;
+    const int wa = ca ? *(const unsigned short*)(ra + 0x3A) : 0, wb = cb ? *(const unsigned short*)(rb + 0x3A) : 0;
+    if (!Check("SF-transform", !ea && !eb && ca && cb, "both callers transformed (%d and %d words)", wa, wb)) return;
+    // the return index of each direct call (0xEA), in code order
+    int ra_[8], rb_[8], na = 0, nb = 0;
+    for (int i = 0, n; i < wa && (n = LayoutLen(ca + i)) > 0; i += n) if (ca[i] == 0xEA && na < 8) ra_[na++] = i + n;
+    for (int i = 0, n; i < wb && (n = LayoutLen(cb + i)) > 0; i += n) if (cb[i] == 0xEA && nb < 8) rb_[nb++] = i + n;
+    Check("SF-shape", shGetter == 2 && shBig == 0 && ca[0] == 0x66 && cb[0] == 0xEA,
+          "the static getter is inlined (shape %d, first word %04X = ldsfld), the swapped one is called (shape %d, first word %04X = call)", shGetter, ca[0], shBig, cb[0]);
+    Check("SF-moved", wb == wa - 1 && na == 2 && nb == 3 && rb_[1] == ra_[0] - 1 && rb_[2] == ra_[1] - 1,
+          "the swap makes the caller one word shorter (%d -> %d words); call returns A %d %d, B %d %d %d", wa, wb, ra_[0], ra_[1], rb_[0], rb_[1], rb_[2]);
+    int ok = 0, fixed;
+    bool after;
+    for (int c = 0; c < 2 && na == 2 && nb == 3; c++) {
+        // saved under A (the game without the mod), loaded under B; then saved under B, loaded under A
+        ok += SfClassify(cb, wb, ra_[c], LayoutLen, &fixed, &after) == 1 && fixed == rb_[c + 1];
+        ok += SfClassify(ca, wa, rb_[c + 1], LayoutLen, &fixed, &after) == 1 && fixed == ra_[c];
+        // the same layout on both sides: untouched
+        ok += SfClassify(ca, wa, ra_[c], LayoutLen, &fixed, &after) == 0 && after && fixed == ra_[c];
+        ok += SfClassify(cb, wb, rb_[c + 1], LayoutLen, &fixed, &after) == 0 && after && fixed == rb_[c + 1];
+    }
+    Check("SF-roundtrip", ok == 8, "%d of 8: a frame saved under one layout resumes at the same call under the other (A -> B, B -> A), and is left alone under its own", ok);
+}
+
+static bool LayoutRun(void* domain) {
+    char path[MAX_PATH];
+    if (!GetEnvironmentVariableA("MONOHOST_LAYOUT", path, MAX_PATH)) return false;
+    void* k = Cls(Served("MonoHostTest.dll"), "MonoHostTest", "LayoutDump");
+    void* exc = NULL; DWORD code = 0;
+    const int n = I32(SafeInvoke(Meth(k, "Collect", 0), NULL, NULL, &exc, &code));
+    FILE* f = NULL;
+    fopen_s(&f, path, "w");
+    if (!Check("LAYOUT-collect", k && n > 1000 && !exc && !code && f, "%d methods listed (exception %p, fault %08lX) -> %s", n, exc, code, path)) return true;
+    void* mh = Meth(k, "Handle", 1);
+    void* mn = Meth(k, "Name", 1);
+    // the transform reads its ThreadContext only to run a .cctor of a class not initialised yet (0xE64402: +0xC / +0x10
+    // saved around the class init); outside the interpreter this thread has none, so a zeroed one with the domain at +0
+    static DWORD fakeCtx[64];
+    fakeCtx[0] = (DWORD)(uintptr_t)domain;
+    void* ctx = TlsGetValue(*(DWORD*)(uintptr_t)0x11F4160);
+    if (!ctx) ctx = fakeCtx;
+    char skip[200] = "";  // MONOHOST_LAYOUT_SKIP=<substring>: a method whose transform never returns in the host
+    GetEnvironmentVariableA("MONOHOST_LAYOUT_SKIP", skip, sizeof(skip));
+    int done = 0, bad = 0;
+    for (int i = 0; i < n; i++) {
+        void* args[1] = {&i};
+        char name[400];
+        Narrow(SafeInvoke(mn, NULL, args, &exc, &code), name, sizeof(name));
+        void* boxed = SafeInvoke(mh, NULL, args, &exc, &code);
+        void* m = boxed ? *(void**)((u8*)boxed + 4) : NULL;
+        u8* rm = NULL;
+        void* texc = NULL; DWORD tcode = 0, teip = 0;
+        if (skip[0] && strstr(name, skip)) { fprintf(f, "%s\t-1\tskipped\n", name); continue; }
+        __try {
+            rm = m ? (u8*)((RuntimeMethodFn)(uintptr_t)0xE51F20)(m) : NULL;
+            if (rm && !*(void**)rm) texc = ((void*(__cdecl*)(u8*, void*))(uintptr_t)0xE643B0)(rm, ctx);
+        } __except (tcode = GetExceptionCode(), teip = (DWORD)(uintptr_t)GetExceptionInformation()->ExceptionRecord->ExceptionAddress, EXCEPTION_EXECUTE_HANDLER) {}
+        const unsigned short* c = rm && !texc && !tcode ? *(const unsigned short* const*)rm : NULL;
+        if (!c) { bad++; fprintf(f, "%s\t-1\t%s %08lX\n", name, tcode ? "fault" : texc ? "exception" : "nocode", teip); continue; }
+        const int words = *(const unsigned short*)(rm + 0x3A);
+        char jn[256] = "";
+        JitMethodName(rm, jn, sizeof(jn));
+        fprintf(f, "%s\t%d\t", name, words);
+        for (int w = 0; w < words; w++) fprintf(f, "%04X", c[w]);
+        fprintf(f, "\t%d\t%s\n", LayoutInlShape(m), jn);
+        fflush(f);  // a transform that never returns then shows as the last line
+        done++;
+    }
+    fclose(f);
+    Check("LAYOUT-dump", done > 1000, "%d methods transformed and written, %d without code", done, bad);
+    return true;
+}
+
 static int SelfTest(void* domain) {
+    if (EqQuickRun()) return g_fail;
     if (JitQuickRun()) return 0;
     int rc = M13(domain);
     MintDump("m13");  // docs/139: the .cctor sweep = EA script code; the rest is HostTest code
     if (!rc) rc = M14();
+    if (!rc) LayoutRoundTrip(domain);  // docs/293
+    if (!rc && LayoutRun(domain)) return g_fail;
     if (!rc) rc = McTests();  // docs/139 §8, before M1.5 (its exception task makes the pool state M5-arena-dedupe checks)
     if (!rc) rc = M15();
     JitAtomic(false);  // docs/207 verify: M5 installs P3 detours on the GC entry points
@@ -2012,8 +2255,8 @@ int wmain(int argc, wchar_t** argv) {
         g_m2 = argc > 5 && !wcscmp(argv[5], L"m2");  // m13 with the M2 hand-written stubs (selftest always uses them)
     }
     char logPath[MAX_PATH];
-    GetModuleFileNameA(NULL, logPath, MAX_PATH);
-    strcat_s(logPath, ".log");
+    // MONOHOST_LOG=<path>: this run's log elsewhere, so parallel runs (tools/jit-piece-bench.ts) do not share <exe>.log
+    if (!GetEnvironmentVariableA("MONOHOST_LOG", logPath, MAX_PATH) || !logPath[0]) GetModuleFileNameA(NULL, logPath, MAX_PATH), strcat_s(logPath, ".log");
     fopen_s(&g_log, logPath, "w");
     AddVectoredExceptionHandler(1, Veh);
     SetUnhandledExceptionFilter(Unhandled);

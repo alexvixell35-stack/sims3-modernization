@@ -1,0 +1,50 @@
+{
+  "id": "deadline-sweep",
+  "toml": {
+    "ui": {
+      "developer_mode": true
+    },
+    "screen": {
+      "fps_limit": 0,
+      "background_fps_limit": 0
+    },
+    "qol.frame_profiler": {
+      "start_at_load": true,
+      "report_every_s": 0,
+      "write_file": true
+    },
+    "patches.LotLightingMotion": {
+      "enabled": true
+    },
+    "patches.DeadlineSlicing": {
+      "enabled": false
+    }
+  },
+  "variants": {
+    "off": {}
+  },
+  "steps": [
+    {
+      "do": "speed",
+      "speed": "normal"
+    },
+    {
+      "do": "wait",
+      "minutes": 0.5
+    },
+    {
+      "do": "camera_pan",
+      "lots": 8,
+      "height": 150,
+      "seconds": 60,
+      "passes": 5
+    },
+    {
+      "do": "wait",
+      "minutes": 5,
+      "measure": false
+    }
+  ],
+  "save": "West Arbor",
+  "kitNote": "Taken from the test request comment (a scratch job, not in the Apex repo); save changed to West Arbor. report_every_s is 0 here: the 11-17 19:21 comment says to set it to 0 so the whole load is one timeline section (the original request had 60)."
+}

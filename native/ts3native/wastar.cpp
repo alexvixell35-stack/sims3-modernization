@@ -29,8 +29,40 @@
 // then skipped, and World_Save returns false (Error 12). Fix: the je at 0x82B608 keeps its condition but goes to LgStub,
 // which goes on at the game's own exit for a lot with nothing to connect (0x82B7F4, the target of 0x82B659): it clears the
 // byte and returns. The connection pass is skipped as before. One "ea fix: LotGridMiss" line for each of the first 8 lots.
+//
+// [EaCrashFixes] HeightsInfLoop (0.36.253, docs/67 §36, no counters; on in the ini): an Isla Paradiso freeze. Post pass 16 (0x64C7C0,
+// the node heights pass, called by 0x64E380 at 0x64E4ED) splits each path segment into steps: from the squared length L2
+// ([esp+340h], all four lanes) it takes s = sqrt(L2) and halves s until s <= 2 m (0x64CF10..0x64CF5E: `ja 0x64CF55` on
+// s > 2, else a lane test, then s *= 0.5 and jmp back). Segments with L2 below the constant at 0x11CF0C0, or near it, jump
+// to 0x64D275 first (no extra steps). L2 is the 3D squared distance between two of the pass's height samples (x, y, z at
+// list entry + 0x10, 0x64CCF0); in the 2026-11-12 dump 11 samples in a row had y = 2.26e34 (bits 0x788B85D4) next to a
+// normal 35.7, so L2 overflowed to +inf, s = inf, and inf * 0.5 stays inf: the sim thread (or the route worker) never
+// leaves the loop. Seen three
+// times on Baseline-IP, each a hang capture with the sim thread at 0x64CF22..0x64CF55 under Route_Replan /
+// Route_PlanFromPoint (2026-11-06, 2026-11-10 houseboat move, 2026-11-12 world load); the 2026-11-12 kill dump shows
+// xmm2 = (inf, inf, inf, inf), xmm7 = 0.5, xmm4 = 2.0. Fix: the 6-byte `ja 0x64D275` at 0x64CEBA becomes a jump to
+// HiStub, which takes the game's ja as before and also sends L2 = +inf (lane 0, the lane the loop tests) to 0x64D275, the
+// game's own no-split path for short segments. Only that one value changes path: NaN keeps the game's way (the loop's
+// compares are false for NaN and it leaves at once). xmm0-7 are kept around the log call (the 0x64D275 path reads them).
+// One "ea fix: HeightsInfLoop" line for each of the first 8 segments. Not fixed: where the infinite endpoint comes from.
+//
+// [EaCrashFixes] BridgeHeightNaN (0.36.253, docs/67 §37, counters v918 bhnHits at 0x62C8; on in the ini): the source of that endpoint. Three height
+// queries ask the bridge under a point when their "consider bridges" byte is set: 0xC6A250 (World_GetHeightAt, the script's
+// World.GetTerrainHeight(x, z, true) through 0x786200, and post pass 16), 0xC6A540 (Terrain_GetHeight) and 0xC61200. Each
+// finds the bridge with 0xB793F0, takes its height with 0xB745A0 (st0), stores it as the answer and keeps the terrain height
+// (0xC2A570) only when the terrain is higher (`fcomi`; false for NaN, +inf and huge values). On Isla Paradiso (2026-11-13,
+// x 835..885, z 840..849) one bridge answers NaN or +-inf at 7 of 21 points, and the 2026-11-12 dump had 2.26e34 there, while
+// the same points without bridges read 20-36 m. Fix: the 7 bytes after each `call 0xB745A0` (`mov ecx,[reg+54h]; fstp
+// [esp+N]`) become a jump to a stub. A finite bridge height of magnitude 1e6 or less runs the two moved instructions (the
+// game's answer, unchanged). Any other value is popped and the query goes on at its own "no bridge here" path (the target of
+// its `je` after 0xB793F0, same esp), which ends in the terrain height. One "ea fix: BridgeHeightNaN" line for each of the
+// first 8 hits. Not fixed: why the bridge's curve (0xB73F60 inside 0xB745A0) gives such values.
+//
+// [EaCrashFixes] FglStaleObject (next version, docs/67 §41, no counters; off by default): find-good-location's ignore-list
+// compare reads a looked-up object's id with no NULL test, so an id near the spot whose object was deleted crashed at
+// 0xB11A9C. The compare's entry becomes a jump to FoStub, which sends a NULL object to the game's own missing-object path.
 
-static const DWORD WA_SITE = 0x00676627, WA_BACK = 0x0067662E, WA_SKIP = 0x0067673F;
+static const DWORD WA_SITE = TS3A(0x00676627), WA_BACK = TS3A(0x0067662E), WA_SKIP = TS3A(0x0067673F);
 static const u8 kWaSite[7] = {0x8B, 0x54, 0x24, 0x1C, 0x0F, 0xB7, 0xC8};  // mov edx,[esp+1Ch]; movzx ecx,ax
 static DWORD g_waBack = WA_BACK, g_waSkip = WA_SKIP;
 static volatile LONG g_waLogged;
@@ -110,8 +142,8 @@ static bool ApplyWorldAStarRefs(const wchar_t* ini) {
 }
 
 // --- [EaCrashFixes] PortalFlagRefs ---
-static const DWORD PF1_SITE = 0x0082A1CF, PF1_BACK = 0x0082A1DA, PF1_SKIP = 0x0082A204;  // writer 1, a lot portal's stored id
-static const DWORD PF2_SITE = 0x0082B6B1, PF2_BACK = 0x0082B6B7, PF2_SKIP = 0x0082B7D5;  // writer 2, a lot waypoint's neighbour
+static const DWORD PF1_SITE = TS3A(0x0082A1CF), PF1_BACK = TS3A(0x0082A1DA), PF1_SKIP = TS3A(0x0082A204);  // writer 1, a lot portal's stored id
+static const DWORD PF2_SITE = TS3A(0x0082B6B1), PF2_BACK = TS3A(0x0082B6B7), PF2_SKIP = TS3A(0x0082B7D5);  // writer 2, a lot waypoint's neighbour
 static const u8 kPf1Site[11] = {0x8B, 0x46, 0x5C, 0x8B, 0xD1, 0x81, 0xE2, 0xFF, 0x3F, 0x00, 0x00};  // mov eax,[esi+5Ch]; mov edx,ecx; and edx,3FFFh
 static const u8 kPf2Site[6] = {0x8B, 0x0C, 0x8A, 0x03, 0x4E, 0x60};  // mov ecx,[edx+ecx*4]; add ecx,[esi+60h]
 static DWORD g_pf1Back = PF1_BACK, g_pf1Skip = PF1_SKIP, g_pf2Back = PF2_BACK, g_pf2Skip = PF2_SKIP;
@@ -194,7 +226,7 @@ static bool PfPatch(u8* at, const u8* want, size_t n, void (*stub)()) {
 }
 
 // --- [EaCrashFixes] LotGridMiss ---
-static const DWORD LG_SITE = 0x0082B608, LG_CLEAR = 0x0082B7F4;
+static const DWORD LG_SITE = TS3A(0x0082B608), LG_CLEAR = TS3A(0x0082B7F4);
 static const u8 kLgSite[6] = {0x0F, 0x84, 0xF9, 0x01, 0x00, 0x00};   // je 0x82B807 (the exit without the clear)
 static const u8 kLgClear[6] = {0x8B, 0x4B, 0x4C, 0x8B, 0x53, 0x48};  // mov ecx,[ebx+4Ch]; mov edx,[ebx+48h] (the lot id)
 static DWORD g_lgClear = LG_CLEAR;
@@ -248,4 +280,279 @@ static bool ApplyPortalFlagRefs(const wchar_t* ini) {
     ts3native_counters.pfOn = 1;
     Log("OK   ea fix: PortalFlagRefs (docs/67 §30.5): lot portal blocked-flag writes through pairs outside R are skipped (0x%08X, 0x%08X)", PF1_SITE, PF2_SITE);
     return true;  // keep the log open for the skip lines
+}
+
+// --- [EaCrashFixes] HeightsInfLoop ---
+static const DWORD HI_SITE = TS3A(0x0064CEBA), HI_BACK = TS3A(0x0064CEC0), HI_SKIP = TS3A(0x0064D275), HI_LOOP = TS3A(0x0064CF55);
+static const u8 kHiSite[6] = {0x0F, 0x87, 0xB5, 0x03, 0x00, 0x00};  // ja 0x64D275
+static const u8 kHiLoop[11] = {0x0F, 0x28, 0xC2, 0x0F, 0x59, 0xC7, 0x0F, 0x28, 0xD0, 0xEB, 0xB0};  // s *= 0.5; jmp 0x64CF10
+static DWORD g_hiBack = HI_BACK, g_hiSkip = HI_SKIP;
+static volatile LONG g_hiHits;
+
+// prev = pass 16's copy of the previous point ([esp+360h], stored at 0x64CE2D), cur = the current list entry (esi; x, y, z
+// at +0x10). Logged only: either may be stale or unreadable.
+static void __stdcall HiHit(const float* prev, const u8* cur) {
+    const LONG n = InterlockedIncrement(&g_hiHits);
+    if (n > 8) return;
+    float p[3] = {0, 0, 0}, c[3] = {0, 0, 0};
+    __try { memcpy(p, prev, sizeof(p)), memcpy(c, cur + 0x10, sizeof(c)); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("ea fix: HeightsInfLoop: a path segment of infinite length was not split by the heights pass (segment %ld, from "
+        "(%g, %g, %g) to (%g, %g, %g); the game would halve it forever, docs/67 §36)", n, p[0], p[1], p[2], c[0], c[1], c[2]);
+}
+
+// At 0x64CEBA: flags from `comiss xmm1, [esp+2C0h]` (xmm1 = the short-segment constant, [esp+2C0h] = lane 0 of xmm2 = L2).
+static __declspec(naked) void HiStub() {
+    __asm {
+        ja skip  // the game's ja: a short segment
+        push eax
+        movd eax, xmm2
+        cmp eax, 0x7F800000  // L2 = +inf
+        pop eax
+        je inf
+        jmp dword ptr [g_hiBack]
+    inf:
+        sub esp, 128
+        movups [esp], xmm0
+        movups [esp + 16], xmm1
+        movups [esp + 32], xmm2
+        movups [esp + 48], xmm3
+        movups [esp + 64], xmm4
+        movups [esp + 80], xmm5
+        movups [esp + 96], xmm6
+        movups [esp + 112], xmm7
+        pushad
+        lea eax, [esp + 160 + 0x360]  // pass 16's esp + 360h
+        push esi
+        push eax
+        call HiHit
+        popad
+        movups xmm0, [esp]
+        movups xmm1, [esp + 16]
+        movups xmm2, [esp + 32]
+        movups xmm3, [esp + 48]
+        movups xmm4, [esp + 64]
+        movups xmm5, [esp + 80]
+        movups xmm6, [esp + 96]
+        movups xmm7, [esp + 112]
+        add esp, 128
+    skip:
+        jmp dword ptr [g_hiSkip]
+    }
+}
+
+// The 6-byte ja at `at` becomes jmp HiStub + one int3 (never run: the stub jumps on past it).
+static bool HiPatch(u8* at) {
+    if (!Matches(at, kHiSite, sizeof(kHiSite))) return false;
+    u8 b[6] = {0xE9, 0, 0, 0, 0, 0xCC};
+    *(LONG*)(b + 1) = (LONG)((uintptr_t)&HiStub - ((uintptr_t)at + 5));
+    return Write(at, b, sizeof(b));
+}
+
+static bool ApplyHeightsInfLoop(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"HeightsInfLoop", 0, ini)) return false;
+    if (!Matches((u8*)(uintptr_t)HI_LOOP, kHiLoop, sizeof(kHiLoop)) || !HiPatch((u8*)(uintptr_t)HI_SITE)) {
+        Log("SKIP ea fix: HeightsInfLoop: bytes at 0x%08X / 0x%08X differ (another mod or a probe build owns them): not installed", HI_SITE, HI_LOOP);
+        return false;
+    }
+    Log("OK   ea fix: HeightsInfLoop (docs/67 §36): path segments of infinite length skip the heights pass's halving loop (0x%08X)", HI_SITE);
+    return true;  // keep the log open for the hit lines
+}
+
+// --- [EaCrashFixes] BridgeHeightNaN ---
+// Site i = the 7 bytes after `call 0xB745A0` (the bridge height, st0) in 0xC61200, World_GetHeightAt 0xC6A250 and
+// Terrain_GetHeight 0xC6A540. back = the next instruction; skip = the query's own path for "no bridge here", the target of its
+// je after 0xB793F0 (0xC61318, 0xC6A448, 0xC6A6E2), where esp is the same (0xB793F0 is ret 1Ch, 0xB745A0 ret 0Ch).
+static const DWORD BH_CALL = TS3A(0x00B745A0);
+static const DWORD BH_SITE[3] = {TS3A(0x00C6133B), TS3A(0x00C6A46B), TS3A(0x00C6A709)};
+static const DWORD BH_BACK[3] = {TS3A(0x00C61342), TS3A(0x00C6A472), TS3A(0x00C6A710)};
+static const DWORD BH_SKIP[3] = {TS3A(0x00C6137B), TS3A(0x00C6A4B3), TS3A(0x00C6A772)};
+static const u8 kBhSite[3][7] = {
+    {0x8B, 0x4E, 0x54, 0xD9, 0x5C, 0x24, 0x14},  // mov ecx,[esi+54h]; fstp dword ptr [esp+14h]
+    {0x8B, 0x4B, 0x54, 0xD9, 0x5C, 0x24, 0x14},  // mov ecx,[ebx+54h]; fstp dword ptr [esp+14h]
+    {0x8B, 0x4E, 0x54, 0xD9, 0x5C, 0x24, 0x20},  // mov ecx,[esi+54h]; fstp dword ptr [esp+20h]
+};
+static DWORD g_bhBack[3], g_bhSkip[3];
+static volatile LONG g_bhLogged;
+
+// site = 0..2; bits = the bridge height as a float; xz = the query's x, z arguments.
+static void __stdcall BhHit(DWORD site, DWORD bits, const float* xz) {
+    InterlockedIncrement(&ts3native_counters.bhnHits);
+    const LONG n = InterlockedIncrement(&g_bhLogged);
+    if (n > 8) return;
+    static const char* const kFn[3] = {"0xC61200", "World_GetHeightAt 0xC6A250", "Terrain_GetHeight 0xC6A540"};
+    float h, x = 0, z = 0;
+    memcpy(&h, &bits, 4);
+    __try { x = xz[0], z = xz[1]; } __except (EXCEPTION_EXECUTE_HANDLER) {}  // the query's [ebp+8]: logged only
+    Log("ea fix: BridgeHeightNaN: the bridge height at (%g, %g) is 0x%08lX (%g); %s used the terrain height instead (hit %ld, "
+        "docs/67 §37)", x, z, bits, h, kFn[site], n);
+}
+
+// Flags for `ja`: above when st0 (the bridge height) is not finite or its magnitude is above 1e6 (bits 0x49742400; with the
+// sign cleared, float bits order like magnitudes, and NaN and +-inf sit above every finite value). st0 is kept.
+static __declspec(naked) void BhTest() {
+    __asm {
+        push eax
+        sub esp, 4
+        fst dword ptr [esp]
+        mov eax, [esp]
+        and eax, 0x7FFFFFFF
+        cmp eax, 0x49742400
+        lea esp, [esp + 4]
+        pop eax
+        ret
+    }
+}
+
+// The stubs' bad path: [esp+4] = site. Pops st0 (the x87 stack is then as on the game's no-bridge path), counts and logs.
+// General registers are kept; xmm0-7 are not needed (the site follows a call, and every skip target writes them before use).
+// x, z come from the query's frame: all three keep it in ebp (x [ebp+8], z [ebp+0Ch]).
+static __declspec(naked) void BhDrop() {
+    __asm {
+        sub esp, 4
+        fstp dword ptr [esp]
+        pushad
+        lea eax, [ebp + 8]
+        push eax                   // xz
+        push dword ptr [esp + 36]  // bits (the fstp slot)
+        push dword ptr [esp + 48]  // site
+        call BhHit
+        popad
+        lea esp, [esp + 4]
+        ret 4
+    }
+}
+
+static __declspec(naked) void BhStub0() {  // 0xC61200
+    __asm {
+        call BhTest
+        ja bad
+        mov ecx, [esi + 0x54]
+        fstp dword ptr [esp + 0x14]
+        jmp dword ptr [g_bhBack]
+    bad:
+        push 0
+        call BhDrop
+        jmp dword ptr [g_bhSkip]
+    }
+}
+static __declspec(naked) void BhStub1() {  // World_GetHeightAt 0xC6A250
+    __asm {
+        call BhTest
+        ja bad
+        mov ecx, [ebx + 0x54]
+        fstp dword ptr [esp + 0x14]
+        jmp dword ptr [g_bhBack + 4]
+    bad:
+        push 1
+        call BhDrop
+        jmp dword ptr [g_bhSkip + 4]
+    }
+}
+static __declspec(naked) void BhStub2() {  // Terrain_GetHeight 0xC6A540
+    __asm {
+        call BhTest
+        ja bad
+        mov ecx, [esi + 0x54]
+        fstp dword ptr [esp + 0x20]
+        jmp dword ptr [g_bhBack + 8]
+    bad:
+        push 2
+        call BhDrop
+        jmp dword ptr [g_bhSkip + 8]
+    }
+}
+static void (*const kBhStub[3])() = {BhStub0, BhStub1, BhStub2};
+
+// The 7 bytes at `at` (right after a call to 0xB745A0) become jmp kBhStub[i] + 2 int3 (never run: the stub jumps past them).
+static bool BhPatch(u8* at, int i) {
+    if (at[-5] != 0xE8 || (DWORD)((uintptr_t)at + *(const LONG*)(at - 4)) != BH_CALL || !Matches(at, kBhSite[i], 7)) return false;
+    u8 b[7] = {0xE9, 0, 0, 0, 0, 0xCC, 0xCC};
+    *(LONG*)(b + 1) = (LONG)((uintptr_t)kBhStub[i] - ((uintptr_t)at + 5));
+    return Write(at, b, sizeof(b));
+}
+
+static bool ApplyBridgeHeightNaN(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"BridgeHeightNaN", 0, ini)) return false;
+    memcpy(g_bhBack, BH_BACK, sizeof(g_bhBack)), memcpy(g_bhSkip, BH_SKIP, sizeof(g_bhSkip));
+    int n = 0;
+    for (int i = 0; i < 3; i++) {  // each query is patched on its own
+        if (BhPatch((u8*)(uintptr_t)BH_SITE[i], i)) n++;
+        else Log("SKIP ea fix: BridgeHeightNaN: bytes at 0x%08X differ (another mod or a probe build owns them): that query not patched", BH_SITE[i]);
+    }
+    if (!n) return false;
+    Log("OK   ea fix: BridgeHeightNaN (docs/67 §37): bridge heights that are not finite or above 1e6 in magnitude are ignored "
+        "(%d of 3 height queries: 0x%08X, 0x%08X, 0x%08X)", n, BH_SITE[0], BH_SITE[1], BH_SITE[2]);
+    return true;  // keep the log open for the hit lines
+}
+
+// --- [EaCrashFixes] FglStaleObject ---
+// The game's find-good-location search (the function holding 0xB11A9C; the script's World.FindGoodLocation /
+// FindGoodLocationOnWorldAtCustomDepth with an objIdsToIgnore array) walks the object ids near a candidate spot (the vector
+// at [esp+0B8h]..[esp+0BCh], 8-byte ids) and looks each one up with 0x939560. A deleted object's id gives NULL, and the game
+// expects that: 0xB11ABF `test esi,esi; je 0xB11AF4` is its own path for a missing object. The ignore-list compare in
+// between (0xB11A89..0xB11ABD, taken only when the caller passed objIdsToIgnore) reads the object's id at [esi+8] first, with
+// no NULL test: read 0x00000008 at 0xB11A9C (docs/67 §41). Fix: the compare's first 7 bytes (xor eax,eax; cmp [ebp+54h],eax;
+// jle 0xB11ABF) become a jump to FoStub, which sends esi == NULL to 0xB11ABF (the game's missing-object path) and otherwise
+// runs the 7 bytes as they were. Only the NULL case changes path. Log: one "ea fix: FglStaleObject" line for each of the first
+// 8 hits, then at 16, 32, 64, ...: the stale id and the vtable of the object being placed ([ebp+8]), to find the caller.
+// Cleanup: none in the game's loop beyond the missing test (the ignore loop is bounded by its count, the id loop by its vector).
+static const DWORD FO_SITE = TS3A(0x00B11A95), FO_BACK = TS3A(0x00B11A9C), FO_NULL = TS3A(0x00B11ABF);
+static const u8 kFoSite[7] = {0x33, 0xC0, 0x39, 0x45, 0x54, 0x7E, 0x23};  // xor eax,eax; cmp [ebp+54h],eax; jle 0xB11ABF
+static const u8 kFoNull[4] = {0x85, 0xF6, 0x74, 0x31};                    // test esi,esi; je 0xB11AF4 (the game's own test)
+static DWORD g_foBack = FO_BACK, g_foNull = FO_NULL;  // stub targets (selftest swaps them)
+static volatile LONG g_foHits;
+
+static void __stdcall FoHit(const DWORD* id, const u8* frame) {
+    const LONG n = InterlockedIncrement(&g_foHits);
+    if (n > 8 && (n & (n - 1))) return;
+    DWORD lo = 0, hi = 0, obj = 0, vt = 0;
+    __try { lo = id[0], hi = id[1]; obj = *(const DWORD*)(frame + 8); if (obj) vt = *(const DWORD*)(uintptr_t)obj; }
+    __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("ea fix: FglStaleObject: find-good-location met a deleted object (hit %ld, id %08lX%08lX, placing object 0x%08lX vt "
+        "%08lX); skipped as the game skips a missing object", n, hi, lo, obj, vt);
+}
+
+// At 0xB11A95: esi = 0x939560's answer, edi = the id entry, ebp = the search's frame (+8 the placed object, +50h/+54h the
+// ignore list and its count).
+static __declspec(naked) void FoStub() {
+    __asm {
+        test esi, esi
+        jz gone
+        xor eax, eax
+        cmp [ebp + 0x54], eax
+        jle none
+        jmp dword ptr [g_foBack]
+    none:
+        jmp dword ptr [g_foNull]
+    gone:
+        pushad
+        push ebp
+        push edi
+        call FoHit
+        popad
+        jmp dword ptr [g_foNull]
+    }
+}
+
+// at = the compare's 7 bytes, nul = the game's NULL test they jump to: both must be EA's.
+static bool FoPatch(u8* at, const u8* nul) {
+    if (!Matches(at, kFoSite, sizeof(kFoSite)) || !Matches(nul, kFoNull, sizeof(kFoNull))) return false;
+    u8 b[7] = {0xE9, 0, 0, 0, 0, 0xCC, 0xCC};  // the two int3 never run: the stub jumps on past them
+    *(LONG*)(b + 1) = (LONG)((uintptr_t)&FoStub - ((uintptr_t)at + 5));
+    return Write(at, b, sizeof(b));
+}
+
+static bool ApplyFglStaleObject(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"FglStaleObject", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP ea fix FglStaleObject ([EaCrashFixes] FglStaleObject): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
+    if (!FoPatch((u8*)(uintptr_t)FO_SITE, (const u8*)(uintptr_t)FO_NULL)) {
+        Log("SKIP ea fix: FglStaleObject: bytes at 0x%08X / 0x%08X differ (another mod or a probe build owns them): not installed",
+            FO_SITE, FO_NULL);
+        return false;
+    }
+    Log("OK   ea fix: FglStaleObject (docs/67 §41): find-good-location's ignore-list compare skips a deleted object "
+        "instead of reading it (0x%08X)", FO_SITE);
+    return true;  // keep the log open for the hit lines
 }

@@ -1,6 +1,8 @@
 command,handler,states,player_action,realism,preconditions,source,gate
+pet_repro,PetReproHandlers,Live,"none: NPC pets teleported to a start spot and EA's GoHome / StrayPets / long-visit interactions pushed (docs/656 repro)",stress,"owned NPC pets of a known non-active household, not selectable or selected",handler,live
 ping,SystemHandlers,Any,none (agent plumbing),harness,,handler,none
 commands,SystemHandlers,Any,none (agent plumbing),harness,,handler,none
+notify,SystemHandlers,Any,none (harness: kit benchmark notice in the corner; docs/315),harness,,handler,none
 game_state,HarnessHandlers,Any,none (read),harness,,handler,none
 load_world,HarnessHandlers,MainMenu,New Game > pick a world,natural,not in a world,handler + R-MODE-1,none
 load_save,HarnessHandlers,MainMenu;Live,Load Game (reload: true = quit to the main menu then Load),natural,not in a world unless reload,handler + R-MODE-1,none
@@ -27,8 +29,9 @@ seed_rng,HarnessHandlers,Any,none (fixed RNG seed for A/B),harness,,handler,none
 test_env,HarnessHandlers,Live,none: season and weather follow the calendar (Seasons options set lengths only; Weather Stone changes weather in game),cheat,mode realistic only undoes winter cold and a near full moon; mode fixed forces season/weather/moon,handler + R-EP-3 (community-reported),none
 quiet_ui,HarnessHandlers,Any,Options > memories off; dismissing notifications,natural,,handler,none
 autopilot,HarnessHandlers,Live,none (harness: keeps speed and answers dialogs),harness,,handler,none
+weather,HarnessHandlers,Live,none: read only; set forces season/weather (Weather Stone changes weather in game),cheat,Seasons (EP8) installed; set: forced season/weather (docs/599),handler,live
 dialog_expect,AutopilotHandlers,Any,none (harness: tells the autopilot to leave the next dialog to auto_dialog),harness,,handler,none
-build_mode,BuildHandlers,Live;Build,Build button,natural,active household has a home lot; on = Build on the home lot; clock stops (R-MODE-2),handler + R-MODE-2,none
+build_mode,BuildHandlers,Live;Build;Buy,Build button (Buy/Build switch in the mode bar),natural,active household has a home lot; on = Build on the home lot (from Buy: the Buy -> Build switch without an exit); clock stops (R-MODE-2),handler + R-MODE-2,none
 pick,BuildHandlers,Any,none (read),harness,,handler,none
 calibrate,BuildHandlers,Any,none (harness),harness,,handler,none
 tile_info,BuildHandlers,Any,none (read),harness,,handler,none
@@ -40,11 +43,13 @@ auto_roof,BuildHandlers,Build,Auto Roof tool,natural,in Build mode,handler,none
 cas_open,CasHandlers,Live,Plan Outfit (dresser) / Change Appearance (mirror); Edit in CAS is a cheat,cas,active household Sim Child+; agent opens Edit-in-CAS on a copy,handler + R-CAS-1,live
 cas_category,CasHandlers,CAS,clicking a CAS tab,natural,in CAS,handler,none
 cas_close,CasHandlers,CAS,Done in CAS,natural,in CAS,handler,none
+cas_click,CasHandlers,CAS,clicking a clothing type or design button in CAS,natural,in CAS (clothing panel),handler,none
 cas_state,CasHandlers,Any,none (read),harness,,handler,none
 cas_bench,CasHandlers,CAS,clicking through CAS parts,stress,timed part sweep,handler,none
 buy_open,CasHandlers,Live,Buy button,natural,active household has a home lot; clock stops (R-MODE-2),handler + R-MODE-2,live
 buy_category,CasHandlers,Buy,clicking a Buy catalog tab,natural,in Buy mode,handler,none
 buy_close,CasHandlers,Buy,Live button,natural,in Buy mode,handler,none
+buy_delete_objects,ControlHandlers,Buy,deleting placed objects in Buy mode (select + Delete),natural,place_objects objects on the lot,handler,buy
 catalog_objects,ContentHandlers,Any,none (read),harness,,handler,none
 place_objects,ContentHandlers,Live,none: a player places objects one at a time in Buy mode with the clock stopped,stress,up to 100 free objects per call on the home lot or round-robin over town lots while the sim runs,handler,live
 remove_objects,ContentHandlers,Live,none: a player sells objects in Buy mode with the clock stopped,stress,removes place_objects objects,handler,live
@@ -57,6 +62,7 @@ spawn_sims,ContentHandlers,Live,none: debug `spawn` command; the game itself fil
 remove_sims,ContentHandlers,Any,none (cleanup of spawn_sims),harness,,handler,none
 camera,ContentHandlers,Live;Build;Buy;Map,moving the camera / map view click,natural,,handler + R-MODE-6,live
 camera_pan,ContentHandlers,Live;Build;Buy,panning the camera,natural,,handler,live
+camera_sweep,CameraSweepHandlers,Live;Build;Buy,zooming / rotating / panning the camera,natural,fast rotate (2 turns in 20 s) and 2.5 s zoom steps are quicker than most players (stress),handler,live
 look,ControlHandlers,Any,none (read),harness,,handler,none
 time,ControlHandlers,Any,none (read),harness,,handler,none
 set_speed,ControlHandlers,Live,speed buttons (pause / 1 / 2 / 3); skip only while the whole household sleeps or works,natural,speed skip: the game offers it only when every active Sim sleeps or is away,handler + R-MODE-4,none
@@ -87,6 +93,7 @@ fresh_world,FreshWorld,MainMenu;Live,New Game with a premade household,natural,n
 crowd_do,RareHandlers,Live,none: one pie-menu click per Sim; 30-50 Sims queue one interaction on one object in one tick,stress,spawn_sims Sims (and the household),handler + R-VOL-1,live
 crowd_go,RareHandlers,Live,none: one Go Here per click; 30-50 Sims to one point in one tick,stress,spawn_sims Sims (and the household),handler + R-VOL-1,live
 crowd_visit_lot,RareHandlers,Live,none: one Visit Lot per Sim; 30-50 townies start the same lot trip in one tick,stress,spawn_sims Sims,handler + R-VOL-1,live
+route_storm,RouteStormHandlers,Live,none: autonomy and situations push one lot trip / go home per NPC; a storm pushes 40 NPC route interactions per wave (non-user-directed),stress,resident NPCs in the world,handler + R-VOL-1,live
 houseboat_leave,RareHandlers,Live,none: one Visit Lot per townie on a houseboat; all start the same lot trip in one tick,stress,townies on a houseboat lot,handler + R-VOL-1,live
 compat_visit,ReproHandlers,Live,lot pie menu: Visit or a mod's Visit With (picker: one Sim along),natural,active Sim; mod installed,handler + docs/TESTING.md compat evidence,live
 compat_visit_status,ReproHandlers,Live,none (read only),harness,compat_visit first,handler,none
@@ -136,6 +143,8 @@ sim_route_to,ReproHandlers,Live,Go Here,natural,active household Sim,handler,liv
 route_replan,ReproHandlers,Live,none (forced replan),stress,,handler,live
 sim_portal_trip,ReproHandlers,Live,taking a portal / sewer hole (Supernatural / ITF),natural,a portal on the lot,handler,live
 thumbnails,ReproHandlers,Any,none (thumbnail cache churn),stress,,handler,none
+thumb_census,ThumbCensusHandlers,Any,none (read-only census of the Sim thumbnail queue and pack-up waits),harness,,handler,none
+thumb_outfits,ThumbOutfitsHandlers,Live,none (portraits of townies' unworn outfits; no player equivalent),stress,,handler,live
 outfit_change,ReproHandlers,Live,Change Into... (one Sim at a time),stress,up to 6 Sims at once without the spin,handler + R-VOL-1,live
 pet_guard,ReproHandlers,Any,none (harness guard),harness,,handler,live
 wildflower_drain,ReproHandlers,Live,none (probe),harness,,handler,live
@@ -241,6 +250,7 @@ bad_tattoo,OutfitStressHandlers,Live,MagicMirror bad tattoo (one Sim at a time),
 bad_makeover,OutfitStressHandlers,Live,MagicMirror bad makeover (one Sim at a time),stress,townies only: active household skipped; outfit churn at a rate no player produces (issue #40 leak stress),handler,live
 pet_adopt,PetHandlers,Live,none for townies (EA adoption path forced on a townie household),cheat,townies only: active household skipped (issue #40 leak stress; not run in game yet),handler,live
 pet_give_away,PetHandlers,Live,none for townies (EA give-away path forced on a townie household),cheat,townies only: active household skipped (issue #40 leak stress; not run in game yet),handler,live
+spawn_horse,PetHandlers,Live,none for townies (a townie household gets an adult horse: EA adoption pool or MakeRandomPet),cheat,townies only: active household never gets the horse; needs EP5 (docs/267 F3; not run in game yet),handler,live
 social,SocialRoundHandlers,Live,none: EA social queued by name on two townies (forced Fight! included),cheat,townies only: active household skipped (issue #40 leak stress),handler,live
 social_round,SocialRoundHandlers,Live,none: a round of EA socials between townies at once,stress,townies only: active household skipped (issue #40 leak stress),handler,live
 make_celebrity,StoryHandlers,Live,none for townies (EA force-set-level cheat path; level 0 removes the status),cheat,townies only: active household skipped (issue #40 leak stress),handler,live
@@ -249,3 +259,55 @@ move_household,StoryHandlers,Live,Edit Town move of a townie household to a free
 story_days,StoryHandlers,Live,none: EA story progression days on demand (mode and actions per day set),cheat,refused while the active household accepts roommates (issue #40 leak stress),handler,live
 story_burst,StoryHandlers,Live,none: EA story action step repeated without the daily cap and category cooldowns,stress,townies only: active household skipped (issue #40 leak stress),handler,live
 story_burst_state,StoryHandlers,Any,none (read),harness,,handler,none
+boat_gone_watch,BoatGoneHandlers,Live,"none: destroys a non-household NPC's generated boat as NRaas Overwatch CleanupVehicles does (docs/257 repro trigger)",stress,a non-household NPC driving its generated boat; never household / selected / household-less Sims,handler,live
+boat_getout_stress,BoatGetOutStressHandlers,Live,"none: NPCs + the active Sim teleported to a shore, own boats, Board Boat / Get Out Into Water forced in a loop; a posture writer (boat reset, Sim reset, Standing) forced in the GetOut fade window (docs/257 §9 repro)",stress,"NPCs of a known non-active household, teen or older, with a home lot; the active Sim on purpose (household rule check)",handler,live
+boat_nopath_repro,BoatNoPathReproHandlers,Live,"none: NPCs and one NPC horse or dog teleported to a shore, each seated as Driver of a BoatTaxi (CreateTaxiBoat + PutInDriver as GetInBoatRouteAction does) and its boat route to an inland lot (pedestrian planning off) planned and replanned (docs/851 boattaximemo repro)",stress,"NPCs of a known non-active household (teen or older human, adult horse or dog); never household / selected / household-less Sims",handler,live
+houseboat_leg_repro,HouseboatLegReproHandlers,Live,"none: mode docked (default, docs/642 §7 houseboatgangwayrescue repro): NPC owners of a Docked houseboat sent by Teleport Me Here to a far coastal world-lot spot not connected by land, then EA MakeSimGoHome (boat trip home) watched: get-out spot, first gangway leg, rescue; mode undock: NPCs (houseboat residents first) placed 17-30 m off a houseboat that is not Docked (undock, default on: an NPC-only houseboat leaves its port by EA's Houseboat.LeavePort, not moved back) (world lot, sea first), each spot probed with EA's EnterHouseboatThroughBoat leg (houseboatlegmemo forced off for the probe), then the Sim's own route to the houseboat planned / replanned so PostPlanRouteCallback runs the leg (docs/642 §6 houseboatlegmemo repro)",stress,"NPCs of a known non-active household (teen or older human, not selectable or selected); docked: their own Docked houseboat with a port gangway; undock: a houseboat away from its dock or one NPC-only houseboat to undock (never the active household's); never household / selected / household-less Sims",handler,live
+leak_census,LeakCensusHandlers,Live,none (read),harness,,handler,live
+townie_trips,TownieTripsHandlers,Live,Go Here / visit a community lot (one Sim at a time),stress,"NPC townies only: household, selectable, role, service and unknown-scope Sims skipped",handler,live
+vehicle_census,VehicleCensusHandlers,Live,none (read),harness,,handler,live
+family_tree,FamilyTreeHandlers,Live,opens EA's family tree dialog from the Simology panel and clicks relatives (player flow; stress repeats it),stress,a Sim with relatives in the world,handler,live
+inv_ghost,InvGhostProbe,Live,none: adds two copies of a product to the active family inventory and destroys the stack top (probe),harness,docs/545 §1 familyinvghost,handler,live
+inv_stuff,InventoryStressHandlers,Live,buying and moving items into Sim inventories (stress; select: switches the active Sim like the player's portrait click),stress,,handler,live
+buff_drift,MoodCensus,Live,none: re-adds a moodlet to townies to reproduce EA's re-add mood drift (probe),harness,non-household non-selectable townies only,handler,live
+buff_churn,MoodCensus,Live,none: random moodlet add/remove on townies (stress),stress,non-household non-selectable townies only,handler,live
+alarm_audit,AlarmAuditHandlers,Live,none (read: alarms that cannot fire or were started badly; docs/546 §7),harness,,handler,none
+aut_census,AutCensusHandlers,MainMenu;Live,"none (harness census of autonomy tests; install swaps InteractionObjectPair.TestAndCalculateScore, so a census run keeps townie scoring on the sim thread)",harness,install:true at the main menu (refused once autonomy compiled the method); start/stop/top in the world,handler,none
+object_types,AutCensusHandlers,Live,none (read: game objects by type and in/out of world),harness,,handler,none
+doors,DoorHandlers,Live,none (read: doors and their lock types on a lot),harness,an active household with a home lot or a lot id,handler,none
+hitch_watch,HitchWatchHandlers,Live,none (harness sim task: stamps each tick and records Sim states around hitches; read),harness,start:true inside the world,handler,none
+sim_health,SimHealthHandlers,Any,none (read; a harness sim task samples interaction ends between calls; watch:false stops it),harness,,handler,none
+household_routine,HitchWatchHandlers,Live,pie-menu clicks: one routine action (meal / outfit / shower / social / TV / ...) queued per household Sim and pet that is idle,natural,an active household with a home lot; a Sim with more than one queued interaction is left alone,handler,none
+tick_stats,HitchWatchHandlers,Live,none (harness: sim tick time stats; read),harness,,handler,none
+ilp_remote_chat_check,DesignedReproHandlers,Live,none: one forced phone-chat round between two uncontrolled Sims with the target's Everyday outfits hidden for that call (docs/506 B80),cheat,uncontrolled Sims only,handler,live
+ilp_scavenger_check,DesignedReproHandlers,Live,none: removes loose gems/metals/insect jigs on community lots first; scavenger opportunity OnAdded on unattached clones with yielding disabled (docs/506 B87),cheat,,handler,live
+velvet_bouncer,DesignedReproHandlers,Live,none: puts the club bouncer at the velvet rope and pushes WatchDoor (EA's own calls),stress,night hours; a velvet-rope venue (BP clubs),handler,live
+rel_onesided,DesignedReproHandlers,Live,none (read),harness,,handler,none
+nraas_reset_sims,DesignedReproHandlers,Live,NRaas MasterController-style reset of up to 10 uncontrolled Sims at once,stress,NRaas installed; never household or selected Sims,handler,live
+event_cost,DesignedReproHandlers,Any,none (diagnostics switch and read),harness,,handler,none
+place_cancel_loop,MemHandlers,Live,placing an inventory object and cancelling the hand tool again and again (50 rounds),stress,selected Sim's inventory; live mode,handler,none
+interaction_sweep,InteractionSweepHandlers,Live,"none: every pack interaction definition forced on NPC actors (ages + pets) teleported to each target, run a few seconds, cancelled or reset; pack objects bought free and placed on the far community lot (docs/268)",stress,"NPCs of known non-active, non-service households; the active Sim only with household: true on a test save; destructive definitions skipped",handler,live
+tomb_mummy,TombMummyHandlers,Live,"Look Inside / Reset Object: spawn runs EA's Sarcophagus.TombMummyCreate (the LookInside path), reset the player's Reset Object on the sarcophagus nearest the selected Sim, state reads only",stress,"an Al Simhara sarcophagus near the selected Sim; only the tomb mummy (NpcHousehold) is created or reset, the household is never changed (hh_same); test only (docs/607 §3)",handler,live
+fight_orphan,FightOrphanHandlers,Live,"none: two NPCs set up as setup_sims does on a beach community lot start a water balloon fight (EA's PlayWith.Run path), then one is taken out of the fight's PlayerSlots while it waits (repro ip-fight-orphan, FightOrphan.cs)",stress,"NPCs of known non-active households only (pick_sims townies, re-checked: never the active household, a selectable Sim or unknown scope); status op is read-only",handler,live
+houseboat_leg_repro,HouseboatLegReproHandlers,Live,"none: mode docked (default, docs/853 §3 houseboatgangwayrescue repro): NPC owners of a Docked houseboat sent by Teleport Me Here to a far coastal world-lot spot not connected by land, then EA MakeSimGoHome (boat trip home) watched: get-out spot, first gangway leg, rescue; mode undock: NPCs (houseboat residents first) placed 17-30 m off a houseboat that is not Docked (undock, default on: an NPC-only houseboat leaves its port by EA's Houseboat.LeavePort, not moved back) (world lot, sea first), each spot probed with EA's EnterHouseboatThroughBoat leg (houseboatlegmemo forced off for the probe), then the Sim's own route to the houseboat planned / replanned so PostPlanRouteCallback runs the leg (docs/853 §2 houseboatlegmemo repro)",stress,"NPCs of a known non-active household (teen or older human, not selectable or selected); docked: their own Docked houseboat with a port gangway; undock: a houseboat away from its dock or one NPC-only houseboat to undock (never the active household's); never household / selected / household-less Sims",handler,live
+boat_roam_repro,BoatRoamReproHandlers,Live,"none: NPCs set on a shore with autonomy off and given their own speed boat (owned by their home lot, as boat_getout_stress), EA Board Boat as driver, then BoatAround pushed at autonomous priority whenever idle at the helm, as autonomy picks it in play (EA GoBoating needs a map-view click); watched for seconds (docs/853 §4 boatroamcap repro)",stress,"NPCs of a known non-active household (teen or older human, not selectable or selected, with a home lot); never household / selected / household-less Sims",handler,live
+strand_box,ReproHandlers,Live,"none (test setup: 8 counters around an open tile, then stands an NPC townie in it; bp-idle-unroutable v8)",stress,"NPC townie only: refuses household, selected and unknown-scope Sims and the active household lot",handler,live
+strand_box_end,ReproHandlers,Any,none (test cleanup: removes the strand_box counters),stress,,handler,none
+watchdog_idle_now,ReproHandlers,Live,"none (TEST-ONLY: sim clock +1 h, the debug clock cheat, so the watchdog judges a stranded NPC townie now; bp-idle-unroutable v9)",stress,"NPC townie only, still on its strand_box / sim_strand spot: refuses household, selected and unknown-scope Sims",handler,live
+boat_roam_repro,BoatRoamReproHandlers,Live,"none: NPC drivers get their own speed boat off the nearest shore and a BoatAround pushed at autonomous priority (docs/642 §9 boatroamcap repro)",stress,"NPCs of a known non-active household, teen or older, with a home lot; autonomy off",handler,live
+cas_skin_probe,CasHandlers,CAS,none (read: the CAS builder's skin tone / outfit state; never writes),harness,in CAS,handler,none
+dish_census,DishCensusHandlers,Live,none (read: serving containers counted per lot; docs/652),harness,,handler,live
+pet_repro,PetReproHandlers,Live,"none: NPC pets teleported to a start spot and EA's GoHome / StrayPets / long-visit interactions pushed (docs/656 repro)",stress,"owned NPC pets of a known non-active household, not selectable or selected",handler,live
+trigger_battery,TriggerBatteryHandlers,Live,"none: cheap live triggers for ts3fixes fixes that never fired in a test run, each setting up the bug's precondition with EA's API (docs/653)",stress,"NPC couples / Sims of non-active households; the active Sim for the speed triggers",handler,live
+add_puddle,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+bed_setup,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+put_in_front,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+order_at,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+add_trash,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+pet_jigs,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+go_at,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+add_platter,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+contemplate,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+route_points,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,none
+box_in,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live
+slot_close,ForcedReproHandlers,Live,"none: forced-repro setup step (combo branch, docs/686)",stress,,handler,live

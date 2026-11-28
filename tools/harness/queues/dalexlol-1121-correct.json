@@ -1,0 +1,138 @@
+{
+ "note": "dalexlol-1121-correct (PREPARED, NOT RUN; correctness, no timing, noiseCheck false): the switches imported from Dalexlol PRs #605 #613 #617 #618 on master set d1121, all OFF in the release ini, switched on per job. 1) bp-firegreet-doorshare-pure: repros fire-greet-lockout (off BROKEN / on FIXED, [1494]/[1495] counters) and doorshare-check (off BROKEN / on FIXED). 2) ip-neighbourmemo-shadow: repro ip-neighbourmemo-crowd with [RouteSpeed] NeighbourMemo=2 (shadow): nmChecks > 0, nmMismatch 0, no NEIGHBOUR MEMO MISMATCH line. 3) ip-route-ro-shadow: repro ip-doorshare-storm with [PlaceTestRO] / [EditPathRO] / [ConnRoomsRO] Shadow=1 and [GoalValidRO] Hits=1 HitsShadow=1, [RouteSnap] DoorShare=1 (ts3fixes doorshare + doorgen on): every compare line mismatch 0, no FAIL line. Household / selected Sims are never touched by the storm; the switches serve only non-household routers. Needs the game idle (Rodney); the Bin state apex via tools/turbo-compat.ts per queue.ts. Read-back of the new log lines is not regex-pinned yet: copy the first real lines into logRequire after the first run (docs/data/results).",
+ "stopQueueOnFail": false,
+ "rewind": "off",
+ "jobs": [
+  {
+   "id": "bp-firegreet-doorshare-pure",
+   "note": "[est 12 min] BP 5 min, repro fire-greet-lockout (patches firegreet off then on) then doorshare-check; pure checks, no Sim touched.",
+   "asi": "game-copy/ts3native.asi.d1121",
+   "iniBase": "game-copy/ts3native.ini.d1121",
+   "fixesPackage": "game-copy/ts3fixes.package.d1121",
+   "pinReason": "master set d1121 (0.36.297-d1121: m1120u + Dalexlol 1121 imports #605 #613 #617 #618 #611): asi + ini + ts3fixes + agent",
+   "save": "Baseline-BP",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.297-d1121 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.297-d1121 ": {
+     "match": [
+      "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.297-m1120u 2026-11-20 13:19:40",
+      "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 5,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "fire-greet-lockout"
+    }
+   }
+  },
+  {
+   "id": "ip-neighbourmemo-shadow",
+   "note": "[est 15 min] IP 10 min, repro ip-neighbourmemo-crowd, NeighbourMemo=2 shadow.",
+   "asi": "game-copy/ts3native.asi.d1121",
+   "iniBase": "game-copy/ts3native.ini.d1121",
+   "fixesPackage": "game-copy/ts3fixes.package.d1121",
+   "pinReason": "master set d1121 (0.36.297-d1121: m1120u + Dalexlol 1121 imports #605 #613 #617 #618 #611): asi + ini + ts3fixes + agent",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 35,
+   "logRequire": {
+    "^ts3native 0.36.297-d1121 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.297-d1121 ": {
+     "match": [
+      "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.297-m1120u 2026-11-20 13:19:40",
+      "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28"
+     ]
+    }
+   },
+   "ini": {
+    "RouteSpeed.NeighbourMemo": 2,
+    "Crash.Log": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "ip-neighbourmemo-crowd"
+    }
+   }
+  },
+  {
+   "id": "ip-route-ro-shadow",
+   "note": "[est 15 min] IP 10 min, repro ip-doorshare-storm with the RO switches in shadow and DoorShare=1.",
+   "asi": "game-copy/ts3native.asi.d1121",
+   "iniBase": "game-copy/ts3native.ini.d1121",
+   "fixesPackage": "game-copy/ts3fixes.package.d1121",
+   "pinReason": "master set d1121 (0.36.297-d1121: m1120u + Dalexlol 1121 imports #605 #613 #617 #618 #611): asi + ini + ts3fixes + agent",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 35,
+   "logRequire": {
+    "^ts3native 0.36.297-d1121 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.297-d1121 ": {
+     "match": [
+      "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.297-m1120u 2026-11-20 13:19:40",
+      "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28"
+     ]
+    }
+   },
+   "ini": {
+    "PlaceTestRO.Enabled": 1,
+    "PlaceTestRO.Shadow": 1,
+    "EditPathRO.Enabled": 1,
+    "EditPathRO.Shadow": 1,
+    "ConnRoomsRO.Enabled": 1,
+    "ConnRoomsRO.Shadow": 1,
+    "GoalValidRO.Hits": 1,
+    "GoalValidRO.HitsShadow": 1,
+    "RouteSnap.DoorShare": 1,
+    "Crash.Log": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "ip-doorshare-storm",
+     "fixesOn": "doorshare,doorgen"
+    }
+   }
+  }
+ ]
+}

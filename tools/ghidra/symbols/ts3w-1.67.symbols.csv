@@ -521,7 +521,18 @@ address,name,type,comment
 0x00D81FDE,Simulate_call_IdleSimulationCycle,label,[unverified: from our docs only] S3SS Smooth Patch (Precise) redirect site <docs/03 §1.1>
 0x00D8A8E0,ScriptHost_NativeToManaged,function,[verified: function entry in our Ghidra database] Another native->managed entry; runs on a fresh interpreter state (a yield there aborts) <docs/18>
 0x00D9B130,ScriptHost_GlueCaller,function,[verified: function entry in our Ghidra database] Script-host glue that calls 0xD8A8E0 [inferred name] <docs/18>
-0x00DA5970,ScriptHost_ICallTrampoline,function,[verified: function entry in our Ghidra database] Internal-call trampoline (~1.5% incl. its ntdll lock calls) <docs/20>
+0x00DA5970,ValueType_DefaultEquals_NativeBody,function,"[verified: disassembly] EA binder body #152 System.ValueType::DefaultEquals(object,object); calls [0x11EE6CC] = InternalEquals 0xE7A590; was ScriptHost_ICallTrampoline (docs/20) <docs/258>"
+0x00DA5910,ValueType_DefaultEquals_Bind,function,"[verified: disassembly] binder init for #152: [0x11EE6C8] = callee at IL 0x0A, [0x11EE6CC] = its icall pointer, [0x11EE6D0] = callee at IL 0x30 <docs/258>"
+0x00DA7FB0,Enum_Equals_NativeBody,function,[verified: disassembly] EA binder body #194 System.Enum::Equals(object); calls 0xDA5970 when [0x11EE5B4]+0x28 is set <docs/258>
+0x00DC4870,Attribute_Equals_NativeBody,function,[verified: disassembly] EA binder body #687 System.Attribute::Equals(object); calls 0xDA5970 <docs/258>
+0x00E7A590,ves_icall_System_ValueType_InternalEquals,function,"[verified: disassembly] corlib icall slot 603 (0x10B61A4); field walk via 0xE70180, one loader-lock pair per field + 1 <docs/258>"
+0x00E7A410,ves_icall_System_ValueType_InternalGetHashCode,function,[verified: disassembly] corlib icall slot 604 <docs/258>
+0x00E70180,mono_class_get_fields,function,"[verified: disassembly] iterator; mono_loader_lock + mono_class_setup_fields + unlock on every call; stride 0x1C, count +0x68, array +0x88 <docs/258>"
+0x00E6E600,mono_class_setup_fields,function,"[verified: disassembly] early exit on klass+0x14 bit 2 (size_inited), which it sets at 0xE6E7A3 before the field array (+0x88 at 0xE6E7BE) <docs/258>"
+0x011EE6C8,g_defaultEqualsInternalEqualsMethod,data,[verified: disassembly] RuntimeMethod of InternalEquals (bound at 0xDA593B) <docs/258>
+0x011EE6CC,g_defaultEqualsInternalEqualsFn,data,[verified: disassembly] native pointer 0xE7A590 (bound at 0xDA594E) <docs/258>
+0x011EE6D0,g_defaultEqualsPairEqualsMethod,data,[verified: disassembly] RuntimeMethod of the per-pair Equals (IL 0x30; bound at 0xDA595C) <docs/258>
+0x010B4EA0,g_corlibICallNames,data,[verified: disassembly] corlib icall method-name table (613 entries; parallel to 0x10B5838) <docs/258>
 0x00E498B0,GC_min_bytes_allocd,function,[verified: function entry in our Ghidra database] Only reader of the free-space divisor <docs/13>
 0x00E49980,GC_stopped_mark,function,[verified: bytes match the Steam 1.67 exe] Stop-the-world mark; outside the per-frame call it counts as a forced GC <docs/13>
 0x00E49B10,GC_heap_section_limit_a,label,"[unverified: from our docs only] Heap-section limit 0x300 (""Too many heap sections"") <docs/13>"
@@ -637,7 +648,7 @@ address,name,type,comment
 0x0108B7AC,vt_MonoScriptHost_MarkYield_slot,data,[unverified: from our docs only] Vtable slot holding 0xD70F60 <docs/18>
 0x0108B7C4,vt_MonoScriptHost_InvokeDelegate_slot,data,[unverified: from our docs only] Vtable slot holding 0xD75FA0 <docs/18>
 0x0108E704,str_pState_yieldReturn,data,"[unverified: from our docs only] ""pState->yieldReturn"" (assert text) <docs/18>"
-0x010B5838,g_corlibICallTable,data,[unverified: from our docs only] mscorlib icall table <docs/13>
+0x010B5838,g_corlibICallTable,data,[verified: disassembly] corlib icall function table (613 entries; names at 0x10B4EA0) <docs/258>
 0x011580C4,g_AStarGeneration,data,[unverified: from our docs only] Search generation stamp (3 xrefs) {WORD} <docs/18>
 0x011922A4,EA_gc_frame_budget,data,"[unverified: from our docs only] Per-frame GC budget, starts at 1000, +-100 steps {int} <docs/13>"
 0x01192324,EA_gc_budget_max,data,"[verified: bytes match the Steam 1.67 exe] 1500; ts3native optional BudgetCeiling {int} <docs/13, 15 Phase 1>"
@@ -3821,3 +3832,11 @@ address,name,type,comment
 0x0056E4C0,ConformToRouteController_ctor,function,"[verified: disassembly] ret 0x28; arg1 -> +0x1C raw (base 0x565A80), +0x2C path ref, +0x30 ref + listener 0x566170, +0x34 ref; callers 0x84B756 (actor = body+0x124), 0x84B958 (actor = [body+0xB4][i]) <docs/67 §26>"
 0x0056E580,ConformToRouteController_dtor,function,"[verified: disassembly] unregisters the +0x30 listener (0x566590), releases refs; deleting dtor 0x56E7A0 <docs/67 §26>"
 0x00D59C10,ThumbnailManager_RenderSim,function,"[verified: callers] called from 0xD5C726 (ThumbnailManager_Update path); RigPose 0x19B30 from RigPosePool_Alloc at 0xD5B828, pose context at esp+0x410 (+0x40 rig, +0x44 model, +0x4C source pose raw), pose eval call 0xD5B86F; name inferred <docs/67 §27>"
+0x0075AFA0,RadialRangeDest_FirstValidGoal,function,"[verified: decompile + disassembly] From 0x75BE60 (0x75C03D, radius band < 1 m): validates sample points with GoalPoint_Validate (0x75B5AC) until one is accepted (returns 1), rejected points go to the non-candidate list 0x74C650 <docs/250 §11>"
+0x0075B610,RadialRangeDest_RingGoals,function,"[verified: decompile + disassembly] From 0x75BE60 (0x75C246, 0x75C2B8): validates every ring point (0x75BD86); accepted -> candidate vector, rejected -> non-candidate list 0x74C650 <docs/250 §11>"
+0x00752042,DestGenerate_vcall_site,label,"[verified: disassembly] Route_GenerateDestinationCandidates calls [vt+0x10] of each destination in [this+0x18] (7 args, results OR'ed); radial range -> 0x75BE60 <docs/250 §11>"
+0x0075A672,GoalPoint_Validate_HitLoop,label,"[verified: disassembly] Loop over the 0x82EDB0 footprint vector after +0x918 is released: plain +1/-1 on [entry+4], id vt+0x84, ignore list, type entry vt+8 via tables 0x75AF5C/0x75AF4C (skip / reject / record+reject / object test), reject = return 1 <docs/250 §13>"
+0x0075AA40,GoalPoint_Validate_GatherLoop,label,"[verified: disassembly] Loop over the GoalFootprintGather 0x82F0B0 vector (RouteOption 0x10000): id entry vt+4, types 2,4,9,12,13,17,21,23 reject via tables 0x75AF7C/0x75AF74 <docs/250 §13>"
+0x0075AF4C,GoalPoint_Validate_HitJumpTable,data,"[verified: bytes] 4 targets 0x75A6FD (type 1 object test), 0x75A8C0 (reject), 0x75A87E (record id + reject), 0x75A901 (skip); byte index table 0x75AF5C indexed by type-1 <docs/250 §13>"
+0x00565970,RefPtr_Assign,function,"[verified: disassembly] Stores the pointer and LOCK +1 on [p+4] (pairs with RefPtr_Release 0x7460F0) <docs/250 §13>"
+0x0055CFA0,FootprintRef_Release,function,"[verified: disassembly] Plain -1 on [[ecx]+4]; at 0 sets 1 and calls vtable slot 0 (delete) <docs/250 §13>"

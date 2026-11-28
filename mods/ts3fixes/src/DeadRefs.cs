@@ -11,6 +11,7 @@ using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.EventSystem;
 using Sims3.Gameplay.ObjectComponents;
+using Sims3.Gameplay.Objects.CookingObjects;
 using Sims3.Gameplay.Objects.Fishing;
 using Sims3.Gameplay.Objects.HobbiesSkills;
 using Sims3.Gameplay.Objects.Vehicles;
@@ -23,7 +24,7 @@ namespace Ts3Fixes
 {
     // EA fields that keep disposed SimDescriptions and destroyed Sims, so the object graph behind them goes into every save
     // (issue #91, docs/205). Holders read in the decompiled game code [verified] unless marked; the per-holder counts are the
-    // reporter's [community]. Two switches, both default off:
+    // reporter's [community]. Two switches, both default ON since 2026-11-18 (save-matrix bundle):
     //   deadrefguards: Relationship.Get(SimDescription) makes no new entry for an invalid description (it re-adds one for any
     //     description asked about, e.g. from Dispose's own later steps after RemoveSimDescriptionRelationships); an existing
     //     entry is still returned, so EA's removal walks see it. AgingManager.IsAgingStateValid is false for an invalid
@@ -45,42 +46,44 @@ namespace Ts3Fixes
     //     routing-reference lists (gone Sims removed through EA's own Remove methods; #166 build 40, docs/517), 11 object owner
     //     components (a gone owner or thief Sim relinked to its live instance, a reward giver with none dropped; #166 build 43, docs/519),
     //     12 ObjectDisposed handlers of relationships nobody holds (a deleted description, or a decayed relationship; #166 build 41, docs/522),
-    //     13 celebrity waiting-to-react lists (gone reactors removed through EA's RemoveSimFromWaitingToReactList; docs/523).
+    //     13 celebrity waiting-to-react lists (gone reactors removed through EA's RemoveSimFromWaitingToReactList; docs/523),
+    //     14 CookingProcess handlers left on an appliance's ObjectDisposed (own switch deadrefcooking, default off; docs/205 §4),
+    //     15 gone Sims in a live NPC conversation's members (own switch deadrefconvo, default off; docs/517 §4). Both need
+    //     deadrefsweep on too.
     //     [395] relationship keys removed, [396] relationship entries removed, [397] aging states removed, [398] alarm owners
     //     cleared, [399] react-time entries, [400] coworker / boss / chess entries, [401] topics, [402] fishers, [403] Sim
-    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [2048] disposed handlers, [2049] celebrity reactors, [405] passes finished, [406] slices,
+    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [2048] disposed handlers, [2049] celebrity reactors, [994] cooking handlers, [995] conversation members, [996] conversations skipped (household), [405] passes finished, [406] slices,
     //     [407] longest slice us, [408] total pass ms, [409] longest save pass us, [410] passes refused or stopped (unsafe state, switch off) and items that threw.
-    //   Not built (docs/205 §4): CookingProcess appliance handlers,
-    //   adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
+    //   Not built (docs/205 §4): adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
     public static partial class Fixes
     {
-        const BindingFlags kDrAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        static readonly FieldInfo sAgingStates = typeof(AgingManager).GetField("AgingStates", kDrAll);
-        static readonly FieldInfo sAgingDesc = typeof(AgingState).GetField("SimDescription", kDrAll);
-        static readonly FieldInfo sAlarmIndex = typeof(AlarmManager).GetField("mGameObjectIndex", kDrAll);
-        static readonly FieldInfo sLastReact = typeof(LookAtManager).GetField("mLastReactTime", kDrAll);
-        static readonly FieldInfo sSimTopics = typeof(SocialComponent).GetField("mActiveTopics", kDrAll);
-        static readonly FieldInfo sUnforgettable = typeof(SimActiveTopics).GetField("mUnforgettableTopics", kDrAll);
-        static readonly FieldInfo sLastTalking = typeof(SocialComponent).GetField("mLastTalkingTo", kDrAll);
-        static readonly FieldInfo sPusher = typeof(SimRoutingComponent).GetField("mPusherSim", kDrAll);
-        static readonly FieldInfo sReservedVehicle = typeof(Sim).GetField("ReservedVehicle", kDrAll);
-        static readonly FieldInfo sPregDad = typeof(Pregnancy).GetField("mDad", kDrAll);
-        static readonly MethodInfo sPregCheckDad = typeof(Pregnancy).GetMethod("CheckForDad", kDrAll);
-        static readonly FieldInfo sFisher = typeof(Fish).GetField("mFishingSim", kDrAll);
-        static readonly FieldInfo sCarPrev = typeof(CarOwnable).GetField("mPreviousPassengers", kDrAll);
-        static readonly FieldInfo sCarPrevCarried = typeof(CarOwnable).GetField("mPreviousCarriedPassengers", kDrAll);
-        static readonly FieldInfo sBoatPrev = typeof(BoatOwnable).GetField("mPreviousPassengers", kDrAll);
-        static readonly FieldInfo sBoatPrevCarried = typeof(BoatOwnable).GetField("mPreviousCarriedPassengers", kDrAll);
-        static readonly FieldInfo sShoeThrown = typeof(HorseshoeCourt).GetField("mPlayersWhoHaveThrown", kDrAll);
-        static readonly FieldInfo sShoeScores = typeof(HorseshoeCourt).GetField("mScores", kDrAll);
-        static readonly MethodInfo sCancelAging = typeof(AgingManager).GetMethod("CancelAgingAlarmsForSim", kDrAll, null, new Type[] { typeof(AgingState) }, null);
+        static readonly FieldInfo sAgingStates = typeof(AgingManager).GetField("AgingStates", kInstAll);
+        static readonly FieldInfo sAgingDesc = typeof(AgingState).GetField("SimDescription", kInstAll);
+        static readonly FieldInfo sAlarmIndex = typeof(AlarmManager).GetField("mGameObjectIndex", kInstAll);
+        static readonly FieldInfo sLastReact = typeof(LookAtManager).GetField("mLastReactTime", kInstAll);
+        static readonly FieldInfo sSimTopics = typeof(SocialComponent).GetField("mActiveTopics", kInstAll);
+        static readonly FieldInfo sUnforgettable = typeof(SimActiveTopics).GetField("mUnforgettableTopics", kInstAll);
+        static readonly FieldInfo sLastTalking = typeof(SocialComponent).GetField("mLastTalkingTo", kInstAll);
+        static readonly FieldInfo sPusher = typeof(SimRoutingComponent).GetField("mPusherSim", kInstAll);
+        static readonly FieldInfo sReservedVehicle = typeof(Sim).GetField("ReservedVehicle", kInstAll);
+        static readonly FieldInfo sPregDad = typeof(Pregnancy).GetField("mDad", kInstAll);
+        static readonly MethodInfo sPregCheckDad = typeof(Pregnancy).GetMethod("CheckForDad", kInstAll);
+        static readonly FieldInfo sFisher = typeof(Fish).GetField("mFishingSim", kInstAll);
+        static readonly FieldInfo sCarPrev = typeof(CarOwnable).GetField("mPreviousPassengers", kInstAll);
+        static readonly FieldInfo sCarPrevCarried = typeof(CarOwnable).GetField("mPreviousCarriedPassengers", kInstAll);
+        static readonly FieldInfo sBoatPrev = typeof(BoatOwnable).GetField("mPreviousPassengers", kInstAll);
+        static readonly FieldInfo sBoatPrevCarried = typeof(BoatOwnable).GetField("mPreviousCarriedPassengers", kInstAll);
+        static readonly FieldInfo sShoeThrown = typeof(HorseshoeCourt).GetField("mPlayersWhoHaveThrown", kInstAll);
+        static readonly FieldInfo sShoeScores = typeof(HorseshoeCourt).GetField("mScores", kInstAll);
+        delegate void DrCancelAgingFn(AgingState state);
+        static readonly MethodInfo sCancelAging = typeof(AgingManager).GetMethod("CancelAgingAlarmsForSim", kInstAll, null, new Type[] { typeof(AgingState) }, null);
         static readonly Dictionary<SimDescription, Relationship> sNoRelationships = new Dictionary<SimDescription, Relationship>();
 
         static AlarmHandle sDeadRefAlarm = AlarmHandle.kInvalidHandle;
         static ObjectGuid sDeadRefTask = ObjectGuid.InvalidObjectGuid;
         static StopWatch sDeadRefWatch;
         static long sDeadRefTotalUs;
-        // Phases 10-12 walk every GameObject. They share one walk and run only when a Sim object was destroyed or a description
+        // Phases 10-12 and 14 walk every GameObject. They share one walk and run only when a Sim object was destroyed or a description
         // disposed since the last walk (EA's kSimDestroyed / kSimDescriptionDisposed), else once per kDeadRefObjHours: phase 12's
         // decayed-relationship case sends no event (docs/205 §2.3a). [2055] walks, [2056] ms in finished walks, [2057] walks an
         // event asked for (the first walk after a load counts as asked).
@@ -90,10 +93,168 @@ namespace Ts3Fixes
         static float sDeadRefObjLastH;
         static long sDeadRefObjUs;
 
+        // docs/330 deadrefcadence (default ON, sub-switch of deadrefsweep; off = the pass as before 2026-11-22, for A/B):
+        //  - one world snapshot (GetObjects<GameObject>) per pass feeds every object phase; before, phases 5-9, 13 and 15 each
+        //    ran their own typed world query (Sim three times), each a walk of every world object;
+        //  - phases 10-12 and 14 run as one step per object (one HasBeenDestroyed test, the four holders in order, each in
+        //    its own try); a use list is copied only when it holds a gone Sim;
+        //  - the slice clock is read every kDeadRefClockEvery items (one StopWatch icall per item before);
+        //  - the description-only phases (1-3 relationship keys / aging states / alarm owners, 6 fish) run only when a
+        //    description was disposed since their last start (kSimDescriptionDisposed: SimDescription.Dispose sends it right
+        //    after clearing mIsValidDescription, the only place a live description goes invalid [verified decompiled]), when
+        //    their last run removed something, or every kDeadRefIdleHours sim hours; the other phases the same way, dirtied by
+        //    either event (they test gone Sims and gone descriptions). The pre-save pass is unchanged.
+        // [1543-1557] ms per phase 1-15 (the merged object step counts as phase 10), [1558-1572] items stepped per phase,
+        // [1573] description-group runs skipped, [1574] Sim-group runs skipped, [1575] world snapshots, [1576] objects in the
+        // last snapshot.
+        const float kDeadRefIdleHours = 4f;
+        const int kDeadRefClockEvery = 8;
+        static bool sDrDescDirty = true, sDrSimDirty = true, sDrDescFound, sDrSimFound;
+        static float sDrDescLastH, sDrSimLastH;
+        static readonly long[] sDrPhaseUs = new long[15];
+        static int sDrPhase = -1;
+        // phases array index -> the phase number of the header list (index 12 is phase 14, cooking; 13 is phase 13)
+        static readonly int[] kDrPhaseNo = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 13, 15 };
+
+        // docs/334 deadrefexact (default OFF, LC-1 of docs/333; needs deadrefcadence on, which it refines): exact cuts, the same
+        // items and removals as the cadence pass:
+        //  (a) one pass over the world snapshot fills the Sim, Fish, car / boat, horseshoe and dartboard lists (each in snapshot
+        //      order, as each filter made it) instead of five filter passes; the pass is sliced like the phases (clock every
+        //      kDeadRefClockEvery items, Sleep(0) and the unsafe re-check between slices, so a pass can now stop there, flags
+        //      re-set by the finally as at any slice) and timed to the phase that asks first; only on passes that run the Sim
+        //      group (a description-only pass keeps the fish filter);
+        //  (b) the merged object step reads ObjectDisposed and builds its invocation list once for the handler and cooking
+        //      holders, again only when the handler holder changed the field (LoopCostCore.SharedDrop, each part its own try);
+        //  (c) the deadrefcooking switch and the counter array are read once per slice, not per object: a flip applies from the
+        //      next slice. sDrC / sDrCookOn are set before every slice of the merged step, its only caller.
+        // [1658] partition passes, [1659] objects in the last one, [1660] objects whose cooking part reused the handler part's
+        // list, [1661] re-reads after a handler removal.
+        static bool DrExact() { return ShortcutOn("deadrefexact"); }
+        static bool sDrCookOn;
+        static int[] sDrC;
+        static readonly LoopCostCore.EvGet sDrEvGet = delegate(object h) { return sObjDisposed.GetValue(h) as Delegate; };
+        static readonly LoopCostCore.EvSet sDrEvSet = delegate(object h, Delegate v) { sObjDisposed.SetValue(h, v); };
+        static readonly LoopCostCore.EvTest sDrRelGone = delegate(Delegate d, object h) { GameObjectRelationship r = d.Target as GameObjectRelationship; return r != null && RelGone(r); };
+        static readonly LoopCostCore.EvTest sDrCpStale = delegate(Delegate d, object h) { CookingProcess cp = d.Target as CookingProcess; return cp != null && CpStale(cp, h as GameObject); };
+        static readonly LoopCostCore.EvDropped sDrCpDropped = delegate(Delegate d, object h)
+        {
+            CookingProcess cp = (CookingProcess)d.Target;
+            GameObject o = (GameObject)h;
+            if (cp.ObjectClickedOn == o) cp.ObjectClickedOn = null; // dead process: what EA's handler does at disposal
+            if (cp.ObjectClickedOn == null) CpDropListener(cp);
+        };
+
+        // phase index (p) whose list comes from the partition: 4 Sims, 5 fish, 6 vehicles, 7 horseshoe, 8 darts, 13 celebrity, 14 convo
+        static bool DrTypedPhase(int p) { return (p >= 4 && p <= 8) || p == 13 || (p == 14 && ShortcutOn("deadrefconvo")); }
+
+        // the partition list bits, in the order of the lists: Sim, Fish, CarOwnable or BoatOwnable, HorseshoeCourt, Dartboard
+        static int DrTypeMask(object o)
+        {
+            int m = 0;
+            if (o is Sim) m |= 1;
+            if (o is Fish) m |= 2;
+            if (o is CarOwnable || o is BoatOwnable) m |= 4;
+            if (o is HorseshoeCourt) m |= 8;
+            if (o is Dartboard) m |= 16;
+            return m;
+        }
+
+        // (a): false when the state turned unsafe between slices (the caller stops the pass)
+        static bool DrPartition(List<object> all, List<object>[] parts, int[] c)
+        {
+            for (int i = 0; i < parts.Length; i++) parts[i] = new List<object>();
+            // an index loop, no per-item delegate: the list is the pass's own snapshot and never changes
+            for (int i = 0, n = all.Count; i < n; i++)
+            {
+                object o = all[i];
+                int m = DrTypeMask(o);
+                if (m != 0) LoopCostCore.PartitionAdd(o, m, parts);
+                // the last part-slice runs on into the phase's first slice, as the gather did
+                if (i + 1 < n && (i + 1) % kDeadRefClockEvery == 0 && sDeadRefWatch.GetElapsedTime() >= EaSpreadCore.kSliceUs)
+                {
+                    DeadRefSliceDone(c);
+                    Simulator.Sleep(0);
+                    if (DeadRefUnsafe(false) != null) return false;
+                    sDeadRefWatch.Restart();
+                }
+            }
+            c[1658]++;
+            c[1659] = all.Count;
+            if (ShortcutOn("deadrefexactverify")) DrPartitionVerify(all, parts, c);
+            return true;
+        }
+
+        // deadrefexactverify (default OFF, test only): the five filter passes of the cadence pass run as well, unsliced, and
+        // each must equal its partition list (same items, same order; household Sims included). [1669] lists compared,
+        // [1670] lists that differed (must stay 0).
+        static void DrPartitionVerify(List<object> all, List<object>[] parts, int[] c)
+        {
+            List<object> v = new List<object>();
+            foreach (object o in all) if (o is CarOwnable || o is BoatOwnable) v.Add(o);
+            List<object>[] want = { DrOfType<Sim>(all), DrOfType<Fish>(all), v, DrOfType<HorseshoeCourt>(all), DrOfType<Dartboard>(all) };
+            for (int k = 0; k < want.Length; k++) { c[1669]++; if (!LoopCostCore.SameItems(want[k], parts[k])) c[1670]++; }
+        }
+
+        static bool DrCadence() { return !sDrTravelOff && ShortcutOn("deadrefcadence"); }
+
+        // LC-7g (docs/336 §16): our deadref hooks that run inside EA's travel import (InWorldState.Startup:
+        // ImportTravellingHousehold .. PostTravelingFixUp, one catch (Exception) {} in EA, so a throw or a stop there leaves
+        // the return home half done). Each logs its first enter / done per travel load to ts3native.log, so the last line is
+        // the last step reached. A throw of our bookkeeping is logged once and turns the cadence work (delta, per-lot, desc
+        // index) off for the session: the sweep then walks everything, as with deadrefcadence off. The game's call is unchanged.
+        static readonly Dictionary<string, bool> sDrTravelSteps = new Dictionary<string, bool>();
+        static bool sDrTravelOff;
+        static void DrTravelStep(string hook, string step)
+        {
+            try
+            {
+                if (!GameStates.IsTravelling || sDrTravelSteps.Count >= 64 || !DrIndexSwitches()) return;
+                string k = hook + " " + step;
+                if (sDrTravelSteps.ContainsKey(k)) return;
+                sDrTravelSteps[k] = true;
+                if (!DiagLine("deadref travel step: " + k)) ShortcutLog("deadref travel step: " + k);
+            }
+            catch (Exception) { PatchCounters()[410]++; }
+        }
+        static bool DrIndexSwitches() { return ShortcutOn("deadrefdelta") || ShortcutOn("deadrefperlot") || ShortcutOn("deadrefdescrev"); } // steps only with an index switch on
+        static void DrTravelImported() { DrTravelStep("PostTravelingFixUp", "reached (import done)"); } // GameStates.TravelComplete
+        static void DrTravelFail(string hook, Exception e)
+        {
+            PatchCounters()[410]++;
+            if (sDrTravelOff) return;
+            sDrTravelOff = true;
+            string l = "deadref travel FAIL: " + hook + ": " + e.GetType().Name + ": " + e.Message + "; deadref cadence work off for the session (full walks, as deadrefcadence off)";
+            try { if (!DiagLine(l)) ShortcutLog(l); } catch (Exception) { ShortcutLog(l); }
+        }
+        static bool DrDescPhase(int p) { return p <= 2 || p == 5; }
+
+        // every removal counter of the sweep's phases: a run that moved one found something
+        static int DrRemovedSum(int[] c)
+        {
+            int n = c[994] + c[995];
+            for (int i = 395; i <= 404; i++) n += c[i];
+            for (int i = 2045; i <= 2049; i++) n += c[i];
+            return n;
+        }
+
+        // the agent's "sweep": every group runs on the next pass
+        static void DrAllDue() { sDeadRefObjDue = sDrDescDirty = sDrSimDirty = true; }
+
+        static List<object> DrOfType<T>(List<object> all) where T : class
+        {
+            List<object> l = new List<object>();
+            foreach (object o in all) if (o is T) l.Add(o);
+            return l;
+        }
+
         static void ApplyDeadRefs()
         {
             Patch(typeof(Relationship), "Get", new Type[] { typeof(SimDescription) }, typeof(RelGetHook), "GetHook", "GetOrig");
             Patch(typeof(AgingManager), "IsAgingStateValid", typeof(AgingValidHook), "ValidHook", "ValidOrig");
+            Patch(typeof(Political), "PoliticalTakeARisk", typeof(TakeARiskHook), "Hook", "Orig");  // TakeARiskGuard.cs, docs/529 §4
+            ApplyDeadRefDelta();  // DeadRefsDelta.cs, docs/336
+            ApplyDeadRefPerLot();  // DeadRefsPerLot.cs, docs/336 §9
+            ApplyDeadRefDescRev();  // DeadRefsDescRev.cs, docs/333 LC-7
         }
 
         static bool DescGone(SimDescription d) { return d == null || !d.IsValidDescription; }
@@ -141,8 +302,13 @@ namespace Ts3Fixes
             if (sDeadRefDestroyedListener != null) EventTracker.RemoveListener(sDeadRefDestroyedListener);
             if (sDeadRefDisposedListener != null) EventTracker.RemoveListener(sDeadRefDisposedListener);
             sDeadRefDestroyedListener = EventTracker.AddListener(EventTypeId.kSimDestroyed, OnDeadRefObjEvent);
-            sDeadRefDisposedListener = EventTracker.AddListener(EventTypeId.kSimDescriptionDisposed, OnDeadRefObjEvent);
-            sDeadRefObjDue = true;
+            sDeadRefDisposedListener = EventTracker.AddListener(EventTypeId.kSimDescriptionDisposed, OnDeadRefDescEvent);
+            if (sDdPregListener != null) EventTracker.RemoveListener(sDdPregListener);
+            sDdPregListener = EventTracker.AddListener(EventTypeId.kGotPregnant, OnDdPregEvent); // LC-7b: a pregnancy start notes the mother
+            sDrTravelSteps.Clear(); // LC-7g: steps are logged once per load
+            if (GameStates.IsTravelling && DrIndexSwitches()) { DrTravelStep("ImportTravellingHousehold", "load finished"); GameStates.TravelComplete += DrTravelImported; } // EA clears the event with the travel data
+            DrIdxLoadReset(); DdLoadReset(); // docs/336, docs/333 LC-7: a new world; the first object pass walks every object and seeds the index
+            DrAllDue(); // descriptions a load left invalid (no Fixup) sent no event: the first pass runs everything
             sDeadRefAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { DeadRefSweepStart(); }, 1f, TimeUnit.Hours, "Ts3Fixes.DeadRefSweep", AlarmType.NeverPersisted, null);
         }
 
@@ -159,6 +325,14 @@ namespace Ts3Fixes
             return null;
         }
 
+        // docs/205 §2.3b (audit 2026-11-23): paused, or the clock stopped (minimized window), the pass waits a frame at a time and
+        // keeps its place and due flags, so it resumes after unpause; leaving live mode (CAS, Buy/Build, Edit Town, travel)
+        // still ends it. -1 = unsafe (stop), 0 = act now, 1 = acted after waiting. [1727] frames waited.
+        static int DrWaitWhileFrozen(int[] c)
+        {
+            return WaitWhileFrozen(1727, delegate { return DeadRefUnsafe(false) != null; });
+        }
+
         // Starts the spread pass (the hourly alarm, or the agent). False when one is running or the state is unsafe.
         public static bool DeadRefSweepStart()
         {
@@ -171,7 +345,17 @@ namespace Ts3Fixes
         // Sim.Destroy (a townie leaving, a reset) and SimDescription.Dispose: the next pass walks the objects.
         static ListenerAction OnDeadRefObjEvent(Sims3.Gameplay.EventSystem.Event e)
         {
+            DrIdxMarkEvent(e); DdMarkEvent(e); // docs/336, LC-7: that Sim's holders are due on the next delta pass
             sDeadRefObjDue = true;
+            sDrSimDirty = true;
+            return ListenerAction.Keep;
+        }
+
+        static ListenerAction OnDeadRefDescEvent(Sims3.Gameplay.EventSystem.Event e)
+        {
+            DrIdxMarkEvent(e); DdMarkEvent(e); // docs/336, LC-7
+            sDeadRefObjDue = true;
+            sDrSimDirty = sDrDescDirty = true;
             return ListenerAction.Keep;
         }
 
@@ -181,37 +365,101 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             if (sDeadRefWatch == null) sDeadRefWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
-            List<object> objs = null;
-            Gather objWalk = delegate { if (objs == null) { objs = Objects<GameObject>(); c[2055]++; } return objs; };
+            bool cad = DrCadence(), exact = cad && DrExact();
+            bool delta = cad && ShortcutOn("deadrefdelta"); // docs/336
+            if (!delta && (sDrIdx.Seeded || sDrIdx.Seeding)) sDrIdx.Reset(); // the hooks add nothing while off
+            bool deltaPass = false;
+            List<object> objs = null, sims = null;
+            List<object>[] parts = exact ? new List<object>[5] : null; // filled by DrPartition before the first typed phase
+            bool perlot = cad && ShortcutOn("deadrefperlot"); // docs/336 §9: typed phases gather from per-lot lists
+            if (!perlot && sPl.Seeded) { sPl.Reset(); DrPlGauges(c); }
+            List<object>[] typed = null, snapTyped = null;
+            Gather objWalk = delegate
+            {
+                if (objs == null)
+                {
+                    objs = Objects<GameObject>();
+                    if (cad) { c[1575]++; c[1576] = objs.Count; } else c[2055]++;
+                    if (perlot) snapTyped = DrPlSeed(objs); // every snapshot re-seeds: the floor walk catches bypass writers
+                }
+                return objs;
+            };
+            Converter<int, List<object>> typedOf = delegate(int k)
+            {
+                if (typed == null)
+                {
+                    bool verify = ShortcutOn("deadrefdeltaverify");
+                    if (!sPl.Seeded || objs != null) { objWalk(); typed = snapTyped; } // unseeded, or this pass already has the snapshot
+                    else if (!verify) typed = DrPlGather();
+                    else { List<object>[] mine = DrPlGather(); objWalk(); typed = snapTyped; DrPlVerify(mine, typed, objs.Count); }
+                    if (sPl.Seeded && c[1576] > 0 && sPl.OverCap(c[1576])) DrPlGauges(c); // the next typed gather takes a snapshot
+                }
+                return typed[k];
+            };
+            Gather simList = delegate { if (!cad) return Objects<Sim>(); if (exact && parts[0] != null) return parts[0]; if (perlot) return typedOf(0); if (sims == null) sims = DrOfType<Sim>(objWalk()); return sims; };
             bool objByEvent = sDeadRefObjDue, objOpen = false;
-            bool objRun = objByEvent || SimClock.ElapsedTime(TimeUnit.Hours) - sDeadRefObjLastH >= kDeadRefObjHours;
+            float nowH = SimClock.ElapsedTime(TimeUnit.Hours);
+            bool objRun = objByEvent || nowH - sDeadRefObjLastH >= kDeadRefObjHours;
+            bool descRun = !cad || LoopCostCore.GroupDue(sDrDescDirty, sDrDescFound, nowH - sDrDescLastH, kDeadRefIdleHours);
+            bool simRun = !cad || LoopCostCore.GroupDue(sDrSimDirty, sDrSimFound, nowH - sDrSimLastH, kDeadRefIdleHours);
+            bool descOpen = false, simOpen = false;
+            int descGot = 0, simGot = 0;
+            if (!descRun) c[1573]++;
+            if (!simRun) c[1574]++;
             long objUs0 = 0;
             Gather[] phases = {
                 delegate { return ToObjects(Relationship.sAllRelationships.Keys); },
                 delegate { return AgingStatesToCheck(); },
                 delegate { return AlarmOwnersToCheck(); },
-                delegate { return ToObjects(Household.EverySimDescription()); },
-                delegate { return Objects<Sim>(); },
-                delegate { return Objects<Fish>(); },
-                delegate { List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l; },
-                delegate { return Objects<HorseshoeCourt>(); },
-                delegate { return Objects<Dartboard>(); },
+                delegate { return DdGather(cad); }, // docs/333 LC-7: every description, or only the holders due (deadrefdescrev)
+                simList,
+                delegate { return exact && parts[0] != null ? parts[1] : cad ? (perlot ? typedOf(1) : DrOfType<Fish>(objWalk())) : Objects<Fish>(); },
+                delegate
+                {
+                    if (exact && parts[0] != null) return parts[2];
+                    if (perlot) return typedOf(2);
+                    if (cad) { List<object> v = new List<object>(); foreach (object o in objWalk()) if (o is CarOwnable || o is BoatOwnable) v.Add(o); return v; }
+                    List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l;
+                },
+                delegate { return exact && parts[0] != null ? parts[3] : cad ? (perlot ? typedOf(3) : DrOfType<HorseshoeCourt>(objWalk())) : Objects<HorseshoeCourt>(); },
+                delegate { return exact && parts[0] != null ? parts[4] : cad ? (perlot ? typedOf(4) : DrOfType<Dartboard>(objWalk())) : Objects<Dartboard>(); },
                 objWalk,
                 objWalk,
                 objWalk,
-                delegate { return Objects<Sim>(); },
+                objWalk, // phase 14 (cooking handlers): its own switch is tested per item
+                simList,
+                delegate { return ShortcutOn("deadrefconvo") ? simList() : new List<object>(); },
             };
             try
             {
                 for (int p = 0; p < phases.Length; p++)
                 {
-                    if (p >= 9 && p <= 11) // phases 10-12
+                    if (p >= 9 && p <= 12) // phases 10-12 and 14
                     {
                         if (!objRun) continue;
-                        if (p == 9) { sDeadRefObjDue = false; objOpen = true; objUs0 = sDeadRefTotalUs; } // an event from here on asks again
+                        if (cad && p > 9) continue; // run inside phase 10's merged step
+                        if (p == 9) { sDeadRefObjDue = false; objOpen = true; objUs0 = sDeadRefTotalUs; if (cad) c[2055]++; } // an event from here on asks again
+                        if (p == 9 && delta)
+                        {
+                            bool slim = ShortcutOn("deadrefslimuse");
+                            deltaPass = DeadRefsCore.UseIndex(true, sDrIdx.Seeded && sDrIdx.SeedSlim == slim, objByEvent); // a use set kept for the other slim setting re-seeds
+                            if (deltaPass) DrDeltaBegin(slim, c[1576]);
+                            else sDrIdx.BeginSeed(slim); // first pass after a load, 24 h floor, or unseeded
+                        }
                     }
+                    else if (cad)
+                    {
+                        bool desc = DrDescPhase(p);
+                        if (!(desc ? descRun : simRun)) continue;
+                        if (desc && !descOpen) { descOpen = true; sDrDescDirty = false; } // an event from here on asks again
+                        if (!desc && !simOpen) { simOpen = true; sDrSimDirty = false; }
+                    }
+                    int got0 = DrRemovedSum(c);
+                    sDrPhase = p;
                     sDeadRefWatch.Restart();
-                    List<object> items = phases[p]();
+                    // only when the Sim group runs: a description-only pass needs the fish list alone and keeps its one filter
+                    if (exact && simRun && parts[0] == null && DrTypedPhase(p) && !DrPartition(objWalk(), parts, c)) { c[410]++; return; }
+                    List<object> items = deltaPass && p == 9 ? DrDeltaItems(objWalk) : phases[p]();
                     if (p < 3)
                     {
                         int gone = 0;
@@ -222,34 +470,81 @@ namespace Ts3Fixes
                     if (p == 3) sNoOutfitSeen = 0;
                     SlicedPass<object> pass = new SlicedPass<object>(items);
                     int phase = p;
+                    bool merged = cad && p == 9;
+                    Action<object> step = merged ? (deltaPass ? (Action<object>)DrDeltaStep : exact ? (Action<object>)DrObjectStepExact : DrObjectStep) : delegate(object o) { DeadRefStep(phase, o); };
                     while (true)
                     {
-                        pass.RunSlice(delegate(object o) { DeadRefStep(phase, o); }, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); });
+                        int w = DrWaitWhileFrozen(c);
+                        if (w < 0) { c[410]++; return; } // left live mode (or unsafe): stop; the finally keeps the groups due
+                        if (w > 0) sDeadRefWatch.Restart(); // the wait is not slice time
+                        if (merged && exact) { sDrCookOn = ShortcutOn("deadrefcooking"); sDrC = c; } // (c): once per slice
+                        int n = cad ? pass.RunSliceEvery(step, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); }, kDeadRefClockEvery)
+                                    : pass.RunSlice(step, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); });
+                        c[1557 + kDrPhaseNo[p]] += n;
                         DeadRefSliceDone(c);
                         if (pass.Done) break;
                         Simulator.Sleep(0);
-                        if (DeadRefUnsafe(false) != null) { c[410]++; return; } // re-check before acting again
-                        sDeadRefWatch.Restart();
+                        sDeadRefWatch.Restart(); // the re-check before acting again is DrWaitWhileFrozen at the loop top
                     }
-                    if (p == 3) c[392] = sNoOutfitSeen; // #100 end state, counted here so the count is spread too
-                    if (p == 11)
+                    sDrPhase = -1;
+                    int got = DrRemovedSum(c) - got0;
+                    if (DrDescPhase(p)) descGot += got; else if (p < 9 || p > 12) simGot += got;
+                    if (p == 3) { if (!DdDeltaOpen()) c[392] = sNoOutfitSeen; DdPhaseEnd(); } // #100 end state (full walks only), counted here so the count is spread too
+                    if (p == 12 || merged)
                     {
                         objOpen = false;
                         sDeadRefObjLastH = SimClock.ElapsedTime(TimeUnit.Hours);
                         sDeadRefObjUs += sDeadRefTotalUs - objUs0;
                         c[2056] = (int)(sDeadRefObjUs / 1000);
                         if (objByEvent) c[2057]++;
+                        if (sDrIdx.Seeding) { if (ShortcutOn("deadrefdelta")) { sDrIdx.EndSeed(); c[1676]++; } else sDrIdx.Reset(); DrIdxGauges(c); }
+                        if (deltaPass) DrDeltaEnd();
                     }
                     Simulator.Sleep(0);
                     if (DeadRefUnsafe(false) != null) { c[410]++; return; }
                 }
                 c[405]++;
+                float endH = SimClock.ElapsedTime(TimeUnit.Hours);
+                if (descOpen) { descOpen = false; sDrDescLastH = endH; sDrDescFound = descGot > 0; }
+                if (simOpen) { simOpen = false; sDrSimLastH = endH; sDrSimFound = simGot > 0; }
             }
             finally
             {
                 sDeadRefTask = ObjectGuid.InvalidObjectGuid;
-                if (objOpen) sDeadRefObjDue = true; // stopped inside phases 10-12: walk again next pass
+                sDrPhase = -1;
+                if (objOpen) sDeadRefObjDue = true; // stopped inside phases 10-12 or 14: walk again next pass
+                DdStopped(); // LC-7: a stopped phase 4 leaves its index unseeded
+                if (sDrIdx.Seeding) sDrIdx.Reset(); // a stopped seed walk leaves the index unseeded: the next pass walks again
+                if (objOpen && deltaPass) { sDrIdx.Reset(); DrDeltaEnd(); } // a stopped delta pass took keys it did not finish: walk again
+                if (descOpen) sDrDescDirty = true;  // stopped inside a group: it runs again next pass
+                if (simOpen) sDrSimDirty = true;
             }
+        }
+
+        // docs/330: phases 10-12 and 14 of one object in one step (deadrefcadence). The holders act on this object only and
+        // none destroys it, so one HasBeenDestroyed test serves all four; each keeps its own try, as its own phase had.
+        static void DrObjectStep(object x)
+        {
+            GameObject o = x as GameObject;
+            int[] c = PatchCounters();
+            try { if (o == null || o.HasBeenDestroyed) return; } catch (Exception) { c[410]++; return; }
+            try { if (UseListGone(o) > 0) UseListBody(o); } catch (Exception) { c[410]++; } // copies only when a gone Sim is listed
+            try { OwnerBody(o); } catch (Exception) { c[410]++; }
+            try { HandlerBody(o); } catch (Exception) { c[410]++; }
+            try { if (ShortcutOn("deadrefcooking")) CookingBody(o); } catch (Exception) { c[410]++; }
+            try { if (sDrIdx.Seeding) DrIdxSeedNote(o); } catch (Exception) { c[410]++; } // docs/336 seed walk
+        }
+
+        // DrObjectStep with the deadrefexact cuts (b) and (c): the same holders in the same order and the same tries.
+        static void DrObjectStepExact(object x)
+        {
+            GameObject o = x as GameObject;
+            int[] c = sDrC;
+            try { if (o == null || o.HasBeenDestroyed) return; } catch (Exception) { c[410]++; return; }
+            try { if (UseListGone(o) > 0) UseListBody(o); } catch (Exception) { c[410]++; }
+            try { OwnerBody(o); } catch (Exception) { c[410]++; }
+            if (sObjDisposed == null) return; // HandlerBody and CookingBody both stood down
+            LoopCostCore.SharedDrop(o, sDrEvGet, sDrEvSet, sRelDesc != null ? sDrRelGone : null, sDrCookOn ? sDrCpStale : null, sDrCpDropped, c, 2048, 994, 410, 1660, 1661);
         }
 
         static void DeadRefSliceDone(int[] c)
@@ -258,6 +553,7 @@ namespace Ts3Fixes
             c[406]++;
             if (us > c[407]) c[407] = (int)Math.Min(us, int.MaxValue);
             sDeadRefTotalUs += us;
+            if (sDrPhase >= 0) { sDrPhaseUs[sDrPhase] += us; c[1542 + kDrPhaseNo[sDrPhase]] = (int)(sDrPhaseUs[sDrPhase] / 1000); }
             c[408] = (int)(sDeadRefTotalUs / 1000);
         }
 
@@ -311,7 +607,7 @@ namespace Ts3Fixes
                     case 0: if (DescGone(o as SimDescription)) RelRemoveKey(o as SimDescription); else RelDropGoneEntries(o as SimDescription); break;
                     case 1: AgingRemove(o as AgingState); break;
                     case 2: AlarmOwnerClear(o as SimDescription); break;
-                    case 3: DescriptionHolders(o as SimDescription); break;
+                    case 3: DdStep(o as SimDescription); break; // DescriptionHolders + LC-7 bookkeeping
                     case 4: SimHolders(o as Sim); break;
                     case 5: FishHolder(o as Fish); break;
                     case 6: VehicleHolders(o); break;
@@ -320,7 +616,9 @@ namespace Ts3Fixes
                     case 9: UseListHolders(o as GameObject); break;
                     case 10: OwnerHolders(o as GameObject); break;
                     case 11: HandlerHolders(o as GameObject); break;
-                    case 12: CelebrityHolders(o as Sim); break;
+                    case 12: CookingHandlers(o as GameObject); break;
+                    case 13: CelebrityHolders(o as Sim); break;
+                    case 14: ConversationHolders(o as Sim); break;
                 }
             }
             catch (Exception) { PatchCounters()[410]++; }
@@ -358,7 +656,8 @@ namespace Ts3Fixes
             {
                 IList states = sAgingStates.GetValue(AgingManager.Singleton) as IList;
                 if (states == null || !states.Contains(s)) return;
-                if (sCancelAging != null) sCancelAging.Invoke(AgingManager.Singleton, new object[] { s });
+                // a delegate, not MethodInfo.Invoke: agingalarmcancel swaps CancelAgingAlarmsForSim (tools/selftest/swapinvoke)
+                if (sCancelAging != null) ((DrCancelAgingFn)Fixes.Bind(typeof(DrCancelAgingFn), AgingManager.Singleton, sCancelAging))(s);
                 states.Remove(s);
             }
             PatchCounters()[397]++;
@@ -371,26 +670,30 @@ namespace Ts3Fixes
             PatchCounters()[398]++;
         }
 
-        static void DescriptionHolders(SimDescription d)
+        static void DescriptionHolders(SimDescription d) { DescriptionHolders(d, DescWriterScan.KAll); }
+
+        // kinds: DescWriterScan.K* bits (docs/336 §11: an untrusted kind is stepped alone on every description); KAll also
+        // counts the #100 empty outfit
+        static void DescriptionHolders(SimDescription d, int kinds)
         {
             if (DescGone(d)) return;
             int[] c = PatchCounters();
-            CareerManager cm = d.CareerManager;
+            CareerManager cm = (kinds & (DescWriterScan.KCoworkers | DescWriterScan.KFormerBoss)) != 0 ? d.CareerManager : null;
             if (cm != null)
             {
                 foreach (Occupation job in new Occupation[] { cm.Occupation, cm.School })
                 {
                     if (job == null) continue;
-                    c[400] += DeadRefsCore.DropAll(job.Coworkers, DescGone); // not RemoveCoworker: its other side reaches the dead one's CareerManager
-                    if (job.FormerBoss != null && DescGone(job.FormerBoss)) { job.FormerBoss = null; c[400]++; }
+                    if ((kinds & DescWriterScan.KCoworkers) != 0) c[400] += DeadRefsCore.DropAll(job.Coworkers, DescGone); // not RemoveCoworker: its other side reaches the dead one's CareerManager
+                    if ((kinds & DescWriterScan.KFormerBoss) != 0 && job.FormerBoss != null && DescGone(job.FormerBoss)) { job.FormerBoss = null; c[400]++; }
                 }
             }
-            if (d.SkillManager != null)
+            if ((kinds & DescWriterScan.KChess) != 0 && d.SkillManager != null)
             {
                 LogicSkill logic = d.SkillManager.GetSkill<LogicSkill>(SkillNames.Logic);
                 if (logic != null && logic.mChessRankingNextChallenger != null && DescGone(logic.mChessRankingNextChallenger)) { logic.mChessRankingNextChallenger = null; c[400]++; } // the getter repicks
             }
-            Pregnancy preg = d.Pregnancy;
+            Pregnancy preg = (kinds & DescWriterScan.KPregnancy) != 0 ? d.Pregnancy : null;
             if (preg != null && sPregDad != null)
             {
                 Sim dad = sPregDad.GetValue(preg) as Sim;
@@ -401,7 +704,7 @@ namespace Ts3Fixes
                     c[403]++;
                 }
             }
-            if (d.IsValidDescription && d.GetOutfitCount(Sims3.SimIFace.CAS.OutfitCategories.Naked) == 0 && d.GetOutfitCount(Sims3.SimIFace.CAS.OutfitCategories.Everyday) == 0)
+            if (kinds == DescWriterScan.KAll && d.IsValidDescription && d.GetOutfitCount(Sims3.SimIFace.CAS.OutfitCategories.Naked) == 0 && d.GetOutfitCount(Sims3.SimIFace.CAS.OutfitCategories.Everyday) == 0)
                 sNoOutfitSeen++;
         }
         static int sNoOutfitSeen;
@@ -491,6 +794,7 @@ namespace Ts3Fixes
         //             and the townie put back where it stood.
         public class DartState { public int gone, players, teams; public bool current, cheating, destroyed; }
         static Dartboard sDartBoard;
+        static Sim sDartSim; // the seeded Sim object: its description may get a new one during the wait
         static SimDescription sDartDesc;
         static Vector3 sDartPos;
 
@@ -506,7 +810,7 @@ namespace Ts3Fixes
                 Dartboard.Team team = new Dartboard.Team();
                 team.AddPlayerToTeam(victim, board);
                 board.Teams.Add(team); board.CurrentTeam = team; board.CurrentPlayer = victim; board.CheatingSim = victim;
-                sDartBoard = board; sDartDesc = victim.SimDescription; sDartPos = victim.Position;
+                sDartBoard = board; sDartSim = victim; sDartDesc = victim.SimDescription; sDartPos = victim.Position;
                 string name = victim.FullName;
                 victim.Destroy();
                 return "dart seed: " + name + " on the board as player, current player and cheating Sim, then destroyed";
@@ -518,7 +822,7 @@ namespace Ts3Fixes
                 DartState st = new DartState();
                 st.gone = DartGone(b); st.players = b.Players.Count; st.teams = b.Teams.Count;
                 st.current = b.CurrentPlayer != null; st.cheating = b.CheatingSim != null;
-                st.destroyed = sDartDesc.CreatedSim == null || sDartDesc.CreatedSim.HasBeenDestroyed;
+                st.destroyed = SimGone(sDartSim);
                 return st;
             }
             if (what != "expect left" && what != "expect cleaned") return "dart <seed|state|expect left|expect cleaned>";
@@ -526,7 +830,7 @@ namespace Ts3Fixes
             int gone = DartGone(b), players = b.Players.Count, teams = b.Teams.Count;
             bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && players == 0 && teams == 0 && b.CurrentPlayer == null && b.CheatingSim == null;
             string line = "gone " + gone + ", players " + players + ", teams " + teams + ", current " + (b.CurrentPlayer != null) + ", cheating " + (b.CheatingSim != null) + " (switch " + on + ")";
-            sDartBoard = null;
+            sDartBoard = null; sDartSim = null;
             b.Destroy();
             string back = DrPutBack(sDartDesc, sDartPos);
             if (!ok) throw new InvalidOperationException("dart " + what + ": wrong outcome; " + line + "; " + sDartDesc.FullName + " " + back);
@@ -541,6 +845,11 @@ namespace Ts3Fixes
         static void UseListHolders(GameObject o)
         {
             if (o == null || o.HasBeenDestroyed) return;
+            UseListBody(o);
+        }
+
+        static void UseListBody(GameObject o)
+        {
             int[] c = PatchCounters();
             foreach (Sim s in new List<Sim>(o.ActorsUsingMe)) if (SimGone(s)) { o.RemoveFromUseList(s); c[2046]++; }
             foreach (Sim s in new List<Sim>(o.ReferenceList)) if (SimGone(s)) { o.RemoveFromReferenceList(s); c[2046]++; }
@@ -567,6 +876,7 @@ namespace Ts3Fixes
         //             the townie put back.
         public class UseState { public int gone, use, reference, routing; public bool destroyed; }
         static GameObject sUseObj;
+        static Sim sUseSim; // the seeded Sim object, as sDartSim
         static SimDescription sUseDesc;
         static Vector3 sUsePos;
 
@@ -579,7 +889,7 @@ namespace Ts3Fixes
                 Sim victim = DrPickTownie();
                 if (victim == null) { jig.Destroy(); throw new InvalidOperationException("use seed: no townie to use"); }
                 jig.AddToUseList(victim); jig.AddToReferenceList(victim); jig.AddToRoutingReferenceList(victim);
-                sUseObj = jig; sUseDesc = victim.SimDescription; sUsePos = victim.Position;
+                sUseObj = jig; sUseSim = victim; sUseDesc = victim.SimDescription; sUsePos = victim.Position;
                 string name = victim.FullName;
                 victim.Destroy();
                 return "use seed: " + name + " in the jig's use, reference and routing reference lists, then destroyed";
@@ -591,7 +901,7 @@ namespace Ts3Fixes
                 UseState st = new UseState();
                 st.gone = UseListGone(o); st.use = o.ActorsUsingMe.Count; st.reference = o.ReferenceList.Count;
                 st.routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
-                st.destroyed = sUseDesc.CreatedSim == null || sUseDesc.CreatedSim.HasBeenDestroyed;
+                st.destroyed = SimGone(sUseSim);
                 return st;
             }
             if (what != "expect left" && what != "expect cleaned") return "use <seed|state|expect left|expect cleaned>";
@@ -599,7 +909,7 @@ namespace Ts3Fixes
             int gone = UseListGone(o), use = o.ActorsUsingMe.Count, reference = o.ReferenceList.Count, routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
             bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && use == 0 && reference == 0 && routing == 0;
             string line = "gone " + gone + ", use " + use + ", reference " + reference + ", routing " + routing + " (switch " + on + ")";
-            sUseObj = null;
+            sUseObj = null; sUseSim = null;
             o.Destroy();
             string back = DrPutBack(sUseDesc, sUsePos);
             if (!ok) throw new InvalidOperationException("use " + what + ": wrong outcome; " + line + "; " + sUseDesc.FullName + " " + back);
@@ -612,12 +922,18 @@ namespace Ts3Fixes
         // As EA's ImportContent would at the next load: a gone Sim becomes the live instance of its description when there
         // is one; a reward giver with no live instance drops the component (RemoveComponent disposes it, which takes the
         // Return To Owner interaction away); a theft with no live instance is left, the stolen state belongs to it. [2047].
-        static readonly FieldInfo sOwnerOwner = typeof(ObjectOwnerComponent).GetField("mOwner", kDrAll);
-        static readonly FieldInfo sOwnerThief = typeof(ObjectOwnerComponent).GetField("mThief", kDrAll);
+        static readonly FieldInfo sOwnerOwner = typeof(ObjectOwnerComponent).GetField("mOwner", kInstAll);
+        static readonly FieldInfo sOwnerThief = typeof(ObjectOwnerComponent).GetField("mThief", kInstAll);
 
         static void OwnerHolders(GameObject o)
         {
-            if (o == null || o.HasBeenDestroyed || sOwnerOwner == null || sOwnerThief == null) return;
+            if (o == null || o.HasBeenDestroyed) return;
+            OwnerBody(o);
+        }
+
+        static void OwnerBody(GameObject o)
+        {
+            if (sOwnerOwner == null || sOwnerThief == null) return;
             ObjectOwnerComponent c = o.ObjectOwnerComponent;
             if (c == null) return;
             Sim owner = sOwnerOwner.GetValue(c) as Sim, thief = sOwnerThief.GetValue(c) as Sim;
@@ -667,6 +983,7 @@ namespace Ts3Fixes
         {
             if (!jig.AddComponent<ObjectOwnerComponent>(new object[0]) || jig.ObjectOwnerComponent == null) throw new InvalidOperationException("owner seed: AddComponent<ObjectOwnerComponent> refused on " + jig.GetType().Name);
             sOwnerOwner.SetValue(jig.ObjectOwnerComponent, s);
+            DrIdxNote(jig); // our own writer bypasses SetRewardGiver: index it as the hooks do (docs/336)
         }
 
         public static object DeadRefOwnerCheck(string what)
@@ -716,8 +1033,8 @@ namespace Ts3Fixes
         // is saved with the object, so a deleted description, or a relationship nobody holds, stays reachable from the object
         // (a load-time graph reset then resets the car). Such handlers leave the invocation list; run at disposal they would
         // only remove the relationship from a list that no longer has it, or from a deleted description's list. [2048].
-        static readonly FieldInfo sObjDisposed = typeof(GameObject).GetField("ObjectDisposed", kDrAll);
-        static readonly FieldInfo sRelDesc = typeof(GameObjectRelationship).GetField("mSimDesc", kDrAll);
+        static readonly FieldInfo sObjDisposed = typeof(GameObject).GetField("ObjectDisposed", kInstAll);
+        static readonly FieldInfo sRelDesc = typeof(GameObjectRelationship).GetField("mSimDesc", kInstAll);
 
         static bool RelGone(GameObjectRelationship r)
         {
@@ -727,7 +1044,13 @@ namespace Ts3Fixes
 
         static void HandlerHolders(GameObject o)
         {
-            if (o == null || o.HasBeenDestroyed || sObjDisposed == null || sRelDesc == null) return;
+            if (o == null || o.HasBeenDestroyed) return;
+            HandlerBody(o);
+        }
+
+        static void HandlerBody(GameObject o)
+        {
+            if (sObjDisposed == null || sRelDesc == null) return;
             Delegate ev = sObjDisposed.GetValue(o) as Delegate;
             if (ev == null) return;
             int[] c = PatchCounters(); bool changed = false;
@@ -806,8 +1129,8 @@ namespace Ts3Fixes
         // celebrity broadcaster starts) keeps mWaitingToReact, the Sims who rolled a reaction to the celebrity and have not
         // reacted yet. A reactor reset or destroyed before its reaction never leaves (only the reaction's own end removes it),
         // and the list is saved with the Sim. Gone reactors leave through EA's own RemoveSimFromWaitingToReactList. [2049].
-        static readonly FieldInfo sSimCelebrity = typeof(Sim).GetField("mCelebrity", kDrAll);
-        static readonly FieldInfo sCelebWaiting = typeof(Celebrity).GetField("mWaitingToReact", kDrAll);
+        static readonly FieldInfo sSimCelebrity = typeof(Sim).GetField("mCelebrity", kInstAll);
+        static readonly FieldInfo sCelebWaiting = typeof(Celebrity).GetField("mWaitingToReact", kInstAll);
 
         static List<Sim> CelebWaiting(Sim s)
         {
@@ -875,18 +1198,323 @@ namespace Ts3Fixes
             return "as expected; " + line + "; " + sCeDesc.FullName + " " + back;
         }
 
+        // Phase 14 (docs/205 §4, issue #91, switch deadrefcooking): CookingProcess subscribes ObjectClickedOnDestroyed to the
+        // clicked appliance's (stove, BBQ, fridge) ObjectDisposed and adds a state listener. Nothing unsubscribes while the
+        // appliance lives: ClearObjectListeners runs only from the disposal handler itself (after it nulled ObjectClickedOn),
+        // and the state-changed path and the Prepare steps (FoodTray, Pot, FryingPan, BakingDish, Microwave set
+        // ObjectClickedOn = null) leave the handler, so the process, its ingredients and the eaten dish stay reachable from the
+        // appliance and go into every save [verified: CookingProcess AddObjectListeners / ClearObjectListeners; the same in
+        // simler90's core]. A handler goes when its process no longer names this object, or when the process is dead (no
+        // owner, or its owner object destroyed; then ObjectClickedOn is cleared as EA's handler would at disposal). A process
+        // that names no object also loses its state listener. No Sim is touched. [994] handlers.
+        static readonly MethodInfo sCpAddListeners = typeof(CookingProcess).GetMethod("AddObjectListeners", kInstAll);
+        delegate void CpAddFn(); // CookClickListener.cs swaps AddObjectListeners: MethodInfo.Invoke with a target would throw (swapinvoke selftest)
+        static readonly FieldInfo sCpStateListener = typeof(CookingProcess).GetField("mStateChangedListener", kInstAll);
+
+        // shortcut: a live owner whose CookingProcess is another process still counts as live; tighten if load scans show such handlers
+        static bool CpDead(CookingProcess cp)
+        {
+            GameObject owner = cp.Owner as GameObject;
+            return cp.Owner == null || (owner != null && owner.HasBeenDestroyed);
+        }
+
+        static bool CpStale(CookingProcess cp, GameObject o) { return cp.ObjectClickedOn != o || CpDead(cp); }
+
+        static void CookingHandlers(GameObject o)
+        {
+            if (o == null || o.HasBeenDestroyed || !ShortcutOn("deadrefcooking")) return;
+            CookingBody(o);
+        }
+
+        static void CookingBody(GameObject o)
+        {
+            if (sObjDisposed == null) return;
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate;
+            if (ev == null) return;
+            int[] c = PatchCounters();
+            foreach (Delegate d in ev.GetInvocationList())
+            {
+                CookingProcess cp = d.Target as CookingProcess;
+                if (cp == null || !CpStale(cp, o)) continue;
+                sObjDisposed.SetValue(o, Delegate.Remove(sObjDisposed.GetValue(o) as Delegate, d));
+                if (cp.ObjectClickedOn == o) cp.ObjectClickedOn = null; // dead process: what EA's handler does at disposal
+                if (cp.ObjectClickedOn == null) CpDropListener(cp); // its listener can only name an object it already let go
+                c[994]++;
+            }
+        }
+
+        static void CpDropListener(CookingProcess cp)
+        {
+            EventListener l = cp != null && sCpStateListener != null ? sCpStateListener.GetValue(cp) as EventListener : null;
+            if (l == null) return;
+            EventTracker.RemoveListener(l);
+            sCpStateListener.SetValue(cp, null);
+        }
+
+        static int CookingGone(GameObject o)
+        {
+            Delegate ev = o != null && !o.HasBeenDestroyed && sObjDisposed != null ? sObjDisposed.GetValue(o) as Delegate : null;
+            if (ev == null) return 0;
+            int n = 0;
+            foreach (Delegate d in ev.GetInvocationList()) { CookingProcess cp = d.Target as CookingProcess; if (cp != null && CpStale(cp, o)) n++; }
+            return n;
+        }
+
+        // Agent check for phase 14 (repro cooking-handler-gone-check), a hard state built and undone:
+        //   "seed":   two CookingProcesses (EA's empty constructor) subscribed to one fridge through EA's own AddObjectListeners:
+        //             one then lets go of the fridge as a Prepare step does (ObjectClickedOn = null), the other keeps naming it
+        //             with no owner (a dead process).
+        //   "state":  CookState: stale cooking handlers on that fridge, ours still subscribed.
+        //   "expect left" (switches off) / "expect cleaned" (deadrefsweep and deadrefcooking on): throws unless both of ours are
+        //             still there (left) or gone with the dead one's listener (cleaned). Either way ours still there are removed.
+        public class CookState { public int gone, mine; }
+        static GameObject sCkObj; static CookingProcess sCkA, sCkB;
+
+        static int CkMine(GameObject o)
+        {
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate; int n = 0;
+            if (ev != null) foreach (Delegate d in ev.GetInvocationList()) if (d.Target == sCkA || d.Target == sCkB) n++;
+            return n;
+        }
+
+        public static object DeadRefCookingCheck(string what)
+        {
+            if (sObjDisposed == null || sCpAddListeners == null || sCpStateListener == null) throw new InvalidOperationException("cooking check: ObjectDisposed, AddObjectListeners or mStateChangedListener not found");
+            if (what == "seed")
+            {
+                GameObject host = null;
+                foreach (Sims3.Gameplay.Objects.Appliances.Fridge f in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Objects.Appliances.Fridge>()) if (!f.HasBeenDestroyed && f.LotCurrent != null) { host = f; break; }
+                if (host == null) throw new InvalidOperationException("cooking seed: no fridge in the world");
+                CookingProcess a = new CookingProcess(), b = new CookingProcess();
+                a.ObjectClickedOn = host; ((CpAddFn)Fixes.Bind(typeof(CpAddFn), a, sCpAddListeners))(); a.ObjectClickedOn = null;
+                b.ObjectClickedOn = host; ((CpAddFn)Fixes.Bind(typeof(CpAddFn), b, sCpAddListeners))();
+                sCkObj = host; sCkA = a; sCkB = b;
+                return "cooking seed: two processes on " + host.GetType().Name + " " + host.ObjectId.Value + ", one let go, one dead";
+            }
+            GameObject o = sCkObj;
+            if (o == null) throw new InvalidOperationException("cooking " + what + ": no seed");
+            int mine = CkMine(o);
+            if (what == "state") { CookState st = new CookState(); st.gone = CookingGone(o); st.mine = mine; return st; }
+            if (what != "expect left" && what != "expect cleaned") return "cooking <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep") && ShortcutOn("deadrefcooking");
+            bool ok = what == "expect left" ? !on && mine == 2 : on && mine == 0 && sCpStateListener.GetValue(sCkB) == null;
+            string line = "mine " + mine + ", gone " + CookingGone(o) + " (switches " + on + ")";
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate;
+            if (ev != null) foreach (Delegate d in ev.GetInvocationList()) if (d.Target == sCkA || d.Target == sCkB) ev = Delegate.Remove(ev, d);
+            sObjDisposed.SetValue(o, ev);
+            CpDropListener(sCkA); CpDropListener(sCkB);
+            sCkObj = null; sCkA = sCkB = null;
+            if (!ok) throw new InvalidOperationException("cooking " + what + ": wrong outcome; " + line);
+            return "as expected; " + line;
+        }
+
+        // Phase 15 (docs/517 §4, issue #166 core build 40, switch deadrefconvo): Conversation.mMembers (saved with the
+        // conversation, reached from each member's SocialComponent.Conversation) keeps a Sim reset or destroyed mid-talk. EA's
+        // RemoveSim needs the leaving Sim's BuffManager and SocialComponent, which a destroyed Sim no longer has, and when the
+        // last live member leaves later, RemoveSim's one-member exit takes the gone Sim as the partner and throws [verified:
+        // Conversation.RemoveSim, the same in simler90's core]. Gone members leave the list and the discourage region, the
+        // turn and talked-last fields move to a live member, their topical-socials keys go; the live member's own later leave
+        // is then EA's normal empty-conversation exit. Household too since 2026-11-18 (docs/289): a conversation with a
+        // household live member is cleaned like any other. [995] members removed, [996] unused since 2026-11-18 (household too, docs/289).
+        static readonly FieldInfo sConvMembers = typeof(Conversation).GetField("mMembers", kInstAll);
+        static readonly FieldInfo sConvTurn = typeof(Conversation).GetField("mWhoseTurn", kInstAll);
+        static readonly FieldInfo sConvTalked = typeof(Conversation).GetField("mWhoTalkedLast", kInstAll);
+        static readonly FieldInfo sConvTopical = typeof(Conversation).GetField("mTopicalSocialsAlreadyUsed", kInstAll);
+
+        static List<Sim> ConvMembers(Sim s)
+        {
+            Conversation cv = !SimGone(s) && s.SocialComponent != null && sConvMembers != null ? s.SocialComponent.Conversation : null;
+            return cv != null ? sConvMembers.GetValue(cv) as List<Sim> : null;
+        }
+
+        static void ConversationHolders(Sim s)
+        {
+            if (!ShortcutOn("deadrefconvo")) return;
+            List<Sim> m = ConvMembers(s);
+            if (m == null) return;
+            Conversation cv = s.SocialComponent.Conversation;
+            List<Sim> gone = new List<Sim>();
+            foreach (Sim x in m) { if (HhAuditCore.DeadHolderDrop(true, SimGone(x))) gone.Add(x); }  // household members too (docs/289)
+            if (gone.Count == 0) return;
+            int[] c = PatchCounters();
+            foreach (Sim x in gone)
+            {
+                try { if (cv.DiscourageRegion != null) cv.DiscourageRegion.RemoveMember(x); } catch (Exception) { } // a destroyed Sim's id may be cleared already
+                m.Remove(x); c[995]++;
+                CvCount(cv);  // repro conversation-gone-check: removals per seeded conversation
+            }
+            Sim first = m.Count > 0 ? m[0] : null;
+            foreach (FieldInfo f in new FieldInfo[] { sConvTurn, sConvTalked })
+            {
+                Sim who = f != null ? f.GetValue(cv) as Sim : null;
+                if (who != null && SimGone(who)) f.SetValue(cv, first);
+            }
+            IDictionary topical = sConvTopical != null ? sConvTopical.GetValue(cv) as IDictionary : null;
+            if (topical != null) foreach (Sim x in gone) topical.Remove(x);
+        }
+
+        static int ConversationGone(Sim s)
+        {
+            List<Sim> m = ConvMembers(s); int n = 0;
+            if (m != null) foreach (Sim x in m) if (SimGone(x)) n++;
+            return n;
+        }
+
+        // Agent check for phase 15 (repro conversation-gone-check), a hard state built and undone:
+        //   "seed":   a conversation (EA's own empty constructor) with two townies as members, reached from the first one's
+        //             SocialComponent.Conversation; the second one's Sim object is then destroyed (put back at the end).
+        //             The two have no relationship: SocialComponent.Dispose -> Relationship.RemoveReferencesToSim takes a
+        //             destroyed Sim out of the conversations of the Sims it has a relationship with, and RemoveSim then
+        //             ends a two-member conversation (members 0; 2026-11-15 run picked two Joneses). The stale entry stays
+        //             only where that walk does not reach (#166).
+        //   "state":  ConvState: gone members of that conversation, its member count, destroyed (the seeded Sim object; its
+        //             description may get a new Sim object meanwhile, which is not in the conversation).
+        //   "expect left" (switches off) / "expect cleaned" (deadrefsweep and deadrefconvo on): throws unless the gone member
+        //             is still there (left) or gone (cleaned). Either way the conversation is taken off the first townie.
+        //             Since 2026-11-23: kCvSamples conversations per arm, judged per sample (DeadRefsCore.ConvSampleVerdict:
+        //             an empty list counts as cleaned only with this conversation's own phase-15 removal; a host that left
+        //             before the check is n/a), arm verdict DeadRefsCore.ConvArmVerdict (no fail, >= 3 conclusive).
+        public class ConvState { public int gone, members, samples, goneSamples, pending; public bool destroyed, goneAll; }
+        // one seeded conversation (several per arm since 2026-11-23, Rodney: one bad sample must not decide the run)
+        class CvSample { public Sim host, victim; public Conversation conv; public SimDescription desc; public Vector3 pos; }
+        static List<CvSample> sCvSamples;
+        static Dictionary<Conversation, int> sCvRemoved; // phase 15 removals per seeded conversation (ConversationHolders)
+        const int kCvSamples = 5;
+
+        static int CvRemovedHere(Conversation cv) { int n; return sCvRemoved != null && cv != null && sCvRemoved.TryGetValue(cv, out n) ? n : 0; }
+        static bool CvHostLeft(CvSample x) { return SimGone(x.host) || x.host.SocialComponent == null || x.host.SocialComponent.Conversation != x.conv; }
+        static void CvCount(Conversation cv)
+        {
+            if (sCvRemoved == null || sCvSamples == null) return;
+            foreach (CvSample y in sCvSamples) if (y.conv == cv) { int n; sCvRemoved.TryGetValue(cv, out n); sCvRemoved[cv] = n + 1; return; }
+        }
+
+        public static object DeadRefConversationCheck(string what)
+        {
+            if (sConvMembers == null) throw new InvalidOperationException("conversation check: mMembers not found");
+            if (what == "seed clean")
+            {
+                // Repro-only entry point (docs/330 §8.3 try 4): seed, then run phase 15's per-Sim step over every Sim at once in
+                // this same agent call (one sim-thread call: no host can run an interaction and leave in between). Same
+                // ConversationHolders body the pass runs (switch deadrefconvo checked inside), same unsafe-state refusal; the pass
+                // itself and its cadence are untouched.
+                string seeded = (string)DeadRefConversationCheck("seed");
+                string why = DeadRefsCore.ConvSeedCleanGate(ShortcutOn("deadrefsweep"), DeadRefUnsafe(false));
+                if (why != null) return seeded + "; phase 15 now: not run (" + why + ")";
+                int[] c = PatchCounters(); int r0 = c[995], sims = 0;
+                foreach (Sim x in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    sims++;
+                    try { ConversationHolders(x); } catch (Exception) { c[410]++; }
+                }
+                return seeded + "; phase 15 now: " + sims + " Sims stepped, " + (c[995] - r0) + " members removed";
+            }
+            if (what == "seed")
+            {
+                // kCvSamples unrelated (host, victim) pairs of distinct townies; hosts not talking already
+                List<Sim> used = new List<Sim>(); List<CvSample> ss = new List<CvSample>();
+                sCvRemoved = new Dictionary<Conversation, int>();
+                for (int tries = 0; ss.Count < kCvSamples && tries < 4 * kCvSamples; tries++)
+                {
+                    Sim host = DrPickTownieNot(used, null);
+                    if (host == null) break;
+                    used.Add(host);
+                    if (host.SocialComponent == null || host.SocialComponent.Conversation != null) continue;
+                    Sim victim = DrPickTownieNot(used, host);
+                    if (victim == null) break;
+                    used.Add(victim);
+                    Conversation cv = (Conversation)Activator.CreateInstance(typeof(Conversation), true);
+                    List<Sim> m = (List<Sim>)sConvMembers.GetValue(cv);
+                    m.Add(host); m.Add(victim);
+                    host.SocialComponent.Conversation = cv; // the field only: SetConversation would touch the host's posture and UI
+                    CvSample x = new CvSample(); x.host = host; x.victim = victim; x.conv = cv; x.desc = victim.SimDescription; x.pos = victim.Position;
+                    ss.Add(x);
+                }
+                if (ss.Count < 3)
+                {
+                    foreach (CvSample x in ss) x.host.SocialComponent.Conversation = null;
+                    throw new InvalidOperationException("conversation seed: only " + ss.Count + " unrelated townie pairs (need 3)");
+                }
+                sCvSamples = ss;
+                List<string> names = new List<string>();
+                foreach (CvSample x in ss) { names.Add(x.host.FullName + " with " + x.victim.FullName); x.victim.Destroy(); }
+                return "conversation seed: " + ss.Count + " samples (" + string.Join("; ", names.ToArray()) + "), the second Sim objects destroyed";
+            }
+            if (sCvSamples == null) throw new InvalidOperationException("conversation " + what + ": no seed");
+            if (what == "state")
+            {
+                ConvState st = new ConvState(); st.destroyed = true; st.goneAll = true; st.samples = sCvSamples.Count;
+                foreach (CvSample x in sCvSamples)
+                {
+                    List<Sim> mm = (List<Sim>)sConvMembers.GetValue(x.conv);
+                    int g = 0; foreach (Sim y in mm) if (SimGone(y)) g++;
+                    st.gone += g; st.members += mm.Count;
+                    if (g > 0) st.goneSamples++; else st.goneAll = false;
+                    if (!SimGone(x.victim)) st.destroyed = false;
+                    if (g > 0 && !CvHostLeft(x)) st.pending++;  // not cleaned yet and the host still there to be cleaned
+                }
+                return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "conversation <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep") && ShortcutOn("deadrefconvo");
+            bool expectLeft = what == "expect left";
+            int pass = 0, fail = 0, na = 0; List<string> lines = new List<string>();
+            foreach (CvSample x in sCvSamples)
+            {
+                List<Sim> mm = (List<Sim>)sConvMembers.GetValue(x.conv);
+                int g = 0; foreach (Sim y in mm) if (SimGone(y)) g++;
+                bool left = CvHostLeft(x); int rh = CvRemovedHere(x.conv);
+                string v = DeadRefsCore.ConvSampleVerdict(expectLeft, on, g, mm.Count, rh, left);
+                if (v == "pass") pass++; else if (v == "fail") fail++; else na++;
+                lines.Add(x.host.FullName + ": " + v + " (gone " + g + ", members " + mm.Count + ", removedHere " + rh + (left ? ", host left" : "") + ")");
+                if (!left && x.host.SocialComponent != null) x.host.SocialComponent.Conversation = null;
+                mm.Clear();
+            }
+            List<string> back = new List<string>();
+            foreach (CvSample x in sCvSamples) back.Add(x.desc.FullName + " " + DrPutBack(x.desc, x.pos));
+            sCvSamples = null; sCvRemoved = null;
+            string verdict = DeadRefsCore.ConvArmVerdict(pass, fail, na);
+            string line = verdict + ": " + pass + " pass, " + fail + " fail, " + na + " n/a (switches " + on + "); " + string.Join("; ", lines.ToArray()) + "; " + string.Join("; ", back.ToArray());
+            if (verdict != "pass") throw new InvalidOperationException("conversation " + what + ": " + line);
+            return "as expected; " + line;
+        }
+
+        // A townie not in `used` (DrPickTownie's rules); unrelatedTo: no relationship to that Sim either, nor to any used Sim
+        // (one Destroy must not reach another sample's conversation through Relationship.RemoveReferencesToSim).
+        static Sim DrPickTownieNot(List<Sim> used, Sim unrelatedTo)
+        {
+            Household active = Household.ActiveHousehold;
+            Lot home = active != null ? active.LotHome : null;
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                if (used.Contains(s)) continue;
+                SimDescription d = s.SimDescription;
+                if (IsPlayerSim(s) || s.IsPet || !d.IsValidDescription || !d.TeenOrAbove) continue;  // PlayerSims.cs: d != null after it
+                if ((home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                if (unrelatedTo != null && Relationship.Get(unrelatedTo, s, false) != null) continue;
+                bool rel = false;
+                foreach (Sim u in used) if (Relationship.Get(u, s, false) != null) { rel = true; break; }
+                if (rel) continue;
+                return s;
+            }
+            return null;
+        }
+
         // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
         // lot, no role or service, a valid description.
-        static Sim DrPickTownie() { return DrPickTownie(null); }
-        static Sim DrPickTownie(SimDescription except)
+        static Sim DrPickTownie() { return DrPickTownie(null, null); }
+        static Sim DrPickTownie(SimDescription except) { return DrPickTownie(except, null); }
+        // unrelatedTo: skip Sims with a relationship to that Sim (conversation seed).
+        static Sim DrPickTownie(SimDescription except, Sim unrelatedTo)
         {
             Household active = Household.ActiveHousehold;
             Lot home = active != null ? active.LotHome : null;
             foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
             {
                 SimDescription d = s.SimDescription;
-                if (s.IsSelectable || s.IsPet || s.HasBeenDestroyed || d == null || d == except || !d.IsValidDescription || !d.TeenOrAbove) continue;
-                if (s.Household == active || (home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                if (IsPlayerSim(s) || s.IsPet || d == except || !d.IsValidDescription || !d.TeenOrAbove) continue;  // PlayerSims.cs: d != null after it
+                if ((home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                if (unrelatedTo != null && Relationship.Get(unrelatedTo, s, false) != null) continue;
                 return s;
             }
             return null;
@@ -944,17 +1572,34 @@ namespace Ts3Fixes
                 }
                 case "aging":
                 {
-                    ConstructorInfo ctor = typeof(AgingState).GetConstructor(kDrAll, null, new Type[] { typeof(SimDescription) }, null);
-                    MethodInfo valid = typeof(AgingManager).GetMethod("IsAgingStateValid", kDrAll);
+                    ConstructorInfo ctor = typeof(AgingState).GetConstructor(kInstAll, null, new Type[] { typeof(SimDescription) }, null);
+                    MethodInfo valid = typeof(AgingManager).GetMethod("IsAgingStateValid", kInstAll);
                     if (ctor == null || valid == null || AgingManager.Singleton == null) return "aging: not found";
                     object state = ctor.Invoke(new object[] { new SimDescription() });
                     // swapped method: a delegate, not MethodInfo.Invoke (see EaFixes PrefRemoveFn)
-                    return "aging: valid " + ((AgingValidFn)Delegate.CreateDelegate(typeof(AgingValidFn), AgingManager.Singleton, valid))((AgingState)state);
+                    return "aging: valid " + ((AgingValidFn)Fixes.Bind(typeof(AgingValidFn), AgingManager.Singleton, valid))((AgingState)state);
                 }
-                case "sweep": sDeadRefObjDue = true; return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
+                case "sweep": DrAllDue(); return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck)";
+                case "pausemark": sDrPauseMark = DrPauseNow(); return "pausemark: " + DrPauseState();
+                case "pausestate": return "pausestate: " + DrPauseState(); // pause-cas-buy-check: counts since the last pausemark
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass, pausemark, pausestate; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck, cooking handlers: DeadRefCookingCheck, conversations: DeadRefConversationCheck)";
             }
+        }
+
+        static int[] sDrPauseMark = new int[5];
+        static int[] DrPauseNow()
+        {
+            int[] k = PatchCounters();
+            Household hh = Household.ActiveHousehold;
+            return new int[] { k[406], k[405], k[410], k[1727], hh != null ? hh.AllSimDescriptions.Count : -1 };
+        }
+
+        static string DrPauseState()
+        {
+            int[] n = DrPauseNow(), m = sDrPauseMark;
+            return "slices +" + (n[0] - m[0]) + ", passes +" + (n[1] - m[1]) + ", refused +" + (n[2] - m[2]) + ", pausedwaits +" + (n[3] - m[3]) + ", household " + m[4] + "->" + n[4]
+                + ", task " + (TaskAlive(sDeadRefTask) ? "alive" : "none") + ", frozen " + SimFrozenOrNotLive() + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
 
         static string DeadRefCounts()
@@ -978,9 +1623,9 @@ namespace Ts3Fixes
                 if (u != null) foreach (ActiveTopic a in u) if (a != null && a.Parameter != null && DescGone(a.Parameter)) topics++;
             }
             int uselists = 0, owners = 0, handlers = 0;
-            int celebs = 0;
-            foreach (Sim cs in Sims3.Gameplay.Queries.GetObjects<Sim>()) celebs += CelebrityGone(cs);
-            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); handlers += HandlerGone(g); }
+            int celebs = 0, convs = 0, cooking = 0;
+            foreach (Sim cs in Sims3.Gameplay.Queries.GetObjects<Sim>()) { celebs += CelebrityGone(cs); convs += ConversationGone(cs); }
+            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); handlers += HandlerGone(g); cooking += CookingGone(g); }
             int darts = 0;
             foreach (Dartboard b in Sims3.Gameplay.Queries.GetObjects<Dartboard>()) darts += DartGone(b);
             foreach (SimDescription d in Household.EverySimDescription())
@@ -991,7 +1636,7 @@ namespace Ts3Fixes
             }
             return "count: relationship keys gone " + relGone + "/" + Relationship.sAllRelationships.Count + ", entries naming gone " + relEntries
                 + ", aging states gone " + AgingStatesToCheck().Count + ", alarm owners gone " + AlarmOwnersToCheck().Count
-                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners + ", disposed handlers gone " + handlers + ", celebrity reactors gone " + celebs
+                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners + ", disposed handlers gone " + handlers + ", celebrity reactors gone " + celebs + ", cooking handlers stale " + cooking + ", conversation members gone " + convs
                 + ", no-outfit descriptions " + NoOutfitDescriptions().Count + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
     }

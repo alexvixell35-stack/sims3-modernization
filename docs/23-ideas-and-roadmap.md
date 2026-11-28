@@ -22,7 +22,7 @@ Claims here are `[inferred]` unless marked otherwise; most are proposals.
 | 12 | Texture streaming and DXVK tuning for Error 12 | high | medium | low | research |
 | 13 | World-level own route planner | high | high | high | research |
 | 14 | Animation LOD | medium | medium | medium | research |
-| 15 | Mono interpreter speedups | high | high | high | research |
+| 15 | Mono interpreter speedups | high | high | high | built (MonoJit lane: `[MonoJit]`, `[MonoFast] CallPath`, `[MintFuse] Sub`, ON on master 2026-11-15, not yet in a release) |
 | 16 | 64-bit research notes | low (clarity) | low | low | research |
 | 17 | Sim-thread offload architecture (long-term goal) | high | high | high | research |
 | 18 | Readability refactor (packages, files, docs; same behavior) | medium | medium (~1-2 days of agents + 1 validation night) | medium (native counter offsets, unity build split, byte-exact patch tables, install order) | refactor |
@@ -40,11 +40,11 @@ Ranked by expected gain against effort, with cheap gates first. Detail lives in 
 | 1 | `kFastRefTable` default on ([CHANGELOG v0.1.2](../CHANGELOG.md)) | save BP 12.7 -> 10.3 s (-19%), IP 11.6 -> ~10.0 s (-14%) [measured] | low (one flag, rebuild) | low | university + future travel cases in the save matrix | 27/28 matrix cases PASS; waits for Rodney's OK |
 | 2 | `[HeightCache]` A/B ([docs/20 §4b](20-offload-candidates.md)) | ~3.5-10 ms/s [inferred]; BP A/B route ms per route -34% [measured, unconfirmed: uneven slices] | low (runs only) | low (Verify: 0 mismatches in 4.41M calls) | 20+ min A/B per world, ideally seeded; IP Verify with a terrain edit and a lot placement | built (0.10.2), off |
 | 3 | Route gate, H6 ([docs/18 "H6 plan"](18-route-search-off-thread.md)) | up to route 95/82/246 ms/s BP/SV/IP off the sim thread [measured upper bound]; real share = G11 | high (S0-S5 ~4.5-5 d) | high (async routing crashed 3 times before) | G11 `/routelock`: lock-free share >= 30 ms/s IP and >= 15 ms/s BP, plus gate-site entries | S0 done; G11 probe built, never run |
-| 4 | IC-transition lock `0x11F43A8` under `0xDA5970` ([docs/29 §5](29-mono-jit.md)) | 5-15 ms/s of ~14 ms/s self [inferred] | medium | medium | contention counter on the lock | not built |
+| 4 | IC-transition lock `0x11F43A8` under `0xDA5970` ([docs/29 §5](29-mono-jit.md), [docs/258](258-ic-lock-valuetype-equals.md)): really Mono's loader lock, taken once per field by `ValueType.InternalEquals` (`Enum.Equals` path) | 6-9 ms/s for a per-class `InternalEquals` fast path [inferred; lock ~8.7 ms/s, uncontended before AutShadow] | medium (2-3 h + monohost corpus) | low | monohost exactness corpus, then `[IcLockCheck]` count with AutShadow on, then BP/IP A/B | analysed 2026-11-12, not built |
 | 5 | S3PP type-hash cache confirm (`MonoTypeEHashProbe`, [docs/29 §5](29-mono-jit.md)) | ~20-30 ms/s inclusive, already S3PP's [inferred]; decides that we do not duplicate it | low (one simstack run) | low | simstack BP run, S3PP cache on vs off | pending |
 | 6 | Save levers ([docs/26](26-incremental-save.md), PLAN "Research done") | cached reflection ~0.5-1 s, compressed-bytes cache ~0.25 s, life-event trim ~0.3-1.2 s (opt-in) per save [inferred] | medium | medium (save path) | full save matrix + save s on/off | ranked, not built |
-| 7 | Mono second-thread patch `[MonoThread]` ([docs/30](30-mono-second-thread.md)) | enabler for managed offload (autonomy ~110 ms/s, [docs/28](28-sim-thread-map.md)); costs 0.2-1.5% sim-thread [inferred] | high (~2.5-3.5 weeks) | high (GC, interpreter state) | `[MonoThread]` Mode=1 proof with Verify; `[GcThreadCheck]` clean in IP, save, travel | design done; BP GcThreadCheck 0 foreign allocations [measured] |
-| 8 | Animation phase split + C++ rewrite ([docs/22 §7](22-parallel-animation.md)) | ~5-15 ms/s [inferred] | high | high | G10: docs/22 §6 timing split (per-phase ms/s of `0x940430`) | research done; timers not added |
+| 7 | Mono second-thread patch `[MonoThread]` ([docs/30](30-mono-second-thread.md)) | enabler for managed offload (autonomy ~110 ms/s, [docs/28](28-sim-thread-map.md)); costs 0.2-1.5% sim-thread [inferred] | high (built) | high (GC, interpreter state) | `[MonoThread]` Mode=1 proof with Verify; `[GcThreadCheck]` clean in IP, save, travel | shipped ON since v0.2.11 (`Enabled=1 Mode=1`) [verified: tagged ini]; BP GcThreadCheck 0 foreign allocations [measured] |
+| 8 | Animation phase split + C++ rewrite ([docs/22 §7](22-parallel-animation.md)) | ~5-15 ms/s [inferred] | high | high | G10: docs/22 §6 timing split (per-phase ms/s of `0x940430`) | research done; G10 timers ran once 11-15: Evaluate ~0.4 ms/s, under the 1% drop line (docs/22 §6.1); class / off-camera split `[AnimPhase] Split` built 11-18, queue `anim-split-profile-1118.json` not run |
 | 9 | Address space: S3SS mimalloc arena ([docs/08 §2.5](08-resource-offload-design.md)) | <= ~64 MB largest free block early in a session [inferred] | low (upstream ask for a 32 MiB option) | low | runtime confirm: `NtAllocateVirtualMemory` >= 32 MB reserve backtrace on `wear_parts` | cause inferred, no config switch |
 | 10 | Address space: catalog ~8 MB resident ([docs/08 §2.5](08-resource-offload-design.md)) | ~8 MB for 14,577 products [inferred]; lazy decode not viable | medium | medium | catalog cost at the main menu (docs/08 M9 step 1) | queue job pending |
 
@@ -52,7 +52,7 @@ Ranked by expected gain against effort, with cheap gates first. Detail lives in 
 
 - Skip-Evaluate for idle off-screen actors: dropped; idle actors already skip it ([docs/22 §5.1a](22-parallel-animation.md)).
 - Drop off-screen Sim meshes/textures: dropped; ~0.15 MB per Sim [measured] (PLAN lane G item 6, M11).
-- Mono JIT: dropped; EA "mint" interpreter, no JIT code, yielding tasks keep interpreter frames ([docs/29](29-mono-jit.md)).
+- Mono JIT: a full Mono JIT stays dropped (EA "mint" interpreter, no JIT code, yielding tasks keep interpreter frames, [docs/29](29-mono-jit.md)). 2026-11-15: our own method compiler `[MonoJit]` (docs/527, docs/537) is ON on master (`Enabled=1 Direct=1 Inline=2 Wide=1 BoundCall=1 ClauseLazy=1`), not yet in a release.
 - Footprint quadtree cache (#8): NO-GO, physics radius query on moving Sims, 0.5% of samples ([docs/20 §4b](20-offload-candidates.md)).
 - Catalog lazy OBJD decode: not viable, the in-memory filter needs every decoded OBJD ([docs/08 §2.5](08-resource-offload-design.md)).
 - Done: sim-thread map ([docs/28](28-sim-thread-map.md)), Mono helper split G9 ([docs/29 §5](29-mono-jit.md)), second-thread design ([docs/30](30-mono-second-thread.md)), H6 plan ([docs/18](18-route-search-off-thread.md)), M9 128 MB block explained ([docs/08 §2.5](08-resource-offload-design.md)), `s3pp` label check (no stale labels, PLAN lane G item 4).
@@ -150,12 +150,17 @@ Results from different machines only compare when everyone measures the same sav
 
 ### 15. Mono interpreter speedups
 
+> **Status 2026-11-18: shipped** as own method compiler `[MonoJit]` (ON on master).
+
 - docs/04 F6/F7: scripts run in Mono 1.2's interpreter, the largest sim-thread cost. Ideas: a method lookup cache, inline caches for virtual/interface calls, faster field access paths, cheaper `isinst`/`castclass`. Each is a native patch inside the interpreter loop, with correctness risk across all game scripts.
+- 2026-11-15: own method compiler `[MonoJit]` (docs/527, docs/537) ON on master (`Enabled=1 Direct=1 Inline=2 Wide=1 BoundCall=1 ClauseLazy=1`), not yet in a release; supersedes the 10-15 line below.
 - 2026-10-15: JIT dropped; helper split done ([docs/29 §5](29-mono-jit.md)): the top helper is already cached by S3PP, our first own target is the IC-transition lock (Next big wins #4, #5).
 - Research first: which interpreter opcodes and lookups dominate (sample the interpreter with the probe), and what upstream Mono later changed in those paths (as design ideas, not code).
 - Issue: `[research] Mono interpreter hot paths: method/virtual call caches`.
 
 ### 16. 64-bit research notes
+
+> **Status 2026-11-18: superseded.** The 64-bit renderer is Apex Radiance's RTX Remix bridge; Apex also ships the `ts3wrap.exe` restart host (off by default).
 
 - Why it is not realistic: a 32-bit exe with ~40k functions, embedded Mono 1.2 (32-bit, interpreter), 32-bit pointer assumptions in data files and saves, third-party 32-bit plugins (S3SS, DXVK x32, ASI loader). What it would take: per-function rewrites verified live, or an out-of-process 64-bit helper (docs/08 tried a resource cache helper and dropped it). Write it down once so the question stops costing time.
 - Issue: `[research] 64-bit: why not, and what would be needed (notes only)`.
@@ -170,6 +175,8 @@ Results from different machines only compare when everyone measures the same sav
 - Issue: `[research] Sim-thread offload architecture: map, blockers, step plan`.
 
 ### 18. Route plan cache: measure repeats first (2026-10-19)
+
+> **Status 2026-11-18: dropped** (0 ms/s, see 18.1).
 
 > **Changes 2026-10-19:** new section. Build only; the game was not run.
 
@@ -222,6 +229,7 @@ Merging CC packages helps loading because `GetPackageSource` / `FindDatabase` pr
 
 The gate 2 credit A/B passed (BP +6.4, IP +12.2 ms/s, 6 runs per world) but left four open items; none met the AGENTS.md clear-regression rule (docs/release-notes/unreleased-dev.md).
 - **gate2-report R5 bar:** `ufLong` per pair <= +2 failed on 2 IP pairs while the pooled counts were on 46 vs off 42 and frame hitches >= 300 ms on 55 vs off 59 (ratio 0.92 [0.63, 1.36]). Replace the per-pair +2 with the pooled exact-Poisson on/off ratio, as `hitch-ab.ts` (`rateCompare`) does: fail only when the 95% CI lies wholly above 1. `tools/harness/gate2-report.ts` `BAR.r5LongExtra`.
-- **IP ~1.3 s RouteBackoffHook.AsyncWait hitch:** the only >= 1 s iterations of the 12 IP arms, in both arms (off 1254 / 1262 ms, on 1319 ms, seed 12345). In all three the Sim's task runs from `CarryUtils.Request` (state machine wait) into our `RouteBackoffHook.AsyncWait < PlanBackoffBody < UfPlan` [verified, `hitches.jsonl` tasks]. Ours, not `autunseen`; name the route job it waits on and bound the wait.
-- **Load-time `ufLong` warm-up burst:** unseen route plans and worker jobs >= 300 ms bunch up early in the run, in both arms [inferred, 11-08 analysis; not re-checked]. Find whether a cold cache or the first cuts make them, then cut or defer that work.
-- **StuckWatchdog and sync replan hitches:** watchdog acts (`watchdog_idle_stationary`, home resets; similar counts in both arms) and sync `Route_ReplanFromPosition` replans (11 of 18 on-arm >= 300 ms iterations in `credit3 ip r4-offfirst`, mostly `GetInBoatRouteAction` fades; the same kind in the off arm) cost 300-400 ms each on the sim thread [measured]. Candidates: `watchdoglockskip` / the async A1 idle check (docs/250 §7.4) and the boat replan work (docs/247 §11).
+- **IP ~1.3 s RouteBackoffHook.AsyncWait hitch:** the only >= 1 s iterations of the 12 IP arms, in both arms (off 1254 / 1262 ms, on 1319 ms, seed 12345). In all three the Sim's task runs from `CarryUtils.Request` (state machine wait) into our `RouteBackoffHook.AsyncWait < PlanBackoffBody < UfPlan` [verified, `hitches.jsonl` tasks]. Ours, not `autunseen`; name the route job it waits on and bound the wait. **2026-11-12 (docs/247 §13.1): no job is waited on** (`rtJob`/`rtLock` 0, no `SwNote` line); `AsyncWait` is the sleep after START. The time is START's `FbApplyPending` running EA's `ApplyPendingUpdates 0x82C420` on the sim thread, untimed [inferred: before 10-23 the same 1.0-1.5 s stall was a sync `Route_Plan`, after it only this shape; 53 sightings, 50 IP, ~1 per 90 min]. Next: timing log L (~30 min, no behaviour change), then load-screen warm-up W or per-lot split S.
+- **Load-time `ufLong` warm-up burst:** unseen route plans and worker jobs >= 300 ms bunch up early in the run, in both arms [inferred, 11-08 analysis; not re-checked]. Find whether a cold cache or the first cuts make them, then cut or defer that work. **2026-11-12 (docs/247 §13.2): measured, not material.** IP warm-up slice `ufLong` 35 vs 21.6 per later slice (11 runs, +1.2 per load), worker job time flat, frame hitches inside the slice spread, and the warm-up slice is outside gate 2 and `hitch-ab`. Not the route cache (off) nor the first cuts; lazy room / lot graph first builds [inferred]. No own fix; fold into §13.1's load-screen warm-up W if its log confirms first builds.
+- **StuckWatchdog and sync replan hitches:** watchdog acts (`watchdog_idle_stationary`, home resets; similar counts in both arms) and sync `Route_ReplanFromPosition` replans (11 of 18 on-arm >= 300 ms iterations in `credit3 ip r4-offfirst`, mostly `GetInBoatRouteAction` fades; the same kind in the off arm) cost 300-400 ms each on the sim thread [measured]. Candidates: `watchdoglockskip` / the async A1 idle check (docs/250 §7.4) and the boat replan work (docs/247 §11). **2026-11-12 (docs/247 §13.3):** since `ForeignKinds=4` (11-09) get-in boat replans are 74% async (IP 36.7 -> 10.4 ms/s, >= 300 ms 44 -> 8 per h); IP still has 16 ms/s sync `ReplanFromPosition`. Left: houseboat gangway fixups inside `PostPlanCallback` (no yield possible; now the top >= 300 ms row, 13.5 per h), own-task replans refused by `Kinds=0`, 26% refused foreign STARTs. Next: R1 refusal split (~20 min), R2 `Kinds=4` ini A/B, R3 deferred gangway tail (~2-3 h).
+- **JobYield for the DiscDrain / LostRemovalFix waits** (HANDOFF 11-08 night rank 4, "33 ms/s"): **2026-11-12 (docs/247 §13.4).** Both are the sim thread waiting for the running route job to apply deferred discourage footprints [verified]: forced `DiscDrain` (IP nights 20.9 ms/s, 12,073 waits, avg 25.5 ms) and the LostRemovalFix flush before EA's event-9 re-insert (10.4 ms/s). `JobYield` (docs/183) does not reach them. In hitch frames 9.0 + 5.9 ms/s; only the `AsyncWait` row (~2 ms/s, 5 of 12 DiscDrain >= 300 ms) sits at our START / READY point where a yield is possible; the rest is inside EA native calls. Next: C per-site drain counters (~20-30 min), then J1 (READY skips the forced drain, unseen START parks; household / selected keep the wait, ~1 h) or J2 deferred re-insert record (~2-3 h).

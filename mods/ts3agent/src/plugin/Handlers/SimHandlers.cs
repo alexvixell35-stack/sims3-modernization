@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
@@ -262,6 +263,13 @@ namespace Ts3Agent
                 if (hh == null) throw new McpException("no active household");
                 sims.AddRange(hh.AllActors);
             }
+            else if (a.Str("sim", "") == "everyone")
+            {
+                // needs stress test: every instantiated Sim in the world (household, townies, NPC roles), skipping dead or resetting ones
+                if (LotManager.Actors != null)
+                    foreach (Sim s in new List<Sim>(LotManager.Actors))
+                        if (s != null && s.SimDescription != null && !s.HasBeenDestroyed && s.Motives != null) sims.Add(s);
+            }
             else sims.Add(Util.FindSim(a, "sim"));
             string which = a.Str("motive", "all");
             foreach (Sim s in sims)
@@ -331,7 +339,8 @@ namespace Ts3Agent
                 if (s == null || s.Autonomy == null) continue;
                 int n;
                 off.TryGetValue(sd.SimDescriptionId, out n);
-                if (!enable && n == 0) { s.Autonomy.IncrementAutonomyDisabled(); off[sd.SimDescriptionId] = 1; changed.Add(sd.FullName); }
+                // n > 0 with autonomy on: the game took our increment back (session ws-m1: the selected Sim read a book between the orders)
+                if (!enable && (n == 0 || !s.Autonomy.AutonomyDisabled)) { s.Autonomy.IncrementAutonomyDisabled(); off[sd.SimDescriptionId] = 1; changed.Add(sd.FullName); }
                 else if (enable && n > 0)
                 {
                     for (int i = 0; i < n; i++) s.Autonomy.DecrementAutonomyDisabled(); // the game's Decrement stops at 0
@@ -601,9 +610,12 @@ namespace Ts3Agent
                     Sim s = sd.CreatedSim;
                     if (s == null) throw new McpException(sd.FullName + " is not in the world");
                     OccupationNames name = Util.ParseEnum<OccupationNames>(a.Str("career"));
-                    CareerLocation loc = Career.FindClosestCareerLocation(s, name);
-                    if (loc == null) throw new McpException("no workplace for " + name + " exists in this world");
-                    AcquireOccupationParameters p = new AcquireOccupationParameters(loc, false, true);
+                    // Ambitions / Showtime active careers (Stylist, Firefighter, SingerCareer...) have no CareerLocation: they join by
+                    // name, as EA's own join path does (AddActiveCareer, 2026-11-15 ep-home-bp: "no workplace" for all three)
+                    bool active = CareerManager.GetStaticOccupation(name) is Sims3.Gameplay.ActiveCareer.ActiveCareer;
+                    CareerLocation loc = active ? null : Career.FindClosestCareerLocation(s, name);
+                    if (!active && loc == null) throw new McpException("no workplace for " + name + " exists in this world");
+                    AcquireOccupationParameters p = active ? new AcquireOccupationParameters(name, false, true) : new AcquireOccupationParameters(loc, false, true);
                     p.CharacterImportRequest = false;
                     if (!s.AcquireOccupation(p)) throw new McpException("the game refused the job (age, existing job, or requirements)");
                     break;
@@ -693,8 +705,65 @@ namespace Ts3Agent
         // venue_hours {reset?: false} (read-only, repro aut-live-venue-hour): opening and closing hours of every community
         // lot with hours (Lot.GetHoursOfOperation: venue tuning HourOpen/HourClose or bar hours), the next such boundary from
         // now in sim hours, and how many boundaries the clock crossed since the reset (AppDomain data, minutes_total based).
+        // docs/585 §9 repro: "lot" = one venue by name: its hours (Lot.GetHoursOfOperation) and Lot.IsOpenVenue(); "jump" = open | close moves
+        // the clock forward (SimClock.TicksAdvanced, like AddOneHour) to that boundary + offsetMin (default -3: just before it).
+        // Pairs: a step with offsetMin < 0 records the state before the boundary; the next one with offsetMin >= 0 for the same
+        // jump reports pair_open_before, open_now and flipped (the repro's crossing criterion); it never wraps to the next day
+        static object VenueLot(Args a)
+        {
+            string name = a.Str("lot");
+            Lot lot = null;
+            ulong lid;
+            if (ulong.TryParse(name, NumberStyles.Integer, CultureInfo.InvariantCulture, out lid)) lot = LotManager.GetLot(lid);
+            if (lot == null) foreach (Lot l in LotManager.AllLots)
+                if (l != null && string.Compare(l.Name, name, true, CultureInfo.InvariantCulture) == 0) { lot = l; break; }
+            if (lot == null) throw new McpException("venue_hours: no lot named " + name);
+            float open = -1f, close = -1f;
+            bool has = lot.GetHoursOfOperation(ref open, ref close);
+            Dictionary<string, object> r = Util.Obj();
+            r["lot"] = lot.LotId.ToString("X16");
+            r["open"] = open; r["close"] = close; r["has_hours"] = has;
+            r["open_before"] = lot.IsOpenVenue();
+            r["hour_before"] = Math.Round(SimClock.HoursPassedOfDay, 3);
+            if (a.Has("jump"))
+            {
+                if (!has) throw new McpException("venue_hours: " + name + " has no hours of operation");
+                string jump = a.Str("jump");
+                double off = a.Double("offsetMin", -3);
+                double edge = (jump == "close" ? close : open) * 60.0 + off;
+                double delta = ((edge - SimClock.HoursPassedOfDay * 60.0) % 1440.0 + 1440.0) % 1440.0;
+                // an "after" step (offsetMin >= 0) whose target the clock already passed (the game ran on past the boundary
+                // since the before step) stays put: going on to the next day's target wrapped a whole day (advanced_min 1439.5)
+                bool passed = off >= 0 && delta > 720.0;
+                if (passed) delta = 0;
+                SimClock.TicksAdvanced += SimClock.ConvertToTicks((float)delta, TimeUnit.Minutes);
+                r["advanced_min"] = Math.Round(delta, 1);
+                if (passed) r["already_past"] = true;
+                // the crossing is judged across the pair: the before step's state (offsetMin < 0) against this after step's
+                Dictionary<string, double> pair = DomainState<Dictionary<string, double>>("ts3agent.venue_pair");
+                bool now = lot.IsOpenVenue();
+                if (off < 0) { pair[jump] = now ? 1 : 0; r["pair_role"] = "before"; }
+                else
+                {
+                    r["pair_role"] = "after";
+                    double pre;
+                    if (pair.TryGetValue(jump, out pre))
+                    {
+                        r["pair_open_before"] = pre != 0;
+                        r["flipped"] = (pre != 0) != now;
+                        pair.Remove(jump);
+                    }
+                    else r["flipped"] = null;  // no before step for this boundary
+                }
+            }
+            r["hour"] = Math.Round(SimClock.HoursPassedOfDay, 3);
+            r["open_now"] = lot.IsOpenVenue();
+            return r;
+        }
+
         static object VenueHours(Args a)
         {
+            if (a.Has("lot")) return VenueLot(a);
             Dictionary<string, double> st = DomainState<Dictionary<string, double>>("ts3agent.venue_hours");
             double now = SimClock.ConvertFromTicks(SimClock.CurrentTicks, TimeUnit.Minutes);
             List<float> hours = new List<float>();

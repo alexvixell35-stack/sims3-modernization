@@ -56,12 +56,11 @@ namespace Ts3Fixes
             if (ErrorTrapSpreadCore.HasMarker(sEtType)) { sEtUpstream = true; return; } // logged with its version at world load
             Type inv = et.GetType("NRaas.CommonSpace.Helpers.Inventories");
             sEtLogger = inv == null ? null : inv.GetNestedType("Logger");
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             if (sEtLogger != null)
             {
-                sEtCheckAll = inv.GetMethod("CheckInventories", st, null, new Type[] { sEtLogger, sEtLogger, typeof(bool) }, null);
-                sEtCheck = inv.GetMethod("CheckInventory", st, null, new Type[] { sEtLogger, sEtLogger, typeof(string), typeof(Inventory), typeof(bool) }, null);
-                sEtGetName = inv.GetMethod("GetName", st, null, new Type[] { typeof(IGameObject) }, null);
+                sEtCheckAll = inv.GetMethod("CheckInventories", kStaticAll, null, new Type[] { sEtLogger, sEtLogger, typeof(bool) }, null);
+                sEtCheck = inv.GetMethod("CheckInventory", kStaticAll, null, new Type[] { sEtLogger, sEtLogger, typeof(string), typeof(Inventory), typeof(bool) }, null);
+                sEtGetName = inv.GetMethod("GetName", kStaticAll, null, new Type[] { typeof(IGameObject) }, null);
             }
             if (sEtType == null || sEtCheckAll == null || sEtCheckAll.ReturnType != typeof(void) || sEtCheck == null || sEtGetName == null || sEtGetName.ReturnType != typeof(string))
             {
@@ -109,9 +108,13 @@ namespace Ts3Fixes
                 Delegate.CreateDelegate(sEtLogger, typeof(Fixes).GetMethod("EtCountDebugLog")) };
         }
 
-        static void EtSleep()
+        // A tick, then (docs/205 §2.3d) a wait while frozen: stop = WorldGone in our pass task (waits through CAS / Buy / Build),
+        // NotLiveOrGone inside ErrorTrap's load-up chain (waits only while paused in live mode; never holds a load).
+        static void EtSleep(Gate stop)
         {
-            if (MayYield()) Simulator.Sleep(0);
+            if (!MayYield()) return;
+            Simulator.Sleep(0);
+            WaitWhileFrozen(1732, stop);
         }
 
         static void EtCheckOne(object log, object debugLog, string name, Inventory inv, bool checkDestroyed)
@@ -135,7 +138,7 @@ namespace Ts3Fixes
         static void EtPass(object log, object debugLog, bool checkDestroyed)
         {
             int[] c = PatchCounters();
-            EtSleep();
+            EtSleep(WorldGone);
             if (sEtWatch == null) sEtWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
             GameObject[] objects = Sims3.Gameplay.Queries.GetObjects<GameObject>();
             List<Household> houses = new List<Household>(Household.sHouseholdList);
@@ -150,7 +153,7 @@ namespace Ts3Fixes
                     if (us > maxUs) maxUs = us;
                     if (sliceItems > mostItems) mostItems = sliceItems;
                     sliceItems = 0;
-                    EtSleep();
+                    EtSleep(WorldGone);
                     if (GameStates.IsWorldShuttingDown || !GameStates.IsInWorld()) { EtLog("inventory pass stopped: world gone"); return; }
                     ticks++;
                     sEtWatch.Restart();
@@ -234,7 +237,7 @@ namespace Ts3Fixes
                 OverwatchSpreadCore.Mode mode = EtMode();
                 if (mode != OverwatchSpreadCore.Mode.Ours) { EtRun(log, debugLog, checkDestroyed, mode); return; }
                 Simulator.AddObject(new LoopTask(delegate { EtRun(log, debugLog, checkDestroyed, mode); }));
-                EtSleep(); // the dereference controllers start in a fresh tick
+                EtSleep(NotLiveOrGone); // the dereference controllers start in a fresh tick
             }
             public static void CheckOrig(object log, object debugLog, bool checkDestroyed) { } // receives CheckInventories' original header
         }

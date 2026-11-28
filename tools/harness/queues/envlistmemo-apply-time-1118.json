@@ -1,0 +1,132 @@
+{
+ "note": "envlistmemo-apply-time-1118 (branch feature/envlistmemo-apply-1118, PREPARED, NOT RUN, TIMING, needs quiet machine, dry-run checked; est ~140 min): docs/274 §9 R1 apply. BP + IP 45 min in-load ABBAABBA (5-min slices after warm-up, 4 iterations per arm), --ab envlistmemoapply, envlistmemoverify and the envlistmemo dry probe off. Judge: sim busy ms/s off - on pooled (sim-budget-report.ts); ON at a clean 3-5 ms/s (clear-gain rule) after envlistmemo-apply-correct-1118 PASS; < 1.5 ms/s = park (docs/274 §5 stop rule). Smoke first (queue.ts). Run last in chain-night-1118 (TIMING=1). Agent: game-copy/ts3agent.package.envlistmemo-apply-1118.",
+ "rewind": "auto",
+ "regexCases": {
+  "^ts3native 0\\.36\\.271-mc1117 ": {
+   "match": [
+    "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+    "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+   ]
+  }
+ },
+ "smoke": {
+  "id": "bp-elapply-ab-smoke",
+  "note": "Measurement smoke 4 min, --ab envlistmemoapply 1-min slices: both arms in the job log with the switch read back, envlistapply_reuse grows only in on slices, verify and dry probe off, noSamplers. A FAIL stops the queue.",
+  "asi": "game-copy/ts3native.asi.master-1117c",
+  "iniBase": "game-copy/ts3native.ini.master-1117c",
+  "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-apply-1118",
+  "pinReason": "master-1117c native set + ts3fixes.package.envlistmemo-apply-1118 (feature/envlistmemo-apply-1118: docs/274 §9 R1 apply, unseen NPCs only, + sampled verify; managed only); agent game-copy/ts3agent.package.envlistmemo-apply-1118 (envlistapply_* keys) installed by the chain",
+  "save": "Baseline-BP-Spring",
+  "minCounters": 159,
+  "gameArgs": [
+   "-disablestoryprogression"
+  ],
+  "logRequire": {
+   "^ts3native 0\\.36\\.271-mc1117 ": 1,
+   "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+   "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+  },
+  "noiseCheck": false,
+  "scriptErrorsMax": 0,
+  "timeoutMin": 29,
+  "run": {
+   "profile": {
+    "minutes": 4,
+    "seed": 12345,
+    "noSamplers": true,
+    "fixesOff": "envlistmemoverify,envlistmemo",
+    "fixesReport": "envlistapply_",
+    "fixesRequire": "envlistapply_reuse>=10,envlistapply_exc<1",
+    "ab": "envlistmemoapply",
+    "slice": 1
+   }
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-elapply-ab",
+   "note": "BP 45 min in-load ABBAABBA, --ab envlistmemoapply, verify off. LOWER ms/s is better: on - off < 0 = ON faster.",
+   "asi": "game-copy/ts3native.asi.master-1117c",
+   "iniBase": "game-copy/ts3native.ini.master-1117c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-apply-1118",
+   "pinReason": "master-1117c native set + ts3fixes.package.envlistmemo-apply-1118 (feature/envlistmemo-apply-1118: docs/274 §9 R1 apply, unseen NPCs only, + sampled verify; managed only); agent game-copy/ts3agent.package.envlistmemo-apply-1118 (envlistapply_* keys) installed by the chain",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 159,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^ts3native 0\\.36\\.271-mc1117 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "noiseCheck": true,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 65,
+   "run": {
+    "profile": {
+     "minutes": 45,
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesOff": "envlistmemoverify,envlistmemo",
+     "fixesReport": "envlistapply_",
+     "fixesRequire": "envlistapply_reuse>=100,envlistapply_exc<1",
+     "ab": "envlistmemoapply",
+     "slice": 5
+    }
+   }
+  },
+  {
+   "id": "ip-elapply-ab",
+   "note": "IP 45 min in-load ABBAABBA, --ab envlistmemoapply, verify off. LOWER ms/s is better: on - off < 0 = ON faster.",
+   "asi": "game-copy/ts3native.asi.master-1117c",
+   "iniBase": "game-copy/ts3native.ini.master-1117c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-apply-1118",
+   "pinReason": "master-1117c native set + ts3fixes.package.envlistmemo-apply-1118 (feature/envlistmemo-apply-1118: docs/274 §9 R1 apply, unseen NPCs only, + sampled verify; managed only); agent game-copy/ts3agent.package.envlistmemo-apply-1118 (envlistapply_* keys) installed by the chain",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 159,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^ts3native 0\\.36\\.271-mc1117 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "noiseCheck": true,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 65,
+   "run": {
+    "profile": {
+     "minutes": 45,
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesOff": "envlistmemoverify,envlistmemo",
+     "fixesReport": "envlistapply_",
+     "fixesRequire": "envlistapply_reuse>=100,envlistapply_exc<1",
+     "ab": "envlistmemoapply",
+     "slice": 5
+    }
+   }
+  }
+ ]
+}

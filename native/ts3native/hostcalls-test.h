@@ -2,8 +2,13 @@
 // shadow / pass-through paths, per-site stamps, a real two-thread proxy round trip, limiter overlap. Included by selftest.cpp.
 static volatile DWORD g_hcFakeAns;
 static volatile LONG g_hcFakeCalls;
-static DWORD __cdecl HcFakeDoor(DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD) {
+// docs/585 §9: what ts3fixes' callback hook sends for an "unlocked" answer: 3 = doorgen vouches (sub 3), 4 = it does not
+// (sub 4), 0 = no note (an older package), 5 = a note for another ask (sub 3 with a different hash)
+static volatile DWORD g_hcFakeNote = 3;
+static DWORD __cdecl HcFakeDoor(DWORD, DWORD, DWORD simLo, DWORD simHi, DWORD portalLo, DWORD portalHi, DWORD from, DWORD to, DWORD) {
     InterlockedIncrement(&g_hcFakeCalls);
+    const DWORD n = g_hcFakeNote, h = DsNoteHash(portalLo, portalHi, simLo, simHi, from & 0xFFFF, to & 0xFFFF);
+    if (g_hcFakeAns == 2 && n) DmxScriptOp(n == 5 ? h + 1 : h, n == 5 ? 3 : n);
     return g_hcFakeAns;
 }
 static DWORD HcAsk(DWORD lot, DWORD roomJunk = 0) {
@@ -25,7 +30,7 @@ static void TestHostCalls() {
                   offsetof(Ts3nCounters, hcOtherCalls) == 0x40DC && offsetof(Ts3nCounters, hcDoorQ) == 0x40E0 &&
                   offsetof(Ts3nCounters, hcDoorRepeatJobWaitUs) == 0x40E8 && offsetof(Ts3nCounters, hcDoorFull) == 0x40F8 &&
                   offsetof(Ts3nCounters, dmHits) == 0x4100 && offsetof(Ts3nCounters, dmFb) == 0x4108 &&
-                  offsetof(Ts3nCounters, dmMismatch) == 0x411C && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, dmMismatch) == 0x411C && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v96 layout after v93 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);

@@ -32,10 +32,63 @@ static DWORD WINAPI AuWorker(void*) {
     return 0;
 }
 
+static void DmxReset() {
+    if (g_dmx != g_dmx0) HeapFree(GetProcessHeap(), 0, g_dmx);
+    g_dmx = g_dmx0, g_dmxCap = 256, g_dmxI = 0, g_dmxMax = 4096;
+    memset(g_dmx0, 0, sizeof(g_dmx0));
+}
+// docs/321 M11 lane C: live rows are never evicted below the ceiling; every answer equals the newest put of the key
+static void TestDoorMemoXGrow() {
+    const LONGLONG ticksSave = g_dmxTicks;
+    DmxReset();
+    g_dmxTicks = 1000000;
+    auto key = [](DWORD i, DWORD* k) { for (int j = 0; j < 9; j++) k[j] = i * 31 + j; };
+    DWORD kk[9];
+    bool stale;
+    // under-cap equality: a random put stream over 40 keys answers like a list of every put (newest of the key)
+    struct Put { DWORD id; LONG gen; LONGLONG t; };
+    static Put all[3000];
+    DWORD rng = 12345;
+    for (int i = 0; i < 3000; i++) {
+        rng = rng * 1103515245u + 12345u;
+        all[i] = {(rng >> 8) % 40, (LONG)((rng >> 20) & 3), 1000 + i};
+        key(all[i].id, kk);
+        DmxPut(kk, 2, all[i].gen, 0, all[i].t);
+        for (DWORD q = 0; q < 40; q += 7) {
+            const Put* ref = NULL;
+            for (int j = i; j >= 0 && !ref; j--) if (all[j].id == q) ref = &all[j];
+            key(q, kk);
+            const DmxRow* r = DmxFind(kk, ref ? ref->gen : 0, 0, all[i].t, &stale);
+            assert(ref ? r && r->t == ref->t && !stale : !r && !stale);
+        }
+    }
+    assert(g_dmxCap == 256);  // 40 keys: one row each, no growth
+    // 300 live keys: the table doubles, no live row lost, no cap-full
+    DmxReset();
+    g_dmxTicks = 1000000;
+    const LONG full0 = ts3native_caps.r[CAP_DMX].full;
+    for (DWORD i = 0; i < 300; i++) key(1000 + i, kk), DmxPut(kk, 2, 7, 0, 5000 + i);
+    assert(g_dmxCap == 512 && ts3native_caps.r[CAP_DMX].full == full0);
+    for (DWORD i = 0; i < 300; i++) key(1000 + i, kk), assert(DmxFind(kk, 7, 0, 6000, &stale) && !stale);
+    // a dead row is reused before any growth
+    g_dmxTicks = 100;
+    key(5000, kk), DmxPut(kk, 2, 7, 0, 9000);
+    assert(g_dmxCap == 512 && DmxFind(kk, 7, 0, 9000, &stale));
+    // ceiling: live rows past g_dmxMax evict in ring order (as the old ring did) and count
+    DmxReset();
+    g_dmxTicks = 1000000, g_dmxMax = 512;
+    for (DWORD i = 0; i < 600; i++) key(2000 + i, kk), DmxPut(kk, 2, 7, 0, 5000 + i);
+    assert(g_dmxCap == 512 && ts3native_caps.r[CAP_DMX].full == full0 + 88);
+    key(2599, kk), assert(DmxFind(kk, 7, 0, 6000, &stale));
+    DmxReset();
+    g_dmxTicks = ticksSave;
+    printf("DoorMemoX table (docs/321 M11): under-cap answers = newest put of the key, 300 live keys grow 256 -> 512 (no "
+           "live row lost), dead row reused first, ceiling evicts in ring order + counts ok\n");
+}
 static void TestAskLent() {
     static_assert(offsetof(Ts3nCounters, auMode) == 0x4FFC && offsetof(Ts3nCounters, auStaleAfter) == 0x500C &&
                       offsetof(Ts3nCounters, dmxMode) == 0x5014 && offsetof(Ts3nCounters, dmxMismatch) == 0x5028 &&
-                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6112 * 4,
+                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v126 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -146,13 +199,19 @@ static void TestAskLent() {
     g_dmxTicks = g_qpf.QuadPart / 4;  // 250 ms
     g_dmxDelegate = NULL;
     k.dmxMode = 1, g_dmxLast = 0;
+    t_hcScope = 2;  // an unseen job: the memo may answer it (household rule cases below)
     LONG c0 = g_hcFakeCalls;
     t_hcJob = 10, g_hcFakeAns = 2;
+    t_jobDoor = JobDoor();  // docs/183 §8: the job's asks for its "routefail job:" text (the worker clears it per job)
     assert(HcAsk(400) == 2 && k.dmxClear == 1 && k.dmxMiss == 1 && g_hcFakeCalls == c0 + 1);  // flip clears, miss, kept
+    assert(t_jobDoor.asks == 1 && t_jobDoor.live == 1 && !t_jobDoor.locked && t_jobDoor.nativeLocked == 1);
     t_hcJob = 11, g_hcFakeAns = 1;
     assert(HcAsk(400) == 2 && HcAsk(400, 0x77770000) == 2 && k.dmxHit == 2 && g_hcFakeCalls == c0 + 1);  // other job: memo
+    assert(t_jobDoor.asks == 3 && t_jobDoor.live == 1 && !t_jobDoor.locked);  // a memo answer is an ask, not a live one
     t_hcJob = 12;
     assert(HcAsk(401) == 1 && k.dmxMiss == 2);  // "locked": asked, not kept
+    assert(t_jobDoor.asks == 4 && t_jobDoor.live == 2 && t_jobDoor.locked == 1 && t_jobDoor.first[0] == 9 && !t_jobDoor.first[1] &&
+           t_jobDoor.first[2] == 3 && t_jobDoor.first[3] == 4 && t_jobDoor.first[4] == 1);  // the first locked: portal 9, rooms 3 > 4
     t_hcJob = 13;
     assert(HcAsk(401) == 1 && k.dmxMiss == 3 && g_hcFakeCalls == c0 + 3);
     k.snIc[14]++;  // SetPortalLockStatus: the row no longer holds
@@ -181,6 +240,17 @@ static void TestAskLent() {
     t_hcJob = 19;
     assert(HcAsk(403) == 2 && k.dmxInval == 5);
     g_dmxTicks = g_qpf.QuadPart / 4;
+    // docs/585 §8: the routing ICs outside 4-14 that change rooms, door locks or lots move the generation too
+    static const int kGenIc[] = {16, 22, 24, 29, 30, 31, 32};
+    t_hcJob = 100;
+    for (int ic : kGenIc) {
+        t_hcJob++, g_hcFakeAns = 2;
+        assert(HcAsk(404) == 2);  // kept under the current generation
+        const LONG inv = k.dmxInval;
+        k.snIc[ic]++;
+        t_hcJob++, g_hcFakeAns = 1;
+        assert(HcAsk(404) == 1 && k.dmxInval == inv + 1);  // the row no longer holds: live ask
+    }
     // shadow: the flip clears, valid rows asked anyway and compared
     k.dmxMode = 2;
     t_hcJob = 20, g_hcFakeAns = 2;
@@ -203,10 +273,105 @@ static void TestAskLent() {
     t_snapRun = 0;
     g_workerTid = me + 7;
     assert(HcAsk(500) == 2 && g_hcFakeCalls == c0 + 2);
+    g_workerTid = me;
+    // household rule (DoorMemoX=3, armed): a valid row for key 600, kept by an unseen job. Household and selected Sims (ts3fixes
+    // op 10 = scope 1) and unknown scope (0, no answer) always get the live ask; a seen NPC (3) and an unseen Sim (2) take the memo
+    const LONG sArmed = ts3native_doorgen.armed;
+    ts3native_doorgen.armed = 1, k.dmxMode = 3;
+    t_hcScope = 2, t_hcJob = 30, g_hcFakeAns = 2;
+    assert(HcAsk(600) == 2);  // the flip to mode 3 clears; asked, kept
+    const LONG ex0 = ts3native_doorgen.exempt, hit0 = k.dmxHit;
+    static const LONG kLive[] = {1, 1, 0};  // household, selected, unknown
+    for (LONG s : kLive) {
+        t_hcScope = s, t_hcJob++, g_dmxSelf = 0;
+        c0 = g_hcFakeCalls;
+        assert(HcAsk(600) == 2 && g_hcFakeCalls == c0 + 1 && k.dmxHit == hit0);
+    }
+    assert(ts3native_doorgen.exempt == ex0 + 3);
+    static const LONG kMemo[] = {3, 2};  // seen NPC, unseen
+    for (LONG s : kMemo) {
+        t_hcScope = s, t_hcJob++, g_dmxSelf = 0, g_hcFakeAns = 1;
+        c0 = g_hcFakeCalls;
+        assert(HcAsk(600) == 2 && g_hcFakeCalls == c0 && ts3native_doorgen.exempt == ex0 + 3);
+    }
+    assert(k.dmxHit == hit0 + 2);
+    // docs/271 [Experimental] HouseholdToo=1: household, selected and unknown scope take the memo as a seen NPC does, each counted
+    // once (hhTooLift); unseen and seen-NPC asks are not counted; flag back off = live asks again (the stale-row case below)
+    g_hhToo = 1;
+    const LONG lift0 = k.hhTooLift;
+    for (LONG s : kLive) {
+        t_hcScope = s, t_hcJob++, g_dmxSelf = 0, g_hcFakeAns = 1;
+        c0 = g_hcFakeCalls;
+        assert(HcAsk(600) == 2 && g_hcFakeCalls == c0 && ts3native_doorgen.exempt == ex0 + 3);
+    }
+    assert(k.hhTooLift == lift0 + 3 && k.dmxHit == hit0 + 5);
+    t_hcScope = 3, t_hcJob++, g_dmxSelf = 0;
+    assert(HcAsk(600) == 2 && k.hhTooLift == lift0 + 3);
+    g_hhToo = 0;
+    assert(HhExempt(true) && !HhExempt(false) && k.hhTooLift == lift0 + 3);
+    // the sim's answer changed: a household Sim still gets it live (vanilla), and the stale row turns the memo off
+    t_hcScope = 1, t_hcJob++, g_hcFakeAns = 1;
+    assert(HcAsk(600) == 1 && k.dmxMode == 0);
+    // hhsearch-sv-1116: a lot with a privacy / mod door handler (op 36 sub 1) skips the memo: no hit, nothing kept, no compare,
+    // so an answer that follows the asking Sim's interaction never turns the memo off; sub 2 frees it, arm (lo 1) clears all
+    k.dmxMode = 3, t_hcScope = 2, g_hcFakeAns = 2;
+    t_hcJob++, g_dmxSelf = 0;
+    assert(HcAsk(700) == 2);  // flip clears, kept
+    const LONG held0 = ts3native_doorgen.held, mm0 = k.dmxMismatch;
+    assert(DmxScriptOp(700, 1) == 1 && DmxHeld(700) && !DmxHeld(701) && !DmxHeld(0));
+    t_hcJob++, g_dmxSelf = 0, g_hcFakeAns = 1;
+    c0 = g_hcFakeCalls;
+    assert(HcAsk(700) == 1 && g_hcFakeCalls == c0 + 1 && k.dmxMode == 3 && k.dmxMismatch == mm0 && ts3native_doorgen.held == held0 + 1);
+    t_hcJob++, g_hcFakeAns = 2;
+    assert(HcAsk(700) == 2 && g_hcFakeCalls == c0 + 2);  // not kept: the next ask is live too
+    assert(DmxScriptOp(700, 2) == 1 && !DmxHeld(700));
+    t_hcJob++;
+    assert(HcAsk(700) == 2 && g_hcFakeCalls == c0 + 3);  // free again: a miss, kept
+    t_hcJob++, g_dmxSelf = 0;
+    assert(HcAsk(700) == 2 && g_hcFakeCalls == c0 + 3);  // memo hit
+    for (DWORD l = 1; l <= 33; l++) DmxHoldSet(0x9000 + l, true);  // overflow: every lot held
+    assert(DmxHeld(700) && DmxHeld(0));
+    assert(DmxScriptOp(1, 0) == 1 && !DmxHeld(700) && !DmxHeld(0x9001));  // arm clears
+    // docs/585 §9 (Becca Bijou, the bouncer of The Prosper Room, at a single-gender door whose answer follows the venue's
+    // opening hours): an "unlocked" answer is kept only with the ask's own sub 3 note. Not vouched for (sub 4), no note, or a
+    // note for another ask: live, not kept, so the next job asks live too and a later "locked" answer meets no stale row
+    static const DWORD kNoKeep[] = {4, 0, 5};
+    DWORD lot = 800;
+    for (DWORD n : kNoKeep) {
+        const LONG un0 = ts3native_doorgen.unnoted, mm1 = k.dmxMismatch;
+        g_hcFakeNote = n, g_hcFakeAns = 2, t_hcJob++, g_dmxSelf = 0;
+        c0 = g_hcFakeCalls;
+        assert(HcAsk(lot) == 2 && g_hcFakeCalls == c0 + 1 && ts3native_doorgen.unnoted == un0 + 1);
+        g_hcFakeAns = 1, t_hcJob++, g_dmxSelf = 0;  // 25 ms later the venue opened: "locked"
+        assert(HcAsk(lot) == 1 && g_hcFakeCalls == c0 + 2 && k.dmxMismatch == mm1 && k.dmxMode == 3);
+        lot++;
+    }
+    // vouched for (sub 3): kept, the next job's ask is a memo hit; a "locked" answer sends no note and counts nothing here
+    g_hcFakeNote = 3, g_hcFakeAns = 2, t_hcJob++, g_dmxSelf = 0;
+    c0 = g_hcFakeCalls;
+    const LONG un1 = ts3native_doorgen.unnoted;
+    assert(HcAsk(lot) == 2 && g_hcFakeCalls == c0 + 1);
+    t_hcJob++, g_dmxSelf = 0;
+    assert(HcAsk(lot) == 2 && g_hcFakeCalls == c0 + 1 && ts3native_doorgen.unnoted == un1);
+    g_hcFakeAns = 1, t_hcJob++;
+    assert(HcAsk(lot + 1) == 1 && ts3native_doorgen.unnoted == un1);
+    // test-only DoorMemoXCheckEvery=1: a valid row is never answered from, every one is asked live and compared
+    g_hcFakeAns = 2, g_dmxEvery = 1;
+    const LONG sh0 = k.dmxShadow, hit2 = k.dmxHit;
+    c0 = g_hcFakeCalls;
+    for (int i = 0; i < 3; i++) t_hcJob++, assert(HcAsk(lot) == 2);
+    assert(g_hcFakeCalls == c0 + 3 && k.dmxShadow == sh0 + 3 && k.dmxHit == hit2);
+    g_dmxEvery = 8;
+    // op 36 hi 5-7: the §9 writer hooks are counted apart, the generation does not move (their source bump does)
+    { const LONG w0 = ts3native_doorgen.writers[0], w2 = ts3native_doorgen.writers[2], gen = ts3native_doorgen.gen;
+      DmxScriptOp(0, 5), DmxScriptOp(0, 7), DmxScriptOp(0, 7);
+      assert(ts3native_doorgen.writers[0] == w0 + 1 && ts3native_doorgen.writers[2] == w2 + 2 && ts3native_doorgen.gen == gen); }
+    g_hcFakeNote = 3;
+    ts3native_doorgen.armed = sArmed, t_hcScope = 0;
     k.dmxMode = 0;
     t_hcJob = 0;
     g_workerTid = sWorker, g_invJob = sInv, k.dmMode = sDm, g_hcOn = sOn, g_hcDoorJmp = sDoorJmp;
-    memset(g_dmx, 0, sizeof(g_dmx));
+    DmxReset();
     g_dmxLast = 0;
     VirtualFree(code, 0, MEM_RELEASE);
     memset((u8*)&k + v126, 0, sizeof(Ts3nCounters) - v126);

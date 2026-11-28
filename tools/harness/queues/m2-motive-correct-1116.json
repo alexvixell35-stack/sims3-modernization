@@ -1,0 +1,243 @@
+{
+  "note": "REPINNED 11-17 to ts3native.asi.hotres2-1117 (0.36.273-hotres2 on master: gchold2 set + YRows + HotReserve), ini hotres2-1117, ts3fixes dalexlol-1117b. m2-motive-correct-1116 (PREPARED, NOT RUN; RUN FIRST for M2: the timing queue depends on it; correctness class, docs/537 §31): M2 = [MonoJit] YRows=1 compiles Motive.UpdateMotiveWithDecay (two finally clauses; class Y only through the BabySwing InSwingPosture / WalkerClassic InWalkerPosture overrides, which are unlisted, so their call sites exit to EA). BP then IP, 10 min each, Mode=2 (every other listed method verified 1 in 16; the clause method itself is not verifiable, its calls run inside verified callers) + Count=1. Pass: no crash, script errors 0, OK line YRows=1 read back, the method compiled, a jitcount yrow line with entries > 0, jitMismatch 0, jitFaults 0. Household: the compiled body is exact for every Sim (host corpus case 251 + the yield task, docs/537 §31), so household untouched = jitMismatch 0 + jitFaults 0 + script errors 0, as for every JIT queue. Read: the jitcount yrow line, and node tools/jit-hot.ts --game-count <job>/ts3native.log --method Motive.UpdateMotiveWithDecay (exits by opcode; jitexit rows can be cut by the 4000-line cap, the yrow line is not). Stop rule input: other exits per entry; the host count is ~19 (callvirt 11, call 4.6), far above jit-hot's 0.1 veto, so a game number near that means the timing queue is skipped and M2 parks. Run: node tools/harness/queue.ts tools/harness/queues/m2-motive-correct-1116.json --no-smoke (~2 x 15 min). Game: Apex + bridge (Bin state apex).",
+  "jobs": [
+    {
+      "id": "bp-m2-motive-correct",
+      "asi": "game-copy/ts3native.asi.hotres2-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.hotres2-1117 (0.36.273-hotres2: master 0.36.272-gchold2 set + [MonoJit] YRows (default 0) + HotReserve (default 1), docs/537 §31-32) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-BP-Spring",
+      "note": "BP 10 min, YRows=1, Mode=2, Count=1: correctness + exit count of Motive.UpdateMotiveWithDecay",
+      "logRequire": {
+        "^ts3native 0\\.36\\.273-hotres2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=2, .*Count=1, .*YRows=1$": 1,
+        "^jit: compiled ": 1,
+        "^jit: compiled .*Motive\\.UpdateMotiveWithDecay \\(": 1,
+        "^jitcount yrow .*Motive\\.UpdateMotiveWithDecay: entries [1-9]": 1,
+        "^jitcount: end ": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.Count": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.273-hotres2 ": {
+          "match": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=2, .*Count=1, .*YRows=1$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled .*Motive\\.UpdateMotiveWithDecay \\(": {
+          "match": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotive (300 words, 90 positions)",
+            "jit: Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay refused: not listed (#1 of this reason)"
+          ]
+        },
+        "^jitcount yrow .*Motive\\.UpdateMotiveWithDecay: entries [1-9]": {
+          "match": [
+            "jitcount yrow Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: entries 5120, ret exits 4900, other exits 97000, exit sites taken 90, call-exit sites taken 83"
+          ],
+          "noMatch": [
+            "jitcount yrow Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: entries 0, ret exits 0, other exits 0, exit sites taken 0, call-exit sites taken 0"
+          ]
+        },
+        "^jitcount: end ": {
+          "match": [
+            "jitcount: end exit #3, 4000 lines, 812 left out (cap 4000)"
+          ],
+          "noMatch": [
+            "jitcount: begin exit #3, 5463 methods, 9000 exit sites, 300 call sites, 12 mat rows"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-m2-motive-correct",
+      "asi": "game-copy/ts3native.asi.hotres2-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.hotres2-1117 (0.36.273-hotres2: master 0.36.272-gchold2 set + [MonoJit] YRows (default 0) + HotReserve (default 1), docs/537 §31-32) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-IP-Spring",
+      "note": "IP 10 min, YRows=1, Mode=2, Count=1: correctness + exit count of Motive.UpdateMotiveWithDecay",
+      "logRequire": {
+        "^ts3native 0\\.36\\.273-hotres2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=2, .*Count=1, .*YRows=1$": 1,
+        "^jit: compiled ": 1,
+        "^jit: compiled .*Motive\\.UpdateMotiveWithDecay \\(": 1,
+        "^jitcount yrow .*Motive\\.UpdateMotiveWithDecay: entries [1-9]": 1,
+        "^jitcount: end ": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.Count": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.273-hotres2 ": {
+          "match": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=2, .*Count=1, .*YRows=1$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled .*Motive\\.UpdateMotiveWithDecay \\(": {
+          "match": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotive (300 words, 90 positions)",
+            "jit: Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay refused: not listed (#1 of this reason)"
+          ]
+        },
+        "^jitcount yrow .*Motive\\.UpdateMotiveWithDecay: entries [1-9]": {
+          "match": [
+            "jitcount yrow Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: entries 5120, ret exits 4900, other exits 97000, exit sites taken 90, call-exit sites taken 83"
+          ],
+          "noMatch": [
+            "jitcount yrow Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: entries 0, ret exits 0, other exits 0, exit sites taken 0, call-exit sites taken 0"
+          ]
+        },
+        "^jitcount: end ": {
+          "match": [
+            "jitcount: end exit #3, 4000 lines, 812 left out (cap 4000)"
+          ],
+          "noMatch": [
+            "jitcount: begin exit #3, 5463 methods, 9000 exit sites, 300 call sites, 12 mat rows"
+          ]
+        }
+      }
+    }
+  ]
+}

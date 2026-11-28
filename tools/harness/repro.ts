@@ -44,12 +44,12 @@ if (cmd === 'run-many') {
   }
   if (!batch.length) { console.error('no matching entries'); process.exit(2); }
   if (later.length) console.log(`not in this batch (same place, Sim or another save): ${later.join(', ')}`);
-  const counters = batch.filter(e => e.watch.kind === 'counter' || e.watch.kind === 'native');
+  const counters = batch.filter(e => e.watch?.kind === 'counter' || e.watch?.kind === 'native');
   if (counters.length) console.log(`counter / native watches run separately: ${counters.map(e => e.id).join(', ')}`);
-  const stuckOnes = batch.filter(e => e.watch.kind !== 'counter' && e.watch.kind !== 'native');
+  const stuckOnes = batch.filter(e => e.watch?.kind !== 'counter' && e.watch?.kind !== 'native');
   r = { id: stuckOnes.map(e => e.id).join('+'), bug: `${stuckOnes.length} repros together`, fix: '-', save: batch[0].save,
     steps: stuckOnes.flatMap(e => e.steps ?? []),
-    watch: { kind: 'stuck', sims: stuckOnes.flatMap(e => e.watch.sims ?? []), minutes: Math.max(...stuckOnes.map(e => e.watch.minutes)) },
+    watch: { kind: 'stuck', sims: stuckOnes.flatMap(e => e.watch?.sims ?? []), minutes: Math.max(0, ...stuckOnes.map(e => e.watch?.minutes ?? 0)) },
     expect: 'every repro passes' };
 } else r = LIB.find(x => x.id === id);
 if ((cmd !== 'run' && cmd !== 'run-many') || !r) { console.error('usage: repro.ts list | run <id> | run-many <id,id,...> [--no-load] [--set ...]'); process.exit(2); }
@@ -122,6 +122,7 @@ for (const s of r.steps ?? []) {
   if (s.waitS) await sleep(s.waitS * 1000);
   // "until": poll an agent command until every condition holds (fail-fast: give up after maxS with a FAIL), e.g. the
   // warm-up waits for temperature instead of a fixed time and the save step for save_in_progress false (2026-10-17);
+  // "hollow": "<text>": a timed-out poll says the condition under test never happened (FAIL: hollow repro: <text>)
   // "failOn": "<path>": a truthy value there is a FAIL at once (the wrong outcome is already known, e.g. compat_visit_status failed)
   if (s.until) {
     const u = s.until, t0 = Date.now(), get = (o: any, path: string) => path.split('.').reduce((x, k) => x?.[k], o);
@@ -133,7 +134,7 @@ for (const s of r.steps ?? []) {
       const why = await guard();
       if (why) await fail(`${stamp()} FAIL: ${why}`);
       if (u.failOn && get(last?.result, u.failOn)) await fail(`${stamp()} FAIL: ${s.cmd} ${u.failOn}: ${JSON.stringify(last.result).slice(0, 400)}`);
-      if (Date.now() - t0 > (u.maxS ?? 300) * 1000) await fail(`${stamp()} FAIL: ${s.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify(show(last?.result, u.show) ?? last?.error).slice(0, u.show ? 1200 : 200)}`);
+      if (Date.now() - t0 > (u.maxS ?? 300) * 1000) await fail(`${stamp()} FAIL: ${u.hollow ? `hollow repro: ${u.hollow}; ` : ''}${s.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify(show(last?.result, u.show) ?? last?.error).slice(0, u.show ? 1200 : 2000)}`); // 2000: a timed-out poll keeps the whole state (travel_state travel_phase / inworld_post_init were cut at 200)
       await sleep((u.everyS ?? 5) * 1000);
     }
     console.log(`${stamp()}   until met after ${((Date.now() - t0) / 1000).toFixed(0)} s: ${JSON.stringify(show(last.result, u.show)).slice(0, u.show ? 1200 : 160)}`);

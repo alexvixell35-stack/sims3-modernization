@@ -1,0 +1,66 @@
+{
+ "note": "deadref-pause-correct-1123 (docs/205 §2.3b, WRITTEN, not run): correctness of the dead-ref sweep pause gate on ts3fixes.package.pausegate1 (bugfix/deadref-pause-gate-1123): master set m1123 asi + ini (0.36.299-m1123, no native change), release defaults (deadrefsweep + deadrefcadence ON). Bin state apex (Apex latest + RTX Remix bridge). Correctness only, no timing. Est ~15 min.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-deadref-pause-cas-buy",
+   "note": "[est 15 min] Repro pause-cas-buy-check (BP 10 min, release defaults). Pass: every mustMatch step holds: sweep started while paused, after 60 s paused slices +0 / passes +0 / refused +0 / pausedwaits > 0 / task alive; after the unpause the same pass completes (passes +1, refused +0); in CAS and in Buy/Build slices +0 and passes +0; ScriptErrors 0; household untouched (every pausestate step must read 'household N->N' for the active household's member count, and the last one '| safe' = no active member invalid; the save guard keeps Baseline-BP unchanged). FAIL with slices > 0 while paused = the gate missed a path.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.pausegate1",
+   "pinReason": "bugfix/deadref-pause-gate-1123 (docs/205 §2.3b): master set m1123 asi + ini with ts3fixes.package.pausegate1 (m1123 master source + SimFrozenOrNotLive gate, DrWaitWhileFrozen, ufloopbreak wait, DeadRefCheck pausemark/pausestate); agent: master m1123 (no new counter names; the repro reads its counters through DeadRefCheck)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "pause-cas-buy-check",
+     "fixesOn": "deadrefsweep,deadrefcadence"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.299-m1123 ": {
+     "match": [
+      "ts3native 0.36.299-m1123 2026-11-23 05:16:37"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 06:55:20",
+      "ts3native 0.36.299-pausegate1 2026-11-23 20:00:00"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+     ]
+    }
+   }
+  }
+ ]
+}

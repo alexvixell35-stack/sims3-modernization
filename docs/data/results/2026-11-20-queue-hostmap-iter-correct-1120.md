@@ -1,0 +1,10 @@
+# Queue hostmap-iter-correct-1120 2026-11-20
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/hostmap-iter-correct-1120-2026-11-20.jsonl`.
+
+## 2026-11-20T12:47 UTC, build 8be312afc, jobs bp-hostmapiter-on, bp-hostmapiter-off
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-hostmapiter-on | 12:47 (20:47) | 13.3 | PASS | PASS: profile 10 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->1, owspread_types_run 0->20, etspread_passes 0->1; ts3fixes stuckcheckasync: not reached (easpread_lots_passes rose 0: the 3 AM venue cleanup had not armed the stuck checks yet)<br>PASS: repro events fired<br>PASS: no forbidden log lines<br>PASS: 0 new script errors (max 0, 1 known EA ignored) | 0 | 1717.1/1650.9/1747.5 -> 1827.7/1641.8/1727.4 | - | timing: invalid (job VOID: runInvalid: noisy machine (others 35.0% of game CPUs); noise high); build: asi 165dc3e3a583 ts3native.asi.hostmapiter-1120 ts3native 0.36.295-hostmapiter1 (log ok); ts3fixes tuning 96f496b7d197 ts3fixes.package.m1120n/ts3fixes.package.m1120t (expected build/ts3fixes.package); noise: high (other apps 41.6% of game CPUs); others on game CPUs 41.6% [cut: full row in the jsonl]<br>sim ms/s 110.9; p99 <50 ms, p99.9 <50, max 273, >=300 0, >=1000 0 (3.2 min) |
+| bp-hostmapiter-off | 13:01 (21:01) | 1.4 | **CRASH** | PASS: repro events fired<br>PASS: no forbidden log lines<br>PASS: 0 new script errors (max 0) | - | ? -> ? | - | timing: invalid (job FAIL: crash: xcpt <pc> 26-11-20 21.02.15.txt; noise high); build: asi 165dc3e3a583 ts3native.asi.hostmapiter-1120 ts3native 0.36.295-hostmapiter1; ts3fixes tuning 96f496b7d197 ts3fixes.package.m1120n/ts3fixes.package.m1120t (expected build/ts3fixes.package); noise: high (other apps 25.8% of game CPUs); others on game CPUs 25.8%; clock avg/min 3632/3632 MHz [cut: full row in the jsonl] |

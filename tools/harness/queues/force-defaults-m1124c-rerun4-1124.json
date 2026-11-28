@@ -1,0 +1,87 @@
+{
+  "note": "force-defaults-m1124c-rerun4-1124 (2026-11-24): lineswitch-force only, set m1124c. rerun3 (chain-m1124c-fd3) hollow: Judy teleported next to the cheap toilet while Lisa was on it, EA privacy pushed TurnToFaceAndAskToLeave on Lisa and a locked Ask to Leave Home ahead of Judy's Use, no line (plans 0). Fix bugfix/lineswitch-race-1124: no teleport, Judy walks from the mailbox.",
+  "rewind": "off",
+  "stopQueueOnFail": false,
+  "regexCases": {},
+  "jobs": [
+    {
+      "id": "lineswitch-force",
+      "note": "[est 12 min] Release defaults (no ini or switch overrides; only the repro's log switches): kLineSwitch on, kLineSwitchHh off, read back in the ts3fixes settings line. Repro lineswitch-force-defaults: the forced case is a household Sim, so the exemption must hold and the switch must still see it (counters lineswitch_kept>=1,lineswitch_switched<1,lineswitch_errors<1). 0 script errors. rerun2: aging off first (Lisa Bunch has her birthday on day 15: Have Birthday / Birthday Party pushes blocked the line) and the setup polls Judy's menu until Use is enabled (60 s cap) instead of a fixed 8 s. rerun2b: the kept line is logged as \"ts3fixes: lineswitch: kept, ...\" (userdiag.cpp logs every ts3fixes DiagLine with that prefix), so the logRequire carries it. rerun3: only Lisa at the cheap toilet (selected), Jack at the moderate one, Judy at the mailbox, then polls: Lisa on the toilet (45 s), LineSwitch planned for the waiting Sim (90 s); a timeout prints FAIL: hollow repro. Window 8 min for the polls. rerun4: Judy walks from the mailbox (rerun3 teleported her into the occupied bathroom: EA privacy, Lisa TurnToFaceAndAskToLeave, locked Ask to Leave Home ahead of Judy's Use, plans 0); plans poll 150 s, window 10 min.",
+      "asi": "game-copy/ts3native.asi.m1124c",
+      "iniBase": "game-copy/ts3native.ini.m1124c",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124c",
+      "pinReason": "final RC set m1124c (merge/m1124c 705b33b87; asi d03869b4f9bf = 0.36.303-m1124b bytes, ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 hookflat, agent 891a73c45f1a); Dalexlol #715 lineswitch, #716 reactoverlay ON",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.303-m1124b ": 1,
+        "^ts3fixes: settings on: (.*, )?kLineSwitch(, |$)": 1,
+        "^ts3fixes: lineswitch: kept, household without lineswitchhh: household Judy Bunch, ": 1
+      },
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10,
+          "repro": "lineswitch-force-defaults",
+          "fixesRequire": "lineswitch_kept>=1,lineswitch_switched<1,lineswitch_errors<1"
+        }
+      },
+      "timeoutMin": 20,
+      "regexCases": {
+        "^ts3native 0\\.36\\.303-m1124b ": {
+          "match": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        },
+        "^ts3fixes: settings on: (.*, )?kLineSwitch(, |$)": {
+          "match": [
+            "ts3fixes: settings on: kAgeUpAbort, kLineSwitch, kZzz",
+            "ts3fixes: settings on: kLineSwitch"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kLineSwitchHh, kZzz",
+            "ts3fixes: settings on: kLineSwitchLog",
+            "ts3fixes: settings off: kLineSwitch"
+          ]
+        },
+        "^ts3fixes: settings on: (.*, )?kLineSwitchHh(, |$)": {
+          "match": [
+            "ts3fixes: settings on: kAgeUpAbort, kLineSwitchHh, kZzz",
+            "ts3fixes: settings on: kLineSwitchHh"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kLineSwitchHhHh, kZzz",
+            "ts3fixes: settings on: kLineSwitchHhLog",
+            "ts3fixes: settings off: kLineSwitchHh"
+          ]
+        },
+        "^ts3fixes: lineswitch: kept, household without lineswitchhh: household Judy Bunch, ": {
+          "match": [
+            "ts3fixes: lineswitch: kept, household without lineswitchhh: household Judy Bunch, UseToilet ToiletCheap, waited 4.9 sim-min"
+          ],
+          "noMatch": [
+            "ts3fixes: lineswitch: switched: household Judy Bunch, UseToilet ToiletCheap -> ToiletModerate (other room, 8.7 m, waited 2.0 sim-min)",
+            "ts3fixes: lineswitch: kept, player's action: household Lisa Bunch, UseToilet ToiletCheap, waited 2.1 sim-min",
+            "lineswitch: kept, household without lineswitchhh: household Judy Bunch, UseToilet ToiletCheap, waited 4.9 sim-min"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0,
+      "logForbid": {
+        "^ts3fixes: settings on: (.*, )?kLineSwitchHh(, |$)": 0
+      }
+    }
+  ]
+}

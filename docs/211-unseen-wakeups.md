@@ -109,3 +109,12 @@ node tools/harness/queue.ts tools/harness/queues/wake-probe.json
 node tools/harness/wake-report.ts wake-probe-<date>
 node tools/harness/queue.ts tools/harness/queues/wake-park-ab.json   (after the probe; drop pairs whose target is < ~2 ms/s)
 ```
+
+## 9. Recheck 2026-11-25: "waiting Sims update less often"
+
+Asked again as the RimWorld idea (tick Wait jobs at a fraction of the rate). No build; numbers from existing runs and code.
+
+- **Every script wait ends in one poll.** `SimQueue.WaitForTurn` loops `LoopIdle` + `WaitForExitReasonOnSim(1 sim-min)`; the portal lane wait and the elevator line loop `WaitForExitReason(0.25)` (`PortalComponent`); partner waits and most interaction sleep loops call `WaitForExitReason` too. Stand-and-wait (`StandAndWaitController`, `ObstacleEncounteredRouteInterruptAction`) is driven by its animation cycle (`wait_ping`), one script step per clip loop, not per tick. So `wakepoll` already is the waiting-Sim throttle: deadline-capped, woken by `AddExitReason`, never late.
+- **The A/B ran** (2026-11-01 `wake-park-ab`, 2026-11-02 `throttle-ms`, BP + IP, both orders): `wakepoll` was a null switch (~0 ms/s, docs/243 §B, docs/246 §3); `wakepark` -2.0 BP / -5.0 IP ms/s. That fits ~1 us per wake (wakepark's 11 of 12 removed SimUpdate wakes), so §6's 600-1,800 polls/s would be <= ~1.8 ms/s even if all were removed, and the A/B found less.
+- **Waits are rarer now.** Storm s562a (Bridgeport, 30 real min, the most crowded log): 1,841 logged wait sim-min (lane 1,244, line 546, stand 51), about 1-2 Sims waiting at a time; s570a 902, s590d 183, s592d 195. At 40-60 ticks/s that is ~40-120 polls/s, ~0.1 ms/s. `lineswitch`, `linestale`, `elevskip`, `sharelanes` and `standwaitfix` (docs/686) cut the waits themselves, which is where the time goes (sim-minutes of a Sim standing), not the poll.
+- **Verdict:** under the 1-2 ms/s bar, no new throttle; `wakepoll` stays parked (it already had its A/B). Counters 4840-4859 not used.

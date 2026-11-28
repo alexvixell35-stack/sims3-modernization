@@ -1,0 +1,226 @@
+{
+  "note": "hh-exempt-audit-correct-1118-rc-1119a (2026-11-19): hh-exempt-audit-correct-1118 repinned to the RC set rc-1119a (0.36.292-rc1119a) for chain-rc-1119a. [previous] hh-exempt-audit-correct-1118-rc-1118n (2026-11-18): hh-exempt-audit-correct-1118 repinned to the RC set rc-1118n (0.36.287-rc1118n, master 767d87408) for chain-rc-1118n. [source note] docs/289 household exemption audit, correctness (2026-11-18), NOT LAUNCHED: RC repro day. Build ts3fixes.package.hh-exempt-audit-1118b on the master native set. Job 1: BP 10 min on release defaults + woohootywait-check + serviceshowalarm-check (pass: no crash, 0 script errors, both FIXED on, errors 0, household Sims no reset / route FAIL / ScriptError). Job 2 (save matrix, also the gate of deadrefsweep default ON: a FAIL turns it off; deadrefconvo + ghostreactdeadsim now change SAVED data for household Sims): bp-deadrefs-saves with deadrefsweep + deadrefconvo + ghostreactdeadsim on (new save, overwrite twice, back-to-back, speed 3, reload first save, 60 s play); pass: every save loads, 0 script errors, household Sims unchanged except smaller dead-Sim lists. Run the full save matrix (worlds, travel save, byte compare vs off where it applies) from docs/205 before RC. Switch read-back: queue.ts checks the installed package tuningDigest against builds.json, which carries every default (bundle ON, hiddenroomspawn / residentspawnslot / ghostreactdeadsim ON). Open gate: no in-game household arm for hiddenroomspawn / residentspawnslot (selftest + HiddenRoomCheck fallback only). Run: node tools/harness/queue.ts tools/harness/queues/hh-exempt-audit-correct-1118.json --no-smoke SAVE-MATRIX BUNDLE (Rodney 11-18, default ON together, bundle first, per-switch only after a FAIL; a FAIL turns the culprit off): deadrefsweep, deadrefconvo, deadrefcooking, sarcmummynpc, spouseunlink (kSpouseUnlink), relremovesafe, familyinvghost, attractionalarm, plus ghostreactdeadsim. Jobs 2-6: BP, SV, IP, big save, cc-2k-v2 mods, release defaults. Also travel/vacation save and byte compare vs off per docs/205 by hand. NOT LAUNCHED.",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-hh-exempt-audit",
+      "note": "BP 10 min on release defaults + the two Check repros; counters reported.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] ts3fixes.package.hh-exempt-audit-1118b (feature/hh-exempt-audit-1118b, docs/289: managed only) on the master native set ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4) + its ini",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repros": [
+            "woohootywait-check",
+            "serviceshowalarm-check"
+          ],
+          "fixesReport": "exitcbsweep_"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "timeoutMin": 40,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-hh-exempt-save-matrix",
+      "note": "Save matrix, bundle, BP (the repro names the step list: new save, overwrite twice, back-to-back, speed 3, reload first save, 60 s).",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] ts3fixes.package.hh-exempt-audit-1118b (feature/hh-exempt-audit-1118b, docs/289: managed only) on the master native set ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4) + its ini",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "bp-deadrefs-saves"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "timeoutMin": 30,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-save-bundle-sv",
+      "note": "Save matrix, bundle, older save (SV world).",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] ts3fixes.package.hh-exempt-audit-1118b (feature/hh-exempt-audit-1118b, docs/289: managed only) on the master native set ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4) + its ini",
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "bp-deadrefs-saves"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "timeoutMin": 45,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-save-bundle-ip",
+      "note": "Save matrix, bundle, IP world.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] ts3fixes.package.hh-exempt-audit-1118b (feature/hh-exempt-audit-1118b, docs/289: managed only) on the master native set ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4) + its ini",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "bp-deadrefs-saves"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "timeoutMin": 45,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-save-bundle-big",
+      "note": "Save matrix, bundle, big save (long history).",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] ts3fixes.package.hh-exempt-audit-1118b (feature/hh-exempt-audit-1118b, docs/289: managed only) on the master native set ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4) + its ini",
+      "releaseDefaults": true,
+      "save": "BigSave-LR",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "bp-deadrefs-saves"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "timeoutMin": 45,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-save-bundle-cc",
+      "note": "Save matrix, bundle, with mods: synthetic cc-2k-v2 set.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] ts3fixes.package.hh-exempt-audit-1118b (feature/hh-exempt-audit-1118b, docs/289: managed only) on the master native set ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4) + its ini",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "bp-deadrefs-saves"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "timeoutMin": 45,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      },
+      "ccSet": "game-copy/cc-synth/cc-2k-v2"
+    }
+  ]
+}

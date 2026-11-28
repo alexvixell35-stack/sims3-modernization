@@ -1,0 +1,626 @@
+{
+ "note": "save-portability-1119-rc-1119a-rerun1-1119 (2026-11-19): whole queue again after rc-1119a sp-save-new FAILed on a counter line it could not see (the 60 s dump came before the world load; the job quits ~45 s after it). Fix: that line is no longer required by the two save jobs. Same jobs and order, RC set rc-1119a. save-portability-1119-rc-1119a (2026-11-19, repinned to RC set rc-1119a; arm E scratch save SavePort-Van-1119 instead of SgIdle). save-portability-1119 (2026-11-19, docs/293 §7): saves made while NPCs are parked mid-interaction (Baseline-BP-Spring diners in MetaRabbitHoleInteraction.Run), quit, reloaded under another set: A NEW->NEW, B NEW->old package, C old package->NEW, D NEW->no mods, E no mods->NEW. Correctness, not timing (run with --no-smoke). Scratch saves only (SavePort-New-1119, SavePort-OldPkg-1119, SavePort-Van-1119); the Baseline save is only loaded (save guard). Run the whole queue in order: --only/--from on a reload job reads whatever save of that name is on disk.",
+ "jobs": [
+  {
+   "id": "sp-save-new",
+   "note": "[docs/293 save step, NEW set] Baseline-BP-Spring (11:00, 5 diners parked in MetaRabbitHoleInteraction.Run at the vanilla word 118), new native + NEW ts3fixes (layout-moving swaps refused): quit-cycle.ts saves at once (--minutes 0) as SavePort-New-1119, quits to desktop; pass = save written, clean exit, no guard repair (vanilla layout), 0 script errors. Feeds arms A, B, D; stops the queue on FAIL so no reload job reads a missing or stale save.",
+   "asi": "game-copy/ts3native.asi.rc-1119a",
+   "pinReason": "[2026-11-19 rerun1: the 60 s counter line \"saved frame guard: N frames checked at load\" is dropped from the two save jobs: they quit ~45 s after the world load, before the next periodic counter dump (rc-1119a sp-save-new: the only dump came before the load and read 0). The 10 min reload jobs keep it; the guard being on is proven by the OK line, its load-time check by rc1119-smoke (561 frames on this save)] [repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+   "iniBase": "game-copy/ts3native.ini.rc-1119a",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-BP-Spring",
+   "ini": {
+    "EaCrashFixes.SavedFrameGuard": 1,
+    "MonoDiag.YieldDiag": 1
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.292-rc1119a ": 1,
+    "^OK   saved frame guard": 1,
+    "^OK   yield diag": 1
+   },
+   "logForbid": {
+    "ea fix: SavedFrameGuard:": 0,
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": 0
+   },
+   "scriptErrorsMax": 0,
+   "quitsGame": true,
+   "stopQueueOnFail": true,
+   "timeoutMin": 20,
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "0",
+     "--save-name",
+     "SavePort-New-1119",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.292-rc1119a ": {
+     "match": [
+      "ts3native 0.36.292-rc1119a 2026-11-19 03:20:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.290-sfguard1 2026-11-19 02:18:50",
+      "ts3native 0.36.289-mcname4 2026-11-19 02:20:00"
+     ]
+    },
+    "^OK   saved frame guard": {
+     "match": [
+      "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+     ],
+     "noMatch": [
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "^OK   yield diag": {
+     "match": [
+      "OK   yield diag: resume ips and repeat transforms are checked ([MonoDiag] YieldDiag=1, log only)"
+     ],
+     "noMatch": [
+      "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
+     ]
+    },
+    "ea fix: SavedFrameGuard:": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117",
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ],
+     "noMatch": [
+      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+     ]
+    },
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": {
+     "match": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 210, stack 0, vt off 0, words FFA9 00EA 001B 0079 | 0009 0024, ForceJIT byte 75 SUSPECT: the resume ip does not follow a call op"
+     ],
+     "noMatch": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 117 of 210, stack 0, vt off 0, words BFFF FFA9 00EA 001B | 0079 0009, ForceJIT byte 75"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sp-a-new-new",
+   "note": "[docs/293 arm A, control] SavePort-New-1119 reloaded under the NEW set, 10 min: diners resume at word 118 of 211 (the save holds them: anti-hollow), no guard line, no SUSPECT resume, no crash, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.rc-1119a",
+   "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+   "iniBase": "game-copy/ts3native.ini.rc-1119a",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "SavePort-New-1119",
+   "ini": {
+    "EaCrashFixes.SavedFrameGuard": 1,
+    "MonoDiag.YieldDiag": 1
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.292-rc1119a ": 1,
+    "^OK   saved frame guard": 1,
+    "^OK   yield diag": 1,
+    "^saved frame guard: [1-9]\\d* frames checked at load": 1,
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*Run: ip word 118 of 211,": 1
+   },
+   "logForbid": {
+    "ea fix: SavedFrameGuard:": 0,
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": 0
+   },
+   "scriptErrorsMax": 0,
+   "timeoutMin": 22,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 10
+    }
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.292-rc1119a ": {
+     "match": [
+      "ts3native 0.36.292-rc1119a 2026-11-19 03:20:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.290-sfguard1 2026-11-19 02:18:50",
+      "ts3native 0.36.289-mcname4 2026-11-19 02:20:00"
+     ]
+    },
+    "^OK   saved frame guard": {
+     "match": [
+      "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+     ],
+     "noMatch": [
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "^OK   yield diag": {
+     "match": [
+      "OK   yield diag: resume ips and repeat transforms are checked ([MonoDiag] YieldDiag=1, log only)"
+     ],
+     "noMatch": [
+      "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
+     ]
+    },
+    "^saved frame guard: [1-9]\\d* frames checked at load": {
+     "match": [
+      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+     ],
+     "noMatch": [
+      "saved frame guard: 0 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)",
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*Run: ip word 118 of 211,": {
+     "match": [
+      "yielddiag resume: state 48A8D700 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 211, stack 0, vt off 0, words BFFF FFA9 00EA 001C | 0079 0009, ForceJIT byte 75",
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 211, stack 0, vt off 0, words 0079 00EA 0029 0009 | 0024 006E, ForceJIT byte 75"
+     ],
+     "noMatch": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 210, stack 0, vt off 0, words FFA9 00EA 001B 0079 | 0009 0024, ForceJIT byte 75 SUSPECT: the resume ip does not follow a call op",
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 117 of 210, stack 0, vt off 0, words BFFF FFA9 00EA 001B | 0079 0009, ForceJIT byte 75"
+     ]
+    },
+    "ea fix: SavedFrameGuard:": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117",
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ],
+     "noMatch": [
+      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+     ]
+    },
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": {
+     "match": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 210, stack 0, vt off 0, words FFA9 00EA 001B 0079 | 0009 0024, ForceJIT byte 75 SUSPECT: the resume ip does not follow a call op"
+     ],
+     "noMatch": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 117 of 210, stack 0, vt off 0, words BFFF FFA9 00EA 001B | 0079 0009, ForceJIT byte 75"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sp-b-new-oldpkg",
+   "note": "[docs/293 arm B] SavePort-New-1119 reloaded under new native + the old ts3fixes package rc-1118n (visitcar hooks the inlined getter: Run is 210 words): the guard must set the diners to the call return at word 117, no stack dropped, no SUSPECT resume, no crash, 0 script errors, 10 min.",
+   "asi": "game-copy/ts3native.asi.rc-1119a",
+   "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1118n",
+   "iniBase": "game-copy/ts3native.ini.rc-1119a",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "SavePort-New-1119",
+   "ini": {
+    "EaCrashFixes.SavedFrameGuard": 1,
+    "MonoDiag.YieldDiag": 1
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.292-rc1119a ": 1,
+    "^OK   saved frame guard": 1,
+    "^OK   yield diag": 1,
+    "^saved frame guard: [1-9]\\d* frames checked at load": 1,
+    "SavedFrameGuard: .*MetaRabbitHoleInteraction.*set to the call return at word 117": 1
+   },
+   "logForbid": {
+    "SavedFrameGuard: .*stack is dropped": 0,
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": 0
+   },
+   "scriptErrorsMax": 0,
+   "timeoutMin": 22,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 10
+    }
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.292-rc1119a ": {
+     "match": [
+      "ts3native 0.36.292-rc1119a 2026-11-19 03:20:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.290-sfguard1 2026-11-19 02:18:50",
+      "ts3native 0.36.289-mcname4 2026-11-19 02:20:00"
+     ]
+    },
+    "^OK   saved frame guard": {
+     "match": [
+      "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+     ],
+     "noMatch": [
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "^OK   yield diag": {
+     "match": [
+      "OK   yield diag: resume ips and repeat transforms are checked ([MonoDiag] YieldDiag=1, log only)"
+     ],
+     "noMatch": [
+      "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
+     ]
+    },
+    "^saved frame guard: [1-9]\\d* frames checked at load": {
+     "match": [
+      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+     ],
+     "noMatch": [
+      "saved frame guard: 0 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)",
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "SavedFrameGuard: .*MetaRabbitHoleInteraction.*set to the call return at word 117": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 5 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117",
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+     ],
+     "noMatch": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 117 of 211 is inside an instruction (words 001B 0079 00EA 0029 | 0009 0024 006E 0009), set to the call return at word 118",
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ]
+    },
+    "SavedFrameGuard: .*stack is dropped": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ],
+     "noMatch": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+     ]
+    },
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": {
+     "match": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 210, stack 0, vt off 0, words FFA9 00EA 001B 0079 | 0009 0024, ForceJIT byte 75 SUSPECT: the resume ip does not follow a call op"
+     ],
+     "noMatch": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 117 of 210, stack 0, vt off 0, words BFFF FFA9 00EA 001B | 0079 0009, ForceJIT byte 75"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sp-d-new-vanilla",
+   "note": "[docs/293 arm D, player uninstalls the mod] SavePort-New-1119 reloaded with ourMods false (no ts3native, no ts3fixes; Apex bridge, S3SS, other community mods and ts3agent stay), 10 min: no crash, 0 script errors (no ts3native.log: guard and yielddiag checks are N/A by design).",
+   "asi": "none",
+   "ourMods": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 22,
+   "save": "SavePort-New-1119",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 10
+    }
+   }
+  },
+  {
+   "id": "sp-save-oldpkg",
+   "note": "[docs/293 save step, old hook set] Baseline-BP-Spring under new native + old package rc-1118n: the guard repairs the diners 118 -> 117 at load (as save-frames-smoke bp-sfguard-repair), then quit-cycle.ts saves at once as SavePort-OldPkg-1119 (the moved layout: word 117) and quits. Risk: rc-1118n's unseenloopskip cap can end the diners' DoLoop seconds after the load; then the save holds no Run frame and arm C FAILs its repair line (honest, not hollow). Stops the queue on FAIL.",
+   "asi": "game-copy/ts3native.asi.rc-1119a",
+   "pinReason": "[2026-11-19 rerun1: the 60 s counter line \"saved frame guard: N frames checked at load\" is dropped from the two save jobs: they quit ~45 s after the world load, before the next periodic counter dump (rc-1119a sp-save-new: the only dump came before the load and read 0). The 10 min reload jobs keep it; the guard being on is proven by the OK line, its load-time check by rc1119-smoke (561 frames on this save)] [repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1118n",
+   "iniBase": "game-copy/ts3native.ini.rc-1119a",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-BP-Spring",
+   "ini": {
+    "EaCrashFixes.SavedFrameGuard": 1,
+    "MonoDiag.YieldDiag": 1
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.292-rc1119a ": 1,
+    "^OK   saved frame guard": 1,
+    "^OK   yield diag": 1,
+    "SavedFrameGuard: .*MetaRabbitHoleInteraction.*set to the call return at word 117": 1
+   },
+   "logForbid": {
+    "SavedFrameGuard: .*stack is dropped": 0,
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": 0
+   },
+   "scriptErrorsMax": 0,
+   "quitsGame": true,
+   "stopQueueOnFail": true,
+   "timeoutMin": 20,
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "0",
+     "--save-name",
+     "SavePort-OldPkg-1119",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.292-rc1119a ": {
+     "match": [
+      "ts3native 0.36.292-rc1119a 2026-11-19 03:20:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.290-sfguard1 2026-11-19 02:18:50",
+      "ts3native 0.36.289-mcname4 2026-11-19 02:20:00"
+     ]
+    },
+    "^OK   saved frame guard": {
+     "match": [
+      "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+     ],
+     "noMatch": [
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "^OK   yield diag": {
+     "match": [
+      "OK   yield diag: resume ips and repeat transforms are checked ([MonoDiag] YieldDiag=1, log only)"
+     ],
+     "noMatch": [
+      "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
+     ]
+    },
+    "SavedFrameGuard: .*MetaRabbitHoleInteraction.*set to the call return at word 117": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 5 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117",
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+     ],
+     "noMatch": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 117 of 211 is inside an instruction (words 001B 0079 00EA 0029 | 0009 0024 006E 0009), set to the call return at word 118",
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ]
+    },
+    "SavedFrameGuard: .*stack is dropped": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ],
+     "noMatch": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+     ]
+    },
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": {
+     "match": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 210, stack 0, vt off 0, words FFA9 00EA 001B 0079 | 0009 0024, ForceJIT byte 75 SUSPECT: the resume ip does not follow a call op"
+     ],
+     "noMatch": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 117 of 210, stack 0, vt off 0, words BFFF FFA9 00EA 001B | 0079 0009, ForceJIT byte 75"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sp-c-oldpkg-new",
+   "note": "[docs/293 arm C] SavePort-OldPkg-1119 (moved layout) reloaded under the NEW set (Run 211 words): the guard must set the diners to the call return at word 118, no stack dropped, no SUSPECT resume, no crash, 0 script errors, 10 min.",
+   "asi": "game-copy/ts3native.asi.rc-1119a",
+   "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+   "iniBase": "game-copy/ts3native.ini.rc-1119a",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "SavePort-OldPkg-1119",
+   "ini": {
+    "EaCrashFixes.SavedFrameGuard": 1,
+    "MonoDiag.YieldDiag": 1
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.292-rc1119a ": 1,
+    "^OK   saved frame guard": 1,
+    "^OK   yield diag": 1,
+    "^saved frame guard: [1-9]\\d* frames checked at load": 1,
+    "SavedFrameGuard: .*MetaRabbitHoleInteraction.*set to the call return at word 118": 1
+   },
+   "logForbid": {
+    "SavedFrameGuard: .*stack is dropped": 0,
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": 0
+   },
+   "scriptErrorsMax": 0,
+   "timeoutMin": 22,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 10
+    }
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.292-rc1119a ": {
+     "match": [
+      "ts3native 0.36.292-rc1119a 2026-11-19 03:20:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.290-sfguard1 2026-11-19 02:18:50",
+      "ts3native 0.36.289-mcname4 2026-11-19 02:20:00"
+     ]
+    },
+    "^OK   saved frame guard": {
+     "match": [
+      "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+     ],
+     "noMatch": [
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "^OK   yield diag": {
+     "match": [
+      "OK   yield diag: resume ips and repeat transforms are checked ([MonoDiag] YieldDiag=1, log only)"
+     ],
+     "noMatch": [
+      "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
+     ]
+    },
+    "^saved frame guard: [1-9]\\d* frames checked at load": {
+     "match": [
+      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+     ],
+     "noMatch": [
+      "saved frame guard: 0 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)",
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "SavedFrameGuard: .*MetaRabbitHoleInteraction.*set to the call return at word 118": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 117 of 211 is inside an instruction (words 001B 0079 00EA 0029 | 0009 0024 006E 0009), set to the call return at word 118"
+     ],
+     "noMatch": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117",
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ]
+    },
+    "SavedFrameGuard: .*stack is dropped": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ],
+     "noMatch": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+     ]
+    },
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": {
+     "match": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 210, stack 0, vt off 0, words FFA9 00EA 001B 0079 | 0009 0024, ForceJIT byte 75 SUSPECT: the resume ip does not follow a call op"
+     ],
+     "noMatch": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 117 of 210, stack 0, vt off 0, words BFFF FFA9 00EA 001B | 0079 0009, ForceJIT byte 75"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sp-save-vanilla",
+   "note": "[docs/293 save step, vanilla] Baseline-BP-Spring with ourMods false, repro sp-saveidle-vanilla-1119 (20 s of play, save_game SavePort-Van-1119, 30 s wait; agent commands only). The game is closed by the queue after the save (no in-game quit: quit-cycle.ts is a run.script, which ourMods false refuses). Stops the queue on FAIL. Fresh scratch name (2026-11-19): SgIdle exists on disk from older builds, so a failed save could not make arm E pass on a stale file; a missing SavePort-Van-1119 fails arm E at load.",
+   "asi": "none",
+   "ourMods": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 15,
+   "save": "Baseline-BP-Spring",
+   "run": {
+    "repro": "sp-saveidle-vanilla-1119"
+   },
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "sp-e-vanilla-new",
+   "note": "[docs/293 arm E] SavePort-Van-1119 (written without our mods by sp-save-vanilla) reloaded under the NEW set, 10 min: diners resume at word 118 of 211, no guard line, no SUSPECT resume, no crash, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.rc-1119a",
+   "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+   "iniBase": "game-copy/ts3native.ini.rc-1119a",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "SavePort-Van-1119",
+   "ini": {
+    "EaCrashFixes.SavedFrameGuard": 1,
+    "MonoDiag.YieldDiag": 1
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.292-rc1119a ": 1,
+    "^OK   saved frame guard": 1,
+    "^OK   yield diag": 1,
+    "^saved frame guard: [1-9]\\d* frames checked at load": 1,
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*Run: ip word 118 of 211,": 1
+   },
+   "logForbid": {
+    "ea fix: SavedFrameGuard:": 0,
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": 0
+   },
+   "scriptErrorsMax": 0,
+   "timeoutMin": 22,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 10
+    }
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.292-rc1119a ": {
+     "match": [
+      "ts3native 0.36.292-rc1119a 2026-11-19 03:20:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.290-sfguard1 2026-11-19 02:18:50",
+      "ts3native 0.36.289-mcname4 2026-11-19 02:20:00"
+     ]
+    },
+    "^OK   saved frame guard": {
+     "match": [
+      "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+     ],
+     "noMatch": [
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "^OK   yield diag": {
+     "match": [
+      "OK   yield diag: resume ips and repeat transforms are checked ([MonoDiag] YieldDiag=1, log only)"
+     ],
+     "noMatch": [
+      "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
+     ]
+    },
+    "^saved frame guard: [1-9]\\d* frames checked at load": {
+     "match": [
+      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+     ],
+     "noMatch": [
+      "saved frame guard: 0 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)",
+      "saved frame guard disabled (SavedFrameGuard=0)"
+     ]
+    },
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*Run: ip word 118 of 211,": {
+     "match": [
+      "yielddiag resume: state 48A8D700 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 211, stack 0, vt off 0, words BFFF FFA9 00EA 001C | 0079 0009, ForceJIT byte 75",
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 211, stack 0, vt off 0, words 0079 00EA 0029 0009 | 0024 006E, ForceJIT byte 75"
+     ],
+     "noMatch": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 210, stack 0, vt off 0, words FFA9 00EA 001B 0079 | 0009 0024, ForceJIT byte 75 SUSPECT: the resume ip does not follow a call op",
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 117 of 210, stack 0, vt off 0, words BFFF FFA9 00EA 001B | 0079 0009, ForceJIT byte 75"
+     ]
+    },
+    "ea fix: SavedFrameGuard:": {
+     "match": [
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117",
+      "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009) and no single call return is near: this saved stack is dropped, the object starts a fresh task"
+     ],
+     "noMatch": [
+      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+     ]
+    },
+    "yielddiag resume: .*MetaRabbitHoleInteraction.*SUSPECT": {
+     "match": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 118 of 210, stack 0, vt off 0, words FFA9 00EA 001B 0079 | 0009 0024, ForceJIT byte 75 SUSPECT: the resume ip does not follow a call op"
+     ],
+     "noMatch": [
+      "yielddiag resume: state 912CE8C0 resume #0 frame 6 of 9 MetaRabbitHoleInteraction`2.Run: ip word 117 of 210, stack 0, vt off 0, words BFFF FFA9 00EA 001B | 0079 0009, ForceJIT byte 75"
+     ]
+    }
+   }
+  }
+ ],
+ "rewind": "auto"
+}

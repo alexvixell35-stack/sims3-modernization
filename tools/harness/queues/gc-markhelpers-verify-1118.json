@@ -1,0 +1,516 @@
+{
+  "note": "gc-markhelpers-verify-1118 (PREPARED, NOT LAUNCHED; correctness, never timing): docs/287 §8 [GC] MarkHelpersVerify, the exactness check for [GC] MarkHelpers=2 (IdleGate=1, SubTimers=1). Experimental, not released. Needs feature/gc-markhelpers-p4-1118 merged into the checkout queue.ts runs from (agent.js g5VerifySub / g5VerifySkip names). Bin state apex (or apex-rewind) via tools/turbo-compat.ts in the chain. Run after gc-markhelpers-correct-1118 passes and before gc-markhelpers-time-1118. Smoke first (BP 5 min, MarkHelpersVerify=1 = every finished incremental mark, stops the queue on fail), then BP / SV / IP 10 min with MarkHelpersVerify=4. Each check stops the world and marks the heap twice more: a visible hitch per check is expected, frame times of this queue mean nothing. Pass per job: no crash, script errors 0, version + idle-gate + install lines, at least one \"OK   GC mark verify\" line, no FAIL / WARN / skip line, g5VerifyN > 0, g5VerifyBad 0 (helper mark != serial mark from the same snapshot: g5Mode latches 0), g5VerifySub 0 (serial mark found an object the cycle left unmarked), g5VerifySkip 0, plus the P3 gates. Triage of g5VerifySub > 0 with g5VerifyBad 0: the \"outside:\" lines in ts3native.log name block, kind and size; rerun the job with g5Mode 0 from the start for the noise floor of the conservative root scan before calling it a helper bug (docs/287 §8.4). Household: the GC decides nothing about Sims; the check proves the marked set equals the serial marker's, so household / selected / unknown-scope exemptions do not apply; script errors 0 and the standard save-hash guard cover it. Run: node tools/harness/queue.ts tools/harness/queues/gc-markhelpers-verify-1118.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.285-g5p4 ": {
+      "match": [
+        "ts3native 0.36.285-g5p4 2026-11-18 21:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.284-exact1 2026-11-18 21:00:00"
+      ]
+    },
+    "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 Verify=1 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF chained after SubTimers\\)$": {
+      "match": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 Verify=1 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 Verify=4 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)",
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 Verify=1 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF direct)",
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)"
+      ]
+    },
+    "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 Verify=4 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF chained after SubTimers\\)$": {
+      "match": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 Verify=4 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 Verify=1 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)",
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 Verify=0 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)",
+        "GC mark helpers off (MarkHelpers=0)"
+      ]
+    },
+    "^OK   GC mark verify \\d+: \\d+ blocks, \\d+ ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words$": {
+      "match": [
+        "OK   GC mark verify 3: 41250 blocks, 412 ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words"
+      ],
+      "noMatch": [
+        "FAIL GC mark verify 3: 41250 blocks, 412 ms, g5Mode 1; helper mark vs serial mark: 2 words differ; serial mark outside the cycle's marks: 0 words",
+        "WARN GC mark verify 3: 41250 blocks, 412 ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 1 words",
+        "OK   GC mark verify 3: 41250 blocks, 412 ms, g5Mode 0; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words"
+      ]
+    },
+    "^(FAIL|WARN) GC mark verify \\d+: ": {
+      "match": [
+        "FAIL GC mark verify 3: 41250 blocks, 412 ms, g5Mode 1; helper mark vs serial mark: 2 words differ; serial mark outside the cycle's marks: 0 words",
+        "WARN GC mark verify 3: 41250 blocks, 412 ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 1 words"
+      ],
+      "noMatch": [
+        "OK   GC mark verify 3: 41250 blocks, 412 ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words",
+        "  differ: block 0x1A2B3000 hdr 0x0C001234 kind 1 size 4 words, mark word 5: helper 0x00000000, serial 0x80000000"
+      ]
+    },
+    "^(SKIP GC mark verify|GC mark verify: (skipped|gave up))": {
+      "match": [
+        "SKIP GC mark verify ([GC] MarkHelpersVerify): a stopped-mark call site differs, the helpers install without it",
+        "GC mark verify: skipped (no memory for the mark copies)",
+        "GC mark verify: gave up after 60012 ms (time limit or fault), marks restored"
+      ],
+      "noMatch": [
+        "OK   GC mark verify 3: 41250 blocks, 412 ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words",
+        "FAIL GC mark verify 3: 41250 blocks, 412 ms, g5Mode 1; helper mark vs serial mark: 2 words differ; serial mark outside the cycle's marks: 0 words"
+      ]
+    },
+    "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+      "match": [
+        "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+      ],
+      "noMatch": [
+        "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+        "GC idle gate off (IdleGate=0)"
+      ]
+    },
+    "^GC mark helpers off \\(MarkHelpers=0\\)$": {
+      "match": [
+        "GC mark helpers off (MarkHelpers=0)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF direct)"
+      ]
+    },
+    "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": {
+      "match": [
+        "SKIP GC mark helpers: mark-bit site differs at 0x00E4C5F9, nothing written",
+        "FAIL GC mark helpers: helper overflow pending after the mark ended (g5Anomaly 1)",
+        "SKIP GC idle gate: call 0xD819AA goes to 0x12345678",
+        "FAIL GC sub-timers: VirtualProtect at 0x00E49DF2 (err 5)",
+        "FAIL GC mark helpers: verify mismatch, g5Mode latched 0 (serial marker, patches stay)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)",
+        "GC mark helpers off (MarkHelpers=0)",
+        "GC mark helpers: 3 helper faults this session, g5Mode latched 0 (serial marker, patches stay)"
+      ]
+    },
+    "^GC mark helpers: \\d+ helper faults this session": {
+      "match": [
+        "GC mark helpers: 3 helper faults this session, g5Mode latched 0 (serial marker, patches stay)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-g5v-smoke",
+      "note": "[est 9 min] SMOKE: BP 5 min, MarkHelpersVerify=1 (every finished incremental mark), stops the queue on fail. Proves the install line, that checks run and that they pass.",
+      "asi": "game-copy/ts3native.asi.gcmark-p4-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p4-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4: [GC] MarkHelpersVerify, docs/287 §8, counters v214 g5*) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.MarkHelpers": 2,
+        "GC.IdleGate": 1,
+        "GC.SubTimers": 1,
+        "GC.MarkHelpersVerify": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@g5Ready>=1,g5Windows>=1,g5Donated>=1,g5HelperAv<=0,g5Fallback<=0,g5Anomaly<=0,gctReady>=1,gcgReady>=3,g5VerifyN>=1,g5VerifyBad<=0,g5VerifySub<=0,g5VerifySkip<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.285-g5p4 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 Verify=1 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF chained after SubTimers\\)$": 1,
+        "^OK   GC mark verify \\d+: \\d+ blocks, \\d+ ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": 0,
+        "^GC mark helpers: \\d+ helper faults this session": 0,
+        "^(FAIL|WARN) GC mark verify \\d+: ": 0,
+        "^(SKIP GC mark verify|GC mark verify: (skipped|gave up))": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "g5Ready",
+          "op": ">=",
+          "value": 1,
+          "why": "mark helpers not installed (SKIP / FAIL line in ts3native.log)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Fallback",
+          "op": "<=",
+          "value": 0,
+          "why": "install fallback (byte mismatch, thread or write failure)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5HelperAv",
+          "op": "<=",
+          "value": 0,
+          "why": "a helper faulted inside GC_mark_from"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Anomaly",
+          "op": "<=",
+          "value": 0,
+          "why": "I1 broken: helper flag after the mark ended, or entries at the mark-done growth"
+        },
+        {
+          "afterSec": 150,
+          "counter": "g5Windows",
+          "op": ">",
+          "value": 0,
+          "why": "no helper window opened (0xE49F49 not reached with a mark running, or g5Mode 0)"
+        },
+        {
+          "afterSec": 240,
+          "counter": "g5Donated",
+          "op": ">",
+          "value": 0,
+          "why": "helpers never got work (MinSplit, or ParMarkFrom not reached)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5VerifyBad",
+          "op": "<=",
+          "value": 0,
+          "why": "helper mark differs from the serial mark of the same snapshot (first blocks in ts3native.log)"
+        },
+        {
+          "afterSec": 240,
+          "counter": "g5VerifyN",
+          "op": ">",
+          "value": 0,
+          "why": "no verify check ran (no incremental mark finished, or every check was skipped: g5VerifySkip)"
+        }
+      ],
+      "stopQueueOnFail": true
+    },
+    {
+      "id": "bp-g5v",
+      "note": "[est 14 min] Baseline-BP-Spring 10 min, MarkHelpers=2 MarkHelpersVerify=4 IdleGate=1 SubTimers=1 (hitch per check expected).",
+      "asi": "game-copy/ts3native.asi.gcmark-p4-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p4-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4: [GC] MarkHelpersVerify, docs/287 §8, counters v214 g5*) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.MarkHelpers": 2,
+        "GC.IdleGate": 1,
+        "GC.SubTimers": 1,
+        "GC.MarkHelpersVerify": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@g5Ready>=1,g5Windows>=1,g5Donated>=1,g5HelperAv<=0,g5Fallback<=0,g5Anomaly<=0,gctReady>=1,gcgReady>=3,g5VerifyN>=1,g5VerifyBad<=0,g5VerifySub<=0,g5VerifySkip<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.285-g5p4 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 Verify=4 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF chained after SubTimers\\)$": 1,
+        "^OK   GC mark verify \\d+: \\d+ blocks, \\d+ ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": 0,
+        "^GC mark helpers: \\d+ helper faults this session": 0,
+        "^(FAIL|WARN) GC mark verify \\d+: ": 0,
+        "^(SKIP GC mark verify|GC mark verify: (skipped|gave up))": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "g5Ready",
+          "op": ">=",
+          "value": 1,
+          "why": "mark helpers not installed (SKIP / FAIL line in ts3native.log)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Fallback",
+          "op": "<=",
+          "value": 0,
+          "why": "install fallback (byte mismatch, thread or write failure)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5HelperAv",
+          "op": "<=",
+          "value": 0,
+          "why": "a helper faulted inside GC_mark_from"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Anomaly",
+          "op": "<=",
+          "value": 0,
+          "why": "I1 broken: helper flag after the mark ended, or entries at the mark-done growth"
+        },
+        {
+          "afterSec": 150,
+          "counter": "g5Windows",
+          "op": ">",
+          "value": 0,
+          "why": "no helper window opened (0xE49F49 not reached with a mark running, or g5Mode 0)"
+        },
+        {
+          "afterSec": 240,
+          "counter": "g5Donated",
+          "op": ">",
+          "value": 0,
+          "why": "helpers never got work (MinSplit, or ParMarkFrom not reached)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5VerifyBad",
+          "op": "<=",
+          "value": 0,
+          "why": "helper mark differs from the serial mark of the same snapshot (first blocks in ts3native.log)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "g5VerifyN",
+          "op": ">",
+          "value": 0,
+          "why": "no verify check ran (no incremental mark finished, or every check was skipped: g5VerifySkip)"
+        }
+      ]
+    },
+    {
+      "id": "sv-g5v",
+      "note": "[est 14 min] Baseline-SV-Spring 10 min, MarkHelpers=2 MarkHelpersVerify=4 IdleGate=1 SubTimers=1 (hitch per check expected).",
+      "asi": "game-copy/ts3native.asi.gcmark-p4-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p4-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4: [GC] MarkHelpersVerify, docs/287 §8, counters v214 g5*) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.MarkHelpers": 2,
+        "GC.IdleGate": 1,
+        "GC.SubTimers": 1,
+        "GC.MarkHelpersVerify": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@g5Ready>=1,g5Windows>=1,g5Donated>=1,g5HelperAv<=0,g5Fallback<=0,g5Anomaly<=0,gctReady>=1,gcgReady>=3,g5VerifyN>=1,g5VerifyBad<=0,g5VerifySub<=0,g5VerifySkip<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.285-g5p4 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 Verify=4 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF chained after SubTimers\\)$": 1,
+        "^OK   GC mark verify \\d+: \\d+ blocks, \\d+ ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": 0,
+        "^GC mark helpers: \\d+ helper faults this session": 0,
+        "^(FAIL|WARN) GC mark verify \\d+: ": 0,
+        "^(SKIP GC mark verify|GC mark verify: (skipped|gave up))": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "g5Ready",
+          "op": ">=",
+          "value": 1,
+          "why": "mark helpers not installed (SKIP / FAIL line in ts3native.log)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Fallback",
+          "op": "<=",
+          "value": 0,
+          "why": "install fallback (byte mismatch, thread or write failure)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5HelperAv",
+          "op": "<=",
+          "value": 0,
+          "why": "a helper faulted inside GC_mark_from"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Anomaly",
+          "op": "<=",
+          "value": 0,
+          "why": "I1 broken: helper flag after the mark ended, or entries at the mark-done growth"
+        },
+        {
+          "afterSec": 150,
+          "counter": "g5Windows",
+          "op": ">",
+          "value": 0,
+          "why": "no helper window opened (0xE49F49 not reached with a mark running, or g5Mode 0)"
+        },
+        {
+          "afterSec": 240,
+          "counter": "g5Donated",
+          "op": ">",
+          "value": 0,
+          "why": "helpers never got work (MinSplit, or ParMarkFrom not reached)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5VerifyBad",
+          "op": "<=",
+          "value": 0,
+          "why": "helper mark differs from the serial mark of the same snapshot (first blocks in ts3native.log)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "g5VerifyN",
+          "op": ">",
+          "value": 0,
+          "why": "no verify check ran (no incremental mark finished, or every check was skipped: g5VerifySkip)"
+        }
+      ]
+    },
+    {
+      "id": "ip-g5v",
+      "note": "[est 14 min] Baseline-IP-Spring 10 min, MarkHelpers=2 MarkHelpersVerify=4 IdleGate=1 SubTimers=1 (hitch per check expected).",
+      "asi": "game-copy/ts3native.asi.gcmark-p4-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p4-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4: [GC] MarkHelpersVerify, docs/287 §8, counters v214 g5*) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.MarkHelpers": 2,
+        "GC.IdleGate": 1,
+        "GC.SubTimers": 1,
+        "GC.MarkHelpersVerify": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@g5Ready>=1,g5Windows>=1,g5Donated>=1,g5HelperAv<=0,g5Fallback<=0,g5Anomaly<=0,gctReady>=1,gcgReady>=3,g5VerifyN>=1,g5VerifyBad<=0,g5VerifySub<=0,g5VerifySkip<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.285-g5p4 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 Verify=4 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF chained after SubTimers\\)$": 1,
+        "^OK   GC mark verify \\d+: \\d+ blocks, \\d+ ms, g5Mode 1; helper mark vs serial mark: 0 words differ; serial mark outside the cycle's marks: 0 words$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": 0,
+        "^GC mark helpers: \\d+ helper faults this session": 0,
+        "^(FAIL|WARN) GC mark verify \\d+: ": 0,
+        "^(SKIP GC mark verify|GC mark verify: (skipped|gave up))": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "g5Ready",
+          "op": ">=",
+          "value": 1,
+          "why": "mark helpers not installed (SKIP / FAIL line in ts3native.log)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Fallback",
+          "op": "<=",
+          "value": 0,
+          "why": "install fallback (byte mismatch, thread or write failure)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5HelperAv",
+          "op": "<=",
+          "value": 0,
+          "why": "a helper faulted inside GC_mark_from"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Anomaly",
+          "op": "<=",
+          "value": 0,
+          "why": "I1 broken: helper flag after the mark ended, or entries at the mark-done growth"
+        },
+        {
+          "afterSec": 150,
+          "counter": "g5Windows",
+          "op": ">",
+          "value": 0,
+          "why": "no helper window opened (0xE49F49 not reached with a mark running, or g5Mode 0)"
+        },
+        {
+          "afterSec": 240,
+          "counter": "g5Donated",
+          "op": ">",
+          "value": 0,
+          "why": "helpers never got work (MinSplit, or ParMarkFrom not reached)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5VerifyBad",
+          "op": "<=",
+          "value": 0,
+          "why": "helper mark differs from the serial mark of the same snapshot (first blocks in ts3native.log)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "g5VerifyN",
+          "op": ">",
+          "value": 0,
+          "why": "no verify check ran (no incremental mark finished, or every check was skipped: g5VerifySkip)"
+        }
+      ]
+    }
+  ]
+}

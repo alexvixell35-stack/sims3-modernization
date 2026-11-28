@@ -1,0 +1,85 @@
+{
+ "note": "lc7-desc-correct-1124-ea rerun 1 (EA laptop, EA app 1.69.47): only the two FAIL jobs of lc7-desc-correct-1124-ea 2026-11-24, same build (eafinal2 asi + ini 0.36.300-eafinal2, ts3fixes lc7f-ea-1124 from c9523dd7) and version read-back; agent built by cycle.ts from bugfix/lc7-ea-rerun-1124 (clock_state EA clock address, device-pause fail-fast, transit hang capture). Run from the s3m-lc7-fix worktree (needs its game-copy link). bp-lc7-save-reload now runs bp-deadrefs-saves (saves + same-session reload); bp-lc7-travel unchanged apart from the agent / harness diagnostics.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.300-eafinal2 ": {
+   "match": [
+    "ts3native 0.36.300-eafinal2 2026-11-23 16:20:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-m1123 2026-11-23 15:00:00",
+    "ts3native 0.36.300-eafinal 2026-11-23 12:00:00",
+    "ts3native 0.36.300-eafinal2x 2026-11-23 16:20:00"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-lc7-save-reload",
+   "note": "[est 20 min] Save-reload: repro bp-deadrefs-saves (docs/330 deadref save row: 7 saves incl. overwrite, back-to-back and unpaused, then load_save reload:true of DeadRefs-BP-1 in the same session and 60 s at ultra; switches stay on: AppDomain data) with LC-5 / LC-6a / LC-7 + verify on, 12 min so ~3 min of play follow the reload. Pass: every save ok, the reload reaches LiveModeState, a reset at each load (resets >= 2) and a fresh seed after the reload (seeds >= 2), 0 misses / extras, no overflow. Rerun 1: the first run used bp-deadrefs-check, which has no save or reload step (resets 1 < 2 unreachable; docs/336 named the wrong repro).",
+   "asi": "game-copy/eafinal2-1123/ts3native.asi",
+   "iniBase": "game-copy/eafinal2-1123/ts3native.ini",
+   "fixesPackage": "game-copy/lc7f-ea-1124/ts3fixes.package",
+   "pinReason": "EA laptop: eafinal2 EA asi + rc ini (0.36.300-eafinal2, sha256 071c251f64cc) with ts3fixes.package lc7f built from c9523dd7 (LC-7 desc reverse index, managed only); agent lc7 from c9523dd7",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true,
+     "repro": "bp-deadrefs-saves",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot,deadrefdescrev,deadrefdeltaverify",
+     "fixesRequire": "deadrefcadence_snapshots>=1,deadrefdescrev_seeds>=2,deadrefdescrev_resets>=2,deadrefdescrev_verify_miss<=0,deadrefdescrev_verify_extra<=0,deadrefdescrev_overflows<=0,deadrefdescrev_scan_assemblies>=2,deadrefdescrev_scan_unreadable<=0,deadrefdescrev_untrusted<=0,deadrefdescrev_pins_mismatch<=0,deadrefdescrev_pins_refused<=0",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta,deadrefperlot,deadrefdescrev",
+     "noProf": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-eafinal2 ": 1
+   }
+  },
+  {
+   "id": "bp-lc7-travel",
+   "note": "[est 20 min] Travel round trip: repro leak-travel-roundtrip-x3 (BP -> France -> BP three times) with LC-5 / LC-6a / LC-7 + verify on. Pass: the index resets at every world load (resets >= 2) and re-seeds after the return (seeds >= 2), 0 misses / extras, no overflow, 0 script errors. The sweep stands down while travelling (DeadRefUnsafe). Rerun 1: the first run stalled after trip 1 home (Pause, sub_state null, no dialog, memory flat 60 s after the home load, travel_state until not met); its device_pause true was the agent reading the Steam clock address on EA (pause_bits 0x3F46BFFD). This run: agent clock_state picks the clock by PE stamp (EA 0x1227DC8, I-570-2 inferred: pause_bits_valid must be true), device pause held ~60 s fails on its own reason, and a paused trip with no sub-state logs travel_state and takes the hang capture (stacks + Mono frames: what LiveModeState.Startup waits on).",
+   "asi": "game-copy/eafinal2-1123/ts3native.asi",
+   "iniBase": "game-copy/eafinal2-1123/ts3native.ini",
+   "fixesPackage": "game-copy/lc7f-ea-1124/ts3fixes.package",
+   "pinReason": "EA laptop: eafinal2 EA asi + rc ini (0.36.300-eafinal2, sha256 071c251f64cc) with ts3fixes.package lc7f built from c9523dd7 (LC-7 desc reverse index, managed only); agent lc7 from c9523dd7",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 35,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true,
+     "repro": "leak-travel-roundtrip-x3",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot,deadrefdescrev,deadrefdeltaverify",
+     "fixesRequire": "deadrefdescrev_seeds>=2,deadrefdescrev_resets>=2,deadrefdescrev_verify_miss<=0,deadrefdescrev_verify_extra<=0,deadrefdescrev_overflows<=0,deadrefdescrev_scan_assemblies>=2,deadrefdescrev_scan_unreadable<=0,deadrefdescrev_untrusted<=0,deadrefdescrev_pins_mismatch<=0,deadrefdescrev_pins_refused<=0",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta,deadrefperlot,deadrefdescrev",
+     "noProf": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-eafinal2 ": 1
+   }
+  }
+ ]
+}

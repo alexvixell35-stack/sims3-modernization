@@ -1,0 +1,124 @@
+# Proven gameplay fixes: every default-off ts3fixes switch whose fix is proven in game (off BROKEN / on FIXED, or measured
+# off/on), and that fixes EA gameplay / bugs. Evidence: a docs/registry.md row "proven in game", a PLAN.md / docs entry "proven
+# in game" / "verified in game", a phasesoak verdict pair (switch false BROKEN, true FIXED; ~/dev/ts3-runs phase-*/phase.txt,
+# 2026-11-14/15), or a fix-repro-check.ts "measured off/on" note (socialfinish, socialreceivefail).
+# Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
+# One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
+# Built 2026-11-15 from the 207 default-off switches (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+
+# Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+# +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
+# +13 2026-11-15: phase-20261115-2218 smallfix.txt (s56), off BROKEN / on FIXED (docs/582 batches 5b-7, residentspawnslot).
+# +3 2026-11-19, moved to default ON at the 2026-11-20 import (so no longer listed: houseboatlegmemo houseboatgangwayrescue boatroamcap): s128 Isla Paradiso, one load off then on (repro-off/on, roam-off/on), off BROKEN / on FIXED, 0 errors (docs/853 §1).
+# -1 2026-11-25: seasonimposter moved to default ON as a rare-case fix after a static review (docs/44 §6.1, docs/51 §610), so no longer listed.
+
+# ---- excluded (default off, not in the set), by reason
+# perf experiments / sim-thread offload and caching (not EA gameplay fixes):
+#   autlivelate cachedreflection caneearly casmemo detailprio disposespread doormirror drivertaskasync failrepeat farthestsorted
+#   hoursmemo idlememo legreplanskip preplancb replandefer replanspread routablecache safespotcap safespotreuse safespotyield
+#   seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
+#   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
+#   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
+#   iafailmemo deadrefexact deadrefdelta deadrefslimuse deadrefperlot deadrefdescrev
+# measurement / diagnostics / test aids:
+#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc swapinvokediag wildflowerprobe deadrefexactverify deadrefdeltaverify
+# test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
+#   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
+# leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
+#   casuihandlers deadrefguards firepitchair preferredservice
+#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
+# gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
+#   firegreet
+#   fglinbound fglinboundhh
+#   standwaitfix standwaitfixhh standwaitlog reactoverlayhh reactoverlaylog
+#   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
+#   blockedusehh
+#   makebedbothhh makebedbothlog
+#   petrelaxhh petrelaxlog
+#   clipwait clipwaithh clipwaitlog
+#   reachusehh reachuselog
+#   linewaitlog rhsharehh servingsharehh
+#   showertogetherhh showerpeehh showersharelog
+#   viewlenienthh viewlenientlog
+#   socialreachhh socialreachlog
+#   unstuckhh unstucklog
+#   lineswitchhh lineswitchlog
+#   woohoosnap woohoosnaphh pairsnap pairsnaphh woohoosnaplog pairsnaplog
+#   crowdporthh crowdportlog
+#   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
+#   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
+#   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
+#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
+# docs/656 pets: petlonghome / petlongvisit ran in s134 / s136, no off/on verdict; the others never exercised:
+#   petstartleskip petarrivepoint strayleave wildlotskip
+# unseen boats (docs/687, docs/851 §7-§8, docs/248 §12): unseenboatland / unseenboatgenboat acted in one-arm runs, no off/on verdict; unseenboatwide no recorded pass; failreplanboat never run:
+#   unseenboatland unseenboatwide failreplanboat
+# combo pieces: first in-game check only, not marked proven (docs/551):
+#   combovenue
+# ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
+# partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
+#   partyoutcome
+# built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
+#   
+#   trashpileimport catgymwatch badsecretkey traitlistenerremove portasknohome lecturebroadcaster residentspawnwalk midlifewishsave betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
+# built 2026-11-17 (docs/611, LotCallbacks80.cs), in-game off/on test pending (r68 Check verdict bug, re-run on r69):
+
+# PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
+# diagnostics (log only):
+#   socialreplanlog barorderlog routecauselog
+# diagnostic: a notification with empty text names its sender (docs/869, 2026-11-22), default off (on in betas), repro blank-tns ok; Rodney decides ON:
+#   blanktns
+# built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
+#   ufplansplit
+# new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
+#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount
+# 2026-11-18 (Rodney, save-matrix bundle, docs/289 §6): deadrefsweep deadrefconvo deadrefcooking sarcmummynpc spouseunlink relremovesafe familyinvghost attractionalarm moved to default ON (gate: save matrix PASS).
+# 2026-11-18 (Rodney: Dalexlol switches with his in-game repro go ON): 56 set switches + takeariskguard moved to default ON
+# (docs/data/results/2026-11-18-dalexlol-repro-switches-on.md). Still off then, ON since docs/289 (ceiling on an endless EA wait): woohootywait (wait cap with no household
+# exemption, PhoneLogic.cs) and sarcmummynpc (removes a persisted NpcHousehold description: save-data change, opt-in).
+# passed in game 2026-11-17 (s75) but kept OFF by choice: near off-screen Sims could be noticed and it rarely applies (docs/632):
+#   unseenloopskip_offscreen
+# maintainer switches added on master, not reviewed for this set (merge 2026-11-18):
+#   zdemptyout decaymemo burnttilefloor
+# autonomy quality PR #575 (import 2026-11-20): fightorphanwait poolnolane autonomyfailcooldown venuepicktime default ON; still off, no verdict (timing only):
+#   venuepickfast
+# Dalexlol PR 2026-11-20 (docs/202 §3.10), default off: unseenhouseboatview, a scope-rule change never run in game (unseenfbghost, unseenfbnosync, safespotplanyield are ON by default, natural play only, no off/on verdict):
+#   unseenhouseboatview
+# Dalexlol PRs #503 / #490 (import 2026-11-20), default off by choice (gohomeshell: apartment arrivals, test with LotLevelPastEnd; spawnoffworld: Rodney call):
+#   gohomeshell spawnoffworld
+# docs/674 (route worker carve-out 2026-11-20), default off, ran in game on the combo branch only (s163-s166 compare runs):
+#   doorshare
+# perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
+#   commodmapfast commodmapshadow
+# compat (docs/328 §7.5, 2026-11-23): GoHere trips for the unseen fallback, default off, pending (bp-gohere-ab FAIL on a read-back, rerun); modquitguard is ON by default since 2026-11-23 (both arms PASS), so no longer listed
+#   unseenfbgohere
+# docs/183 §9 (ladder foot 2026-11-21): ladderfootshoo is ON by default since the 2026-11-22 import (forced case in game, retry ok, errors 0). Household and selected Sims as planner / asked Sim stay opt-in, no household run:
+#   ladderfootshoohh
+# EA bug fixes firenre (docs/867) and firecount (docs/868) are ON by default since the 2026-11-23 Dalexlol 645-653 import, so no longer listed
+# combo branch switches not yet sorted (upstream merge 2026-11-26; default off, run by name):
+#   fglnonescan fglnnearspot followerlasttry standwaitlocked standwaitlockedhh standwaitsocial stairflow stairflowhh
+#   elevskip elevskiphh rhskipunseen rhskiphhunseen lineswitchpc bookskipunseen bookskiphhunseen gymtwin
+#   servingsharehhunseen slidehang slidehanghh elevskiphhunseen elevtriplog elevparked elevparkedhh poolshare poolsharehh
+#   stairtimelog standwaitsocialhh partnerpull partnerpulllog readwalk readwalklog queuewake facilityplan facilityplanhh
+#   facilityplanlog facilityquick facilityquickhh facilitychain facilitychainhh showerpeeplan showerpeeplanhh showerdirty
+#   fridgeff fridgeffunseen fridgefflog linestale linestalehh linestalelog slotretry slotretrylog queuewakelog strandprobe
+#   actdelay nearestlotlazy trashoutsidefallback shuffleboardnpccap paparazzicooldown npcstallend streetparkinglisten
+#   dishpilecap picnicexit poolfailmemo objfailmemo owelevidle socialunlinkend perfjobmissedlistener barcloseorphan
+#   venueintensity minirelset caspropagateoutfits caspropagateextra casdefaultskin casoccultlog castintreset
+#   elevatorlightrig optionsnoopapply npmfuzzy npmhousehold
+#   camsafe camsafelog reachcache reachcachehh reachcachelog alibiwalk alibiwalklog termlenguard
+#   nextplan nextplanhh nextplanlog
+# docs/686 §46 fridgeshare (2026-11-27): two short fridge uses at once / beside the slot, waiter before a walking head; not proven yet, default off:
+#   fridgeshare fridgesharehh fridgesharelog
+# docs/686 §39 doorseat (2026-11-27): door / arch chair pull-out test allowed, seat out of reach clipped or snapped; forced repro only (off 26/36 seated, on 36/36), default off:
+#   doorseat doorseathh seatreach seatreachhh seatsnap
+# docs/686 §42 seatclash (2026-11-27): chairs held from pick to seat, push wait ends after the shared grace; forced repro seatclash-force only, default off:
+#   seatclash seatclashhh seatclashlog
+# docs/686 §43 mopclaim (2026-11-27): a puddle being mopped is held in nextplan's claim table; forced repro mopclaim-force only, default off:
+#   mopclaim mopclaimhh mopclaimlog
+# docs/686 §44 familybath (2026-11-27): changes an EA rule (household members may enter a room with shower / bath / toilet privacy for another fixture); the player's choice, default off, never in a proven set:
+#   familybath familybathhh familybathlog
+# docs/686 §45 cleandefer (2026-11-27): a toilet clean waits while Sims wait for the toilet; storm A/B only, default off:
+#   cleandefer cleandeferhh cleandeferlog
+# docs/686 §40 sinkfree (2026-11-27): dish washing joins a busy kitchen sink instead of EA's line; changes household timing, not proven, default off:
+#   sinkfree sinkfreehh sinkfreelog

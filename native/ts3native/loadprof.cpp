@@ -36,34 +36,34 @@ enum {
 enum { LPK_ROUTING, LPK_PHASE, LPK_EVENT };
 struct LpSite { DWORD at; u8 len; u8 pro[8]; DWORD target; u8 kind; const char* name; };
 static const LpSite kLpSites[LP_N] = {
-    {0x0066D110, 6, {0x83, 0xEC, 0x58, 0x53, 0x55, 0x56}, 0, LPK_ROUTING, "RTData_Load (R)"},
-    {0x0062E680, 8, {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C, 0x24, 0x14}, 0, LPK_ROUTING, "LotTable_Insert"},
-    {0x0062F8A0, 7, {0x8B, 0x44, 0x24, 0x08, 0x83, 0xEC, 0x14}, 0, LPK_ROUTING, "LotRouting_QuadTreeBuild"},
-    {0x0063CB90, 8, {0x83, 0xEC, 0x5C, 0x53, 0x8B, 0x5C, 0x24, 0x64}, 0, LPK_ROUTING, "LotGraph_Build"},
-    {0x0063D2F0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, LPK_ROUTING, "RoomGraph_FirstUse"},
-    {0x0082B590, 5, {0x83, 0xEC, 0x2C, 0x56, 0x57}, 0, LPK_ROUTING, "RoutingWorld_ApplyLotUpdate"},
-    {0x0082A190, 7, {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0, 0x56}, 0, LPK_ROUTING, "RoutingWorld_RestoreLotBlockedBits"},
-    {0x0080E5B0, 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}, 0, LPK_ROUTING, "Footprint_EnsureLevelPolygons"},
-    {0x0080E610, 8, {0x51, 0x57, 0x8B, 0xF9, 0x83, 0x7F, 0x38, 0x00}, 0, LPK_ROUTING, "Footprint_EnsureAllPolygons"},
-    {0x00666A40, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, LPK_ROUTING, "LotQuadTree_FlushDeferred"},
-    {0x008321F0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, LPK_ROUTING, "RoutingWorld_UpdateObjectFootprintCore"},
-    {0x00665C50, 6, {0x81, 0xEC, 0x80, 0x00, 0x00, 0x00}, 0, LPK_ROUTING, "LotQuadTree_ApplyInsert"},
-    {0x00C622D0, 7, {0x83, 0xEC, 0x1C, 0x53, 0x55, 0x56, 0x57}, 0, LPK_PHASE, "World_LotStreaming (world init, main)"},
-    {0x00C6AEB0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, LPK_PHASE, "World_PostLoadInit (main)"},
-    {0x00C626F8, 5, {}, 0x00829410, LPK_ROUTING, "RoutingWorld_LockedOp_WorldInit (routing world setup)"},
-    {0x008352F1, 5, {}, 0x0082A030, LPK_ROUTING, "WaterGrid_BuildFromWorld from 0x8352F1"},
-    {0x00835390, 5, {}, 0x0082A030, LPK_ROUTING, "WaterGrid_BuildFromWorld from 0x835390 (load)"},
-    {0x008358B5, 5, {}, 0x0082A030, LPK_ROUTING, "WaterGrid_BuildFromWorld from 0x8358B5"},
-    {0x00C6BE53, 5, {}, 0x008349C0, LPK_ROUTING, "BuildWorldRoutingData from 0xC6BE53"},
-    {0x00C6CD02, 5, {}, 0x008349C0, LPK_ROUTING, "BuildWorldRoutingData from 0xC6CD02"},
-    {0x00835A27, 5, {}, 0x008349C0, LPK_ROUTING, "BuildWorldRoutingData from 0x835A27"},
-    {0x00ACF3CF, 5, {}, 0x00834DC0, LPK_ROUTING, "RoutingSystem_LotLoadFloorUpdate (Lot_FinishLoad)"},
-    {0x00AABE33, 5, {}, 0x00C6CF80, LPK_PHASE, "WorldManager_LoadWorld from 0xAABE33"},
-    {0x00C6D9E8, 5, {}, 0x00C6CF80, LPK_PHASE, "WorldManager_LoadWorld from 0xC6D9E8"},
-    {0x00C6D105, 5, {}, 0x00C65E00, LPK_PHASE, "WorldManager_CreateLotsFromLayer"},
-    {0x00C6D264, 5, {}, 0x00C678D0, LPK_PHASE, "WorldManager_LoadLots"},
-    {0x00C6D24E, 5, {}, 0x00C64630, LPK_PHASE, "WorldManager_LoadLots 0xC64630"},
-    {0x00769993, 5, {}, 0x0078F2B0, LPK_EVENT, "World_FireEvent 7 (load finished)"},
+    {TS3A(0x0066D110), 6, {0x83, 0xEC, 0x58, 0x53, 0x55, 0x56}, 0, LPK_ROUTING, "RTData_Load (R)"},
+    {TS3A(0x0062E680), 8, {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C, 0x24, 0x14}, 0, LPK_ROUTING, "LotTable_Insert"},
+    {TS3A(0x0062F8A0), 7, {0x8B, 0x44, 0x24, 0x08, 0x83, 0xEC, 0x14}, 0, LPK_ROUTING, "LotRouting_QuadTreeBuild"},
+    {TS3A(0x0063CB90), 8, {0x83, 0xEC, 0x5C, 0x53, 0x8B, 0x5C, 0x24, 0x64}, 0, LPK_ROUTING, "LotGraph_Build"},
+    {TS3A(0x0063D2F0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, LPK_ROUTING, "RoomGraph_FirstUse"},
+    {TS3A(0x0082B590), 5, {0x83, 0xEC, 0x2C, 0x56, 0x57}, 0, LPK_ROUTING, "RoutingWorld_ApplyLotUpdate"},
+    {TS3A(0x0082A190), 7, {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0, 0x56}, 0, LPK_ROUTING, "RoutingWorld_RestoreLotBlockedBits"},
+    {TS3A(0x0080E5B0), 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}, 0, LPK_ROUTING, "Footprint_EnsureLevelPolygons"},
+    {TS3A(0x0080E610), 8, {0x51, 0x57, 0x8B, 0xF9, 0x83, 0x7F, 0x38, 0x00}, 0, LPK_ROUTING, "Footprint_EnsureAllPolygons"},
+    {TS3A(0x00666A40), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, LPK_ROUTING, "LotQuadTree_FlushDeferred"},
+    {TS3A(0x008321F0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, LPK_ROUTING, "RoutingWorld_UpdateObjectFootprintCore"},
+    {TS3A(0x00665C50), 6, {0x81, 0xEC, 0x80, 0x00, 0x00, 0x00}, 0, LPK_ROUTING, "LotQuadTree_ApplyInsert"},
+    {TS3A(0x00C622D0), 7, {0x83, 0xEC, 0x1C, 0x53, 0x55, 0x56, 0x57}, 0, LPK_PHASE, "World_LotStreaming (world init, main)"},
+    {TS3A(0x00C6AEB0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, LPK_PHASE, "World_PostLoadInit (main)"},
+    {TS3A(0x00C626F8), 5, {}, TS3A(0x00829410), LPK_ROUTING, "RoutingWorld_LockedOp_WorldInit (routing world setup)"},
+    {TS3A(0x008352F1), 5, {}, TS3A(0x0082A030), LPK_ROUTING, "WaterGrid_BuildFromWorld from 0x8352F1"},
+    {TS3A(0x00835390), 5, {}, TS3A(0x0082A030), LPK_ROUTING, "WaterGrid_BuildFromWorld from 0x835390 (load)"},
+    {TS3A(0x008358B5), 5, {}, TS3A(0x0082A030), LPK_ROUTING, "WaterGrid_BuildFromWorld from 0x8358B5"},
+    {TS3A(0x00C6BE53), 5, {}, TS3A(0x008349C0), LPK_ROUTING, "BuildWorldRoutingData from 0xC6BE53"},
+    {TS3A(0x00C6CD02), 5, {}, TS3A(0x008349C0), LPK_ROUTING, "BuildWorldRoutingData from 0xC6CD02"},
+    {TS3A(0x00835A27), 5, {}, TS3A(0x008349C0), LPK_ROUTING, "BuildWorldRoutingData from 0x835A27"},
+    {TS3A(0x00ACF3CF), 5, {}, TS3A(0x00834DC0), LPK_ROUTING, "RoutingSystem_LotLoadFloorUpdate (Lot_FinishLoad)"},
+    {TS3A(0x00AABE33), 5, {}, TS3A(0x00C6CF80), LPK_PHASE, "WorldManager_LoadWorld from 0xAABE33"},
+    {TS3A(0x00C6D9E8), 5, {}, TS3A(0x00C6CF80), LPK_PHASE, "WorldManager_LoadWorld from 0xC6D9E8"},
+    {TS3A(0x00C6D105), 5, {}, TS3A(0x00C65E00), LPK_PHASE, "WorldManager_CreateLotsFromLayer"},
+    {TS3A(0x00C6D264), 5, {}, TS3A(0x00C678D0), LPK_PHASE, "WorldManager_LoadLots"},
+    {TS3A(0x00C6D24E), 5, {}, TS3A(0x00C64630), LPK_PHASE, "WorldManager_LoadLots 0xC64630"},
+    {TS3A(0x00769993), 5, {}, TS3A(0x0078F2B0), LPK_EVENT, "World_FireEvent 7 (load finished)"},
 };
 
 static void* g_lpJmp[LP_N];        // trampoline (E) or original callee (C)
@@ -106,7 +106,8 @@ static void __cdecl LpEnter(int id, DWORD* slot) {
         return;
     }
     if (id == LP_LOADWORLD0 || id == LP_LOADWORLD1) {
-        memset(&k.lpWindowMs, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, lpWindowMs));
+        // only the [LoadProf] rows: the old size (to the end of Ts3nCounters) also zeroed every later section's counters
+        memset(&k.lpWindowMs, 0, offsetof(Ts3nCounters, lpSite) + sizeof(k.lpSite) - offsetof(Ts3nCounters, lpWindowMs));
         g_lpT0 = LpNow();
         InterlockedExchange(&g_lpOpen, 1);
         k.lpLoads++;
@@ -185,13 +186,13 @@ static bool LpInstallAt(int id, DWORD at, DWORD target) {
     const u8* p = (const u8*)(uintptr_t)at;
     if (!Matches(p, want, s.len)) {
         char hex[64];
-        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP loadprof %s: bytes at 0x%08lX differ (found %s; another section owns it?)", s.name, at, hex);
         return false;
     }
     if (!target) {
         char name[80];
-        sprintf_s(name, "%s (loadprof)", s.name);
+        SFmt(name, "%s (loadprof)", s.name);
         return (g_lpJmp[id] = InstallDetour(name, at, s.pro, s.len, (void*)kLpStubs[id], &g_lpJmp[id])) != NULL;
     }
     g_lpJmp[id] = (void*)(uintptr_t)target;

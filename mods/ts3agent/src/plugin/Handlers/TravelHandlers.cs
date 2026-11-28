@@ -108,7 +108,7 @@ namespace Ts3Agent
             throw new McpException("world must be france, china or egypt");
         }
 
-        // travel_vacation {world: france|china|egypt, days? (2), sims?, cost? (0), clear_recovery? (false)}: SitInCarToTriggerTravel, the interaction
+        // travel_vacation {world: france|china|egypt, days? (2), sims?, cost? (0), clear_recovery? (false), alt? (0)}: SitInCarToTriggerTravel, the interaction
         // TravelUtil.TriggerTravelToVacationWorld queues after the trip planner. Targeting the world lot skips the walk to the
         // farthest lot, so the switch starts on the next tick (same FinalBoardingCall + GameStates.TravelToVacationWorld).
         // Skips the planner's visa/duration limits and the ITF "travel with" warning.
@@ -132,8 +132,13 @@ namespace Ts3Agent
             List<object> refused = new List<object>();
             TravelUtil.SitInCarToTriggerTravel trip = null;
             bool queued = false;
-            for (int i = 0; i < sims.Count && !queued; i++)
+            // alt: N starts the lead search N places further down the list. travel-trip.ts sends alt 1 when the trip has not
+            // started after ~1 min: in runs of 2026-11-12 the trip queued for one adult was dropped, and asked again through
+            // the next adult it went.
+            int alt = Math.Max(0, (int)a.Long("alt", 0));
+            for (int k = 0; k < sims.Count && !queued; k++)
             {
+                int i = (k + alt) % sims.Count;
                 Sim lead = sims[i];
                 List<Sim> followers = new List<Sim>(sims);
                 followers.RemoveAt(i);
@@ -621,7 +626,8 @@ namespace Ts3Agent
             return r;
         }
 
-        // travel_home {direct?}: everyone returns early, the way the game's own UI does it per world type.
+        // travel_home {direct?, alt? (0)}: everyone returns early, the way the game's own UI does it per world type. alt: N (vacation
+        // worlds only) asks through the N-th other young-adult-or-older household Sim instead.
         // Future world: the portal's Travel ("Travel Home") needs an Active portal, which only the arrival animation
         // (TimePortal.Arrive, anim event 201 -> SwitchActiveState) sets. [inferred] Arrive never ran or was cancelled: it
         // is pushed 1 Sim minute after arrival only when the household lot has a portal (else a fade-in), and the harness
@@ -692,6 +698,16 @@ namespace Ts3Agent
                 if (!s.SimDescription.YoungAdultOrAbove && Household.ActiveHousehold != null)
                     foreach (Sim m in Household.ActiveHousehold.AllActors)
                         if (m.SimDescription.YoungAdultOrAbove && TravelUtil.CanSimTriggerTravelToHomeWorld(m, ref why)) { s = m; break; }
+                // The trip home sometimes never starts for the Sim that asked. travel-trip.ts then asks again with alt 1,
+                // through another young-adult-or-older household Sim (the game's check below still applies to that Sim).
+                int alt = (int)a.Long("alt", 0);
+                if (alt > 0 && Household.ActiveHousehold != null)
+                {
+                    List<Sim> others = new List<Sim>();
+                    foreach (Sim m in Household.ActiveHousehold.AllActors)
+                        if (m != s && m.SimDescription.YoungAdultOrAbove) others.Add(m);
+                    if (others.Count > 0) s = others[(alt - 1) % others.Count];
+                }
                 why = null;
                 if (!TravelUtil.CanSimTriggerTravelToHomeWorld(s, ref why))
                     throw new McpException("game refuses the trip home" + (why != null ? ": " + why() : ""));
@@ -711,12 +727,35 @@ namespace Ts3Agent
             return d != null ? d.Count : 0;
         }
 
+        // Where EA's return flow stands while in_travel stays true (2026-11-24 EA BP stall: Pause, no sub-state, in_travel
+        // true after the home load). InWorldState.Startup runs ImportTravellingHousehold, then creates mPostWorldInitializers,
+        // then PostTravelingFixUp clears the travel flag; its body is one try / catch (Exception) {}, so a throw or a wait there
+        // leaves no sub-state and no script error. travel_phase = GameStates.sTravelData.mState (null: no travel data);
+        // inworld_post_init = Startup got past ImportTravellingHousehold. EA privates by reflection: "?" when a name is missing.
+        static void TravelInternals(Dictionary<string, object> r)
+        {
+            const BindingFlags kF = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
+            try
+            {
+                FieldInfo td = typeof(GameStates).GetField("sTravelData", kF);
+                object d = td != null ? td.GetValue(null) : null;
+                FieldInfo st = d != null ? d.GetType().GetField("mState", kF) : null;
+                r["travel_phase"] = td == null ? "?" : d == null ? null : st != null ? st.GetValue(d).ToString() : "?";
+                FieldInfo si = typeof(GameStates).GetField("sSingleton", kF), iw = typeof(GameStates).GetField("mInWorldState", kF);
+                object gs = si != null ? si.GetValue(null) : null, w = gs != null && iw != null ? iw.GetValue(gs) : null;
+                FieldInfo pi = w != null ? w.GetType().GetField("mPostWorldInitializers", kF) : null;
+                r["inworld_post_init"] = w == null ? null : pi != null ? (object)(pi.GetValue(w) != null) : "?";
+            }
+            catch (Exception e) { r["travel_phase"] = "error: " + e.Message; }
+        }
+
         // travel_state: where the game is and how the trip stands; readable during most of a switch (check in_travel).
         static object TravelState(Args a)
         {
             Dictionary<string, object> r = Util.Obj();
             r["in_world"] = GameStates.IsInWorld();
             r["in_travel"] = GameStates.IsTravelling;
+            TravelInternals(r);
             r["world"] = GameUtils.GetCurrentWorld().ToString();
             r["world_type"] = GameUtils.GetCurrentWorldType().ToString();
             r["world_file"] = World.GetWorldFileName();

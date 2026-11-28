@@ -15,7 +15,8 @@ import { parseArgs } from 'node:util';
 import { BIN, GAME_EXE } from './game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
-const LEDGER = join(ROOT, 'docs', 'data', 'change-ledger.jsonl');
+// one file per UTC month (YYYY-MM.jsonl): a single file passed GitHub's 100 MB push limit (2026-11)
+const LEDGER_DIR = join(ROOT, 'docs', 'data', 'change-ledger');
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
 const STATE = join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'ts3-fixes', 'state.json');
 
@@ -44,7 +45,8 @@ function current(note?: string): Entry {
   return { at: new Date().toISOString(), key: sha(JSON.stringify(body)), ...(note ? { note } : {}), ...body };
 }
 
-const readLedger = (): Entry[] => (existsSync(LEDGER) ? readFileSync(LEDGER, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : []);
+const readLedger = (): Entry[] => (existsSync(LEDGER_DIR) ? readdirSync(LEDGER_DIR).filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort()
+  .flatMap(f => readFileSync(join(LEDGER_DIR, f), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as Entry)) : []);
 
 function diff(a: Entry | undefined, b: Entry): string[] {
   if (!a) return ['(first recorded change set)'];
@@ -63,7 +65,8 @@ function snapshot(note?: string) {
   const e = current(note);
   const last = readLedger().at(-1);
   if (last?.key === e.key && !note) { console.log(`change set unchanged (${e.key})`); return; }
-  appendFileSync(LEDGER, JSON.stringify(e) + '\n');
+  mkdirSync(LEDGER_DIR, { recursive: true });
+  appendFileSync(join(LEDGER_DIR, `${e.at.slice(0, 7)}.jsonl`), JSON.stringify(e) + '\n');
   console.log(`change set ${e.key} recorded; since last: ${diff(last, e).join('; ') || 'nothing (note only)'}`);
 }
 
@@ -115,6 +118,20 @@ export function pickReports(dir: string, names: string[], pids?: number[]) {
   return { keep, other };
 }
 
+// "+0x<rva>" of the fault address from the report's module list (the "base 0x... size 0x... ... "<path>"" line whose path is the
+// address line's path; system32 and Bin can both hold a d3d9.dll), or '' when no such line (tools/harness/known-causes.ts then
+// compares only the low 16 bits)
+export function faultRva(t: string): string {
+  const a = t.match(/^address: (0x[0-9a-f]+) "([^"]*)"/im);
+  if (!a) return '';
+  const at = parseInt(a[1], 16);
+  for (const m of t.matchAll(/^base (0x[0-9a-f]+) size (0x[0-9a-f]+) .*"([^"]+)"\s*$/gim)) {
+    const base = parseInt(m[1], 16);
+    if (m[3].toLowerCase() === a[2].toLowerCase() && at >= base && at < base + parseInt(m[2], 16)) return `+0x${(at - base).toString(16)}`;
+  }
+  return '';
+}
+
 function triage(since?: string, pids?: number[]) {
   const ledger = readLedger();
   const all = readdirSync(USER).filter(n => /^xcpt .*\.txt$/i.test(n) && (!since || statSync(join(USER, n)).mtime >= new Date(since))).sort();
@@ -127,7 +144,7 @@ function triage(since?: string, pids?: number[]) {
     const when = d && tm ? new Date(`${d}T${tm.replace(/\./g, ':')}`) : statSync(join(USER, n)).mtime; // report time is local
     const type = t.match(/^type: (.+)$/m)?.[1]?.trim() ?? '?';
     const addr = t.match(/^address: (0x[0-9a-f]+) "([^"]*)"/im);
-    const mod = addr ? `${addr[1]} in ${addr[2].split('\\').at(-1)}` : '?';
+    const mod = addr ? `${addr[1]} in ${addr[2].split('\\').at(-1)}${faultRva(t)}` : '?';
     const stackMods = [...new Set([...(t.split('[Call stack]')[1]?.split('[Stack data]')[0] ?? '').matchAll(/\\([^\\\r\n]+\.(?:exe|dll|asi))\r?\n/gi)].map(m => m[1]))];
     const i = ledger.findLastIndex(e => new Date(e.at) <= when);
     console.log(`\n${n}\n  ${when.toISOString()}  ${type}  at ${mod}  stack: ${stackMods.join(', ') || '-'}`);
@@ -303,6 +320,14 @@ if (import.meta.main) {
       assert.match(outfitStringFault(os)!, /at 0x700973D0 \(outside TS3W: the CRT memcpy\): string begin 0x40A00000 \(float 5\.0\), end 0x011C7E54 \(EA's empty string\), object 0x3C39B580, record 0x3D619820, outfit 0x6583D250, frame at 0x49777310, 0x408C3A memcpy return below it;/);
       assert.equal(outfitStringFault(os.replace('e0 f5 5b 00', '00 00 00 00')), null, 'no 0x408E20 return: not this frame');
       assert.equal(outfitStringFault(mb), null, 'the ModelBuilder frame is not this one');
+      // fault RVA from the module list (the 2026-11-16 12.02.21 report's lines, Steam path shortened): Bin d3d9.dll, not system32's
+      const bin = '<SteamLibrary>\\steamapps\\common\\The Sims 3\\Game\\Bin\\d3d9.dll';
+      const xr = ['type: ACCESS_VIOLATION reading from address 0x00000000 (NULL)', `address: 0x7208d4b4 "${bin}":0x0001:0x0002c4b4`, '',
+        `base 0x714e0000 size 0x00179000 entry 0x715640c0 "d3d9.dll"                                       "C:\\WINDOWS\\system32\\d3d9.dll"`,
+        `base 0x72060000 size 0x0011b000 entry 0x720fe445 "d3d9.dll"                                       "${bin}"`, ''].join('\r\n');
+      assert.equal(faultRva(xr), '+0x2d4b4');
+      assert.equal(faultRva(xr.replace(/^base 0x72060000.*$/m, '')), '', 'no module line of that path: no rva (not system32 d3d9.dll)');
+      assert.equal(faultRva('type: x\r\n'), '');
     } finally { rmSync(d, { recursive: true, force: true }); }
     console.log('self-check ok');
   } else if (positionals[0] === 'snapshot') snapshot(values.note);

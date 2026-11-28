@@ -213,7 +213,7 @@ Every managed method `mods/ts3fixes` replaces at startup through its patch host 
 | Target method | Hook (class.method) | Switch | Default | File |
 |---|---|---|---|---|
 | `Sims3.Gameplay.Core.GoHome.Run()` | `GoHomeHook.RunHook` (stub `RunOrig`) | `gohome` | on (`kGoHomeShortcut`) | Fixes.cs |
-| `Sims3.Gameplay.Abstracts.RabbitHole.RouteNearEntranceAndEnterRabbitHole(...)` | `RabbitHoleHook.EnterHook` (`EnterOrig`) | `rabbithole` | on (`kBuildingTripShortcut`) | Fixes.cs |
+| `Sims3.Gameplay.Abstracts.RabbitHole.RouteNearEntranceAndEnterRabbitHole(...)` | `RheEnterHook.EnterHook` (`EnterOrig`), runs `RabbitHoleHook.EnterPre` first (2026-11-24, docs/130 §11) | `rabbithole` | on (`kBuildingTripShortcut`) | Fixes.cs |
 | `Sims3.Gameplay.Core.VisitCommunityLot.Run()` | `VisitCommunityLotHook.RunHook` (`RunOrig`) | `visit` | on (`kLotTripShortcut`) | Fixes.cs |
 | `Sims3.Gameplay.Core.VisitLot.Run()` | `VisitLotHook.RunHook` (`RunOrig`) | `visitlot` | on (`kLotTripShortcut`) | Fixes.cs |
 | `Sims3.Gameplay.Core.GoToLot.Run()` | `GoToLotHook.RunHook` (`RunOrig`) | `gotolot` | on (`kLotTripShortcut`) | Fixes.cs |

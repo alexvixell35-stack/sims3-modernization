@@ -1,0 +1,223 @@
+{
+ "note": "Repinned 2026-11-24 to the EA parity build eam1124b2 (game-copy/eam1124b2/, 0.36.303-eam1124b2; version read-backs and their regexCases moved, 0.36.303-m1124b now a noMatch). EA copy (EA laptop, TS3_MACHINE=ea-laptop TS3_LAUNCH=ea, correctness only, no timing) of force-defaults-m1124b-rerun1-1124: asi/ini/ts3fixes from game-copy/eam1124b/ (EA app 1.69.47 build of master set m1124b (rc/m1124b abab2853): ts3native-ea169.asi.eam1124b (0.36.303-m1124b, sha256 9bd655581d64, ea-build.bat), ts3native-ea169.ini.eam1124b (EA rc ini, sha256 723337afcef9), ts3fixes.package.eam1124b (EA refs, sha256 1373dbf7c797, tuning b7018ac0bf65 = Steam m1124b), agent 891a73c45f1a); version read-back adds \"release: 0.36.303-m1124b EA\" and \"host build: EA app 1.69.47\" (regexCases); Apex / Bin add-on and VB guard \"on\" lines dropped (EA laptop runs DXVK, no Apex; VB guard is Steam 1.67 only); run.profile.noProf (the stutter profiler cannot inject on this EA laptop).  [Steam] force-defaults-m1124b-rerun1-1124 (2026-11-24): rerun of force-defaults-m1124b, same pins (0.36.303-m1124b). lineswitch-force FAILed in 3.2 min: the Bunches were not at home at 20:00 on Baseline-SV-Spring, @type:ToiletCheap (nearest the selected Sim) was \"Bargain John\" with an empty menu, do_interaction use failed; reactoverlay-force never ran (stopQueueOnFail). Fix bugfix/lineswitch-defaults-home-1124: setup_sims teleports Jack, Lisa, Judy home next to their ToiletCheap; end mustMatch wanted switched>=1 (the hh-on arm), now switched 0 + kept>=1. Both jobs.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^release: 0.36.303-eam1124b2 EA$": {
+   "match": [
+    "release: 0.36.303-eam1124b2 EA"
+   ],
+   "noMatch": [
+    "release: 0.36.303-eam1124b2 retail",
+    "release: 0.36.300-eafinal2 EA",
+    "release: 0.36.303-m1124b2 EA",
+    "release: 0.36.303-m1124b EA"
+   ]
+  },
+  "^host build: EA app 1.69.47": {
+   "match": [
+    "host build: EA app 1.69.47"
+   ],
+   "noMatch": [
+    "host build: Steam 1.67",
+    "host build: retail 1.67"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "lineswitch-force",
+   "note": "[est 12 min] Release defaults (no ini or switch overrides; only the repro's log switches): kLineSwitch on, kLineSwitchHh off, read back in the ts3fixes settings line. Repro lineswitch-force-defaults: the forced case is a household Sim, so the exemption must hold and the switch must still see it (counters lineswitch_kept>=1,lineswitch_switched<1,lineswitch_errors<1). 0 script errors.",
+   "asi": "game-copy/eam1124b2/ts3native.asi",
+   "iniBase": "game-copy/eam1124b2/ts3native.ini",
+   "fixesPackage": "game-copy/eam1124b2/ts3fixes.package",
+   "pinReason": "EA parity build eam1124b2 (bugfix/ea-parity-into-m1124b: rc/m1124b + the EA 1.69 parity port from test/ea-parity-final-run, AutShadow.Races 7): ts3native-ea169.asi.eam1124b2 (0.36.303-eam1124b2, sha256 2fe27f55c141, ea-build.bat), ts3native-ea169.ini.eam1124b2 (EA rc ini, sha256 7100a11b3255), ts3fixes/agent as eam1124b. Was: EA app 1.69.47 build of master set m1124b (rc/m1124b abab2853): ts3native-ea169.asi.eam1124b (0.36.303-m1124b, sha256 9bd655581d64, ea-build.bat), ts3native-ea169.ini.eam1124b (EA rc ini, sha256 723337afcef9), ts3fixes.package.eam1124b (EA refs, sha256 1373dbf7c797, tuning b7018ac0bf65 = Steam m1124b), agent 891a73c45f1a [Steam: master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay]",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "stopQueueOnFail": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^ts3native 0\\.36\\.303-eam1124b2 ": 1,
+    "^ts3fixes: settings on: (.*, )?kLineSwitch(, |$)": 1,
+    "^lineswitch: kept, household without lineswitchhh: household Judy Bunch, ": 1,
+    "^release: 0.36.303-eam1124b2 EA$": 1,
+    "^host build: EA app 1.69.47": 1
+   },
+   "save": "Baseline-SV-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 5,
+     "repro": "lineswitch-force-defaults",
+     "fixesRequire": "lineswitch_kept>=1,lineswitch_switched<1,lineswitch_errors<1",
+     "noProf": true
+    }
+   },
+   "timeoutMin": 20,
+   "regexCases": {
+    "^ts3native 0\\.36\\.303-eam1124b2 ": {
+     "match": [
+      "ts3native 0.36.303-eam1124b2 2026-11-25 00:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+      "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+      "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+      "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00",
+      "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+     ]
+    },
+    "^ts3fixes: settings on: (.*, )?kLineSwitch(, |$)": {
+     "match": [
+      "ts3fixes: settings on: kAgeUpAbort, kLineSwitch, kZzz",
+      "ts3fixes: settings on: kLineSwitch"
+     ],
+     "noMatch": [
+      "ts3fixes: settings on: kLineSwitchHh, kZzz",
+      "ts3fixes: settings on: kLineSwitchLog",
+      "ts3fixes: settings off: kLineSwitch"
+     ]
+    },
+    "^ts3fixes: settings on: (.*, )?kLineSwitchHh(, |$)": {
+     "match": [
+      "ts3fixes: settings on: kAgeUpAbort, kLineSwitchHh, kZzz",
+      "ts3fixes: settings on: kLineSwitchHh"
+     ],
+     "noMatch": [
+      "ts3fixes: settings on: kLineSwitchHhHh, kZzz",
+      "ts3fixes: settings on: kLineSwitchHhLog",
+      "ts3fixes: settings off: kLineSwitchHh"
+     ]
+    },
+    "^lineswitch: kept, household without lineswitchhh: household Judy Bunch, ": {
+     "match": [
+      "lineswitch: kept, household without lineswitchhh: household Judy Bunch, UseToilet ToiletCheap, waited 4.9 sim-min"
+     ],
+     "noMatch": [
+      "lineswitch: switched: household Judy Bunch, UseToilet ToiletCheap -> ToiletModerate (other room, 8.7 m, waited 2.0 sim-min)",
+      "lineswitch: kept, player's action: household Lisa Bunch, UseToilet ToiletCheap, waited 2.1 sim-min"
+     ]
+    },
+    "^release: 0.36.303-eam1124b2 EA$": {
+     "match": [
+      "release: 0.36.303-eam1124b2 EA"
+     ],
+     "noMatch": [
+      "release: 0.36.303-eam1124b2 retail",
+      "release: 0.36.300-eafinal2 EA",
+      "release: 0.36.303-m1124b2 EA",
+      "release: 0.36.303-m1124b EA"
+     ]
+    },
+    "^host build: EA app 1.69.47": {
+     "match": [
+      "host build: EA app 1.69.47"
+     ],
+     "noMatch": [
+      "host build: Steam 1.67",
+      "host build: retail 1.67"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "logForbid": {
+    "^ts3fixes: settings on: (.*, )?kLineSwitchHh(, |$)": 0
+   }
+  },
+  {
+   "id": "reactoverlay-force",
+   "note": "[est 12 min] Release defaults (no ini or switch overrides; only the repro's log switches): kReactOverlay on, kReactOverlayHh off, read back in the ts3fixes settings line. Repro reactoverlay-force-defaults: the forced case is a household Sim, so the exemption must hold and the switch must still see it (counters reactoverlay_queued>=1,reactoverlay_now<1,reactoverlay_later<1,reactoverlay_dropped<1,reactoverlay_errors<1). 0 script errors.",
+   "asi": "game-copy/eam1124b2/ts3native.asi",
+   "iniBase": "game-copy/eam1124b2/ts3native.ini",
+   "fixesPackage": "game-copy/eam1124b2/ts3fixes.package",
+   "pinReason": "EA parity build eam1124b2 (bugfix/ea-parity-into-m1124b: rc/m1124b + the EA 1.69 parity port from test/ea-parity-final-run, AutShadow.Races 7): ts3native-ea169.asi.eam1124b2 (0.36.303-eam1124b2, sha256 2fe27f55c141, ea-build.bat), ts3native-ea169.ini.eam1124b2 (EA rc ini, sha256 7100a11b3255), ts3fixes/agent as eam1124b. Was: EA app 1.69.47 build of master set m1124b (rc/m1124b abab2853): ts3native-ea169.asi.eam1124b (0.36.303-m1124b, sha256 9bd655581d64, ea-build.bat), ts3native-ea169.ini.eam1124b (EA rc ini, sha256 723337afcef9), ts3fixes.package.eam1124b (EA refs, sha256 1373dbf7c797, tuning b7018ac0bf65 = Steam m1124b), agent 891a73c45f1a [Steam: master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay]",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "stopQueueOnFail": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^ts3native 0\\.36\\.303-eam1124b2 ": 1,
+    "^ts3fixes: settings on: (.*, )?kReactOverlay(, |$)": 1,
+    "^release: 0.36.303-eam1124b2 EA$": 1,
+    "^host build: EA app 1.69.47": 1
+   },
+   "save": "Baseline-SV-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 5,
+     "repro": "reactoverlay-force-defaults",
+     "fixesRequire": "reactoverlay_queued>=1,reactoverlay_now<1,reactoverlay_later<1,reactoverlay_dropped<1,reactoverlay_errors<1",
+     "noProf": true
+    }
+   },
+   "timeoutMin": 20,
+   "regexCases": {
+    "^ts3native 0\\.36\\.303-eam1124b2 ": {
+     "match": [
+      "ts3native 0.36.303-eam1124b2 2026-11-25 00:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+      "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+      "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+      "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00",
+      "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+     ]
+    },
+    "^ts3fixes: settings on: (.*, )?kReactOverlay(, |$)": {
+     "match": [
+      "ts3fixes: settings on: kAgeUpAbort, kReactOverlay, kZzz",
+      "ts3fixes: settings on: kReactOverlay"
+     ],
+     "noMatch": [
+      "ts3fixes: settings on: kReactOverlayHh, kZzz",
+      "ts3fixes: settings on: kReactOverlayLog",
+      "ts3fixes: settings off: kReactOverlay"
+     ]
+    },
+    "^ts3fixes: settings on: (.*, )?kReactOverlayHh(, |$)": {
+     "match": [
+      "ts3fixes: settings on: kAgeUpAbort, kReactOverlayHh, kZzz",
+      "ts3fixes: settings on: kReactOverlayHh"
+     ],
+     "noMatch": [
+      "ts3fixes: settings on: kReactOverlayHhHh, kZzz",
+      "ts3fixes: settings on: kReactOverlayHhLog",
+      "ts3fixes: settings off: kReactOverlayHh"
+     ]
+    },
+    "^release: 0.36.303-eam1124b2 EA$": {
+     "match": [
+      "release: 0.36.303-eam1124b2 EA"
+     ],
+     "noMatch": [
+      "release: 0.36.303-eam1124b2 retail",
+      "release: 0.36.300-eafinal2 EA",
+      "release: 0.36.303-m1124b2 EA",
+      "release: 0.36.303-m1124b EA"
+     ]
+    },
+    "^host build: EA app 1.69.47": {
+     "match": [
+      "host build: EA app 1.69.47"
+     ],
+     "noMatch": [
+      "host build: Steam 1.67",
+      "host build: retail 1.67"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "logForbid": {
+    "^ts3fixes: settings on: (.*, )?kReactOverlayHh(, |$)": 0
+   }
+  }
+ ]
+}

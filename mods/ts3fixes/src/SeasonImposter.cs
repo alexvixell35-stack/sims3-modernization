@@ -11,7 +11,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // "seasonimposter" (issue #82, docs/44 §6, default off): lot imposter rebuilds after a season change, moved out of the
+    // "seasonimposter" (issue #82, docs/44 §6.1, default on since 2026-11-25): lot imposter rebuilds after a season change, moved out of the
     // season alarm. SeasonalLotMarker.SetSeason and EventLotMarker.SetLayout end with World.RegenImposter(lot) +
     // World.SetImposterMode(false) for a community or inactive lot in a yielding context; those are the game's only
     // script callers [verified, decompiled]. RegenImposter is Lot_MarkImposterDirty 0xAC3680: the sim thread waits for the

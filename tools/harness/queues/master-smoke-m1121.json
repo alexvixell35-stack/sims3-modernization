@@ -1,0 +1,36 @@
+{
+  "note": "master-smoke-m1121: smoke of master set m1121 (0.36.298-m1121, merge/agents-1121) on Apex + RTX Remix bridge (Bin state apex, set by probe-out/queue/chain-agents-1121.sh). Pass = no crash, no hang, version and the VbFreeDelay fix (2000 ms, ON in the release ini) read back, 0 script errors.",
+  "jobs": [
+    {
+      "id": "bp-m1121-smoke",
+      "note": "[est 10 min] [natural play, no cheats] master set m1121 smoke, Baseline-BP-Spring, release defaults: version and \"OK   ea fix: VbFreeDelay\" read back, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.m1121",
+      "iniBase": "game-copy/ts3native.ini.m1121",
+      "fixesPackage": "game-copy/ts3fixes.package.m1121",
+      "pinReason": "master set m1121 (0.36.298-m1121): asi + ini + ts3fixes + agent from merge/agents-1121; agent installed to build/ by chain-agents-1121.sh",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": ["-disablestoryprogression"],
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-m1121 ": 1,
+        "^OK   ea fix: VbFreeDelay \\(docs/67 §44\\): VB wrappers freed 2000 ms": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": { "profile": { "seed": 12345, "noSamplers": true, "minutes": 5 } },
+      "timeoutMin": 15,
+      "regexCases": {
+        "^ts3native 0\\.36\\.298-m1121 ": {
+          "match": ["ts3native 0.36.298-m1121 2026-11-21 12:00:00"],
+          "noMatch": ["ts3native 0.36.297-d1121 2026-11-21 09:00:00", "ts3native 0.36.297-vbg1121c 2026-11-21 01:20:00"]
+        },
+        "^OK   ea fix: VbFreeDelay \\(docs/67 §44\\): VB wrappers freed 2000 ms": {
+          "match": ["OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"],
+          "noMatch": ["PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)", "SKIP ea fix: VbFreeDelay (docs/67 §44): Steam 1.67 only, no EA 1.69 rows: not installed"]
+        }
+      },
+      "scriptErrorsMax": 0
+    }
+  ],
+  "rewind": "auto"
+}

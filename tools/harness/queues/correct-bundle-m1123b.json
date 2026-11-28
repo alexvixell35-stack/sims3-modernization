@@ -1,0 +1,315 @@
+{
+  "note": "correct-bundle-m1123b (2026-11-23): chain-m1123 trimmed to the bundle rule (docs: one load per world with every ON-arm check). Master set m1123 (0.36.299-m1123), Bin state apex, agent installed by probe-out/queue/chain-m1123b.sh, correctness only. Job 1 bp-gohere-ab (RUN FIRST, unchanged from compat-switchon-1122h-1123-m1123: FAILed on 1122h on a native_set read-back, unseenfbgohere verdict pending). Jobs 2-4: one load per world (BP, IP, SV) with the pass criteria of {bp,ip,sv}-capsc + {bp,ip,sv}-loopcost-correct + the bp-ovf-smoke forbid. Dropped (already PASS on the branch build whose code is the merged head, or duplicate smoke): see the chain-m1123b.sh header.",
+  "rewind": "auto",
+  "regexCases": {
+    "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ .* asOl \\d+/196608 \\d+ .* dmxLive \\d+/4096 \\d+ aaDisp \\d+/4096 \\d+$": {
+      "match": [
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 7/64 0 kd 12/64 0 asSet 812/3072 0 asSimIds 400/3072 0 asOl 35644/196608 0 asTier 30/1024 0 asLotTier 20/512 0 utb 90/1024 0 utbWalk 300/4096 0 jobs 8/32 0 rd 0/256 0 spDoor 40/512 0 spMB 6/64 0 dmx 0/256 0 dmxHold 2/32 0 aa 0/4096 0 gvu 3/32 0 dmxLive 300/4096 0 aaDisp 412/4096 0"
+      ],
+      "noMatch": [
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 7/64 0 kd 12/64 0 asSet 812/3072 0 asSimIds 400/3072 0 asOl 35644/49152 0 asTier 30/1024 0 asLotTier 20/512 0 utb 90/1024 0 utbWalk 300/4096 0 jobs 8/32 0 rd 0/256 0 spDoor 40/512 0 spMB 6/64 0 dmx 0/256 0 dmxHold 2/32 0 aa 0/4096 0 gvu 3/32 0",
+        "ts3fixes: caps (docs/321 lane 0: hw/cap): autshadow objs 300/1024"
+      ]
+    },
+    "^caps \\(.* (asOl|dmx|aa) \\d+/\\d+ [1-9]\\d*( |$)": {
+      "match": [
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 7/64 0 kd 12/64 0 asSet 812/3072 0 asSimIds 400/3072 0 asOl 35644/196608 0 asTier 30/1024 0 asLotTier 20/512 0 utb 90/1024 0 utbWalk 300/4096 0 jobs 8/32 0 rd 0/256 0 spDoor 40/512 0 spMB 6/64 0 dmx 300/256 3 dmxHold 2/32 0 aa 0/4096 0 gvu 3/32 0 dmxLive 300/4096 0 aaDisp 412/4096 0",
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 7/64 0 kd 12/64 0 asSet 812/3072 0 asSimIds 400/3072 0 asOl 35644/196608 0 asTier 30/1024 0 asLotTier 20/512 0 utb 90/1024 0 utbWalk 300/4096 0 jobs 8/32 0 rd 0/256 0 spDoor 40/512 0 spMB 6/64 0 dmx 0/256 0 dmxHold 2/32 0 aa 0/4096 12 gvu 3/32 0 dmxLive 300/4096 0 aaDisp 412/4096 0",
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 7/64 0 kd 12/64 0 asSet 812/3072 0 asSimIds 400/3072 0 asOl 35644/196608 1 asTier 30/1024 0 asLotTier 20/512 0 utb 90/1024 0 utbWalk 300/4096 0 jobs 8/32 0 rd 0/256 0 spDoor 40/512 0 spMB 6/64 0 dmx 0/256 0 dmxHold 2/32 0 aa 0/4096 0 gvu 3/32 0 dmxLive 300/4096 0 aaDisp 412/4096 0",
+        "caps (minute, docs/321 lane 0: name hw/cap full): aa 0/4096 5"
+      ],
+      "noMatch": [
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 7/64 0 kd 12/64 0 asSet 812/3072 0 asSimIds 400/3072 0 asOl 35644/196608 0 asTier 30/1024 0 asLotTier 20/512 0 utb 90/1024 0 utbWalk 300/4096 0 jobs 8/32 0 rd 0/256 0 spDoor 40/512 0 spMB 6/64 0 dmx 0/256 0 dmxHold 2/32 0 aa 0/4096 0 gvu 3/32 0 dmxLive 300/4096 0 aaDisp 412/4096 0",
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 7/64 0 kd 12/64 0 asSet 812/3072 0 asSimIds 400/3072 0 asOl 35644/196608 0 asTier 30/1024 0 asLotTier 20/512 0 utb 90/1024 0 utbWalk 300/4096 0 jobs 8/32 0 rd 0/256 0 spDoor 40/512 0 spMB 6/64 0 dmx 0/256 0 dmxHold 33/32 4 aa 0/4096 0 gvu 3/32 0 dmxLive 300/4096 0 aaDisp 412/4096 9"
+      ]
+    },
+    "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": {
+      "match": [
+        "ts3fixes: caps (docs/321 lane 0: hw/cap): autshadow objs 312/1024 pairs 2210/8192 capped 0 (objs 0, pairs 0); nearvenue group 9/32 over 0; spawnerskip 40/4096 clears 0; backoff 3/2048 clears 0; cookclick 2/4096"
+      ],
+      "noMatch": [
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 2/64 0 kd 40/64 0"
+      ]
+    },
+    "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": {
+      "match": [
+        "OK   ea fix: SlaveUnlink (docs/143 §8.11): a destroyed slave (a boat's driver, a stroller, a led horse) is taken off its master's slave list before it is freed"
+      ],
+      "noMatch": [
+        "SKIP ea fix: SlaveUnlink: calls at 0x00955809 / 0x00956426 differ: not installed"
+      ]
+    },
+    "^route async: KindDeadlines=1 own Plan ": {
+      "match": [
+        "route async: KindDeadlines=1 own Plan 250 Replan 250 PlanFromPoint 250 ReplanFromPosition 250, A10 foreign 200, foreign Plan 200, probe 180 ms"
+      ],
+      "noMatch": [
+        "route deadline off (PlanDeadlineMs=0, PlanDeadlineOwnMs=0, FbJobDeadline=0, KindDeadlines=0, [UnseenFallback] Enabled=0)"
+      ]
+    },
+    "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": {
+      "match": [
+        "ts3fixes: settings on: kNearVenue",
+        "ts3fixes: settings on: kBookHand, kNearVenue, kVisitArrive"
+      ],
+      "noMatch": [
+        "ts3fixes: settings on: kNearVenueX, kBookHand",
+        "ts3fixes: settings off: kNearVenue"
+      ]
+    },
+    "^(SKIP|FAIL) ea fix: SlaveUnlink": {
+      "match": [
+        "SKIP ea fix: SlaveUnlink: calls at 0x00955809 / 0x00956426 differ: not installed"
+      ],
+      "noMatch": [
+        "OK   ea fix: SlaveUnlink (docs/143 §8.11): a destroyed slave"
+      ]
+    },
+    "^ts3native 0\\.36\\.299-m1123 ": {
+      "match": [
+        "ts3native 0.36.299-m1123 2026-11-23 15:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.299-m1122 2026-11-22 15:00:00",
+        "ts3native 0.36.299-nsplit1 2026-11-22 12:17:42",
+        "ts3native 0.36.299-m1123x 2026-11-23 15:00:00"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+      ]
+    },
+    "^path: longer than [0-9]+ chars, skipped": {
+      "match": [
+        "path: longer than 259 chars, skipped (1 so far; docs/323)"
+      ],
+      "noMatch": [
+        "diag: packages (first 200 names): a.package",
+        "path longer than 259 chars"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-gohere-ab",
+      "note": "[est 18-22 min] unseenfbgohere switch-on test (docs/328 §7.5, Rodney 11-23): BP 10 min play, NRaas GoHere V46 in the set, --ab unseenfbgohere in one load (2-min slices: warm-up on, then off,on,on,off). Pass: 0 script errors, the GoHere eligibility line (only the on side can write it), GoHere precedence lines ok, no refused line; read per side: route fails, unseenfbpre_shortcuts / _no_spot, household route fails / resets (household untouched: TownieUnseen gate, by hand from the row) vs off.",
+      "save": "Baseline-BP",
+      "asi": "game-copy/ts3native.asi.m1123",
+      "iniBase": "game-copy/ts3native.ini.m1123",
+      "fixesPackage": "game-copy/ts3fixes.package.m1123",
+      "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.compat-resolve-1122h",
+      "releaseDefaults": true,
+      "modSet": "game-copy/mod-sets/compat-resolve-1122f",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "ab": "unseenfbgohere",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "unseenfbpre_,unseenfb_"
+        }
+      },
+      "logRequire": {
+        "^ts3fixes: unseenfbgohere: NRaas\\.GoHereSpace\\.Interactions\\.Visit(Community)?LotEx eligible \\(pre\\)$": 1,
+        "^ts3fixes: compat precedence: visit on NRaas\\.GoHereSpace\\.Interactions\\.VisitCommunityLotEx\\.Run \\(NRaasGoHere \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: failreplan on NRaas\\.CommonSpace\\.Helpers\\.SimRoutingComponentEx\\.SetRouteOptions \\(NRaasGoHere \\w+\\): ok$": 1
+      },
+      "logForbid": {
+        "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+      },
+      "regexCases": {
+        "^ts3fixes: unseenfbgohere: NRaas\\.GoHereSpace\\.Interactions\\.Visit(Community)?LotEx eligible \\(pre\\)$": {
+          "match": [
+            "ts3fixes: unseenfbgohere: NRaas.GoHereSpace.Interactions.VisitCommunityLotEx eligible (pre)",
+            "ts3fixes: unseenfbgohere: NRaas.GoHereSpace.Interactions.VisitLotEx eligible (pre)"
+          ],
+          "noMatch": [
+            "ts3fixes: unseenfbgohere: NRaas.GoHereSpace.Interactions.VisitCommunityLotEx eligible (finish)",
+            "ts3fixes: unseenfbgohere: NRaas.GoHereSpace.Interactions.GoHereEx eligible (pre)"
+          ]
+        },
+        "^ts3fixes: compat precedence: visit on NRaas\\.GoHereSpace\\.Interactions\\.VisitCommunityLotEx\\.Run \\(NRaasGoHere \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotEx.Run (NRaasGoHere 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotEx.Run (NRaasGoHere 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotExX.Run (NRaasGoHere 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: failreplan on NRaas\\.CommonSpace\\.Helpers\\.SimRoutingComponentEx\\.SetRouteOptions \\(NRaasGoHere \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentEx.SetRouteOptions (NRaasGoHere 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentEx.SetRouteOptions (NRaasGoHere 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentExX.SetRouteOptions (NRaasGoHere 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": {
+          "match": [
+            "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): refused: already compiled"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): ok"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-bundle",
+      "note": "[est 13-15 min] Bridgeport bundle on master set m1123 (one load, 10 min natural play, seed 12345, release defaults): the pass criteria of bp-capsc (unbounded-caps-correct-1122c: caps lines, SlaveUnlink, KindDeadlines, kNearVenue, no full caps row, household untouched) + bp-loopcost-correct (ts3fixes-loop-cost-correct-1122: deadrefcadence + viewerpushdelta ran, utViewerBad 0, Apex + bridge lines) + the bp-ovf-smoke forbid (no 'path: longer than' skip) in one window; both source jobs were the same 10-min seed-12345 play on Baseline-BP-Spring. 0 script errors, 0 watchdogs.",
+      "asi": "game-copy/ts3native.asi.m1123",
+      "iniBase": "game-copy/ts3native.ini.m1123",
+      "fixesPackage": "game-copy/ts3fixes.package.m1123",
+      "pinReason": "master set m1123 (0.36.299-m1123): bundle of the m1123 repins of bp-capsc + bp-loopcost-correct + bp-ovf-smoke forbid",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "deadrefcadence,viewerpushdelta",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1,deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,viewerpush_walks_skipped>=1,viewerpush_table_sends>=1,viewerpush_actor_walks>=1",
+          "fixesReport": "deadrefsweep,deadrefcadence,viewerpush"
+        }
+      },
+      "nativeRequire": "watchdogs<=0,utViewerPushes>=1,utViewerBad<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-m1123 ": 1,
+        "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ .* asOl \\d+/196608 \\d+ .* dmxLive \\d+/4096 \\d+ aaDisp \\d+/4096 \\d+$": 1,
+        "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": 1,
+        "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": 1,
+        "^route async: KindDeadlines=1 own Plan ": 1,
+        "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) ea fix: SlaveUnlink": 0,
+        "^caps \\(.* (asOl|dmx|aa) \\d+/\\d+ [1-9]\\d*( |$)": 0,
+        "^path: longer than [0-9]+ chars, skipped": 0
+      }
+    },
+    {
+      "id": "ip-bundle",
+      "note": "[est 13-15 min] Isla Paradiso bundle on master set m1123 (one load, 10 min natural play, seed 12345, release defaults): the pass criteria of ip-capsc (unbounded-caps-correct-1122c: caps lines, SlaveUnlink, KindDeadlines, kNearVenue, no full caps row, household untouched) + ip-loopcost-correct (ts3fixes-loop-cost-correct-1122: deadrefcadence + viewerpushdelta ran, utViewerBad 0, Apex + bridge lines) + the bp-ovf-smoke forbid (no 'path: longer than' skip) in one window; both source jobs were the same 10-min seed-12345 play on Baseline-IP-Spring. 0 script errors, 0 watchdogs.",
+      "asi": "game-copy/ts3native.asi.m1123",
+      "iniBase": "game-copy/ts3native.ini.m1123",
+      "fixesPackage": "game-copy/ts3fixes.package.m1123",
+      "pinReason": "master set m1123 (0.36.299-m1123): bundle of the m1123 repins of ip-capsc + ip-loopcost-correct + the bp-ovf-smoke forbid",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "deadrefcadence,viewerpushdelta",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1,deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,viewerpush_walks_skipped>=1,viewerpush_table_sends>=1,viewerpush_actor_walks>=1",
+          "fixesReport": "deadrefsweep,deadrefcadence,viewerpush"
+        }
+      },
+      "nativeRequire": "watchdogs<=0,utViewerPushes>=1,utViewerBad<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-m1123 ": 1,
+        "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ .* asOl \\d+/196608 \\d+ .* dmxLive \\d+/4096 \\d+ aaDisp \\d+/4096 \\d+$": 1,
+        "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": 1,
+        "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": 1,
+        "^route async: KindDeadlines=1 own Plan ": 1,
+        "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) ea fix: SlaveUnlink": 0,
+        "^caps \\(.* (asOl|dmx|aa) \\d+/\\d+ [1-9]\\d*( |$)": 0,
+        "^path: longer than [0-9]+ chars, skipped": 0
+      }
+    },
+    {
+      "id": "sv-bundle",
+      "note": "[est 13-15 min] Sunset Valley bundle on master set m1123 (one load, 10 min natural play, seed 12345, release defaults): the pass criteria of sv-capsc (unbounded-caps-correct-1122c: caps lines, SlaveUnlink, KindDeadlines, kNearVenue, no full caps row, household untouched) + sv-loopcost-correct (ts3fixes-loop-cost-correct-1122: deadrefcadence + viewerpushdelta ran, utViewerBad 0, Apex + bridge lines) + the bp-ovf-smoke forbid (no 'path: longer than' skip) in one window; both source jobs were the same 10-min seed-12345 play on Baseline-SV-Spring. 0 script errors, 0 watchdogs.",
+      "asi": "game-copy/ts3native.asi.m1123",
+      "iniBase": "game-copy/ts3native.ini.m1123",
+      "fixesPackage": "game-copy/ts3fixes.package.m1123",
+      "pinReason": "master set m1123 (0.36.299-m1123): bundle of the m1123 repins of sv-capsc + sv-loopcost-correct + the bp-ovf-smoke forbid",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "deadrefcadence,viewerpushdelta",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1,deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,viewerpush_walks_skipped>=1,viewerpush_table_sends>=1,viewerpush_actor_walks>=1",
+          "fixesReport": "deadrefsweep,deadrefcadence,viewerpush"
+        }
+      },
+      "nativeRequire": "watchdogs<=0,utViewerPushes>=1,utViewerBad<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-m1123 ": 1,
+        "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ .* asOl \\d+/196608 \\d+ .* dmxLive \\d+/4096 \\d+ aaDisp \\d+/4096 \\d+$": 1,
+        "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": 1,
+        "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": 1,
+        "^route async: KindDeadlines=1 own Plan ": 1,
+        "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) ea fix: SlaveUnlink": 0,
+        "^caps \\(.* (asOl|dmx|aa) \\d+/\\d+ [1-9]\\d*( |$)": 0,
+        "^path: longer than [0-9]+ chars, skipped": 0
+      }
+    }
+  ]
+}

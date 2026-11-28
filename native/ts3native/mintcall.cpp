@@ -25,22 +25,37 @@
 #error define MC_CTR (the struct holding the mc* counters) before including mintcall.cpp
 #endif
 
-static const DWORD MC_TABLE = 0x00E59880, MC_HEAD = 0x00E544D5, MC_NOP = 0x1C1;
+// inline asm takes no constexpr, so the three addresses it holds are literals per build; the asserts tie them to the table
+#if defined(TS3A_TABLE) && defined(TS3A_RETAIL)
+#define MC_ASM_TABLE 0x00E59B70
+#define MC_ASM_REMOTING 0x01221EC0
+#define MC_ASM_FORCEJIT 0x00E5666D
+#elif defined(TS3A_TABLE)
+#define MC_ASM_TABLE 0x00E598D0
+#define MC_ASM_REMOTING 0x0127B240
+#define MC_ASM_FORCEJIT 0x00E563CD
+#else
+#define MC_ASM_TABLE 0x00E59880
+#define MC_ASM_REMOTING 0x01220EC0
+#define MC_ASM_FORCEJIT 0x00E5637D
+#endif
+static_assert(MC_ASM_TABLE == TS3A(0x00E59880) && MC_ASM_REMOTING == TS3A(0x01220EC0) && MC_ASM_FORCEJIT == TS3A(0x00E5637D), "mintcall asm literals");
+static const DWORD MC_TABLE = TS3A(0x00E59880), MC_HEAD = TS3A(0x00E544D5), MC_NOP = 0x1C1;
 static const DWORD MC_OPS[4] = {0x06, 0x07, 0xEA, 0xEC};
-static const DWORD MC_EA[4] = {0x00E591FF, 0x00E59236, 0x00E5493E, 0x00E549EB};
+static const DWORD MC_EA[4] = {TS3A(0x00E591FF), TS3A(0x00E59236), TS3A(0x00E5493E), TS3A(0x00E549EB)};
 // EA code our handlers model (FNV-1a over the Steam 1.67 bytes): any other hook in them (ArenaTail TailWatch 0xE563B2,
 // monohost MINT=count 0xE54B0B, ...) changes what the stock path does, so the fast path refuses to install.
 // MonoPatcher 0.3.0 (docs/68 §1.3) is accepted: its DllMain patch 0xE59218 `jbe` -> `90 E9` only drops the "ret: more
 // values on stack" print (our ret bails on that case and EA's then returns either way), and its on-demand ForceJIT
 // (0xE5637D `jne` -> `90 90`: transform on every call) is tested per call (byte 0x75 expected): calls go to EA then.
 static const struct { DWORD at, n, fnv, fnv2; } kMcCode[5] = {
-    {0x00E5493E, 0xAD, 0x51DF97BD, 0},           // call / con.call
-    {0x00E549EB, 0x160, 0x65BD44CB, 0},          // callvirt family
-    {0x00E56287, 0x1C2, 0x3D55ED25, 0},          // common push
-    {0x00E591FF, 0x60, 0x41B1FFB3, 0x6B9C5C8D},  // ret / ret.void / ret.vt (2nd: MonoPatcher's 0xE59218 patch)
-    {0x00E543C7, 0x127, 0x86DC9168, 0},          // frame return + dispatch head
+    {TS3A(0x00E5493E), 0xAD, TS3A_PICK(0x51DF97BD, 0xFF2CE6AE, 0x312CB54D), 0},           // call / con.call
+    {TS3A(0x00E549EB), 0x160, TS3A_PICK(0x65BD44CB, 0x402BED6F, 0x79F060E0), 0},          // callvirt family
+    {TS3A(0x00E56287), 0x1C2, TS3A_PICK(0x3D55ED25, 0x6B91BBD0, 0x00441C61), 0},          // common push
+    {TS3A(0x00E591FF), 0x60, TS3A_PICK(0x41B1FFB3, 0x62AC1218, 0x1CABBFBA), TS3A_PICK(0x6B9C5C8D, 0x5B810F46, 0x8F095038)},  // ret / ret.void / ret.vt (2nd: MonoPatcher's 0xE59218 patch)
+    {TS3A(0x00E543C7), 0x127, TS3A_PICK(0x86DC9168, 0x8C91C7A8, 0xA397A140), 0},          // frame return + dispatch head
 };
-static DWORD g_mcEaRet = 0x00E591FF, g_mcEaRetVoid = 0x00E59236, g_mcEaCall = 0x00E5493E, g_mcEaCallvirt = 0x00E549EB;
+static DWORD g_mcEaRet = TS3A(0x00E591FF), g_mcEaRetVoid = TS3A(0x00E59236), g_mcEaCall = TS3A(0x00E5493E), g_mcEaCallvirt = TS3A(0x00E549EB);
 static DWORD g_mcHead = MC_HEAD;
 static int g_mcVerify;          // verify mode installed (all entries -> McVCatch)
 static void* g_mcOrig[MC_NOP];  // verify: what each entry pointed at (our four handlers for our ops)
@@ -57,6 +72,9 @@ static void __cdecl McVPre(int kind, DWORD* regs);
 // [ebp-0x48] args, [ebp-0x50] this, [ebp-0x54] return slot already written. Mirrors 0xE56287-0xE5642E + 0xE54B44.
 static __declspec(naked) void McPush() {
     __asm {
+#ifdef MC_COUNTFAST
+        inc MC_CTR.mcCall               // monohost only: fast calls + callvirts counted in fast mode too
+#endif
         mov ecx, [ebp - 8]
         mov [edx - 0x130], ecx          // rec[d]: caller MonoInvocation, ip, sp, the two area pointers
         mov [edx - 0x12C], edi
@@ -124,7 +142,7 @@ static __declspec(naked) void McPush() {
         movzx edx, ax
         cmp edx, 0x1C0
         ja p_head
-        jmp dword ptr [edx * 4 + 0x00E59880]
+        jmp dword ptr [edx * 4 + MC_ASM_TABLE]
     p_head:
         jmp dword ptr [g_mcHead]
     p_post:
@@ -172,13 +190,13 @@ static __declspec(naked) void McCall() {  // 0xEA
         test eax, eax
         jz c_slow
         mov eax, [eax]
-        cmp eax, dword ptr ds:[0x01220EC0]
+        cmp eax, dword ptr ds:[MC_ASM_REMOTING]
         je c_slow
     c_this:
         mov [ebp - 0x48], ecx           // scratch slots EA's handler writes first on every path
         mov [ebp - 0x50], edx
 #ifndef MC_NOFJ
-        cmp byte ptr ds:[0x00E5637D], 0x75  // MonoPatcher ForceJIT active: EA transforms on every call
+        cmp byte ptr ds:[MC_ASM_FORCEJIT], 0x75  // MonoPatcher ForceJIT active: EA transforms on every call
         jne c_slow
 #endif
         test dword ptr [ebx + 0x44], 0x100  // transformed
@@ -260,7 +278,7 @@ static __declspec(naked) void McCallvirt() {  // 0xEC (con.callvirt / con.boxcal
         jnz v_slow
         mov ebx, [eax + 4]
 #ifndef MC_NOFJ
-        cmp byte ptr ds:[0x00E5637D], 0x75
+        cmp byte ptr ds:[MC_ASM_FORCEJIT], 0x75
         jne v_slow
 #endif
         test dword ptr [ebx + 0x44], 0x100
@@ -313,15 +331,6 @@ static __declspec(naked) void McCallvirt() {  // 0xEC (con.callvirt / con.boxcal
 
 // shared ret checks: ecx = callee MonoInvocation (the eval-stack test is per opcode). Falls through when the inline
 // frame return applies; eax = arena chunk then.
-#define MC_RET_CHECKS(slow)                                                                                              \
-    __asm mov eax, [ebp + 8] __asm cmp dword ptr [eax + 0x140], 0 __asm je slow /* depth 0: exit A */                    \
-    __asm cmp byte ptr [eax + 0x149], 0 __asm jne slow /* yield: frame save */                                           \
-    __asm cmp dword ptr [ecx + 0x20], 0 __asm jne slow /* pending exception */                                           \
-    __asm mov edx, [ebp - 0x2C] __asm cmp dword ptr [edx + 0x14], 0 __asm jne slow /* newobj return */                   \
-    __asm mov edx, [ecx + 0x10] __asm test edx, edx __asm jz slow                                                        \
-    __asm mov eax, [eax + 0x13C] __asm test eax, eax __asm jz slow                                                       \
-    __asm lea ebx, [eax + 0xC] __asm cmp edx, ebx __asm jbe slow /* base inside the current chunk: inline pop */         \
-    __asm cmp edx, [eax] __asm ja slow
 
 static __declspec(naked) void McRet() {  // 0x06: 8-byte value -> the return slot
     __asm {
@@ -331,9 +340,28 @@ static __declspec(naked) void McRet() {  // 0x06: 8-byte value -> the return slo
         lea ebx, [esi - 8]
         cmp ebx, [ecx + 0x18]           // values left on the eval stack: EA logs
         ja r_slow
-    }
-    MC_RET_CHECKS(r_slow)
-    __asm {
+        // MC_RET_CHECKS, written out: clang-cl only resolves a label inside the __asm block that defines it
+        mov eax, [ebp + 8]
+        cmp dword ptr [eax + 0x140], 0
+        je r_slow                       // depth 0: exit A
+        cmp byte ptr [eax + 0x149], 0
+        jne r_slow                      // yield: frame save
+        cmp dword ptr [ecx + 0x20], 0
+        jne r_slow                      // pending exception
+        mov edx, [ebp - 0x2C]
+        cmp dword ptr [edx + 0x14], 0
+        jne r_slow                      // newobj return
+        mov edx, [ecx + 0x10]
+        test edx, edx
+        jz r_slow
+        mov eax, [eax + 0x13C]
+        test eax, eax
+        jz r_slow
+        lea ebx, [eax + 0xC]
+        cmp edx, ebx
+        jbe r_slow                      // base inside the current chunk: inline pop
+        cmp edx, [eax]
+        ja r_slow
         cmp g_mcVerify, 0
         jne r_pre
     r_go:
@@ -366,9 +394,28 @@ static __declspec(naked) void McRetVoid() {  // 0x07
         mov ecx, [ebp - 8]
         cmp esi, [ecx + 0x18]
         ja w_slow
-    }
-    MC_RET_CHECKS(w_slow)
-    __asm {
+        // MC_RET_CHECKS, written out: clang-cl only resolves a label inside the __asm block that defines it
+        mov eax, [ebp + 8]
+        cmp dword ptr [eax + 0x140], 0
+        je w_slow                       // depth 0: exit A
+        cmp byte ptr [eax + 0x149], 0
+        jne w_slow                      // yield: frame save
+        cmp dword ptr [ecx + 0x20], 0
+        jne w_slow                      // pending exception
+        mov edx, [ebp - 0x2C]
+        cmp dword ptr [edx + 0x14], 0
+        jne w_slow                      // newobj return
+        mov edx, [ecx + 0x10]
+        test edx, edx
+        jz w_slow
+        mov eax, [eax + 0x13C]
+        test eax, eax
+        jz w_slow
+        lea ebx, [eax + 0xC]
+        cmp edx, ebx
+        jbe w_slow                      // base inside the current chunk: inline pop
+        cmp edx, [eax]
+        ja w_slow
         cmp g_mcVerify, 0
         jne w_pre
     w_go:
@@ -392,6 +439,9 @@ static __declspec(naked) void McRetVoid() {  // 0x07
 // frame return 0xE543C7-0xE544A4 on the inline path: ecx = callee MonoInvocation, eax = arena chunk
 static __declspec(naked) void McRetTail() {
     __asm {
+#ifdef MC_COUNTFAST
+        inc MC_CTR.mcRet                // monohost only
+#endif
         mov edx, [ebp + 8]
         mov ebx, [edx + 0x140]
         dec ebx
@@ -436,7 +486,7 @@ static __declspec(naked) void McRetTail() {
         movzx edx, ax
         cmp edx, 0x1C0
         ja t_head
-        jmp dword ptr [edx * 4 + 0x00E59880]
+        jmp dword ptr [edx * 4 + MC_ASM_TABLE]
     t_head:
         jmp dword ptr [g_mcHead]
     t_post:
@@ -567,7 +617,7 @@ static void __cdecl McVCheck(DWORD* regs) {
                 const DWORD m = v.rg[i].n - w < 4 ? v.rg[i].n - w : 4;
                 memcpy(&fw, fast + w, m), memcpy(&ew, now + w, m);
                 char what[32];
-                sprintf_s(what, "range %d +0x%lX", i, w);
+                SFmt(what, "range %d +0x%lX", i, w);
                 McVLog(v, what, (DWORD)(uintptr_t)(now + w), fw, ew);
                 bad = true;
                 break;
@@ -576,6 +626,10 @@ static void __cdecl McVCheck(DWORD* regs) {
     if (bad) {
         if (!MC_CTR.mcMismatch) MC_CTR.mcFirstBad = v.kind + 1;
         MC_CTR.mcMismatch++;
+        if (MC_CTR.mcSwitch) {  // session kill switch (as MonoJit verify): every call bails to EA's handler from now on
+            MC_CTR.mcSwitch = 0;
+            Log("mintcall verify: fast path off for the session (mismatch %ld)", (long)MC_CTR.mcMismatch);
+        }
     }
     InterlockedExchange(&v.state, 0);
 }
@@ -619,6 +673,14 @@ static bool McOwns(DWORD op, DWORD entry) {
     for (int i = 0; i < 4; i++)
         if (MC_OPS[i] == op && entry == (DWORD)(uintptr_t)kMcMine[i]) return true;
     return false;
+}
+// verify mode and a later owner of one entry (MonoJit's JIT_OP): the entry is McVCatch, so the owner's handler goes into
+// g_mcOrig (the catch's target) instead of the table and the compare still runs at the first dispatch after EA's handler.
+// Without it the JIT refused CallPath=2 (game) or its entry bypassed the catch (monohost: false MISMATCH, fast path off).
+static bool McVChain(const DWORD* table, DWORD op, DWORD stock, DWORD mine) {
+    if (!g_mcVerify || op >= MC_NOP || table[op] != (DWORD)(uintptr_t)McVCatch || (DWORD)(uintptr_t)g_mcOrig[op] != stock) return false;
+    g_mcOrig[op] = (void*)(uintptr_t)mine;
+    return true;
 }
 // mode 1 fast (switch from MC_CTR.mcSwitch), 2 verify (every `every`-th eligible call, any thread, one at a time); returns
 // the installed mode, 0 off, -1 refused. Before Satb (it chains over our 0xEC entry) and after every code patch elsewhere.
@@ -671,7 +733,7 @@ static void McRestoreStock(bool stock) {
 // VerifyEvery=<n> (verify mode: every n-th eligible call runs both ways; default 16). true = installed (keep the log).
 static bool ApplyMintCall(const wchar_t* ini) {
     const int path = GetPrivateProfileIntW(L"MonoFast", L"CallPath", 0, ini);
-    if (path <= 0) return false;
+    if (path <= 0 || S3mmStandsDown("[MonoFast] CallPath")) return false;
     MC_CTR.mcSwitch = 1;
     const int every = GetPrivateProfileIntW(L"MonoFast", L"VerifyEvery", 16, ini);
     return McInstall(path >= 2 ? 2 : 1, (DWORD)(every > 0 ? every : 1)) > 0;

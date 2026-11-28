@@ -50,8 +50,9 @@ namespace Ts3Fixes
             Patch(typeof(BoatFollowSubPathRouteAction), "PerformAction", typeof(BoatLegHook), "PerformActionHook", "PerformActionOrig");
             Patch(typeof(VehicleFollowSubPathRouteAction), "PerformAction", typeof(VehicleLegHook), "PerformActionHook", "PerformActionOrig");
             Type watch = typeof(VelvetRopes).GetNestedType("WatchDoor", BindingFlags.NonPublic);
-            if (watch == null) AppliedLog().Add("VelvetRopes+WatchDoor: not found, bouncerskip off");
-            else Patch(watch, "LoopDel", typeof(BouncerHook), "LoopDelHook", "LoopDelOrig");
+            if (watch == null) { AppliedLog().Add("VelvetRopes+WatchDoor: not found, bouncerskip off"); return; }
+            Patch(watch, "LoopDel", typeof(BouncerHook), "LoopDelHook", "LoopDelOrig");
+            Patch(watch, "Run", Type.EmptyTypes, typeof(BouncerRunHook), "RunHook", "RunOrig");  // docs/633 bouncerplace
         }
 
         static int[] sRouteSrc;
@@ -80,6 +81,7 @@ namespace Ts3Fixes
             RouteSrcCall call = default(RouteSrcCall);
             call.Bucket = -1;
             if (kind == 3) HcBoatBegin(r, fromPt); // boatreplanlog (HitchCause.cs)
+            else if (kind == 1) RlBegin(r); // replanlog (ReplanLog.cs, docs/261)
             if (!ShortcutOn("routesrc")) return call;
             try
             {
@@ -132,6 +134,7 @@ namespace Ts3Fixes
 
         static void RouteSrcEnd(ScriptCore.Route r, RouteSrcCall call, bool ok)
         {
+            RouteLenEnd(r, ok);  // routelen counters (RouteLen.cs, docs/246 §6)
             if (call.Bucket < 0) return;
             try
             {
@@ -154,8 +157,8 @@ namespace Ts3Fixes
         static RouteAction.ActionResult LegEnd(FollowRouteAction action, Route route, RouteAction.ActionResult res, bool replanWhenFinished, bool wasSim)
         {
             if (res != RouteAction.ActionResult.ContinueAndPopPathAndReplan) return res;
-            bool src = ShortcutOn("routesrc"), skip = ShortcutOn("legreplanskip");
-            if (!src && !skip) return res;
+            bool src = ShortcutOn("routesrc"), skip = ShortcutOn("legreplanskip"), snap = ShortcutOn("unseenlegsnap");
+            if (!src && !skip && !snap) return res;
             try
             {
                 Sim sim = route.Follower != null ? route.Follower.Target as Sim : null;
@@ -165,14 +168,39 @@ namespace Ts3Fixes
                     return res;
                 Vector3 p = sim.PositionOnFloor, s = Vector3.Invalid;
                 route.GetPathStartPoint(1u, ref s);
-                if (!RouteSrcCore.LegSkipNear(s.x - p.x, s.y - p.y, s.z - p.z)) return res;
+                if (!RouteSrcCore.LegSkipNear(s.x - p.x, s.y - p.y, s.z - p.z))
+                    return snap && LegSnap(sim, route, s) ? RouteAction.ActionResult.ContinueAndPopPath : res;
                 int[] c = PatchCounters();
                 c[230]++;
                 if (!skip) return res;
                 c[234]++;
                 return RouteAction.ActionResult.ContinueAndPopPath;
             }
+            catch (ResetException) { throw; }  // a reset must not end as "EA's result" (LegSnap places the Sim)
             catch (Exception) { return res; }
+        }
+
+        // unseenlegsnap (ON 2026-11-20, unseen townies only; docs/807): the far case of legreplanskip. A car or boat leg that ends away
+        // from where the plan had the Sim get out returns ContinueAndPopPathAndReplan, and DoRoute replans the rest from the Sim on
+        // the sim thread (Bridgeport: unseen VisitCommunityLot replans after VehicleFollowSubPathRouteAction, 22-26 m, ~330 ms by
+        // the wall clock). For an unseen townie (lane snap's rule: a household, SafeUfWhy 0) the Sim is put on path 1's start, where
+        // the plan has it get out, and the planned walk follows: the same answer lane snap gives a portal. The vehicle stays where
+        // it stopped, as after EA's replan. Kept: legreplanskip's shape rule (LegSkipEligible above: not forced, a remainder, not a
+        // loop, plan succeeded, a Sim before the leg, no routing parent, not swimming); path 1 a walk; the spot routable, not below
+        // ground or in a pool, on a docked houseboat if any, out of view. Seen, household, selected and unknown-scope Sims: EA's
+        // replan. No wait, no table, no saved state. Counters [1471] asked, [1472] not an unseen townie, [1473] path 1 not a walk,
+        // [1474] spot refused or in view, [1475] snapped. Cleanup: no loop or retry; LegEnd's catch returns EA's result.
+        static bool LegSnap(Sim sim, Route route, Vector3 s)
+        {
+            int[] c = PatchCounters();
+            c[1471]++;
+            if (!LaneSnapUnseen(sim)) { c[1472]++; return false; }
+            if (route.GetPathData(1u).PathType != PathType.SimPath) { c[1473]++; return false; }
+            Sims3.Gameplay.Core.Lot ls = Sims3.Gameplay.Core.LotManager.GetLotAtPoint(s);
+            if (!((ls == null || HouseboatOk(ls)) && !BelowGroundOutdoors(s) && route.IsPointRoutable(s) && UfGoalUnseen(s))) { c[1474]++; return false; }
+            PlaceSim(sim, s, sim.ForwardVector, "legsnap");
+            c[1475]++;
+            return true;
         }
 
         static bool FollowerIsSim(Route r) { return r != null && r.Follower != null && r.Follower.Target is Sim; }
@@ -198,20 +226,88 @@ namespace Ts3Fixes
         }
 
         // WatchDoor is private and sealed: `this` taken as object (ReplanSpreadHook pattern).
+        // D3 bouncerskip (docs/151 §6; s58 world-rank: WatchDoor.LoopDel was the #1 interaction by route-plan time, ~15
+        // Bridgeport bouncers x 150-270 plans of 170-230 ms in 2.5 h). EA's LoopDel calls RouteToSlot(Target, RoutingSlot_2)
+        // every 5 s of the shift and ignores the result; RouteToSlot is plan + DoRoute, nothing else. A bouncer already on
+        // the slot (no parent, < 0.1 m XZ, < 0.25 m height, facing the slot's way within ~10 degrees) gets a zero-length
+        // route, so skipping it gives EA's result. Off the slot or off-facing it routes as EA. [232] at slot, [235] skipped.
         public class BouncerHook
         {
             public void LoopDelHook(StateMachineClient smc, InteractionInstance.LoopData ld)
             {
-                if (BouncerAtSlot(this)) return;
+                bool src = ShortcutOn("routesrc"), skip = ShortcutOn("bouncerskip");
+                if ((src || skip) && BouncerAtSlot(this, skip)) return;
+                if (ShortcutOn("bouncerplace") && BouncerPlace(this, false)) return;  // docs/633: unseen, placed instead of a route
+                if (BouncerMemoSkip(this)) return;
                 LoopDelOrig(smc, ld);
+                BouncerMemoAfter(this);
             }
             public void LoopDelOrig(StateMachineClient smc, InteractionInstance.LoopData ld) { } // receives WatchDoor.LoopDel's original header
         }
 
-        static bool BouncerAtSlot(object self)
+        // bouncermemo (default ON, townie bouncers only). Data: Bridgeport games of 10 min, 850-940 WatchDoor route plans a game
+        // (90-105 s of plan work); in one game 800 of 888 had a 0.0 m path with the goal 1.2-1.6 m away (RoutingSlot_2 is not
+        // reachable exactly), so the bouncer never moves and LoopDel plans the same route again every loop (720-835 same start +
+        // goal repeats a game). bouncerskip never fires there: it needs 0.1 m from the slot.
+        // With the switch on: after a loop's RouteToSlot the bouncer's spot is kept; the next loops skip LoopDel while the
+        // bouncer is within 0.25 m of that spot. A push of more than 0.25 m (EA's reason for the loop) routes again, as EA does.
+        // Household and selected Sims and an unknown scope (IsNpcSim, a household) keep EA's loop. Counters [1376] loops skipped,
+        // [1377] loops routed. The memo holds at most 64 bouncers (a few per world); destroyed ones are dropped first, then it
+        // starts over.
+        static readonly Dictionary<Sim, Vector3> sBmSpot = new Dictionary<Sim, Vector3>();
+        static Sim BouncerOf(object self)
         {
-            bool src = ShortcutOn("routesrc"), skip = ShortcutOn("bouncerskip");
-            if (!src && !skip) return false;
+            if (!ShortcutOn("bouncermemo")) return null;
+            InteractionInstance ii = self as InteractionInstance;
+            Sim actor = ii != null ? ii.InstanceActor as Sim : null;
+            if (actor == null || actor.Parent != null || !IsNpcSim(actor) || actor.Household == null) return null;
+            return actor;
+        }
+        static bool BouncerMemoSkip(object self)
+        {
+            try
+            {
+                Sim actor = BouncerOf(self);
+                if (actor == null) return false;
+                Vector3 spot;
+                if (!sBmSpot.TryGetValue(actor, out spot) || (actor.Position - spot).LengthSqr() > 0.25f * 0.25f) { PatchCounters()[1377]++; return false; }
+                PatchCounters()[1376]++;
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { return false; }
+        }
+        static void BouncerMemoAfter(object self)
+        {
+            try
+            {
+                Sim actor = BouncerOf(self);
+                if (actor == null) return;
+                if (sBmSpot.Count >= 64)
+                {
+                    List<Sim> gone = new List<Sim>();
+                    foreach (Sim s in sBmSpot.Keys) if (s == null || s.HasBeenDestroyed) gone.Add(s);
+                    foreach (Sim s in gone) sBmSpot.Remove(s);
+                    if (sBmSpot.Count >= 64) sBmSpot.Clear();
+                }
+                sBmSpot[actor] = actor.Position;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { }
+        }
+
+        // Pure: skip EA's re-route? Only with the switch on and the bouncer on the slot (RouteSrcCore.AtSlot).
+        internal static bool BsSkip(bool on, float dx, float dy, float dz, float fwdDot) { return on && RouteSrcCore.AtSlot(dx, dy, dz, fwdDot); }
+
+        // XZ cosine between the slot's forward and the Sim's (-1 when either is vertical or zero).
+        internal static float BsFacing(float fx, float fz, float ax, float az)
+        {
+            float n1 = (float)Math.Sqrt(fx * fx + fz * fz), n2 = (float)Math.Sqrt(ax * ax + az * az);
+            return n1 > 0f && n2 > 0f ? (fx * ax + fz * az) / (n1 * n2) : -1f;
+        }
+
+        static bool BouncerAtSlot(object self, bool skip)
+        {
             try
             {
                 InteractionInstance ii = self as InteractionInstance;
@@ -219,16 +315,120 @@ namespace Ts3Fixes
                 GameObject target = ii != null ? ii.Target as GameObject : null;
                 if (actor == null || target == null || actor.Parent != null) return false;
                 Vector3 slot = target.GetPositionOfSlot(Slot.RoutingSlot_2), fwd = target.GetForwardOfSlot(Slot.RoutingSlot_2), a = actor.Position, af = actor.ForwardVector;
-                float n1 = (float)Math.Sqrt(fwd.x * fwd.x + fwd.z * fwd.z), n2 = (float)Math.Sqrt(af.x * af.x + af.z * af.z);
-                float dot = n1 > 0f && n2 > 0f ? (fwd.x * af.x + fwd.z * af.z) / (n1 * n2) : -1f;
+                float dot = BsFacing(fwd.x, fwd.z, af.x, af.z);
                 if (!RouteSrcCore.AtSlot(a.x - slot.x, a.y - slot.y, a.z - slot.z, dot)) return false;
                 int[] c = PatchCounters();
                 c[232]++;
-                if (!skip) return false;
+                if (!BsSkip(skip, a.x - slot.x, a.y - slot.y, a.z - slot.z, dot)) return false;
                 c[235]++;
                 return true;
             }
             catch (Exception) { return false; }
+        }
+
+        // ---- docs/633 bouncerplace ----------------------------------------------------------------------------------------
+        // [verified, ilspycmd VelvetRopes+WatchDoor] Run: RouteToSlot(Target, RoutingSlot_2), Enter - Watch Door, Watch Loop,
+        // DoLoop(Default, LoopDel, 5 min), Exit; LoopDel: RouteToSlot(Target, RoutingSlot_2), result ignored. phase-2026111*
+        // logs: 250+ "routefail job: ... WatchDoor target VelvetRopes" (failed or cut bouncer routes). With the switch on, an
+        // unseen bouncer (TownieUnseen: not a player Sim, standing, alone, off screen, far from viewers; not the selected Sim;
+        // no parent) whose slot is off screen and far from viewers is put on RoutingSlot_2 facing the slot's forward
+        // (PlaceSim, as rhentryrelax's route-less arrival) instead of a route. In LoopDel EA's route is then skipped; in Run
+        // EA's RouteToSlot follows from the slot (a zero-length route) and the rest of Run is EA's. Seen bouncers route as EA.
+        // Counters: [3740] loop routes replaced, [3741] Run arrivals placed, [3742] out of scope (player / selected / seen /
+        // parented), [3743] slot on screen or near viewers, [3744] errors, [3745] Check mismatches (must stay 0), 3746-3749 spare.
+        internal static bool BpPlace(bool on, bool player, bool selected, bool unseen, bool parented, bool slotSeen)
+        {
+            return on && !player && !selected && unseen && !parented && !slotSeen;
+        }
+
+        // WatchDoor is private and sealed: `this` taken as object (BouncerHook pattern).
+        public class BouncerRunHook
+        {
+            public bool RunHook()
+            {
+                if (ShortcutOn("bouncerplace")) BouncerPlace(this, true);
+                return RunOrig();
+            }
+            public bool RunOrig() { return false; } // receives VelvetRopes+WatchDoor.Run
+        }
+
+        // Places the bouncer when in scope; true = placed (the caller skips EA's route).
+        static bool BouncerPlace(object self, bool run)
+        {
+            int[] c = PatchCounters();
+            try
+            {
+                InteractionInstance ii = self as InteractionInstance;
+                Sim actor = ii != null ? ii.InstanceActor as Sim : null;
+                GameObject target = ii != null ? ii.Target as GameObject : null;
+                if (actor == null || target == null || actor.HasBeenDestroyed) return false;
+                bool player = IsPlayerSim(actor), selected = actor == Sims3.Gameplay.Core.PlumbBob.SelectedActor, parented = actor.Parent != null;
+                bool unseen = !player && !selected && !parented && TownieUnseen(actor, null);
+                if (!BpPlace(true, player, selected, unseen, parented, false)) { c[3742]++; return false; }
+                Vector3 slot = target.GetPositionOfSlot(Slot.RoutingSlot_2), fwd = target.GetForwardOfSlot(Slot.RoutingSlot_2);
+                bool slotSeen = UcOnScreen(target) || !FarFromViewers(slot);
+                if (slotSeen) { c[3743]++; return false; }
+                PlaceSim(actor, slot, fwd, "bouncerplace");
+                c[run ? 3741 : 3740]++;
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { c[3744]++; return false; }
+        }
+
+        // BouncerPlaceCheck run: the placement decision for an unseen bouncer with an unseen slot (off: EA routes, BROKEN;
+        // on: placed, FIXED). Controls: player / selected / seen / parented bouncer and a seen slot keep EA's route; the off
+        // rule never places. Live: bouncers on WatchDoor now, by unseen / seen. Read-only.
+        public static object BouncerPlaceCheck(string what)
+        {
+            string counters = B582Counters("bouncerplace", 3740, new[] { "loop routes replaced", "Run arrivals placed", "out of scope", "slot seen", "errors", "check mismatches" }, "");
+            if (what == "result") return counters;
+            if (what != "run") return "bouncerplace <run|result>";
+            bool on = ShortcutOn("bouncerplace");
+            bool fixedNow = BpPlace(on, false, false, true, false, false);
+            bool controls = !BpPlace(false, false, false, true, false, false)
+                && !BpPlace(true, true, false, true, false, false)    // player Sim
+                && !BpPlace(true, false, true, true, false, false)    // selected Sim
+                && !BpPlace(true, false, false, false, false, false)  // seen bouncer
+                && !BpPlace(true, false, false, true, true, false)    // parented
+                && !BpPlace(true, false, false, true, false, true);   // slot seen
+            if (!controls) PatchCounters()[3745]++;
+            Type watch = typeof(VelvetRopes).GetNestedType("WatchDoor", BindingFlags.NonPublic);
+            string missing = watch == null ? "VelvetRopes+WatchDoor" : "";
+            int unseenN = 0, seenN = 0;
+            try
+            {
+                if (watch != null)
+                    foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                    {
+                        InteractionInstance cur = s == null ? null : s.CurrentInteraction;
+                        if (cur == null || cur.GetType() != watch) continue;
+                        if (!IsPlayerSim(s) && TownieUnseen(s, null)) unseenN++; else seenN++;
+                    }
+            }
+            catch (Exception) { }
+            return B582Line("bouncerplace", on, "an unseen bouncer is placed on its slot instead of a route", fixedNow,
+                "player / selected / seen / parented bouncer or seen slot route as EA, off as EA, bouncers on WatchDoor now unseen " + unseenN + " seen " + seenN,
+                controls, missing, counters);
+        }
+
+        // BouncerSkipCheck run: the hook's decision on an on-slot bouncer (3 cm off, facing 2.6 degrees off): EA re-plans
+        // (BROKEN), the fix skips. Controls: a bouncer pushed 0.3 m off, one turned 25 degrees, and one 0.4 m above (stairs)
+        // still route; the off rule never skips. Read-only.
+        public static object BouncerSkipCheck(string what)
+        {
+            int[] c = PatchCounters();
+            string counters = "bouncerskip: bouncer loops at the slot 232=" + c[232] + ", re-routes skipped 235=" + c[235];
+            if (what == "result") return counters;
+            if (what != "run") return "bouncerskip <run|result>";
+            bool on = ShortcutOn("bouncerskip");
+            float near = BsFacing(1f, 0f, (float)Math.Cos(0.045), (float)Math.Sin(0.045)), turned = BsFacing(1f, 0f, (float)Math.Cos(0.44), (float)Math.Sin(0.44));
+            bool fixedNow = BsSkip(on, 0.03f, 0f, 0.0f, near);
+            bool controls = !BsSkip(true, 0.3f, 0f, 0f, near) && !BsSkip(true, 0.02f, 0f, 0.01f, turned) && !BsSkip(true, 0f, 0.4f, 0f, near)
+                && !BsSkip(false, 0.03f, 0f, 0f, near) && BsSkip(true, 0f, 0f, 0f, 1f);
+            Type watch = typeof(VelvetRopes).GetNestedType("WatchDoor", BindingFlags.NonPublic);
+            string missing = watch == null ? "VelvetRopes+WatchDoor" : "";
+            return B582Line("bouncerskip", on, "on-slot bouncer re-route skipped", fixedNow, "displaced / turned / raised still route, off as EA=" + controls, controls, missing, counters);
         }
     }
 }

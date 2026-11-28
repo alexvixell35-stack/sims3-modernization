@@ -1,0 +1,88 @@
+{
+  "note": "rerun1 (2026-11-19) of sarcmummy-egypt-save-1119-rc-1119b: FAIL 06:40 was a hollow repro (travel to Al Simhara and the sarcophagus lookup worked, but the nearest sarcophagus TombMummyCreate pushed no MummyExitSarcophagus, so EA TombMummyDestroy undid it: mummy_out false, no on_tracked, c3391-3393 0). Agent fix bugfix/sarcmummy-spawn-pick-1119: tomb_mummy spawn tries the sarcophagi nearest-first (max 8), keeps the one that spawned (by ObjectId, also after the reload), and errors at once with each tried sarcophagus exit_test when none spawns. Same job, same pin (rc-1119b), agent game-copy/ts3agent.package.sarcmummy-spawn-pick-1119 (installed by probe-out/queue/chain-egypt-rerun1-1119.sh). [previous] rc-1119b (2026-11-19): sarcmummynpc Egypt save repro on the release set rc-1119b (0.36.295-rc1119b), chain-release-verify-rc1119b. [previous] sarcmummy-egypt-save-1119 (2026-11-19, PREPARED, NOT RUN; for the release-verify chain of rc-1119b, coordination probe-out/sarcmummy-egypt-1119.md): CORRECTNESS, real in-game repro + save matrix for sarcmummynpc (docs/607 §3, ON in v0.3.0). One job: Baseline-BP, profile.travel egypt (save-matrix travel case --stay), then repro sarcmummy-egypt-save (repros.json): release default read-back, ON arm (TombMummyCreate + Reset Object: the mummy's description leaves NpcHousehold, c3391 grows, c3393 0), save SarcMummy-On -> quit to menu -> load (no stale entry, mummy spawns and is removed again), OFF arm (leftover stays without a Sim, c3392 grows = EA bug reproduced), save SarcMummy-OldOff, ON, quit to menu -> load the old save (loads; the leftover is logged, not cleaned: the fix has no load cleanup), sarcophagus works. Needs the ts3agent with tomb_mummy (bugfix/sarcmummy-egypt-repro-1119) in build/. PIN: rc-1119b placeholder; REPIN to rc-1119b (asi/ini/ts3fixes + version regex and its regexCases) when the merger registers it in docs/data/builds.json. Daytime OK (correctness, no timing).",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "eg-sarcmummy-save-1119",
+      "note": "[est 30 min with the trip] [rerun1: agent sarcmummy-spawn-pick-1119] sarcmummynpc ON (release set) in Al Simhara: in-game repro (forced TombMummyCreate + Reset Object, both arms) and save matrix (save, quit to menu, reload; old OFF save with a leftover loads with ON). PASS: every repro until met (fail fast 30 s), 0 script errors, release defaults read back, saved frame guard ran at load with no repair line. Household untouched: every tomb_mummy check asserts hh_same (the active household's SimDescriptionIds unchanged); the fix only removes a description whose Household is NpcHousehold. After: <tag>-repro.jsonl (off_in_npc_no_sim after the old-save load = pre-existing leftovers are not cleaned, report only), node tools/harness/run-verdict.ts.",
+      "asi": "game-copy/ts3native.asi.rc-1119b",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "[repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [placeholder 2026-11-19: rc-1119b (0.36.295-rc1119b) until rc-1119b is registered; repin asi/iniBase/fixesPackage and the version regex + regexCases to rc-1119b (sarcmummynpc ON). The rc-1119b set has sarcmummynpc OFF, so the release read-back step fails on it by design]",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 60,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-rc1119b ": 1,
+        "^OK   saved frame guard": 1,
+        "^saved frame guard: [1-9]\\d* frames checked at load": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "ea fix: SavedFrameGuard:": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.295-rc1119b ": {
+          "match": [
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.293-m1119s 2026-11-19 05:01:02",
+            "ts3native 0.36.292-rc1119a 2026-11-19 02:34:18"
+          ]
+        },
+        "^OK   saved frame guard": {
+          "match": [
+            "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+          ],
+          "noMatch": [
+            "saved frame guard disabled (SavedFrameGuard=0)",
+            "SKIP saved frame guard: no row for this build"
+          ]
+        },
+        "^saved frame guard: [1-9]\\d* frames checked at load": {
+          "match": [
+            "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+          ],
+          "noMatch": [
+            "saved frame guard: 0 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)",
+            "saved frame guard disabled (SavedFrameGuard=0)"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        },
+        "ea fix: SavedFrameGuard:": {
+          "match": [
+            "ea fix: SavedFrameGuard: frame 6 of 9 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+          ],
+          "noMatch": [
+            "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 30,
+          "seed": 12345,
+          "noSamplers": true,
+          "noFrames": true,
+          "noProf": true,
+          "travel": "egypt",
+          "repro": "sarcmummy-egypt-save"
+        }
+      }
+    }
+  ]
+}

@@ -8,7 +8,7 @@
 //
 // Owner (who counts as unseen) = docs/202 §2, decided by ts3fixes (UnseenFallback.cs UfWhy, switch unseenfbsites): it pushes
 // the ids of the unseen Sims every few sim ticks over the 0x83 channel (codes 7 BEGIN, 8 id low, 9 id high = append, 10 END
-// with the count, 14 C4 log query) about every 0.5 s. Out of live mode it pushes an empty list; a list older than 3 s counts
+// with the count, 14 C4 log query, 27 frozen / thawed: docs/205 §2.3e, UfcNow) about every 0.5 s. Out of live mode it pushes an empty list; a list older than 3 s counts
 // as none (nothing acts); in Build/Buy (scripts paused, no push) the routing world's build/buy byte drops the list (UfcFresh). Native
 // checks on top, at the moment of the wait: the game's frustum and the reach rule (unseen.cpp class 1) on the Sim itself,
 // plus, for C1 / C2, EA's on-screen byte agent+0xC8 off, a walking Sim (state 1), its own agent part, not a rider, no
@@ -41,7 +41,7 @@
 // C3 / C4 Sim that got a fake answer < 1.5 s ago gets a try too (ufcRecover), so the sim never waits SiteWaitMs per agent.
 
 enum { UFC_C1, UFC_C2, UFC_C3, UFC_C4 };
-static const DWORD kUfcKey[4] = {0x0085FE10, 0x00846D21, 0x0083156D, 0x00631F40};  // probe P0 keys of the waits they replace
+static const DWORD kUfcKey[4] = {TS3A(0x0085FE10), TS3A(0x00846D21), TS3A(0x0083156D), TS3A(0x00631F40)};  // probe P0 keys of the waits they replace
 
 // ---- the unseen-Sim list (sim thread only: GetOptionHook) ----
 enum { UFC_MAX = 256 };
@@ -53,6 +53,7 @@ static DWORD g_ufcInLo;
 static void UfwSweep();
 static bool UfcBuildBuy();
 static volatile LONG g_ufcBbPend;  // §3.4.4: poll thread sets, sim thread clears (drop) or a push after the exit clears
+static DWORD UfcNow();             // the list / hold clock: GetTickCount, stopped while ts3fixes says frozen (code 27)
 
 static u8 UfcListMsg(int code, DWORD lo) {
     Ts3nCounters& k = ts3native_counters;
@@ -71,7 +72,7 @@ static u8 UfcListMsg(int code, DWORD lo) {
     memcpy(g_ufcList.lo, g_ufcIn.lo, g_ufcIn.n * 4), memcpy(g_ufcList.hi, g_ufcIn.hi, g_ufcIn.n * 4);
     memcpy(g_ufcList.fin, g_ufcIn.fin, g_ufcIn.n);
     g_ufcList.n = g_ufcIn.n;
-    const DWORD now = GetTickCount();
+    const DWORD now = UfcNow();
     g_ufcList.at = now ? now : 1;  // never ahead of GetTickCount (an `| 1` could be: the age test then wraps)
     k.ufcList = g_ufcList.n;
     k.ufcPushes++;
@@ -101,7 +102,7 @@ static bool UfcFresh() {
         if (g_ufcList.at) g_ufcList.n = 0, g_ufcList.at = 0, ts3native_counters.ufcList = 0, g_ufcBbDrops++;
         return false;
     }
-    return g_ufcList.at && GetTickCount() - g_ufcList.at <= kUfcListAgeMs;
+    return g_ufcList.at && UfcNow() - g_ufcList.at <= kUfcListAgeMs;
 }
 // The Build/Buy span watch (§3.4.4), poll thread only (the selftest calls UfcBbPoll with its own clock)
 static const DWORD kUfcBbTailMs = 3000;
@@ -199,8 +200,8 @@ static bool UfcBusy(DWORD tid) {
 }
 
 // ---- the timed take ----
-static LockAcquireFn g_ufcAcq = (LockAcquireFn)(uintptr_t)0x004E16F0;  // through the address: LockAcquireHook (pump, keys)
-static LockReleaseFn g_ufcRel = (LockReleaseFn)(uintptr_t)0x004E17B0;
+static LockAcquireFn g_ufcAcq = (LockAcquireFn)(uintptr_t)TS3A(0x004E16F0);  // through the address: LockAcquireHook (pump, keys)
+static LockReleaseFn g_ufcRel = (LockReleaseFn)(uintptr_t)TS3A(0x004E17B0);
 static DWORD g_ufcSpentH, g_ufcSpentAt;  // the busy job (route handle) that already cost one wait; sim thread only
 static struct { DWORD lo, hi, at, c4At; LONG c4n; } g_ufcRecent[16];  // C3 / C4: Sims answered with a fake (recovery window)
 static const DWORD kUfcRecentMs = 1500;
@@ -295,7 +296,7 @@ static int UfLockGate(void* world) {
     if (ms > 0 && (dl == 0 || dl == INFINITE)) dl = 1;  // GetTickCount wrap: never "try" or "infinite" by accident
     InterlockedIncrement(&k.ufLockWaits);
     const DWORD key0 = t_waitKey;
-    t_waitKey = 0x0082C6E0;  // the wait keeps the planner's acquire as its key
+    t_waitKey = TS3A(0x0082C6E0);  // the wait keeps the planner's acquire as its key
     const LONG r = g_ufcAcq(lock, NULL, &dl);
     t_waitKey = key0;
     if (r > 0) return 1;
@@ -326,6 +327,41 @@ static int g_ufwN;      // slots in use
 static bool g_ufwOn;    // installed
 static DWORD g_ufwQLo;  // id low staged by code 16
 
+// docs/205 §2.3e pause gate (Rodney 2026-11-23): a pause, a minimized window or a stopped clock in live mode stops the sim but
+// not GetTickCount, so after 3 s the list went stale and every hold expired: the held Sim walked on after the unpause while
+// ts3fixes' claim still placed it at its path end (a jump). ts3fixes (UnseenFallbackSites.cs, Fixes.SimFrozenOrNotLive in live
+// mode) sends code 27: 1 = frozen (again about every 0.5 s), 0 = thawed. While frozen the list / hold clock (UfcNow) stands at
+// the freeze start, so neither the 3 s list age nor the 3 s claim / 10 min hold timers advance; at the thaw every stamp moves
+// forward by the frozen span (pgFrozenHolds counts the holds carried). No word for kUfcListAgeMs = the freeze ends at the last
+// word (a dead ts3fixes loop must not keep an old list fresh). Sim thread only (GetOptionHook, the C sites, the agent update).
+static DWORD g_ufcFrzAt, g_ufcFrzSeen;  // freeze start (0 = not frozen), last code-27 "frozen" word
+static void UfcThaw(DWORD at) {
+    const DWORD d = at - g_ufcFrzAt;
+    if (g_ufcList.at) g_ufcList.at += d, g_ufcList.at = g_ufcList.at ? g_ufcList.at : 1;
+    LONG held = 0;
+    for (int i = 0; i < UFW_MAX; i++)
+        if (g_ufw[i].agent) g_ufw[i].at += d, held++;
+    ts3native_counters.pgFrozenHolds += held;
+    g_ufcFrzAt = 0;
+}
+static DWORD UfcNow() {
+    const DWORD now = GetTickCount();
+    if (g_ufcFrzAt && now - g_ufcFrzSeen > kUfcListAgeMs) UfcThaw(g_ufcFrzSeen);
+    return g_ufcFrzAt ? g_ufcFrzAt : now;
+}
+static u8 UfcFrozenMsg(DWORD lo) {
+    if (!ts3native_counters.ufcReady) return 0;
+    DWORD now = GetTickCount();
+    now = now ? now : 1;
+    if (lo) {
+        if (!g_ufcFrzAt) g_ufcFrzAt = now, ts3native_counters.pgFrozenSpans++;
+        g_ufcFrzSeen = now;
+    } else if (g_ufcFrzAt) {
+        UfcThaw(now);
+    }
+    return 1;
+}
+
 static void UfwRelease(int i, int why) {
     g_ufw[i].agent = NULL;
     g_ufwN--;
@@ -344,7 +380,7 @@ static int UfwExpired(const UfwHold& h, DWORD now) {
 }
 static void UfwSweep() {
     if (!g_ufwN) return;
-    const DWORD now = GetTickCount();
+    const DWORD now = UfcNow();
     for (int i = 0; i < UFW_MAX; i++) {
         if (!g_ufw[i].agent) continue;
         const int why = UfwExpired(g_ufw[i], now);
@@ -358,7 +394,7 @@ static bool UfwHoldSkip(u8* agent, int c) {
     if (!g_ufwN) return false;
     for (int i = 0; i < UFW_MAX; i++) {
         if (g_ufw[i].agent != agent) continue;
-        const int why = c != 1 ? UFW_R_SEEN : UfwExpired(g_ufw[i], GetTickCount());
+        const int why = c != 1 ? UFW_R_SEEN : UfwExpired(g_ufw[i], UfcNow());
         if (why >= 0) { UfwRelease(i, why); return false; }  // walks on this pass, from where it stood
         InterlockedIncrement(&ts3native_counters.ufwHeldTicks);
         return true;
@@ -377,7 +413,7 @@ static int UfwOnBusy(DWORD lo, DWORD hi) {
             if (g_ufw[i].agent == agent) return 1;  // already held (the other site this pass)
         for (int i = 0; i < UFW_MAX; i++) {
             if (g_ufw[i].agent) continue;
-            const DWORD now = GetTickCount();
+            const DWORD now = UfcNow();
             g_ufw[i].agent = agent, g_ufw[i].lo = lo, g_ufw[i].hi = hi, g_ufw[i].at = now ? now : 1, g_ufw[i].claimed = false;
             g_ufwN++;
             InterlockedIncrement(&k.ufwHolds);
@@ -446,7 +482,7 @@ static void __cdecl UfcListHook(void* part, void* path, void* vec, DWORD a3, DWO
 
 // ---- C2: RouteFollow_A at 0x847697 ----
 typedef u64(__cdecl* UfcAvAFn)(u8* path, u8* agent, const float* goal, const void* ign, DWORD n);
-static const DWORD UFC_AV_SITE = 0x00847697, UFC_AV_A = 0x00846B70;
+static const DWORD UFC_AV_SITE = TS3A(0x00847697), UFC_AV_A = TS3A(0x00846B70);
 static UfcAvAFn g_ufcAvA = (UfcAvAFn)(uintptr_t)UFC_AV_A;  // through the address: [AvoidRO]'s A-entry detour if installed
 static u64 UfcAvHeld(u8* path, u8* agent, const float* goal, const void* ign, DWORD n, void* lock) {
     __try { return g_ufcAvA(path, agent, goal, ign, n); } __finally { g_ufcRel(lock, NULL); }

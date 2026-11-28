@@ -62,12 +62,22 @@ export function armIters(steps: string[] | undefined, slices: Slice[] | undefine
 }
 export const runIters = (r: { tag: string; secs: number; rows: unknown[]; slices?: Slice[] }) => armIters(reproSteps(r.tag, r.secs), r.slices, r.rows.length);
 
-export function rowArms(n: number, slices?: Slice[]): (string | null)[] {
+// Arms by time, not row index (docs/51 gchold-stalls triage): a row is stamped `t` (QPC ms, end of its span) and a long stall or merged
+// iterations write ONE row for 5-11 s, so row i is not second i. tMs = each row's t: second of a row = (t - first t) / 1000, compared with
+// the slice start (--ab slices are wall seconds). A row longer than 1.5 s counts only when its first second lies in the same kept, settled
+// slice as its end; otherwise it is out (null). Without tMs (no t column) row i = second i as before.
+export function rowArms(n: number, slices?: Slice[], tMs?: number[]): (string | null)[] {
   if (!slices) return Array.from({ length: n }, () => 'all');
-  const keep = sliceKeep(n, slices);
-  return Array.from({ length: n }, (_, i) => {
-    let cur = -1; slices.forEach((sl, k) => { if (i >= sl.from) cur = k; });
-    return cur >= 0 && keep[cur] && i - slices[cur].from >= (slices[cur].loop ? 0 : SETTLE_S) ? (slices[cur].on ? 'on' : 'off') : null;
+  const end = Array.from({ length: n }, (_, i) => tMs && tMs.length === n && tMs.every(Number.isFinite) ? (tMs[i] - tMs[0]) / 1000 : i);
+  const keep = sliceKeep(tMs ? Math.max(n, Math.ceil(end[n - 1] ?? 0)) : n, slices);
+  const at = (sec: number) => {
+    let cur = -1; slices.forEach((sl, k) => { if (sec >= sl.from) cur = k; });
+    return cur >= 0 && keep[cur] && sec - slices[cur].from >= (slices[cur].loop ? 0 : SETTLE_S) ? cur : -1;
+  };
+  return end.map((e, i) => {
+    const cur = at(e), len = i ? e - end[i - 1] : 1;
+    if (cur < 0 || (len > 1.5 && at(e - len + 1) !== cur)) return null;
+    return slices[cur].on ? 'on' : 'off';
   });
 }
 
@@ -75,7 +85,7 @@ export function rowArms(n: number, slices?: Slice[]): (string | null)[] {
 // exclusion, docs/161 §6): a row inside an excluded window leaves the arm (its seconds counted by reason); a hitch is excluded
 // by its own window or its row's; an excluded hitch in a kept row also leaves the iteration count, so p99 is over real ones
 export function splitRun(rows: Row[], hitches: H[], slices?: Slice[], ctx: Pick<RunCtx, 'wins' | 'foreground'> = { wins: baseWins(rows), foreground: false }, freezes: Fz[] = []): Record<string, Arm> {
-  const arms = rowArms(rows.length, slices), out: Record<string, Arm> = {};
+  const arms = rowArms(rows.length, slices, rows.map(r => r.t)), out: Record<string, Arm> = {};
   const rl = rowLongest(rows, hitches), rowWhy = rows.map((r, i) => exclusion({ a: i ? rows[i - 1].t : r.t - 1000, b: r.t, iter: rl[i] }, ctx)?.why ?? null);
   rows.forEach((r, i) => {
     const a = arms[i]; if (!a) return;

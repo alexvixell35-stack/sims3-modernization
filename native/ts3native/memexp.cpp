@@ -30,15 +30,15 @@ struct MxAddrs {  // game globals; the host selftest points them at fakes
     const DWORD* incremental;  // GC_incremental
     const DWORD* dontGc;       // GC_dont_gc
 };
-static MxAddrs g_mx = {(const DWORD*)(uintptr_t)0x01233318, (const DWORD*)(uintptr_t)0x011F3054,
-                       (const DWORD*)(uintptr_t)0x011F30D8, (const DWORD*)(uintptr_t)0x011F2F90,
-                       (const DWORD*)(uintptr_t)0x012225A0, (const DWORD*)(uintptr_t)0x012225C4,
-                       (const DWORD*)(uintptr_t)0x012225C0, (const DWORD*)(uintptr_t)0x011F2F9C,
-                       (const DWORD*)(uintptr_t)0x011F30A8};
+static MxAddrs g_mx = {(const DWORD*)(uintptr_t)TS3A(0x01233318), (const DWORD*)(uintptr_t)TS3A(0x011F3054),
+                       (const DWORD*)(uintptr_t)TS3A(0x011F30D8), (const DWORD*)(uintptr_t)TS3A(0x011F2F90),
+                       (const DWORD*)(uintptr_t)TS3A(0x012225A0), (const DWORD*)(uintptr_t)TS3A(0x012225C4),
+                       (const DWORD*)(uintptr_t)TS3A(0x012225C0), (const DWORD*)(uintptr_t)TS3A(0x011F2F9C),
+                       (const DWORD*)(uintptr_t)TS3A(0x011F30A8)};
 typedef int(__cdecl* MxExpandFn)(DWORD blocks);               // GC_expand_hp_inner 0xE49C80 (min 0x40 blocks)
 typedef int(__cdecl* MxCoeFn)(DWORD needed, int ignoreOffPage);  // GC_collect_or_expand 0xE4A120
 typedef int(__cdecl* MxStepFn)(void* stop);                    // GC_try_to_collect 0xE4A050
-static MxExpandFn g_mxExpand = (MxExpandFn)(uintptr_t)0x00E49C80;
+static MxExpandFn g_mxExpand = (MxExpandFn)(uintptr_t)TS3A(0x00E49C80);
 static MxCoeFn g_mxCoeOrig;
 static MxStepFn g_mxStepOrig;
 
@@ -204,12 +204,12 @@ static int MxVt(DWORD vt) {
 // "Ns.Name" (MonoClass +0x38 namespace, +0x34 name), separators of our line format replaced
 static void MxName(DWORD klass, char* out, int cap) {
     out[0] = 0;
-    if (klass == 0) { strcpy_s(out, cap, "(no class)"); return; }
+    if (klass == 0) { SCpy(out, cap, "(no class)"); return; }
     __try {
         const char* nm = *(const char* const*)(uintptr_t)(klass + 0x34);
         const char* ns = *(const char* const*)(uintptr_t)(klass + 0x38);
         _snprintf_s(out, cap, _TRUNCATE, "%s%s%s", ns && *ns ? ns : "", ns && *ns ? "." : "", nm ? nm : "?");
-    } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(out, cap, "?"); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(out, cap, "?"); }
     for (char* p = out; *p; p++)
         if (*p == ',' || *p == ':' || *p == '=' || *p == ' ' || *p == '<' ) *p = '_';
 }
@@ -394,7 +394,7 @@ static void MxTypeGrowth(LONG gcNo) {
             int bi = -1;
             for (DWORD i = 0; i < x.nh; i++) if (x.h[i].n && (bi < 0 || x.h[i].bytes > x.h[bi].bytes)) bi = (int)i;
             if (bi < 0) break;
-            if (x.h[bi].cls >= 0) MxName(s.cls[x.h[bi].cls].klass, nm, sizeof(nm)); else strcpy_s(nm, "(non-object)");
+            if (x.h[bi].cls >= 0) MxName(s.cls[x.h[bi].cls].klass, nm, sizeof(nm)); else SCpy(nm, "(non-object)");
             n += _snprintf_s(line + n, sizeof(line) - n, _TRUNCATE, " %s:%.0f", nm, x.h[bi].bytes / 1024.0);
             x.h[bi].n = 0;  // printed (the table is rebuilt next pass)
             if (n >= (int)sizeof(line) - 1) break;
@@ -486,7 +486,9 @@ static int __cdecl MxStep(void* stop) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const int r = g_mxStepOrig(stop);
-    InterlockedExchangeAdd64(&g_shGcUs, UsSince(t0));
+    const LONG us = UsSince(t0);
+    InterlockedExchangeAdd64(&g_shGcUs, us);
+    if (g_hsOn) HsGc(us);  // docs/666: the frame's GC time
     return r;
 }
 
@@ -503,13 +505,15 @@ static int __cdecl MxCoe(DWORD needed, int ignoreOffPage) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const int r = g_mxCoeOrig(needed, ignoreOffPage);
-    InterlockedExchangeAdd64(&g_shGcUs, UsSince(t0));
+    const LONG us = UsSince(t0);
+    InterlockedExchangeAdd64(&g_shGcUs, us);
+    if (g_hsOn) HsGc(us);  // docs/666
     k.sqForced++, g_shForcedSince++;
     return r;
 }
 
 static const Site kMxNotifySite[] = {
-    {0x00D7E62A, {0xC7, 0x05, 0x60, 0x43, 0x23, 0x01, 0x60, 0xFD}, 8, 6},  // mov [GC_notify_event],0xC0FD60
+    {TS3A(0x00D7E62A), {0xC7, 0x05, 0x60, 0x43, 0x23, 0x01, 0x60, 0xFD}, 8, 6},  // mov [GC_notify_event],0xC0FD60
 };
 static const u8 kMxCoePro[7] = {0x83, 0x3D, 0x9C, 0x2F, 0x1F, 0x01, 0x00};  // cmp dword [GC_incremental],0
 
@@ -543,18 +547,18 @@ static bool ApplyMemExp(const wchar_t* ini) {
     }
     if (!g_mxPage) g_mxPage = (u8*)VirtualAlloc(NULL, 1 << 18, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     // the notify pointer: the immediate MonoScriptHost init stores, or the pointer itself when init already ran
-    DWORD* slot = (DWORD*)(uintptr_t)0x01234360;
+    DWORD* slot = (DWORD*)(uintptr_t)TS3A(0x01234360);
     bool hooked = PatchImm32("GC_notify_event (mem experiments)", kMxNotifySite, 1, (DWORD)(uintptr_t)MxNotify);
-    if (Readable(slot, 4) && *slot == 0x00C0FD60) {
+    if (Readable(slot, 4) && *slot == TS3A(0x00C0FD60)) {
         const DWORD v = (DWORD)(uintptr_t)MxNotify;
         hooked = Write(slot, &v, 4) || hooked;
     }
     if (!hooked) { Log("SKIP mem experiments: GC_notify_event site differs"); return false; }
     if (sh) {
-        const CallSite cs = {0x00D819AA, 0x00E4A050, (void*)MxStep};
-        g_mxStepOrig = (MxStepFn)(uintptr_t)0x00E4A050;
+        const CallSite cs = {TS3A(0x00D819AA), TS3A(0x00E4A050), (void*)MxStep};
+        g_mxStepOrig = (MxStepFn)(uintptr_t)TS3A(0x00E4A050);
         if (!PatchCalls("per-frame GC_try_to_collect timing (mem experiments)", &cs, 1)) g_mxStepOrig = NULL;
-        g_mxCoeOrig = (MxCoeFn)InstallDetour("GC_collect_or_expand (SqrtHeapLimit)", 0x00E4A120, kMxCoePro, sizeof(kMxCoePro), (void*)MxCoe, &g_mxCoeOrig);
+        g_mxCoeOrig = (MxCoeFn)InstallDetour("GC_collect_or_expand (SqrtHeapLimit)", TS3A(0x00E4A120), kMxCoePro, sizeof(kMxCoePro), (void*)MxCoe, &g_mxCoeOrig);
         if (!g_mxStepOrig || !g_mxCoeOrig) Log("note: SqrtHeapLimit without %s: GC time undercounted%s", g_mxStepOrig ? "the collect_or_expand detour" : "the per-frame timing",
                                                g_mxCoeOrig ? "" : ", heap policy unchanged");
     }

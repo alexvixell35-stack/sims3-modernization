@@ -162,6 +162,7 @@ namespace Ts3Fixes
             finally
             {
                 if (had) sw["namecache"] = prev; else sw.Remove("namecache");
+                SwitchesChanged();
                 sNameSwitchStamp = System.Environment.TickCount - kNameSwitchMs - 1; // re-read at the next getter
             }
             return "ready " + sNameCacheReady + ", sims " + sims + ", mismatches " + bad + (firstBad != null ? " (first " + firstBad + ")" : "")
@@ -171,6 +172,7 @@ namespace Ts3Fixes
         static void SetNameSwitch(Dictionary<string, bool> sw, bool on)
         {
             sw["namecache"] = on;
+            SwitchesChanged();
             sNameSwitchStamp = System.Environment.TickCount - kNameSwitchMs - 1; // force NameCacheOn to re-read now
         }
     }

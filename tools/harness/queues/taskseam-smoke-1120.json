@@ -1,0 +1,84 @@
+{
+  "note": "taskseam-smoke-1120 (READY, NOT RUN, dry-run only; CORRECTNESS, RUN FIRST, daytime OK, noiseCheck false): docs/308 [Diag] TaskSeam, a read-only diagnostic (no Sim, save or switch changed): household untouched = 0 script errors + the profile's seed compare PASS + no behaviour switch differs from the base ini. Pass: version + switch read back (log, @tskOn==1, @tskSites==3 = both site groups), task and invoke runs counted, >= 1 summary line, no SKIP/FAIL task seam line. Then read Game\\Bin\taskseam-summary.txt: 'Seam self cost' <= 500 ns per run and < 0.1% of one core (docs/51 I-556-2), owners named (ScriptCore / Sims3GameplaySystems / Ts3Fixes rows, NRaas rows when installed), p50/p99 filled. Bin state apex (tools/turbo-compat.ts snapshot -> state apex -> restore).",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.295-tsk1 ": {
+      "match": [
+        "ts3native 0.36.295-tsk1 2026-11-20 08:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.295-mdt1 2026-11-20 08:00:00"
+      ]
+    },
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1, docs/308\\): 4 task resume sites \\+ 2 invoke sites": {
+      "match": [
+        "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites + 2 invoke sites, per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+      ],
+      "noMatch": [
+        "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites (invoke sites refused), per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+      ]
+    },
+    "^task seam: summary written \\([1-9]\\d* runs, [1-9]\\d* invoke runs, [1-9]\\d* owners, self \\d+ ns per run\\)$": {
+      "match": [
+        "task seam: summary written (48211 runs, 9120 invoke runs, 14 owners, self 180 ns per run)"
+      ],
+      "noMatch": [
+        "task seam: summary written (0 runs, 0 invoke runs, 0 owners, self 0 ns per run)"
+      ]
+    },
+    "^(SKIP|FAIL) task seam": {
+      "match": [
+        "SKIP task seam ([Diag] TaskSeam): RunTask call at 0x00D7FA74 goes to 0x12345678, not 0xD7F000 or TaskServe (another hook owns the seam), nothing written",
+        "FAIL task seam (ScriptHost_RunTask call sites): VirtualProtect at 0x00D7FA74 (err 5)"
+      ],
+      "noMatch": [
+        "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites + 2 invoke sites, per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+      ]
+    },
+    "^SKIP task seam \\(ScriptHost_RunTask call sites\\)|^SKIP task seam \\(OneShot": {
+      "match": [
+        "SKIP task seam (ScriptHost_RunTask call sites): call at 0x00D7FA74 is not a call to 0x00D7F000, nothing written",
+        "SKIP task seam (OneShot / ScriptTick runtime invoke call sites): call at 0x00D748C2 is not a call to 0x00EA1090, nothing written"
+      ],
+      "noMatch": [
+        "OK   task seam (ScriptHost_RunTask call sites): 4 call sites"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-taskseam-smoke",
+      "note": "[est 15 min] BP-Spring 10 min, [Diag] TaskSeam=1 only. Pass as in the queue note.",
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 25,
+      "asi": "game-copy/ts3native.asi.mod-seam-budget-1120",
+      "iniBase": "game-copy/ts3native.ini.mod-seam-budget-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.modtime-master-1120",
+      "pinReason": "feature/mod-seam-budget-1120: 0.36.295-tsk1 = 0.36.295-mdt1 (master) + [Diag] TaskSeam (docs/308); asi + ini from the same commit, ts3fixes = the master ModTime package (TaskSeam has no managed part)",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Diag.TaskSeam": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@tskOn==1,@tskSites==3,tskRuns>=10000,tskInvRuns>=100",
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-tsk1 ": 1,
+        "^OK   task seam \\(\\[Diag\\] TaskSeam=1, docs/308\\): 4 task resume sites \\+ 2 invoke sites": 1,
+        "^task seam: summary written \\([1-9]\\d* runs, [1-9]\\d* invoke runs, [1-9]\\d* owners, self \\d+ ns per run\\)$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) task seam": 0,
+        "^SKIP task seam \\(ScriptHost_RunTask call sites\\)|^SKIP task seam \\(OneShot": 0
+      }
+    }
+  ]
+}

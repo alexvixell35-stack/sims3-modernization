@@ -1,0 +1,172 @@
+{
+ "note": "lc7-desc-time-1124 (docs/333 LC-7, docs/336 §10, WRITTEN, NOT SCHEDULED; TIMING, needs quiet machine: Spotify, IDE and java closed, other CPU < 10%): deadrefdescrev off vs on, LC-5 / LC-6a on in both arms (deadrefdelta, deadrefslimuse, deadrefperlot; deadrefcadence ON), build lc7f (LC-7b writer guard + LC-7c pinned writers / reflection guard, docs/336 §11-12), one load per world (BP / IP / SV). Run only after lc7-desc-correct-1124 passed. Smoke first. Each job: 25 min, 5-min slices, ABBA. Each on slice starts unseeded (the off arm drops the index), so its first phase-4 run is a full seed walk: the on arm understates the gain. Read: node tools/harness/loopcost-report.ts --arm deadrefdescrev <tag>-ab-fixes.jsonl (deadrefsweep_p4_ms per arm, deadrefdescrev_runs / _seeds / _stepped); node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §10]: p4 ~0.28-0.34 ms/s -> ~0.07-0.09 at 1x (4 h full floor), no hitch regression. Gate (docs/333 §6): no regression in our ms/s or hitch p99 / p99.9 / max beyond noise. Est ~1 h 50 min.",
+ "rewind": "off",
+ "stopQueueOnFail": true,
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1123 ": {
+   "match": [
+    "ts3native 0.36.299-m1123 2026-11-23 15:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-m1122 2026-11-22 15:00:00",
+    "ts3native 0.36.299-nsplit1 2026-11-22 12:17:42",
+    "ts3native 0.36.299-m1123x 2026-11-23 15:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-lc7-ab-smoke",
+   "note": "[est 10 min] SMOKE as the first job (stops the queue on fail): BP 5 min, 1-min slices, --ab deadrefdescrev (per-slice read-back by profile-world; a switch that does not stick fails the run). Pass: both arms counted (node tools/harness/loopcost-report.ts --arm deadrefdescrev prints both), a phase-4 seed walk in the on arm (deadrefdescrev_seeds), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc7f",
+   "pinReason": "lc7-desc-reverse-1123 (docs/333 LC-7, docs/336 §10): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc7f-desc-reverse-1123 (copy game-copy/ts3fixes.package.lc7f: lc7a + LC-7b writer guard (docs/336 §11: IL writer scan, untrusted kinds, kGotPregnant, import hold) + LC-7c (docs/336 §12: unresolvable tokens, reflection guard, pinned NRaas writer hooks) + LC-7d (docs/336 §13: job-swap writers, popular NRaas pins) + LC-7e (docs/336 §14: EA AssignJob / AssignSchool noted, dirty seeds per sim hour) + LC-7f (docs/336 §15: simler90Extras travel-merge writer pinned, scan lines in ts3native.log), slots 1744-1779); agent ts3agent.package.lc7e-desc-reverse-1123 (copy game-copy/ts3agent.package.lc7e: lc7a agent + deadrefdescrev_* LC-7b..LC-7e counters) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "slice": 1,
+     "noSamplers": true,
+     "ab": "deadrefdescrev",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefdescrev_seeds>=1",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc7-ab",
+   "note": "[est 32 min] BP 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefdescrev (deadrefcadence, deadrefdelta, deadrefslimuse, deadrefperlot ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefdescrev probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefcadence_snapshots / deadrefdescrev_gathers / _gather_us per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §10]: deadrefsweep_p4_ms down ~70% (delta runs step only the holders of what died; a full walk every 4 sim hours), no hitch regression.5-1 ms per sim-group pass at 1x, snapshots only on full-walk passes, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc7f",
+   "pinReason": "lc7-desc-reverse-1123 (docs/333 LC-7, docs/336 §10): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc7f-desc-reverse-1123 (copy game-copy/ts3fixes.package.lc7f: lc7a + LC-7b writer guard (docs/336 §11: IL writer scan, untrusted kinds, kGotPregnant, import hold) + LC-7c (docs/336 §12: unresolvable tokens, reflection guard, pinned NRaas writer hooks) + LC-7d (docs/336 §13: job-swap writers, popular NRaas pins) + LC-7e (docs/336 §14: EA AssignJob / AssignSchool noted, dirty seeds per sim hour) + LC-7f (docs/336 §15: simler90Extras travel-merge writer pinned, scan lines in ts3native.log), slots 1744-1779); agent ts3agent.package.lc7e-desc-reverse-1123 (copy game-copy/ts3agent.package.lc7e: lc7a agent + deadrefdescrev_* LC-7b..LC-7e counters) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefdescrev",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefdescrev_seeds>=1,deadrefdescrev_runs>=1",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-lc7-ab",
+   "note": "[est 32 min] IP 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefdescrev (deadrefcadence, deadrefdelta, deadrefslimuse, deadrefperlot ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefdescrev probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefcadence_snapshots / deadrefdescrev_gathers / _gather_us per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §10]: deadrefsweep_p4_ms down ~70% (delta runs step only the holders of what died; a full walk every 4 sim hours), no hitch regression.5-1 ms per sim-group pass at 1x, snapshots only on full-walk passes, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc7f",
+   "pinReason": "lc7-desc-reverse-1123 (docs/333 LC-7, docs/336 §10): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc7f-desc-reverse-1123 (copy game-copy/ts3fixes.package.lc7f: lc7a + LC-7b writer guard (docs/336 §11: IL writer scan, untrusted kinds, kGotPregnant, import hold) + LC-7c (docs/336 §12: unresolvable tokens, reflection guard, pinned NRaas writer hooks) + LC-7d (docs/336 §13: job-swap writers, popular NRaas pins) + LC-7e (docs/336 §14: EA AssignJob / AssignSchool noted, dirty seeds per sim hour) + LC-7f (docs/336 §15: simler90Extras travel-merge writer pinned, scan lines in ts3native.log), slots 1744-1779); agent ts3agent.package.lc7e-desc-reverse-1123 (copy game-copy/ts3agent.package.lc7e: lc7a agent + deadrefdescrev_* LC-7b..LC-7e counters) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefdescrev",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefdescrev_seeds>=1,deadrefdescrev_runs>=1",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-lc7-ab",
+   "note": "[est 32 min] SV 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefdescrev (deadrefcadence, deadrefdelta, deadrefslimuse, deadrefperlot ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefdescrev probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefcadence_snapshots / deadrefdescrev_gathers / _gather_us per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §10]: deadrefsweep_p4_ms down ~70% (delta runs step only the holders of what died; a full walk every 4 sim hours), no hitch regression.5-1 ms per sim-group pass at 1x, snapshots only on full-walk passes, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc7f",
+   "pinReason": "lc7-desc-reverse-1123 (docs/333 LC-7, docs/336 §10): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc7f-desc-reverse-1123 (copy game-copy/ts3fixes.package.lc7f: lc7a + LC-7b writer guard (docs/336 §11: IL writer scan, untrusted kinds, kGotPregnant, import hold) + LC-7c (docs/336 §12: unresolvable tokens, reflection guard, pinned NRaas writer hooks) + LC-7d (docs/336 §13: job-swap writers, popular NRaas pins) + LC-7e (docs/336 §14: EA AssignJob / AssignSchool noted, dirty seeds per sim hour) + LC-7f (docs/336 §15: simler90Extras travel-merge writer pinned, scan lines in ts3native.log), slots 1744-1779); agent ts3agent.package.lc7e-desc-reverse-1123 (copy game-copy/ts3agent.package.lc7e: lc7a agent + deadrefdescrev_* LC-7b..LC-7e counters) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefdescrev",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefdescrev_seeds>=1,deadrefdescrev_runs>=1",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ]
+}

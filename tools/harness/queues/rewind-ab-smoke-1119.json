@@ -1,0 +1,199 @@
+{
+  "note": "rewind-ab-smoke-1119 (PREPARED, NOT RUN; correctness smoke, no timing): proves rewind for A/B arms after bugfix/rewind-ab-1119 (docs/270 §40: steady thread set before the snapshot, ping-loop wait capped by payback, exited-thread refusal names its TS3W callers; [Rewind] PoolPark keeps EA pool workers from their 500 ms idle end, asi game-copy/ts3native.asi.rewind-ab-1119 0.36.296-rwab1119). rewindRequire on every job makes a refused snapshot or rewind a FAIL. Needs bugfix/rewind-ab-1119 merged into the checkout queue.ts runs from and tools/harness/rewind/build.cmd run after it (rewindReady refuses a stale exe). Bin state apex-rewind (node tools/harness/queue-rewind.ts state <this file> prints it). IP, where chain-night-1118 step 4 refused (thread 59696, start msvcr80.dll+29e1, exited after the snapshot). Order: OFF-1 fresh load + snapshot, ON rewound, OFF-2 rewound (same build set; arms differ only by runtime fixesOn/fixesOff). Pass: queue log (1) ip-rwab-off-1 'rewind: thread set steady after N s' and 'rewind snapshot taken (N ms)' with N below this run's fresh start (~141 s on IP) and no 'settle ping loop' line; (2) ip-rwab-on and ip-rwab-off-2 row.start 'rewind (N ms)'; (3) summary 'rewind: 2 of 2 planned jobs started from a rewind'; (4) [Rewind] PoolPark on line; (5) arm read-backs: ON unseen_park_held>=1, OFF <1 (fixesRequire). A refusal is data, not a PASS: 'not steady' or 'exited after the snapshot ..., called from TS3W.exe+X' names the thread to classify (docs/36 §4). Household: unseenpark exempts household, selected and unknown-scope Sims; script errors 0. Run after the rc-1119b release-verify chain unless Rodney says otherwise: node tools/harness/queue.ts tools/harness/queues/rewind-ab-smoke-1119.json",
+  "rewind": "auto",
+  "jobs": [
+    {
+      "id": "ip-rwab-off-1",
+      "note": "[est 9 min] OFF arm, fresh launch + load; the queue snapshots after the load (steady thread set first). rewindRequire snapshot: FAIL unless 'snapshot taken (N ms)'. Compare snapshot ms with this job's start ms.",
+      "asi": "game-copy/ts3native.asi.rewind-ab-1119",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "pinned 2026-11-19 to ts3native.asi.rewind-ab-1119 (0.36.296-rwab1119 = rc-1119b + [Rewind] PoolPark, bugfix/rewind-ab-1119) with the rc-1119b ini/ts3fixes/agent ([Rewind] Park=1 forces DxDiagCache 2: no COM ping loop at the snapshot); install game-copy/ts3agent.package.rc-1119b as build/ts3agent.package",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 20,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.PoolPark": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.296-rwab1119 ": 1,
+        "^\\[Rewind\\] Park on: ": 1,
+        "^\\[Rewind\\] PoolPark on: ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.296-rwab1119 ": {
+          "match": [
+            "ts3native 0.36.296-rwab1119 2026-11-19 16:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00",
+            "prior log: ts3native 0.36.296-rwab1119 2026-11-19 16:00:00"
+          ]
+        },
+        "^\\[Rewind\\] Park on: ": {
+          "match": [
+            "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+          ],
+          "noMatch": [
+            "[Rewind] Park off",
+            "prior log: [Rewind] Park on: the route worker parks"
+          ]
+        },
+        "^\\[Rewind\\] PoolPark on: ": {
+          "match": [
+            "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)"
+          ],
+          "noMatch": [
+            "SKIP [Rewind] PoolPark: EAThreadPool_WorkerProc+0xFE bytes differ, nothing written",
+            "SKIP [Rewind] PoolPark: EA 1.69 site not verified (no EA exe checked), pool workers end after 500 ms idle as before"
+          ]
+        }
+      },
+      "stopQueueOnFail": true,
+      "rewindRequire": "snapshot",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 4,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_",
+          "fixesOff": "unseenpark",
+          "fixesRequire": "unseen_park_held<1"
+        }
+      }
+    },
+    {
+      "id": "ip-rwab-on",
+      "note": "[est 6 min] ON arm from a rewind to off-1's snapshot. rewindRequire rewind: FAIL unless row.start 'rewind (N ms)', so a pool worker (or any thread) that ended after the snapshot fails this job (refusal 'exited after the snapshot').",
+      "asi": "game-copy/ts3native.asi.rewind-ab-1119",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "pinned 2026-11-19 to ts3native.asi.rewind-ab-1119 (0.36.296-rwab1119 = rc-1119b + [Rewind] PoolPark, bugfix/rewind-ab-1119) with the rc-1119b ini/ts3fixes/agent ([Rewind] Park=1 forces DxDiagCache 2: no COM ping loop at the snapshot); install game-copy/ts3agent.package.rc-1119b as build/ts3agent.package",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 20,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.PoolPark": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.296-rwab1119 ": 1,
+        "^\\[Rewind\\] Park on: ": 1,
+        "^\\[Rewind\\] PoolPark on: ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.296-rwab1119 ": {
+          "match": [
+            "ts3native 0.36.296-rwab1119 2026-11-19 16:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00",
+            "prior log: ts3native 0.36.296-rwab1119 2026-11-19 16:00:00"
+          ]
+        },
+        "^\\[Rewind\\] Park on: ": {
+          "match": [
+            "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+          ],
+          "noMatch": [
+            "[Rewind] Park off",
+            "prior log: [Rewind] Park on: the route worker parks"
+          ]
+        },
+        "^\\[Rewind\\] PoolPark on: ": {
+          "match": [
+            "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)"
+          ],
+          "noMatch": [
+            "SKIP [Rewind] PoolPark: EAThreadPool_WorkerProc+0xFE bytes differ, nothing written",
+            "SKIP [Rewind] PoolPark: EA 1.69 site not verified (no EA exe checked), pool workers end after 500 ms idle as before"
+          ]
+        }
+      },
+      "rewindRequire": "rewind",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 4,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_",
+          "fixesOn": "unseenpark",
+          "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "ip-rwab-off-2",
+      "note": "[est 6 min] OFF arm again from a rewind, after two runs of play since the snapshot (the 10-min window where thread 59696 ended in chain-night-1118). rewindRequire rewind.",
+      "asi": "game-copy/ts3native.asi.rewind-ab-1119",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "pinned 2026-11-19 to ts3native.asi.rewind-ab-1119 (0.36.296-rwab1119 = rc-1119b + [Rewind] PoolPark, bugfix/rewind-ab-1119) with the rc-1119b ini/ts3fixes/agent ([Rewind] Park=1 forces DxDiagCache 2: no COM ping loop at the snapshot); install game-copy/ts3agent.package.rc-1119b as build/ts3agent.package",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 20,
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Rewind.PoolPark": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.296-rwab1119 ": 1,
+        "^\\[Rewind\\] Park on: ": 1,
+        "^\\[Rewind\\] PoolPark on: ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.296-rwab1119 ": {
+          "match": [
+            "ts3native 0.36.296-rwab1119 2026-11-19 16:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00",
+            "prior log: ts3native 0.36.296-rwab1119 2026-11-19 16:00:00"
+          ]
+        },
+        "^\\[Rewind\\] Park on: ": {
+          "match": [
+            "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-ts3n-59840 asks"
+          ],
+          "noMatch": [
+            "[Rewind] Park off",
+            "prior log: [Rewind] Park on: the route worker parks"
+          ]
+        },
+        "^\\[Rewind\\] PoolPark on: ": {
+          "match": [
+            "[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (004E1EEE, test-only)"
+          ],
+          "noMatch": [
+            "SKIP [Rewind] PoolPark: EAThreadPool_WorkerProc+0xFE bytes differ, nothing written",
+            "SKIP [Rewind] PoolPark: EA 1.69 site not verified (no EA exe checked), pool workers end after 500 ms idle as before"
+          ]
+        }
+      },
+      "rewindRequire": "rewind",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 4,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_",
+          "fixesOff": "unseenpark",
+          "fixesRequire": "unseen_park_held<1"
+        }
+      }
+    }
+  ]
+}

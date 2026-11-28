@@ -1,0 +1,164 @@
+{
+ "note": "z1-m1-timing-1116 (PREPARED, NOT RUN; NEEDS QUIET MACHINE: other CPU < 10%, no clock drop, else the job is void and repeated whole). RUN ONLY after z1-m1-correct-1116 passes (mismatches 0) and its Z1 probe shows zdemptyout_stereo_empty / zdemptyout_stereo_calls >= 0.8 on BP and IP; if the probe is under 0.8 drop the two zdemptyout jobs. docs/275 stop rules: Z1 saved script ms/s under 0.5 on both BP and IP = park (default off); M1 under 0.3 ms/s on both worlds = leave off (M1 ships only inside an exact-memo bundle, not on its own timing). Smoke first (job 1, per-arm split, switch read-back; a FAIL stops the queue), then 4 jobs x ~12.5 min + smoke ~8 min = ~1 h. Build ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing.",
+ "rewind": "auto",
+ "stopQueueOnFail": true,
+ "regexCases": {
+  "^ts3native 0.36.266-mb1116 ": {
+   "match": [
+    "ts3native 0.36.266-mb1116 2026-11-16 09:36:51"
+   ],
+   "noMatch": [
+    "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-writer-memos-smoke",
+   "note": "Measurement smoke, run first (queue.ts auto-smoke covers only > 60 timing minutes): 5 min BP, both switches as one arm, per-arm split in arm-ms.ts, switch read-back, counters rise. A FAIL stops the queue.",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.z1-m1-1116",
+   "pinReason": "ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing",
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.266-mb1116 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "minutes": 5,
+     "seed": 12345,
+     "noSamplers": true,
+     "ab": "zdemptyout,decaymemo",
+     "slice": 1,
+     "fixesReport": "decaymemo_,zdemptyout_",
+     "fixesRequire": "zdemptyout_stereo_calls>=1,zdemptyout_mismatches<1,decaymemo_hits>=1,decaymemo_mismatches<1"
+    }
+   }
+  },
+  {
+   "id": "bp-zdemptyout-ab",
+   "note": "TIMING (Bridgeport, Z1): in-load A/B of zdemptyout, slices off,on,on,off, 2 min each, 10 min. Judge with node tools/harness/arm-ms.ts <tag> (script ms/s per arm, on - off) and hitch-ab.ts as a no-regression guard.",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.z1-m1-1116",
+   "pinReason": "ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing",
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.266-mb1116 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "ab": "zdemptyout",
+     "slice": 2,
+     "fixesReport": "decaymemo_,zdemptyout_",
+     "fixesRequire": "zdemptyout_stereo_calls>=1,zdemptyout_mismatches<1"
+    }
+   }
+  },
+  {
+   "id": "bp-decaymemo-ab",
+   "note": "TIMING (Bridgeport, M1): in-load A/B of decaymemo, slices off,on,on,off, 2 min each, 10 min. Judge with node tools/harness/arm-ms.ts <tag> (script ms/s per arm, on - off) and hitch-ab.ts as a no-regression guard.",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.z1-m1-1116",
+   "pinReason": "ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing",
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.266-mb1116 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "ab": "decaymemo",
+     "slice": 2,
+     "fixesReport": "decaymemo_,zdemptyout_",
+     "fixesRequire": "decaymemo_hits>=1,decaymemo_mismatches<1"
+    }
+   }
+  },
+  {
+   "id": "ip-zdemptyout-ba",
+   "note": "TIMING (Isla Paradiso, Z1): in-load A/B of zdemptyout, slices on,off,off,on, 2 min each, 10 min. Judge with node tools/harness/arm-ms.ts <tag> (script ms/s per arm, on - off) and hitch-ab.ts as a no-regression guard.",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.z1-m1-1116",
+   "pinReason": "ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing",
+   "save": "Baseline-IP-Spring",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.266-mb1116 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "ab": "zdemptyout",
+     "slice": 2,
+     "fixesReport": "decaymemo_,zdemptyout_",
+     "fixesRequire": "zdemptyout_stereo_calls>=1,zdemptyout_mismatches<1",
+     "abOnFirst": true
+    }
+   }
+  },
+  {
+   "id": "ip-decaymemo-ba",
+   "note": "TIMING (Isla Paradiso, M1): in-load A/B of decaymemo, slices on,off,off,on, 2 min each, 10 min. Judge with node tools/harness/arm-ms.ts <tag> (script ms/s per arm, on - off) and hitch-ab.ts as a no-regression guard.",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.z1-m1-1116",
+   "pinReason": "ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing",
+   "save": "Baseline-IP-Spring",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.266-mb1116 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "ab": "decaymemo",
+     "slice": 2,
+     "fixesReport": "decaymemo_,zdemptyout_",
+     "fixesRequire": "decaymemo_hits>=1,decaymemo_mismatches<1",
+     "abOnFirst": true
+    }
+   }
+  }
+ ]
+}

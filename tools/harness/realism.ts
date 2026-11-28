@@ -102,7 +102,7 @@ function registered(): Set<string> {
 }
 
 // the mode gate each command has in the agent: GateHandlers.cs wraps (live | live-or-buy), else a RequireLive / LiveModeState
-// check in the handler's first lines (live), else none
+// check in the handler's first lines (live), else none; kBuyOnly = buy
 export function gates(): Map<string, string> {
   const dir = join(ROOT, 'mods', 'ts3agent', 'src', 'plugin', 'Handlers'), src = readdirSync(dir).filter(f => f.endsWith('.cs')).map(f => readFileSync(join(dir, f), 'utf8')).join('\n');
   const out = new Map<string, string>();
@@ -110,7 +110,7 @@ export function gates(): Map<string, string> {
     const body = new RegExp(`static object ${m[2]}\\(Args a\\)[\\s\\S]{0,400}`).exec(src)?.[0] ?? '';
     if (/RequireLive\(\)|SubState\(\) != "LiveModeState"/.test(body.split('\n').slice(0, 5).join('\n'))) out.set(m[1], 'live');
   }
-  for (const m of src.matchAll(/Dispatcher\.Register\("([a-z_0-9]+)", Gate\((kLiveOnly|kLiveOrBuy),/g)) out.set(m[1], m[2] === 'kLiveOnly' ? 'live' : 'live-or-buy');
+  for (const m of src.matchAll(/Dispatcher\.Register\("([a-z_0-9]+)", Gate\((kLiveOnly|kLiveOrBuy|kBuyOnly),/g)) out.set(m[1], m[2] === 'kLiveOnly' ? 'live' : m[2] === 'kBuyOnly' ? 'buy' : 'live-or-buy');
   return out;
 }
 

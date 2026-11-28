@@ -14,12 +14,12 @@
 // than before: the game still copies and flushes the new save itself before it returns.
 #include <wctype.h>
 
-static const DWORD SAVE_GAME_SITE = 0x00742A95, SAVE_GAME = 0x00AB1030;
-static const DWORD SAVE_INFO_SITE = 0x00AB10F6, SAVE_INFO = 0x00AAE950;
-static const DWORD SAVE_WRITE_SITE = 0x00AB12AF, SAVE_WRITE = 0x00AAC110;
-static const DWORD SAVE_BACKUP_SITE = 0x00AB134E, SAVE_BACKUP = 0x00AB0F80;
-static const DWORD SAVE_COPY_SITE = 0x00AB1363, SAVE_COPY = 0x00AB0E80;
-static const DWORD SAVE_FINAL_SITE = 0x00AB1410, SAVE_FINAL = 0x00AAF5F0;
+static const DWORD SAVE_GAME_SITE = TS3A(0x00742A95), SAVE_GAME = TS3A(0x00AB1030);
+static const DWORD SAVE_INFO_SITE = TS3A(0x00AB10F6), SAVE_INFO = TS3A(0x00AAE950);
+static const DWORD SAVE_WRITE_SITE = TS3A(0x00AB12AF), SAVE_WRITE = TS3A(0x00AAC110);
+static const DWORD SAVE_BACKUP_SITE = TS3A(0x00AB134E), SAVE_BACKUP = TS3A(0x00AB0F80);
+static const DWORD SAVE_COPY_SITE = TS3A(0x00AB1363), SAVE_COPY = TS3A(0x00AB0E80);
+static const DWORD SAVE_FINAL_SITE = TS3A(0x00AB1410), SAVE_FINAL = TS3A(0x00AAF5F0);
 static const size_t kInfoNhdPath = 0x430;  // inline wchar_t[520] path buffer in the save info
 
 // thiscall as __fastcall with a dummy edx: same stack layout and callee cleanup. DWORD returns keep eax whole.
@@ -38,7 +38,7 @@ static SaveFinalFn g_saveFinalOrig = (SaveFinalFn)(uintptr_t)SAVE_FINAL;
 
 // --- folder helpers (plain Win32, no game code: they run on the worker) ---
 static bool Join(wchar_t* out, const wchar_t* dir, const wchar_t* name) {
-    return swprintf_s(out, MAX_PATH, L"%s\\%s", dir, name) > 0;
+    return PathFmt(out, MAX_PATH, L"%s\\%s", dir, name);
 }
 static const wchar_t* Tail(const wchar_t* p) {  // last path part: log lines carry no user folders (docs/188)
     const wchar_t* s = p ? wcsrchr(p, L'\\') : NULL;
@@ -164,14 +164,14 @@ static void SaveWriteResolve(SaveTimes& t) {
 
 static const char* SavePhaseText(char* b, size_t n, LONG us) {  // "12" ms, or "not measured"
     if (us < 0) return "not measured";
-    sprintf_s(b, n, "%ld", us / 1000);
+    SFmt(b, n, "%ld", us / 1000);
     return b;
 }
 // "3000 (call)" timed at 0xAB12AF; "~15000 (gate span)" / "~15000 (info span)" from the entries around it; "not measured"
 static const char* SaveWriteText(char* b, size_t n, const SaveTimes& t) {
     if (t.write < 0 || t.writeHow == SW_NONE) return "not measured";
-    if (t.writeHow == SW_CALL) sprintf_s(b, n, "%ld (call)", t.write / 1000);
-    else sprintf_s(b, n, "~%ld (%s span)", t.write / 1000, t.writeHow == SW_GATE ? "gate" : "info");
+    if (t.writeHow == SW_CALL) SFmt(b, n, "%ld (call)", t.write / 1000);
+    else SFmt(b, n, "~%ld (%s span)", t.write / 1000, t.writeHow == SW_GATE ? "gate" : "info");
     return b;
 }
 
@@ -213,14 +213,14 @@ static bool SaveJobPaths(const u8* info) {
     if (n == 0 || n >= MAX_PATH || !EndsWithI(nhd, L".nhd")) return false;
     DWORD a = GetFileAttributesW(nhd);
     if (a == INVALID_FILE_ATTRIBUTES || (a & FILE_ATTRIBUTE_DIRECTORY)) return false;  // no old save: the game skips the backup too
-    wcscpy_s(g_sj.src, nhd);
+    WCpy(g_sj.src, nhd);
     CutLast(g_sj.src);  // <Saves>\<name>.sims3
     wchar_t user[MAX_PATH];
-    wcscpy_s(user, g_sj.src);
+    WCpy(user, g_sj.src);
     CutLast(user);  // <Saves>
     if (!EndsWithI(g_sj.src, L".sims3") || !EndsWithI(user, L"\\Saves")) return false;
     CutLast(user);  // the TS3 user folder: same volume as Saves (rename works), not listed as a save
-    return swprintf_s(g_sj.bak, L"%s.backup", g_sj.src) > 0 && Join(g_sj.tmp, user, L"ts3native-backup.tmp");
+    return PathFmt(g_sj.bak, L"%s.backup", g_sj.src) && Join(g_sj.tmp, user, L"ts3native-backup.tmp");
 }
 
 static void SaveJobDiscard() {  // wait for the worker and drop its copy
@@ -258,7 +258,7 @@ static bool SaveJobPromote(const wchar_t* name) {
     const wchar_t* last = wcsrchr(g_sj.src, L'\\');
     wchar_t want[MAX_PATH];
     bool same = last && name && Readable(name, MAX_PATH * sizeof(wchar_t)) && wcsnlen(name, MAX_PATH) < MAX_PATH - 8 &&
-                (!_wcsicmp(last + 1, name) || (swprintf_s(want, L"%s.sims3", name) > 0 && !_wcsicmp(last + 1, want)));
+                (!_wcsicmp(last + 1, name) || (PathFmt(want, L"%s.sims3", name) && !_wcsicmp(last + 1, want)));
     u64 h, b;
     if (!g_sj.ok || !same || !TreeHashOf(g_sj.src, &h, &b) || h != g_sj.hash || b != g_sj.bytes) {
         Log("save backup: worker copy not used (ok %ld, same folder %d), game copies", g_sj.ok, same);
@@ -287,8 +287,8 @@ static bool SaveJobPromote(const wchar_t* name) {
 // power loss before the worker is done can (the .backup was flushed before, at step 8). The next save (and travel) and
 // the load copy (0xAB16ED, FUN_00AB0E80 dir 1) wait for the worker first, so the game never deletes or copies a save
 // folder the worker still has open.
-static const DWORD SAVE_FLUSH = 0x00AAF4B0, SAVE_FLUSH_COPY_SITE = 0x00AAFD8A, SAVE_FLUSH_FINAL_SITE = 0x00AAF737;
-static const DWORD LOAD_COPY_SITE = 0x00AB16ED;
+static const DWORD SAVE_FLUSH = TS3A(0x00AAF4B0), SAVE_FLUSH_COPY_SITE = TS3A(0x00AAFD8A), SAVE_FLUSH_FINAL_SITE = TS3A(0x00AAF737);
+static const DWORD LOAD_COPY_SITE = TS3A(0x00AB16ED);
 typedef void(__cdecl* SaveFlushFn)(const wchar_t* path);
 static SaveFlushFn g_saveFlushOrig = (SaveFlushFn)(uintptr_t)SAVE_FLUSH;
 static SaveCopyFn g_loadCopyOrig = (SaveCopyFn)(uintptr_t)SAVE_COPY;
@@ -298,7 +298,7 @@ static FlushJob g_fj;
 static void __cdecl SaveFlushHook(const wchar_t* path) {
     FlushJob& f = g_fj;
     if (f.defer && f.tid == GetCurrentThreadId() && f.n < 8 && path && wcsnlen(path, MAX_PATH) < MAX_PATH) {
-        wcscpy_s(f.path[f.n++], path);
+        WCpy(f.path[f.n++], path);
         InterlockedIncrement(&ts3native_counters.flushDeferred);
         return;
     }
@@ -333,7 +333,9 @@ static void FlushTree(const wchar_t* path) {  // as FUN_00AAF4B0, but shared so 
     HANDLE h = FindFirstFileW(pat, &fd);
     if (h == INVALID_HANDLE_VALUE) return;
     do {
-        if (!IsDots(fd.cFileName) && Join(p, path, fd.cFileName)) FlushTree(p);
+        if (IsDots(fd.cFileName)) continue;
+        if (Join(p, path, fd.cFileName)) FlushTree(p);
+        else FlushFail(path, "child path too long");  // docs/323: counted in fails, not flushed
     } while (FindNextFileW(h, &fd));
     FindClose(h);
 }
@@ -541,7 +543,11 @@ static bool ApplySaveWrite(const wchar_t* ini) {
     QueryPerformanceFrequency(&g_qpf);
     ts3native_counters.saveMode = Clamp(GetPrivateProfileIntW(L"SaveWrite", L"Mode", 1, ini), 0, 1);
     CallSite sites[sizeof(kSaveSites) / sizeof(kSaveSites[0])];
+#ifdef TS3A_TABLE
+    const int n = SaveSitesFor(false, sites);  // EA: Apex never takes 0xAB12AF there (SaveWriteYieldToApex)
+#else
     const int n = SaveSitesFor(ApexStandsDown(AXF_MEMORY_GUARD, "[SaveWrite] write-phase timing call", "call 0xAB12AF"), sites);
+#endif
     if (!PatchCalls("save write", sites, n)) return false;
     ts3native_counters.saveReady = 1;
     Log("save write settings: Mode=%ld", ts3native_counters.saveMode);
@@ -551,6 +557,12 @@ static bool ApplySaveWrite(const wchar_t* ini) {
 // apex.cpp late check: puts the original rel32 back at 0xAB12AF if it still goes to SaveWriteHook (one aligned 4-byte store
 // at 0xAB12B0; no save runs before a world is loaded [inferred], so no thread is inside the call). True when given back.
 static bool SaveWriteYieldToApex(DWORD site) {  // site: SAVE_WRITE_SITE (selftest: a copy)
+#ifdef TS3A_TABLE
+    // EA: Apex's only user of 0xAB12AF is its early save, gated on the Steam exe stamp 0x52DEC247 (Apex 3.1.1
+    // features/memory_guard.cpp:430, docs/260 §4.3): nothing to give back, the write phase stays timed
+    (void)site;
+    return false;
+#else
     LONG* rel = (LONG*)(uintptr_t)(site + 1);
     const u8* p = (const u8*)(uintptr_t)site;
     if (!ts3native_counters.saveReady || !Readable(p, 5) || p[0] != 0xE8 || (DWORD)(site + 5 + *rel) != (DWORD)(uintptr_t)SaveWriteHook)
@@ -561,6 +573,7 @@ static bool SaveWriteYieldToApex(DWORD site) {  // site: SAVE_WRITE_SITE (selfte
     VirtualProtect(rel, 4, old, &old);
     FlushInstructionCache(GetCurrentProcess(), rel, 4);
     return true;
+#endif
 }
 
 static const CallSite kFlushSites[] = {{SAVE_FLUSH_COPY_SITE, SAVE_FLUSH, (void*)SaveFlushHook},

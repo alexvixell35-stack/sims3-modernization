@@ -1,0 +1,1590 @@
+{
+ "schema": 1,
+ "generated": "2026-11-18T03:32:32.751Z",
+ "since": "2026-11-11",
+ "rows": 431,
+ "rowsByBase": {
+  "unrecorded (before 11-18)": 431
+ },
+ "min": 3,
+ "about": "tools/release/natural-hits.ts (docs/279 \"Natural evidence\"): per-switch natural-play evidence from queue rows; verifiedSwitches = docs/data/verified-switches.json entries with their members' natural status",
+ "verifiedSwitches": {
+  "doormemox": {
+   "status": "blocked",
+   "natural": "none",
+   "members": {
+    "[RouteSnap] DoorMemoX": null
+   }
+  },
+  "householdtoo": {
+   "status": "blocked",
+   "natural": "none",
+   "members": {
+    "[Experimental] HouseholdToo": null
+   }
+  },
+  "unseenpark": {
+   "status": "verified",
+   "natural": "verified",
+   "members": {
+    "unseenpark": {
+     "hitsNatural": 4093284,
+     "hitsRepro": 0,
+     "naturalVerified": true
+    }
+   }
+  },
+  "pkglock": {
+   "status": "verified",
+   "natural": "none",
+   "members": {
+    "[PkgLock]": {
+     "hitsNatural": 0,
+     "hitsRepro": 0,
+     "naturalVerified": false
+    }
+   }
+  },
+  "bouncerskip": {
+   "status": "verified",
+   "natural": "verified",
+   "members": {
+    "bouncerskip": {
+     "hitsNatural": 188104,
+     "hitsRepro": 0,
+     "naturalVerified": true
+    }
+   }
+  },
+  "takeariskguard": {
+   "status": "verified",
+   "natural": "none",
+   "members": {
+    "takeariskguard": {
+     "hitsNatural": 0,
+     "hitsRepro": 0,
+     "naturalVerified": false
+    }
+   }
+  },
+  "boatgetoutguard": {
+   "status": "blocked",
+   "natural": "some-hits",
+   "members": {
+    "boatgetoutguard": {
+     "hitsNatural": 0,
+     "hitsRepro": 3,
+     "naturalVerified": false
+    }
+   }
+  },
+  "deadrefconvo": {
+   "status": "blocked",
+   "natural": "none",
+   "members": {
+    "deadrefconvo": null,
+    "deadrefsweep": null
+   }
+  },
+  "eanullguards": {
+   "status": "blocked",
+   "natural": "none",
+   "members": {
+    "eanullguards": null
+   }
+  },
+  "conformactor": {
+   "status": "blocked",
+   "natural": "none",
+   "members": {
+    "[EaCrashFixes] ConformActor": null
+   }
+  },
+  "gvunseen": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "[GoalValidRO] UnseenDefer": null
+   }
+  },
+  "l4memos": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "permamemo": null,
+    "buffremovenoop": null,
+    "catnamecache": null,
+    "autroommemo": null
+   }
+  },
+  "invcache": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "invcache": null
+   }
+  },
+  "spawncapcount": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "spawncapcount": null
+   }
+  },
+  "deadrefcooking": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "deadrefcooking": null,
+    "deadrefsweep": null
+   }
+  },
+  "convturn": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "convturn": null
+   }
+  },
+  "seasonimposter": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "seasonimposter": null
+   }
+  },
+  "ilpatch-b80": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "[IlPatch]": {
+     "hitsNatural": 0,
+     "hitsRepro": 0,
+     "naturalVerified": false
+    },
+    "[IlPatch] ilp_remotechatnoeverydayoutfit": null
+   }
+  },
+  "smallenums": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "[EqualsFast] SmallEnums": null
+   }
+  },
+  "deadsim-hourly": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "seasonsdeadsim": null,
+    "casuihandlers": null,
+    "simrefsdeadsim": null
+   }
+  },
+  "savedata-fixes": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "relremovesafe": null,
+    "spouseunlink": null,
+    "attractionalarm": null,
+    "deadrefguards": null
+   }
+  },
+  "vaclistenerpad": {
+   "status": "unverified",
+   "natural": "none",
+   "members": {
+    "vaclistenerpad": null,
+    "vaclistenernull": null
+   }
+  },
+  "vehicle-leaks": {
+   "status": "unverified",
+   "natural": "some-hits",
+   "members": {
+    "vehparkreserve": {
+     "hitsNatural": 0,
+     "hitsRepro": 30,
+     "naturalVerified": false
+    },
+    "vehgetinleak": {
+     "hitsNatural": 0,
+     "hitsRepro": 0,
+     "naturalVerified": false
+    },
+    "vehseatdestroy": {
+     "hitsNatural": 0,
+     "hitsRepro": 0,
+     "naturalVerified": false
+    },
+    "vehfrankentaxi": {
+     "hitsNatural": 0,
+     "hitsRepro": 0,
+     "naturalVerified": false
+    },
+    "vehprotestcar": {
+     "hitsNatural": 0,
+     "hitsRepro": 0,
+     "naturalVerified": false
+    }
+   }
+  }
+ },
+ "switches": {
+  "[RouteAsync]": {
+   "kind": "native",
+   "runsOn": 418,
+   "runsMeasured": 391,
+   "runsOnNatural": 257,
+   "onInferred": 9,
+   "hitsNatural": 23153,
+   "hitRunsNatural": 228,
+   "hitsRepro": 18938,
+   "hitRunsRepro": 130,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 13,
+   "examples": [
+    "apex311-compat-1112/bp-apex311-smoke-1112",
+    "apex311-compat-1112/bp-apex311-s3ss-travel-mem-x3-1112",
+    "apex311-crash2diag-1113/bp-c2diag-travel-x3-r1-1113"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "[EaCrashFixes]": {
+   "kind": "native",
+   "runsOn": 3,
+   "runsMeasured": 3,
+   "runsOnNatural": 0,
+   "onInferred": 3,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 12,
+   "hitRunsRepro": 3,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "relini-1113-verify/bp-relini-1113-travel",
+    "relini-1113-verify/bp-relini-1113-travel-base"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 3
+   },
+   "naturalVerified": false
+  },
+  "[UnseenAnim]": {
+   "kind": "native",
+   "runsOn": 418,
+   "runsMeasured": 391,
+   "runsOnNatural": 257,
+   "onInferred": 9,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "[UnseenTable]": {
+   "kind": "native",
+   "runsOn": 418,
+   "runsMeasured": 391,
+   "runsOnNatural": 257,
+   "onInferred": 9,
+   "hitsNatural": 543813564,
+   "hitRunsNatural": 237,
+   "hitsRepro": 314993693,
+   "hitRunsRepro": 138,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 13,
+   "examples": [
+    "apex311-compat-1112/bp-apex311-smoke-1112",
+    "apex311-compat-1112/bp-apex311-s3ss-travel-mem-x3-1112",
+    "apex311-crash2diag-1113/bp-c2diag-travel-x3-r1-1113"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "[UnseenRootMotion]": {
+   "kind": "native",
+   "runsOn": 3,
+   "runsMeasured": 3,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 3
+   },
+   "naturalVerified": false
+  },
+  "[GC]": {
+   "kind": "native",
+   "runsOn": 418,
+   "runsMeasured": 391,
+   "runsOnNatural": 257,
+   "onInferred": 9,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "[IlPatch]": {
+   "kind": "native",
+   "runsOn": 4,
+   "runsMeasured": 4,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 4
+   },
+   "naturalVerified": false
+  },
+  "[PkgLock]": {
+   "kind": "native",
+   "runsOn": 0,
+   "runsMeasured": 0,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {},
+   "naturalVerified": false
+  },
+  "[MonoJit]": {
+   "kind": "native",
+   "runsOn": 278,
+   "runsMeasured": 255,
+   "runsOnNatural": 189,
+   "onInferred": 7,
+   "hitsNatural": 406218754,
+   "hitRunsNatural": 157,
+   "hitsRepro": 133647,
+   "hitRunsRepro": 72,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 5,
+   "examples": [
+    "boundcall/bp-boundcall-correct",
+    "boundcall/ip-boundcall-correct",
+    "burnttilefloor-sv-1116/sv-burnttile-off"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 278
+   },
+   "naturalVerified": false
+  },
+  "[CasTrim]": {
+   "kind": "native",
+   "runsOn": 418,
+   "runsMeasured": 391,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 11757328,
+   "hitRunsNatural": 229,
+   "hitsRepro": 16312943,
+   "hitRunsRepro": 138,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 13,
+   "examples": [
+    "apex311-compat-1112/bp-apex311-smoke-1112",
+    "apex311-compat-1112/bp-apex311-s3ss-travel-mem-x3-1112",
+    "apex311-crash2diag-1113/bp-c2diag-travel-x3-r1-1113"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "[Discourage]": {
+   "kind": "native",
+   "runsOn": 418,
+   "runsMeasured": 391,
+   "runsOnNatural": 257,
+   "onInferred": 9,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "[UnseenFallback]": {
+   "kind": "native",
+   "runsOn": 418,
+   "runsMeasured": 391,
+   "runsOnNatural": 257,
+   "onInferred": 9,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "[MonoSigGuard]": {
+   "kind": "native",
+   "runsOn": 410,
+   "runsMeasured": 383,
+   "runsOnNatural": 249,
+   "onInferred": 9,
+   "hitsNatural": 169613946,
+   "hitRunsNatural": 215,
+   "hitsRepro": 73061112,
+   "hitRunsRepro": 97,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 8,
+   "examples": [
+    "apex311-compat-1112/bp-apex311-smoke-1112",
+    "apex311-compat-1112/bp-apex311-s3ss-travel-mem-x3-1112",
+    "apex311-crash2diag-1113/bp-c2diag-travel-x3-r1-1113"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 410
+   },
+   "naturalVerified": false
+  },
+  "[AutShadow]": {
+   "kind": "native",
+   "runsOn": 410,
+   "runsMeasured": 383,
+   "runsOnNatural": 249,
+   "onInferred": 9,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 410
+   },
+   "naturalVerified": false
+  },
+  "[EqualsFast]": {
+   "kind": "native",
+   "runsOn": 68,
+   "runsMeasured": 56,
+   "runsOnNatural": 55,
+   "onInferred": 9,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 68
+   },
+   "naturalVerified": false
+  },
+  "[GoalValidRO]": {
+   "kind": "native",
+   "runsOn": 418,
+   "runsMeasured": 391,
+   "runsOnNatural": 257,
+   "onInferred": 9,
+   "hitsNatural": 2613,
+   "hitRunsNatural": 5,
+   "hitsRepro": 464,
+   "hitRunsRepro": 1,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "master1112b-verify/bp-m1112b-bundle-td0",
+    "master1112b-verify/bp-m1112b-bundle-td1",
+    "master1112b-verify/ip-m1112b-bundle-td1"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": true
+  },
+  "[Crash2Diag]": {
+   "kind": "native",
+   "runsOn": 6,
+   "runsMeasured": 6,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 6
+   },
+   "naturalVerified": false
+  },
+  "[MemDiag]": {
+   "kind": "native",
+   "runsOn": 33,
+   "runsMeasured": 32,
+   "runsOnNatural": 4,
+   "onInferred": 0,
+   "hitsNatural": 11051076,
+   "hitRunsNatural": 2,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "memdiag2-access-1115/bp-memdiag2-access"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 33
+   },
+   "naturalVerified": true
+  },
+  "[AnimPhase]": {
+   "kind": "native",
+   "runsOn": 2,
+   "runsMeasured": 2,
+   "runsOnNatural": 2,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 2
+   },
+   "naturalVerified": false
+  },
+  "gohome": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 23,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 19035,
+   "hitRunsNatural": 21,
+   "hitsRepro": 1708,
+   "hitRunsRepro": 2,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "mono-park-check-1115-mm/bp-upark-check-1115",
+    "mono-park-check-1115-mm/bp-upark-loop-1115",
+    "mono-park-timing-1117/bp-upark-abba-off-1"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": true
+  },
+  "watchdog": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 11,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 72,
+   "hitRunsNatural": 7,
+   "hitsRepro": 26,
+   "hitRunsRepro": 2,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 2493,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "night-1111/bp-wdasync-ab",
+    "night-1111/bp-wdasync-ab-onfirst",
+    "night-1111/ip-wdasync-ab"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "watchdogidle": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 11,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 15170,
+   "hitRunsNatural": 9,
+   "hitsRepro": 1662,
+   "hitRunsRepro": 2,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "night-1111/bp-wdasync-ab",
+    "night-1111/bp-wdasync-ab-onfirst",
+    "night-1111/ip-wdasync-ab"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": true
+  },
+  "stuckcheckasync": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 354,
+   "runsOnNatural": 257,
+   "onInferred": 366,
+   "hitsNatural": 127440,
+   "hitRunsNatural": 212,
+   "hitsRepro": 68920,
+   "hitRunsRepro": 100,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 11,
+   "examples": [
+    "apex311-compat-1112/bp-apex311-smoke-1112",
+    "apex311-rc1111d-1112/bp-apex311d-smoke-dxvk-1112",
+    "apex311-rc1111d-1112/bp-apex311d-smoke-bridge-1112"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "hoursmemo": {
+   "kind": "ts3fixes",
+   "runsOn": 3,
+   "runsMeasured": 3,
+   "runsOnNatural": 2,
+   "onInferred": 0,
+   "hitsNatural": 843045,
+   "hitRunsNatural": 2,
+   "hitsRepro": 240213,
+   "hitRunsRepro": 1,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "hoursmemo-timing-1116-master-1117b/bp-hoursmemo-ab-retry",
+    "hoursmemo-timing-1116-master-1117b-smoke/bp-hoursmemo-ab-smoke",
+    "ts3fixes-hotspots/bp-hoursmemo-correct"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 3
+   },
+   "naturalVerified": true
+  },
+  "zdemptyout": {
+   "kind": "ts3fixes",
+   "runsOn": 1,
+   "runsMeasured": 1,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 3261440,
+   "hitRunsRepro": 1,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "z1-m1-correct-1116/bp-writer-memos-verify"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 1
+   },
+   "naturalVerified": false
+  },
+  "decaymemo": {
+   "kind": "ts3fixes",
+   "runsOn": 1,
+   "runsMeasured": 1,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 679722,
+   "hitRunsRepro": 1,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "z1-m1-correct-1116/bp-writer-memos-verify"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 1
+   },
+   "naturalVerified": false
+  },
+  "autliveguard": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 8,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 14012,
+   "hitRunsRepro": 5,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "golive-checks-1115/bp-golive-checks",
+    "golive-checks-1115-rerun-1115b/bp-golive-checks",
+    "householdtoo-correct-1116/bp-hhtoo-on"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "autunseenpace": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 8,
+   "runsOnNatural": 257,
+   "onInferred": 406,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 56441,
+   "hitRunsRepro": 8,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 1,
+   "examples": [
+    "golive-checks-1115/bp-golive-checks",
+    "golive-checks-1115-rerun-1115b/bp-golive-checks",
+    "householdtoo-correct-1116/bp-hhtoo-on"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "autunseenrh": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 8,
+   "runsOnNatural": 257,
+   "onInferred": 406,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 286950,
+   "hitRunsRepro": 8,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 1,
+   "scriptErrorHitRuns": 1,
+   "examples": [
+    "golive-checks-1115/bp-golive-checks",
+    "golive-checks-1115-rerun-1115b/bp-golive-checks",
+    "householdtoo-correct-1116/bp-hhtoo-on"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "unseenpark": {
+   "kind": "ts3fixes",
+   "runsOn": 14,
+   "runsMeasured": 14,
+   "runsOnNatural": 14,
+   "onInferred": 0,
+   "hitsNatural": 4093284,
+   "hitRunsNatural": 14,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 383038,
+   "offHitRuns": 9,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "mono-park-check-1115-mm/bp-upark-check-1115",
+    "mono-park-timing-1117/bp-upark-abba-on-1",
+    "mono-park-timing-1117/bp-upark-abba-on-2"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 14
+   },
+   "naturalVerified": true
+  },
+  "easpreadlots": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 39,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 6,
+   "hitRunsNatural": 6,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "dxdiag-cache-correct-1117-master-1117c/bp-ddc-park1",
+    "dxdiag-cache-correct-1117-master-1117c/bp-ddc-park2",
+    "jit-bundle-verify-1113/bp-jb-verify"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": true
+  },
+  "watchdogasync": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 11,
+   "runsOnNatural": 257,
+   "onInferred": 407,
+   "hitsNatural": 223473,
+   "hitRunsNatural": 9,
+   "hitsRepro": 34664,
+   "hitRunsRepro": 2,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "night-1111/bp-wdasync-ab",
+    "night-1111/bp-wdasync-ab-onfirst",
+    "night-1111/ip-wdasync-ab"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": true
+  },
+  "legreplanskip": {
+   "kind": "ts3fixes",
+   "runsOn": 74,
+   "runsMeasured": 68,
+   "runsOnNatural": 74,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 74
+   },
+   "naturalVerified": false
+  },
+  "bouncerskip": {
+   "kind": "ts3fixes",
+   "runsOn": 74,
+   "runsMeasured": 68,
+   "runsOnNatural": 74,
+   "onInferred": 0,
+   "hitsNatural": 188104,
+   "hitRunsNatural": 37,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "boundcall/bp-boundcall-smoke",
+    "boundcall/bp-boundcall-correct",
+    "boundcall/bp-boundcall-ab"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 74
+   },
+   "naturalVerified": true
+  },
+  "idlememo": {
+   "kind": "ts3fixes",
+   "runsOn": 74,
+   "runsMeasured": 68,
+   "runsOnNatural": 74,
+   "onInferred": 0,
+   "hitsNatural": 15757,
+   "hitRunsNatural": 68,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 4,
+   "examples": [
+    "boundcall/bp-boundcall-smoke",
+    "boundcall/bp-boundcall-correct",
+    "boundcall/ip-boundcall-correct"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 74
+   },
+   "naturalVerified": false
+  },
+  "unseenfbteleport": {
+   "kind": "ts3fixes",
+   "runsOn": 416,
+   "runsMeasured": 5,
+   "runsOnNatural": 257,
+   "onInferred": 411,
+   "hitsNatural": 1665,
+   "hitRunsNatural": 5,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "master1112b-verify/bp-m1112b-bundle-td0",
+    "master1112b-verify/bp-m1112b-bundle-td1",
+    "master1112b-verify/ip-m1112b-bundle-td1"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 416
+   },
+   "naturalVerified": true
+  },
+  "unseenboat": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 4,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 6648,
+   "hitRunsRepro": 4,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "release-verify-1111/ip-ubrel-boat-repro-1111",
+    "release-verify-1111/ip-ubrel-hbstart-repro-1111",
+    "release-verify-1112e/ip-ubrel-boat-repro-1112e"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "unseenboatstart": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 4,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 590,
+   "hitRunsRepro": 4,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "release-verify-1111/ip-ubrel-boat-repro-1111",
+    "release-verify-1111/ip-ubrel-hbstart-repro-1111",
+    "release-verify-1112e/ip-ubrel-boat-repro-1112e"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "vehparkreserve": {
+   "kind": "ts3fixes",
+   "runsOn": 1,
+   "runsMeasured": 1,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 30,
+   "hitRunsRepro": 1,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "master1112b-verify/bp-m1112b-veh-leak"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 1
+   },
+   "naturalVerified": false
+  },
+  "vehgetinleak": {
+   "kind": "ts3fixes",
+   "runsOn": 1,
+   "runsMeasured": 1,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 1
+   },
+   "naturalVerified": false
+  },
+  "vehseatdestroy": {
+   "kind": "ts3fixes",
+   "runsOn": 1,
+   "runsMeasured": 1,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 1
+   },
+   "naturalVerified": false
+  },
+  "vehfrankentaxi": {
+   "kind": "ts3fixes",
+   "runsOn": 1,
+   "runsMeasured": 1,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 1
+   },
+   "naturalVerified": false
+  },
+  "vehprotestcar": {
+   "kind": "ts3fixes",
+   "runsOn": 1,
+   "runsMeasured": 1,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 1
+   },
+   "naturalVerified": false
+  },
+  "mooddrift": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 0,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "moodpending": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 0,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "weddingcleanup": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 0,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "bookhand": {
+   "kind": "ts3fixes",
+   "runsOn": 416,
+   "runsMeasured": 3,
+   "runsOnNatural": 257,
+   "onInferred": 413,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 28,
+   "hitRunsRepro": 1,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "bookhand-fix-1112/bp-bookhand-fix-on"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 416
+   },
+   "naturalVerified": false
+  },
+  "dnpsubjectcache": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 4,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 2272,
+   "hitRunsNatural": 4,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "defon-1113-verify/bp-defon-natural",
+    "defon-1113-verify/ip-defon-natural",
+    "master1112b-verify/bp-m1112b-leaks-offon"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": true
+  },
+  "hudunsub": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 2,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "mapviewkeep": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 2,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "tinyuieventreg": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 2,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "customctlsweep": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 4,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 408,
+   "hitRunsNatural": 4,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "defon-1113-verify/bp-defon-natural",
+    "defon-1113-verify/ip-defon-natural",
+    "master1112b-verify/bp-m1112b-leaks-offon"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": true
+  },
+  "exitcbsweep": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 4,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 48,
+   "hitRunsNatural": 4,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "defon-1113-verify/bp-defon-natural",
+    "defon-1113-verify/ip-defon-natural",
+    "master1112b-verify/bp-m1112b-leaks-offon"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": true
+  },
+  "dnppetkeys": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 2,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "dnpobjkeys": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 2,
+   "runsOnNatural": 257,
+   "onInferred": 416,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "menumaven": {
+   "kind": "ts3fixes",
+   "runsOn": 418,
+   "runsMeasured": 0,
+   "runsOnNatural": 257,
+   "onInferred": 418,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {
+    "unrecorded (before 11-18)": 418
+   },
+   "naturalVerified": false
+  },
+  "boatgetoutdiag": {
+   "kind": "ts3fixes",
+   "runsOn": 7,
+   "runsMeasured": 7,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 2005,
+   "hitRunsRepro": 7,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "boat-getout-stress/ip-bgo-stress-guard-off",
+    "boat-getout-stress/ip-bgo-stress-guard-on",
+    "master1112b-verify/ip-m1112b-moder-offranks"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 7
+   },
+   "naturalVerified": false
+  },
+  "boatgetoutguard": {
+   "kind": "ts3fixes",
+   "runsOn": 3,
+   "runsMeasured": 3,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 3,
+   "hitRunsRepro": 2,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [
+    "boat-getout-stress/ip-bgo-stress-guard-on"
+   ],
+   "bases": {
+    "unrecorded (before 11-18)": 3
+   },
+   "naturalVerified": false
+  },
+  "takeariskguard": {
+   "kind": "ts3fixes",
+   "runsOn": 0,
+   "runsMeasured": 0,
+   "runsOnNatural": 0,
+   "onInferred": 0,
+   "hitsNatural": 0,
+   "hitRunsNatural": 0,
+   "hitsRepro": 0,
+   "hitRunsRepro": 0,
+   "offHits": 0,
+   "offHitRuns": 0,
+   "errCount": 0,
+   "crashHitRuns": 0,
+   "scriptErrorHitRuns": 0,
+   "examples": [],
+   "bases": {},
+   "naturalVerified": false
+  }
+ }
+}

@@ -1,0 +1,172 @@
+{
+ "note": "lc6a-perlot-time-1123 (docs/336 §9, WRITTEN, NOT RUN; TIMING, needs quiet machine: Spotify, IDE and java closed, other CPU < 10%): deadrefperlot off vs on (deadrefdelta + deadrefslimuse ON in both arms, deadrefcadence ON; build lc6a1) in one load per world (BP / IP / SV). Run only after lc6a-perlot-correct-1123 passed. Smoke first. Each job: 25 min, 5-min slices, ABBA. Each on slice starts unseeded (the off arm drops the lists), so its first typed gather takes the snapshot and seeds: the on arm understates the gain. Read: node tools/harness/loopcost-report.ts --arm deadrefperlot <tag>-ab-fixes.jsonl (deadrefsweep phase 5-9 ms, deadrefcadence_snapshots per arm, deadrefperlot_gather_us); node tools/harness/hitch-ab.ts <tag>. Gate (docs/333 §6): no regression in our ms/s or hitch p99 / p99.9 / max beyond noise. Est ~1 h 50 min.",
+ "rewind": "off",
+ "stopQueueOnFail": true,
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1123 ": {
+   "match": [
+    "ts3native 0.36.299-m1123 2026-11-23 15:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-m1122 2026-11-22 15:00:00",
+    "ts3native 0.36.299-nsplit1 2026-11-22 12:17:42",
+    "ts3native 0.36.299-m1123x 2026-11-23 15:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-lc6a-ab-smoke",
+   "note": "[est 10 min] SMOKE as the first job (stops the queue on fail): BP 5 min, 1-min slices, --ab deadrefperlot (per-slice read-back by profile-world; a switch that does not stick fails the run). Pass: both arms counted (node tools/harness/loopcost-report.ts --arm deadrefperlot prints both), a per-lot seed in the on arm, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc6a1",
+   "pinReason": "lc6a-perlot-lists-1123 (docs/336 §9, LC-6a of docs/333: per-lot gather + exact slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc6a-perlot-lists-1123 (copy game-copy/ts3fixes.package.lc6a1: LC-5 build 2 + deadrefperlot (default OFF) + pins on the 17 direct use-list writers, slots 1707-1726); agent ts3agent.package.lc6a2-1123 (game-copy/ts3agent.package.lc6a2: deadrefperlot name, deadrefpin_* / deadrefperlot_* counters, move_object in Buy mode) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "slice": 1,
+     "noSamplers": true,
+     "ab": "deadrefperlot",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefperlot_seeds>=1",
+     "fixesOn": "deadrefdelta,deadrefslimuse"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc6a-ab",
+   "note": "[est 32 min] BP 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefperlot (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefperlot probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefcadence_snapshots / deadrefperlot_gathers / _gather_us per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §9.6]: typed gathers ~16 ms -> ~0.5-1 ms per sim-group pass at 1x, snapshots only on full-walk passes, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc6a1",
+   "pinReason": "lc6a-perlot-lists-1123 (docs/336 §9, LC-6a of docs/333: per-lot gather + exact slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc6a-perlot-lists-1123 (copy game-copy/ts3fixes.package.lc6a1: LC-5 build 2 + deadrefperlot (default OFF) + pins on the 17 direct use-list writers, slots 1707-1726); agent ts3agent.package.lc6a2-1123 (game-copy/ts3agent.package.lc6a2: deadrefperlot name, deadrefpin_* / deadrefperlot_* counters, move_object in Buy mode) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefperlot",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefperlot_seeds>=1,deadrefperlot_gathers>=1,deadrefdelta_slim_passes>=1",
+     "fixesOn": "deadrefdelta,deadrefslimuse"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-lc6a-ab",
+   "note": "[est 32 min] IP 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefperlot (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefperlot probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefcadence_snapshots / deadrefperlot_gathers / _gather_us per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §9.6]: typed gathers ~16 ms -> ~0.5-1 ms per sim-group pass at 1x, snapshots only on full-walk passes, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc6a1",
+   "pinReason": "lc6a-perlot-lists-1123 (docs/336 §9, LC-6a of docs/333: per-lot gather + exact slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc6a-perlot-lists-1123 (copy game-copy/ts3fixes.package.lc6a1: LC-5 build 2 + deadrefperlot (default OFF) + pins on the 17 direct use-list writers, slots 1707-1726); agent ts3agent.package.lc6a2-1123 (game-copy/ts3agent.package.lc6a2: deadrefperlot name, deadrefpin_* / deadrefperlot_* counters, move_object in Buy mode) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefperlot",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefperlot_seeds>=1,deadrefperlot_gathers>=1,deadrefdelta_slim_passes>=1",
+     "fixesOn": "deadrefdelta,deadrefslimuse"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-lc6a-ab",
+   "note": "[est 32 min] SV 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefperlot (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefperlot probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefcadence_snapshots / deadrefperlot_gathers / _gather_us per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §9.6]: typed gathers ~16 ms -> ~0.5-1 ms per sim-group pass at 1x, snapshots only on full-walk passes, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc6a1",
+   "pinReason": "lc6a-perlot-lists-1123 (docs/336 §9, LC-6a of docs/333: per-lot gather + exact slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc6a-perlot-lists-1123 (copy game-copy/ts3fixes.package.lc6a1: LC-5 build 2 + deadrefperlot (default OFF) + pins on the 17 direct use-list writers, slots 1707-1726); agent ts3agent.package.lc6a2-1123 (game-copy/ts3agent.package.lc6a2: deadrefperlot name, deadrefpin_* / deadrefperlot_* counters, move_object in Buy mode) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefperlot",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefperlot_seeds>=1,deadrefperlot_gathers>=1,deadrefdelta_slim_passes>=1",
+     "fixesOn": "deadrefdelta,deadrefslimuse"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ]
+}

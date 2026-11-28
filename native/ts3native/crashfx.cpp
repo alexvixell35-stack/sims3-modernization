@@ -20,7 +20,7 @@
 // Crash dump: XcptLog (ts3native.cpp, [Crash] Log=1, the default) calls CfOnFault for an access violation outside ts3native
 // (eip in TS3W.exe .text, first four only): fault and register addresses checked against the ring, the P5 state, the last 64 ring entries.
 
-static const DWORD kCfEraseAt = 0x005EE1E0, kCfClrAt = 0x007B0A00;
+static const DWORD kCfEraseAt = TS3A(0x005EE1E0), kCfClrAt = TS3A(0x007B0A00);
 static const u8 kCfErasePro[] = {0x8B, 0x54, 0x24, 0x0C, 0x53};        // mov edx,[esp+0Ch] ; push ebx
 static const u8 kCfClrPro[] = {0x83, 0x79, 0x30, 0x00, 0x74, 0x1E};    // cmp dword ptr [ecx+30h],0 ; je 0x7B0A24
 static DWORD g_cfVtLo, g_cfVtHi;     // TS3W.exe .rdata
@@ -42,6 +42,18 @@ static void CtInvFault(const CONTEXT* c);  // castrim.cpp: the outfit inventory 
 static void CtRelFault(const CONTEXT* c);  // castrim.cpp: the outfit release fault decoder (docs/539 §13.5)
 static void CtOsFault(const CONTEXT* c);   // castrim.cpp: the outfit save string copy fault decoder (docs/539 §15)
 static bool CfVtOk(DWORD vt) { return vt >= g_cfVtLo && vt < g_cfVtHi && !(vt & 3); }
+// docs/254 R2: image ranges of TS3W.exe and MSVCR80.dll for the CtOsFault gate (CfModInit at the crash log install; 0 = no range)
+static DWORD g_cfExeLo, g_cfExeHi, g_cfCrtLo, g_cfCrtHi;
+static bool CfOsGate(DWORD eip) { return (eip >= g_cfExeLo && eip < g_cfExeHi) || (eip >= g_cfCrtLo && eip < g_cfCrtHi); }
+static void CfImgRange(HMODULE m, DWORD* lo, DWORD* hi) {
+    if (!m) return;
+    const u8* b = (const u8*)m;
+    *lo = (DWORD)(uintptr_t)b, *hi = *lo + ((const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew))->OptionalHeader.SizeOfImage;
+}
+static void CfModInit() {  // ts3native.cpp InstallXcptLog: MSVCR80 is a static import of TS3W, loaded before us
+    CfImgRange(GetModuleHandleW(NULL), &g_cfExeLo, &g_cfExeHi);
+    CfImgRange(GetModuleHandleW(L"msvcr80.dll"), &g_cfCrtLo, &g_cfCrtHi);
+}
 
 // one guarded-site finding: count, ring lookup, first 16 logged
 static void CfBad(int site, DWORD owner, DWORD holder, DWORD obj, DWORD vt, DWORD ret, const char* what) {
@@ -94,7 +106,7 @@ static void __fastcall CfClrHook(u8* self, void* edx) {
 // before. Check only, before the game reads: parent vtable not vt_Object (0x1042CA8) or the building base (0x107396C) or
 // unreadable = 0 freed / garbage, refcount < 1 = 1, destroyed bit (+0x28 & 0x400000) = 2 (a child still parented to a destroyed,
 // still allocated object: the zombie window of docs/67 §11.3 A). First 16 lines per kind, then counted; prologue 9 bytes.
-static const DWORD kXgAt = 0x00958560;
+static const DWORD kXgAt = TS3A(0x00958560);
 static const u8 kXgPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0, 0x0F, 0x57, 0xC0};  // push ebp; mov ebp,esp; and esp,-16; xorps xmm0,xmm0
 typedef void*(__fastcall* XgFn)(u8* self, void*, void* out);
 static XgFn g_xgOrig;
@@ -126,7 +138,7 @@ static void* __fastcall XgHook(u8* self, void* edx, void* out) {
         parent = *(const DWORD*)(self + 0x30);
         if (parent) {
             memcpy(w, (const void*)(uintptr_t)parent, sizeof(w));
-            if (w[0] != 0x01042CA8 && w[0] != 0x0107396C) kind = 0;
+            if (w[0] != TS3A(0x01042CA8) && w[0] != TS3A(0x0107396C)) kind = 0;
             else if ((LONG)w[1] < 1) kind = 1;
             else if (w[10] & 0x400000) kind = 2;
         }
@@ -141,7 +153,7 @@ static void* __fastcall XgHook(u8* self, void* edx, void* out) {
 // apply -> 0x82CBF0 -> 0x82C120 -> FindLotByIdTyped 0xC62D40). Check only, before the game reads: vtable outside TS3W.exe .rdata
 // or unreadable. The caller's esi is the parent node (recursive call) or the world manager (root call). 7-byte prologue, no
 // branch into it [verified E8/E9/Jcc scan]. Apex Radiance's ObjectLookupIndex reads this function: a patched prologue = SKIP.
-static const DWORD kStAt = 0x00C5FA60;
+static const DWORD kStAt = TS3A(0x00C5FA60);
 static const u8 kStPro[] = {0x53, 0x55, 0x56, 0x8B, 0x74, 0x24, 0x10};  // push ebx; push ebp; push esi; mov esi,[esp+10h]
 static void* g_stOrig;
 static volatile LONG g_stBad, g_stLogs;
@@ -160,7 +172,7 @@ static void __stdcall StCheck(const DWORD* sp, DWORD parent) {
     char d1[200], d2[220], d3[220];
     CfDescribe(node, d1, sizeof(d1));
     CeDescribe(node, d2, sizeof(d2));
-    if (!P5cRelFind(node, d3, sizeof(d3))) strcpy_s(d3, "no");
+    if (!P5cRelFind(node, d3, sizeof(d3))) SCpy(d3, "no");
     Log("crash forensics: SCENE NODE BAD at 0xC5FA60: node 0x%08lX %s vt %08lX, parent 0x%08lX vt %08lX, id %08lX%08lX, thread %lu, "
         "caller 0x%08lX; P5 heap ring: %s; ours: %s; P5c: %s", node, readable ? "" : "UNREADABLE", vt, parent, pvt, sp[3], sp[2],
         GetCurrentThreadId(), sp[0], d1, d2, d3);
@@ -175,30 +187,107 @@ static __declspec(naked) void StThunk() {
     }
 }
 
+// 2026-11-15 (tbpro-dm1 crash 0x4E5A0B, malloc_consolidate unlinking a "free" next chunk whose size word was 0): log
+// only, a fault inside EA's GeneralAllocator (0x4E3D00-0x4E9000). For each register that points into memory, the 32 dwords from
+// reg-0x20 (chunk layout, alloc.cpp: prev-size, size|bits, then user bytes; a fast-bin chunk keeps its old user+0 dword, so an
+// .rdata value there is the vtable of the object freed into it). ".rdata" marks exe vtable-range values (CfVtOk).
+static void CfHeapNb(const CONTEXT* c) {
+    const struct { const char* n; DWORD v; } regs[] = {{"eax", c->Eax}, {"ebx", c->Ebx}, {"ecx", c->Ecx}, {"edx", c->Edx},
+                                                       {"esi", c->Esi}, {"edi", c->Edi}, {"ebp", c->Ebp}};
+    for (const auto& g : regs) {
+        if (g.v < 0x10000 || g.v >= 0xFFFE0000) continue;  // LAA: heap above 2 GB too; the __try below covers bad pointers
+        DWORD w[32];
+        bool ok = true;
+        __try { for (int i = 0; i < 32; i++) w[i] = *(const volatile DWORD*)(uintptr_t)(g.v - 0x20 + 4 * i); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+        if (!ok) { Log("crash forensics: heap nb %s 0x%08lX: unreadable", g.n, g.v); continue; }
+        char line[32 * 12 + 16], *p = line;
+        for (int i = 0; i < 32; i++) p += SFmt(p, line + sizeof(line) - p, i == 8 ? " |%08lX%s" : " %08lX%s", w[i], CfVtOk(w[i]) ? "v" : "");
+        Log("crash forensics: heap nb %s 0x%08lX (from -0x20, v = .rdata):%s", g.n, g.v, line);
+    }
+}
+
+// n (<= 16) dwords from a, ".rdata" values marked v (CfVtOk), or why not
+static void CfWords(const char* tag, DWORD a, int n) {
+    if (a < 0x10000 || a >= 0xFFFE0000) { Log("crash forensics: %s 0x%08lX: not a heap address", tag, a); return; }
+    DWORD w[16];
+    bool ok = true;
+    if (n > 16) n = 16;
+    __try { for (int i = 0; i < n; i++) w[i] = *(const volatile DWORD*)(uintptr_t)(a + 4 * i); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+    if (!ok) { Log("crash forensics: %s 0x%08lX: unreadable", tag, a); return; }
+    char line[16 * 12 + 8], *p = line;
+    for (int i = 0; i < n; i++) p += SFmt(p, line + sizeof(line) - p, " %08lX%s", w[i], CfVtOk(w[i]) ? "v" : "");
+    Log("crash forensics: %s 0x%08lX (v = .rdata):%s", tag, a, line);
+}
+
+// 2026-11-17 (bg2 IP crash): EA's pure-call handler (XcptPure). The known caller is ObstacleAvoidance_B 0x85D980,
+// `call [vt+18h]` at 0x85F1A8 on 0x839CA0(part, 0) = the part's first group-linked agent (docs/143 §8.11). The handler and
+// MSVCR80's _purecall keep ebp, so ebp is still the caller's frame; when it is 0x85D980's (return 0x847503), the part, the
+// updated agent (arg 2) and the first 4 linked agents are logged: the destroyed one shows its base-class vtable, the others
+// who it was linked to. Register neighbourhoods (CfHeapNb) for any caller. g_cfPureAgent0 = linked agent 0 (selftest).
+static DWORD g_cfPureAgent0;
+static void CfPureCall(const CONTEXT* c) {
+    CfHeapNb(c);
+    DWORD fp = c->Ebp, ret = 0, part = 0, a2 = 0, a3 = 0;
+    __try {
+        ret = *(const DWORD*)(uintptr_t)(fp + 4);
+        part = *(const DWORD*)(uintptr_t)(fp + 8);
+        a2 = *(const DWORD*)(uintptr_t)(fp + 12);
+        a3 = *(const DWORD*)(uintptr_t)(fp + 16);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("crash forensics: pure call: ebp 0x%08lX unreadable", fp); return; }
+    const bool avoid = ret == TS3A(0x00847503);
+    Log("crash forensics: pure call: ebp 0x%08lX frame returns to 0x%08lX%s, args %08lX %08lX %08lX", fp, ret,
+        avoid ? " (ObstacleAvoidance -> ObstacleAvoidance_B 0x85D980)" : "", part, a2, a3);
+    if (!avoid) return;
+    CfWords("pure call: part", part, 12);
+    CfWords("pure call: updated agent (arg 2)", a2, 16);
+    DWORD n = 0, b = 0, e = 0;
+    __try {
+        n = *(const DWORD*)(uintptr_t)(part + 0xC);
+        b = *(const DWORD*)(uintptr_t)(part + 0x10);
+        e = *(const DWORD*)(uintptr_t)(part + 0x14);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    Log("crash forensics: pure call: part 0x%08lX linked count %ld, vector %08lX..%08lX", part, (LONG)n, b, e);
+    char d[200], t[48];
+    for (DWORD i = 0; i < 4 && b && b + 4 * i < e; i++) {
+        DWORD ag = 0;
+        __try { ag = *(const DWORD*)(uintptr_t)(b + 4 * i); } __except (EXCEPTION_EXECUTE_HANDLER) { break; }
+        if (i == 0) g_cfPureAgent0 = ag;
+        SFmt(t, "pure call: linked agent %lu", i);
+        CfWords(t, ag, 16);
+        CfDescribe(ag, d, sizeof(d));
+        Log("crash forensics: pure call: linked agent %lu 0x%08lX: %s", i, ag, d);
+    }
+}
+
 // the dump: one line of P5 state, the fault and register addresses against the ring, then the ring tail
 static void CfOnFault(const EXCEPTION_POINTERS* x) {
     // TS3W.exe .text only: every run has 3 handled first-chance AVs at start-up in other modules (queue logs 2026-10-24);
     // an illegal instruction anywhere = a wild call into data (Crash M / O: eip in the heap), dumped with the fault at eip
     const DWORD eip = x->ContextRecord->Eip;
     // docs/539 §12.5: EA's outfit inventory 0x5E7690 (the 11-08 travel-save crash at 0x5E772C), Light or not, before the dump cap
-    if (eip == 0x005E772C || eip == 0x005E76DA) CtInvFault(x->ContextRecord);
+    if (eip == TS3A(0x005E772C) || eip == TS3A(0x005E76DA)) CtInvFault(x->ContextRecord);
     // docs/539 §13.5: the 11-08 release-smoke crash; §14: 0xD4B154 / any fault in the callback 0xD4B150 (11-09, from 0x5D82A0)
-    if ((eip >= 0x00D4B150 && eip <= 0x00D4B159) || eip == 0x005AF67E) CtRelFault(x->ContextRecord);
-    // docs/539 §15: the 11-09 outfit save crash faults in MSVCR80's memcpy (0x408C3A / 0x5E621C on the stack), so any AV is searched
-    if (x->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) CtOsFault(x->ContextRecord);
+    if ((eip >= TS3A(0x00D4B150) && eip <= TS3A(0x00D4B159)) || eip == TS3A(0x005AF67E)) CtRelFault(x->ContextRecord);
+    // docs/539 §15: the 11-09 outfit save crash faults in MSVCR80's memcpy (0x408C3A / 0x5E621C on the stack), so an AV is searched;
+    // docs/254 R2: only with eip in TS3W.exe or MSVCR80.dll, so a foreign AV storm (Apex issue 55) skips the 1 KB stack copy
+    if (x->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && CfOsGate(eip)) CtOsFault(x->ContextRecord);
     const bool wild = XcptWild(x->ExceptionRecord->ExceptionCode);  // C0000096 too (2026-11-02 drain crash wrote no dump)
-    if (!g_cfOn || (!wild && (eip < 0x00401000 || eip >= 0x00F95000)) || InterlockedIncrement(&g_cfDumpN) > 4) return;
+    const bool pure = XcptPure(x->ExceptionRecord);  // eip 0x58D996, inside TS3W.exe
+    if (!g_cfOn || (!wild && (eip < TS3A(0x00401000) || eip >= TS3A(0x00F95000))) || InterlockedIncrement(&g_cfDumpN) > 4) return;
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.cfDumps);
     const EXCEPTION_RECORD* r = x->ExceptionRecord;
     const CONTEXT* c = x->ContextRecord;
-    const DWORD at = wild ? eip : r->NumberParameters > 1 ? (DWORD)r->ExceptionInformation[1] : 0;
+    const DWORD at = wild ? eip : pure ? 0 : r->NumberParameters > 1 ? (DWORD)r->ExceptionInformation[1] : 0;
     char d[200];
     CfDescribe(at, d, sizeof(d));
     Log("crash forensics: DUMP %s (%s 0x%08lX) at eip 0x%08lX thread %lu; P5 state: route job %s, g_rpPhase 0x%lX, "
         "g_rpUse holder %lu, RecsUnlocked %ld, held lot %08lX%08lX, replay head %lu tail %lu, P4 job armed %ld kind %d mode %d; "
         "heap check %s, bad frees %ld, guard hits %ld/%ld",
-        wild ? "illegal instruction" : "access violation", wild ? "exec" : r->NumberParameters > 0 && r->ExceptionInformation[0] ? "write" : "read", at, c->Eip, GetCurrentThreadId(),
+        wild ? "illegal instruction" : pure ? "EA pure call" : "access violation",
+        wild ? "exec" : pure ? "vcall" : r->NumberParameters > 0 && r->ExceptionInformation[0] ? "write" : "read", at, c->Eip, GetCurrentThreadId(),
         g_async.state == A_RUNNING ? "running" : "idle", g_rpPhase, g_cfUseTid, g_rpRecsUnlocked, (DWORD)(g_rpHoldKey >> 32),
         (DWORD)g_rpHoldKey, g_rpHead, g_rpTail, g_p4Job.armed, g_p4Job.kind, g_p4Job.mode, g_cfHeap ? "on" : "off", k.cfHeapBad,
         k.cfBad[0], k.cfBad[1]);
@@ -220,6 +309,8 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
             Log("crash forensics: %s 0x%08lX: %s", g.n, g.v, d);
         }
     if (at >= 0x10000 && CfFind(at, &e)) InterlockedIncrement(&k.cfRingHit);
+    if (eip >= TS3A(0x004E3D00) && eip < TS3A(0x004E9000)) CfHeapNb(c);  // 2026-11-15: a fault inside EA's allocator (heap corruption)
+    if (pure) CfPureCall(c);
     LARGE_INTEGER q;
     QueryPerformanceCounter(&q);
     const LONG top = g_cfSeq;
@@ -256,8 +347,8 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
 // Good path: 2-4 compares and a jmp (no counter, no store). Bad: CdBad logs (first 8 per site) the pointer, the parent object
 // with its vtable and first words, the ring entries that hold either address, and the code addresses on the stack (Apex
 // frames show as ApexRadiance.asi+off); then the game's code runs unchanged and faults as before.
-static DWORD g_cdModelFn = 0x0068EEF0, g_cdResFn = 0x006C93D0, g_cdFxBack = 0x0071D56B, g_cdBindFn = 0x0068E8F0;
-static const DWORD kCdModelCall = 0x006F6B5B, kCdResCall = 0x006FA2DB, kCdFxAt = 0x0071D562, kCdBindCall = 0x0068FDA4;
+static DWORD g_cdModelFn = TS3A(0x0068EEF0), g_cdResFn = TS3A(0x006C93D0), g_cdFxBack = TS3A(0x0071D56B), g_cdBindFn = TS3A(0x0068E8F0);
+static const DWORD kCdModelCall = TS3A(0x006F6B5B), kCdResCall = TS3A(0x006FA2DB), kCdFxAt = TS3A(0x0071D562), kCdBindCall = TS3A(0x0068FDA4);
 static const u8 kCdFxPro[] = {0x8B, 0x47, 0x04, 0x89, 0x86, 0x30, 0x31, 0x00, 0x00};  // mov eax,[edi+4] ; mov [esi+3130h],eax
 static volatile LONG g_cdLogs[4];
 static const char* const kCdSite[4] = {"model part draw 0x6F6250 (call 0x6F6B5B -> 0x68EEF0)",
@@ -267,7 +358,7 @@ static const char* const kCdSite[4] = {"model part draw 0x6F6250 (call 0x6F6B5B 
 
 // "module+0xoff" for a code address (TS3W.exe or any image), false = not executable image memory
 static bool CdCode(DWORD v, char* out, size_t cap) {
-    if (v >= 0x00401000 && v < 0x00F95000) { sprintf_s(out, cap, "0x%08lX", v); return true; }
+    if (v >= TS3A(0x00401000) && v < TS3A(0x00F95000)) { SFmt(out, cap, "0x%08lX", v); return true; }
     MEMORY_BASIC_INFORMATION m;
     if (v < 0x10000 || !VirtualQuery((void*)(uintptr_t)v, &m, sizeof(m)) || m.Type != MEM_IMAGE ||
         !(m.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)))
@@ -275,7 +366,7 @@ static bool CdCode(DWORD v, char* out, size_t cap) {
     char path[MAX_PATH];
     const DWORD n = GetModuleFileNameA((HMODULE)m.AllocationBase, path, MAX_PATH);
     const char* b = n ? strrchr(path, '\\') : NULL;
-    sprintf_s(out, cap, "%s+0x%lX", b ? b + 1 : n ? path : "?", v - (DWORD)(uintptr_t)m.AllocationBase);
+    SFmt(out, cap, "%s+0x%lX", b ? b + 1 : n ? path : "?", v - (DWORD)(uintptr_t)m.AllocationBase);
     return true;
 }
 // "w0 w1 ..." of n dwords at p, or "unreadable"
@@ -283,8 +374,8 @@ static void CdWords(DWORD p, int n, char* out, size_t cap) {
     size_t o = 0;
     out[0] = 0;
     __try {
-        for (int i = 0; i < n && o + 10 < cap; i++) o += sprintf_s(out + o, cap - o, "%08lX ", ((const DWORD*)(uintptr_t)p)[i]);
-    } __except (EXCEPTION_EXECUTE_HANDLER) { sprintf_s(out + o, cap - o, "unreadable"); }
+        for (int i = 0; i < n && o + 10 < cap; i++) o += SFmt(out + o, cap - o, "%08lX ", ((const DWORD*)(uintptr_t)p)[i]);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { SFmt(out + o, cap - o, "unreadable"); }
 }
 static DWORD CdRead(DWORD p) {
     __try { return *(const DWORD*)(uintptr_t)p; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
@@ -348,7 +439,7 @@ static void __cdecl CdBad(int site, const DWORD* r) {
     __try {
         const DWORD* sp = (const DWORD*)(uintptr_t)r[3];
         for (int i = 0, n = 0; i < 256 && n < 16 && o + 100 < sizeof(st); i++)
-            if (CdCode(sp[i], c, sizeof(c))) o += sprintf_s(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), n++;
+            if (CdCode(sp[i], c, sizeof(c))) o += SFmt(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), n++;
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("crash forensics:   stack code words: %s", st);
 }
@@ -442,6 +533,206 @@ static void CdInstall() {
     if (CfJmp(kCdFxAt, kCdFxPro, sizeof(kCdFxPro), (void*)CdFxStub)) k.cdReady |= 4, Log("OK   crash forensics draw guard effect 0x71D562 (check only)");
 }
 
+// [CrashForensics] VbGuard=1 (docs/67 §44, default off, Steam 1.67 only): the 2026-11-21 Buy-mode crashes on Apex 4.0.13 + the RTX
+// Remix bridge fault inside the bridge's SetStreamSource, called from the game's stream wrapper Device_SetStreamSource 0x60F020
+// (thiscall: stream, VB wrapper, offset, stride; D3D VB = wrapper +0x14) with a VB wrapper that is gone (+0x14 = 0x11) or whose
+// D3D VB is gone. Check-only detours: the two D3D VB release helpers every VB wrapper class reaches from its destructor,
+// 0x619E10 (class 0xFE9580's dtor 0x61A340) and 0x619F10 (class 0xFE9590 0x61A3D0, also the model-factory buffers at +0x28 of
+// 0x6D9030), record wrapper, D3D VB (+0x14, still set), thread and the code words on the stack (who released it) in a ring;
+// 0x60F020 checks the wrapper's vtable (TS3W .rdata, not the RefCounted base 0xFF39F8 a finished dtor leaves) and the D3D VB's
+// vtable (inside the device's module) and logs a bad one with the ring entries before the game's code runs unchanged. At any
+// later access violation the registers are looked up.
+#ifndef TS3A_TABLE
+static const DWORD kVbSsAt = 0x0060F020, kVbRelA = 0x00619E10, kVbRelB = 0x00619F10, kVbVtBase = 0x00FF39F8;
+// docs/67 §44.1: the draw owner. 0xA84D00 (return 0xA84D2E) reads [owner+0x70] from its item [arg+4]; 0xA85DF0(owner, 1)
+// is its deleting dtor, called only at 0xA891CA (rel32 scan of .text)
+static const DWORD kVbDrawRet = 0x00A84D2E, kVbOwnDtor = 0x00A85DF0, kVbOwnSite = 0x00A891CA;
+static const u8 kVbSsPro[] = {0x53, 0x8B, 0x5C, 0x24, 0x14, 0x57};         // push ebx ; mov ebx,[esp+14h] ; push edi
+static const u8 kVbRelProA[] = {0x56, 0x8B, 0xF1, 0x8D, 0x4E, 0x08};        // push esi ; mov esi,ecx ; lea ecx,[esi+8]
+static const u8 kVbRelProB[] = {0x56, 0x8B, 0xF1, 0x83, 0x7E, 0x14, 0x00};  // push esi ; mov esi,ecx ; cmp dword ptr [esi+14h],0
+typedef void(__fastcall* VbDelFn)(u8* self, void* edx);
+typedef HRESULT(__fastcall* VbSsFn)(u8* dev, void* edx, DWORD stream, u8* w, DWORD off, DWORD stride);
+static VbDelFn g_vbDelOrig[2];
+static VbSsFn g_vbSsOrig;
+struct VbEnt { LONG seq; DWORD w, vb, tid; LONGLONG qpc; DWORD code[8]; };
+static const DWORD kVbRing = 2048;  // power of two
+static VbEnt g_vbRing[kVbRing], g_vbOwnRing[kVbRing];  // owner ring: w = owner, vb = its +0x70 before the dtor
+static volatile LONG g_vbSeq, g_vbBadN, g_vbOn, g_vbOwnSeq, g_vbLateN;
+static DWORD g_vbModLo[8], g_vbModHi[8], g_vbModN, g_vbDevLo, g_vbDevHi;
+static void VbAddMod(const void* p) {
+    MEMORY_BASIC_INFORMATION m;
+    if (!p || g_vbModN >= 8 || !VirtualQuery(p, &m, sizeof(m)) || m.Type != MEM_IMAGE) return;
+    const u8* b = (const u8*)m.AllocationBase;
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
+    g_vbModLo[g_vbModN] = (DWORD)(uintptr_t)b, g_vbModHi[g_vbModN++] = (DWORD)(uintptr_t)b + nt->OptionalHeader.SizeOfImage;
+}
+// cheap code filter for the record path: TS3W.exe .text or one of the mod images found at install (no VirtualQuery per word)
+static bool VbIsCode(DWORD v) {
+    if (v >= 0x00401000 && v < 0x00F95000) return true;
+    for (DWORD i = 0; i < g_vbModN; i++) if (v >= g_vbModLo[i] && v < g_vbModHi[i]) return true;
+    return false;
+}
+static void VbRecordTo(VbEnt* ring, volatile LONG* seq, DWORD w, DWORD vb, const DWORD* sp) {
+    const LONG s = InterlockedIncrement(seq);
+    VbEnt& e = ring[(DWORD)(s - 1) & (kVbRing - 1)];
+    e.seq = 0;
+    e.w = w, e.vb = vb, e.tid = GetCurrentThreadId();
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    e.qpc = q.QuadPart;
+    int n = 0;
+    __try {
+        for (int i = 0; i < 64 && n < 8; i++) if (VbIsCode(sp[i])) e.code[n++] = sp[i];
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    for (; n < 8; n++) e.code[n] = 0;
+    e.seq = s;
+}
+static void __fastcall VbRecord(const u8* self, const DWORD* sp) {
+    VbRecordTo(g_vbRing, &g_vbSeq, (DWORD)(uintptr_t)self, *(const DWORD*)(self + 0x14), sp);
+}
+// call site 0xA891CA: record the owner delete, then the dtor (detoured by [EaCrashFixes] VbOwnerDelay when that is on)
+static void* __fastcall VbOwnDelHook(u8* self, void* edx, DWORD flags) {
+    VbRecordTo(g_vbOwnRing, &g_vbOwnSeq, (DWORD)(uintptr_t)self, *(const DWORD*)(self + 0x70), (const DWORD*)_AddressOfReturnAddress());
+    return ((void*(__fastcall*)(u8*, void*, DWORD))(uintptr_t)kVbOwnDtor)(self, edx, flags);
+}
+static void __fastcall VbDelHookA(u8* self, void* edx) {
+    if (*(const DWORD*)(self + 0x14)) VbRecord(self, (const DWORD*)_AddressOfReturnAddress());
+    g_vbDelOrig[0](self, edx);
+}
+static void __fastcall VbDelHookB(u8* self, void* edx) {
+    if (*(const DWORD*)(self + 0x14)) VbRecord(self, (const DWORD*)_AddressOfReturnAddress());
+    g_vbDelOrig[1](self, edx);
+}
+// the newest ring entry whose wrapper or D3D VB holds v (+-0x40: a register may point into the object): "freed N ms ago ..."
+static bool VbExplainIn(const VbEnt* ring, LONG top, const char* what, DWORD v, char* out, size_t cap) {
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    for (LONG s = top; s > 0 && top - s < (LONG)kVbRing; s--) {
+        const VbEnt& e = ring[(DWORD)(s - 1) & (kVbRing - 1)];
+        if (e.seq != s) continue;
+        const bool isW = v >= e.w && v < e.w + (ring == g_vbRing ? 0x40u : 0x80u), isVb = e.vb && v >= e.vb && v < e.vb + 0x40;
+        if (!isW && !isVb) continue;
+        size_t o = (size_t)SFmt(out, cap, "%s of %s 0x%08lX (%s 0x%08lX) released %.1f ms ago, #%ld of %ld, thread %lu, by:",
+                                     isW ? "inside" : ring == g_vbRing ? "D3D VB" : "VB wrapper", what, e.w,
+                                     ring == g_vbRing ? "D3D VB" : "+0x70 VB wrapper", e.vb, g_cfQpf ? (double)(q.QuadPart - e.qpc) * 1000.0 / (double)g_cfQpf : -1.0,
+                                     s, top, e.tid);
+        char c[96];
+        for (int i = 0; i < 8 && e.code[i] && o + 100 < cap; i++)
+            o += (size_t)SFmt(out + o, cap - o, " %s", CdCode(e.code[i], c, sizeof(c)) ? c : "?");
+        return true;
+    }
+    SFmt(out, cap, "not in the %s release ring (%ld releases)", what, top);
+    return false;
+}
+static bool VbExplain(DWORD v, char* out, size_t cap) { return VbExplainIn(g_vbRing, g_vbSeq, "VB wrapper", v, out, cap); }
+static bool VbOwnExplain(DWORD v, char* out, size_t cap) { return VbExplainIn(g_vbOwnRing, g_vbOwnSeq, "draw owner", v, out, cap); }
+// from 0xA84D00 (sp[0] = 0xA84D2E): sp[1..4] its 4 pushes, sp[5] / sp[6] saved edi / esi, sp[7] its return, sp[8] the item
+static DWORD VbOwnerOf(const DWORD* sp) {
+    DWORD o = 0;
+    __try {
+        if (sp[0] == kVbDrawRet && sp[8] >= 0x10000) o = *(const DWORD*)(uintptr_t)(sp[8] + 4);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { o = 0; }
+    return o;
+}
+static void VbBad(const char* why, const u8* dev, DWORD stream, DWORD w, DWORD vt, DWORD vb, DWORD vbvt, const DWORD* sp) {
+    const LONG n = InterlockedIncrement(&g_vbBadN);
+    if (n > 8) {
+        if (n <= 256) Log("crash forensics: VB BAD #%ld: %s, wrapper 0x%08lX vt 0x%08lX D3D VB 0x%08lX vt 0x%08lX", n, why, w, vt, vb, vbvt);
+        return;
+    }
+    char ws[200], d1[400], d2[400], st[440], c[96];
+    CdWords(w, 8, ws, sizeof(ws));
+    VbExplain(w, d1, sizeof(d1));
+    if (vb) VbExplain(vb, d2, sizeof(d2)); else SCpy(d2, "-");
+    Log("crash forensics: VB BAD #%ld at Device_SetStreamSource 0x60F020: %s; stream %lu, wrapper 0x%08lX vtable 0x%08lX (base 0x%08lX "
+        "= destroyed), D3D VB 0x%08lX vtable 0x%08lX (device module 0x%08lX-0x%08lX), device wrapper 0x%08lX, thread %lu; wrapper words: %s",
+        n, why, stream, w, vt, kVbVtBase, vb, vbvt, g_vbDevLo, g_vbDevHi, (DWORD)(uintptr_t)dev, GetCurrentThreadId(), ws);
+    Log("crash forensics:   wrapper: %s", d1);
+    Log("crash forensics:   D3D VB: %s", d2);
+    size_t o = 0;
+    st[0] = 0;
+    __try {
+        for (int i = 0, k = 0; i < 256 && k < 16 && o + 100 < sizeof(st); i++)
+            if (CdCode(sp[i], c, sizeof(c))) o += (size_t)SFmt(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), k++;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("crash forensics:   stack code words (the draw callback first): %s", st);
+    if (const DWORD own = VbOwnerOf(sp)) {  // docs/67 §44.1: the owner the draw item points at, and its delete if recent
+        CdWords(own, 8, ws, sizeof(ws));
+        VbOwnExplain(own, d1, sizeof(d1));
+        Log("crash forensics:   draw owner 0x%08lX (item 0x%08lX) words: %s; %s", own, sp[8], ws, d1);
+    }
+}
+static HRESULT __fastcall VbSsHook(u8* dev, void* edx, DWORD stream, u8* w, DWORD off, DWORD stride) {
+    if (!w && g_vbOwnSeq) {  // docs/67 §44.1: a NULL stream from 0xA84D00 whose owner was deleted (VbOwnerDelay cleared +0x70)
+        const DWORD* sp = (const DWORD*)_AddressOfReturnAddress();
+        char d[400];
+        if (const DWORD own = VbOwnerOf(sp))
+            if (VbOwnExplain(own, d, sizeof(d))) {
+                const LONG n = InterlockedIncrement(&g_vbLateN);
+                if (n <= 8 || n % 100 == 0) Log("crash forensics: VB late owner draw #%ld: NULL stream, owner 0x%08lX: %s", n, own, d);
+            }
+    }
+    if (w) {
+        DWORD vt = 0, vb = 0, vbvt = 0;
+        const char* why = NULL;
+        __try {
+            vt = *(const DWORD*)w;
+            vb = *(const DWORD*)(w + 0x14);
+            if (vt == kVbVtBase) why = "wrapper destroyed (RefCounted base vtable)";
+            else if (!CfVtOk(vt)) why = "wrapper vtable outside TS3W .rdata (freed and reused)";
+            else if (vb) {
+                vbvt = *(const DWORD*)(uintptr_t)vb;
+                if (!g_vbDevLo) {  // the device's module (bridge client, DXVK or system d3d9): its vtable [wrapper +0xC]
+                    MEMORY_BASIC_INFORMATION m;
+                    const DWORD dvt = *(const DWORD*)(uintptr_t)*(const DWORD*)(dev + 0xC);
+                    if (VirtualQuery((void*)(uintptr_t)dvt, &m, sizeof(m)) && m.Type == MEM_IMAGE) {
+                        const u8* b = (const u8*)m.AllocationBase;
+                        g_vbDevHi = (DWORD)(uintptr_t)b + ((const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew))->OptionalHeader.SizeOfImage;
+                        g_vbDevLo = (DWORD)(uintptr_t)b;
+                        Log("crash forensics: VB guard: device module 0x%08lX-0x%08lX (vtable 0x%08lX)", g_vbDevLo, g_vbDevHi, dvt);
+                    }
+                }
+                if (g_vbDevLo && (vbvt < g_vbDevLo || vbvt >= g_vbDevHi)) why = "D3D VB vtable outside the device's module (released)";
+            }
+        } __except (EXCEPTION_EXECUTE_HANDLER) { why = "wrapper or D3D VB unreadable"; }
+        if (why) VbBad(why, dev, stream, (DWORD)(uintptr_t)w, vt, vb, vbvt, (const DWORD*)_AddressOfReturnAddress());
+    }
+    return g_vbSsOrig(dev, edx, stream, w, off, stride);
+}
+static void VbInstall() {
+    static const char* const mods[] = {"ApexRadiance.asi", "Sims3SettingsSetter.asi", "Sims3Performance.asi", "MonoPatcher.asi"};
+    for (const char* m : mods) VbAddMod(GetModuleHandleA(m));
+    VbAddMod((const void*)(uintptr_t)VbInstall);  // ts3native
+    g_vbDelOrig[0] = (VbDelFn)InstallDetour("crash forensics VB release 0x619E10 (check only)", kVbRelA, kVbRelProA, sizeof(kVbRelProA), (void*)VbDelHookA, &g_vbDelOrig[0]);
+    g_vbDelOrig[1] = (VbDelFn)InstallDetour("crash forensics VB release 0x619F10 (check only)", kVbRelB, kVbRelProB, sizeof(kVbRelProB), (void*)VbDelHookB, &g_vbDelOrig[1]);
+    g_vbSsOrig = (VbSsFn)InstallDetour("crash forensics VB guard Device_SetStreamSource 0x60F020 (check only)", kVbSsAt, kVbSsPro, sizeof(kVbSsPro), (void*)VbSsHook, &g_vbSsOrig);
+    const CallSite own = {kVbOwnSite, kVbOwnDtor, (void*)VbOwnDelHook};
+    const bool ownOk = PatchCalls("crash forensics VB owner delete ring 0xA891CA -> 0xA85DF0 (check only)", &own, 1);
+    g_vbOn = g_vbDelOrig[0] && g_vbDelOrig[1] && g_vbSsOrig && ownOk;
+    Log("crash forensics: VB guard (docs/67 §44) %s: release ring %lu, owner delete ring %lu, %lu mod images for the release stacks",
+        g_vbOn ? "on" : "PARTIAL", kVbRing, kVbRing, g_vbModN);
+}
+// any access violation (eip anywhere): the fault address and registers against the VB free ring
+static void VbOnFault(const EXCEPTION_POINTERS* x) {
+    if (!g_vbOn) return;
+    static volatile LONG logged;
+    if (logged >= 8) return;  // Apex's routine first-chance AVs come here too: only faults with a ring hit are logged
+    const CONTEXT* c = x->ContextRecord;
+    const EXCEPTION_RECORD* r = x->ExceptionRecord;
+    const struct { const char* n; DWORD v; } regs[] = {{"fault address", r->NumberParameters > 1 ? (DWORD)r->ExceptionInformation[1] : 0},
+        {"eax", c->Eax}, {"ebx", c->Ebx}, {"ecx", c->Ecx}, {"edx", c->Edx}, {"esi", c->Esi}, {"edi", c->Edi}};
+    char d[400];
+    int hits = 0;
+    for (const auto& g : regs)
+        if (g.v >= 0x10000 && (VbExplain(g.v, d, sizeof(d)) || VbOwnExplain(g.v, d, sizeof(d))) && InterlockedIncrement(&logged) <= 8)
+            hits++, Log("crash forensics: VB guard: %s 0x%08lX: %s", g.n, g.v, d);
+    if (hits) Log("crash forensics: VB guard at AV eip 0x%08lX: %d register hits, %ld VB BAD before, %ld VB releases", c->Eip, hits, g_vbBadN, g_vbSeq);
+}
+#else
+static void VbInstall() { Log("SKIP crash forensics VB guard: Steam 1.67 only"); }
+static void VbOnFault(const EXCEPTION_POINTERS*) {}
+#endif
+
 // crash dump part 2: the fault and registers against our-events ring, the route job, the newest 64 events of each kind
 static void CeDump(const EXCEPTION_POINTERS* x) {
     if (!g_ceOn) return;
@@ -490,8 +781,8 @@ static void CeDump(const EXCEPTION_POINTERS* x) {
 // lists, then the draw). A remove between a gather and a draw leaves a bucket node pointing at a cleared entry.
 // The hooks swap the four vtable slots (no code bytes; Apex patches none of them), record into a 4096-entry ring and count:
 // removes since the last gather > 0 at a draw = a stale-list draw (first one per gather walks the buckets for dangling nodes).
-static const DWORD kFxSlotAdd = 0x00FFC850, kFxSlotRem = 0x00FFC854, kFxSlotGather = 0x00FFC290, kFxSlotDraw = 0x00FFC260;
-static DWORD g_fxAddFn = 0x0071FD20, g_fxRemFn = 0x0071FF10, g_fxGatherFn = 0x00722190, g_fxDrawFn = 0x0071D660;
+static const DWORD kFxSlotAdd = TS3A(0x00FFC850), kFxSlotRem = TS3A(0x00FFC854), kFxSlotGather = TS3A(0x00FFC290), kFxSlotDraw = TS3A(0x00FFC260);
+static DWORD g_fxAddFn = TS3A(0x0071FD20), g_fxRemFn = TS3A(0x0071FF10), g_fxGatherFn = TS3A(0x00722190), g_fxDrawFn = TS3A(0x0071D660);
 enum FxTag : u8 { FX_NONE, FX_ADD, FX_REM, FX_GATHER, FX_STALE, FX_NTAGS };
 static const char* const kFxTag[FX_NTAGS] = {"?", "add", "remove", "gather", "stale-draw"};
 struct FxEnt {
@@ -525,7 +816,7 @@ static const char* FxThr(DWORD tid) {
     if (g_rtSimTidSlot && Readable(g_rtSimTidSlot, 4) && *g_rtSimTidSlot && tid == *g_rtSimTidSlot) return "sim";
     return g_workerTid && tid == g_workerTid ? "route worker" : "other";
 }
-static bool FxIsCode(DWORD v) { return (v >= 0x00401000 && v < 0x00F95000) || (v >= g_fxApexLo && v < g_fxApexHi); }
+static bool FxIsCode(DWORD v) { return (v >= TS3A(0x00401000) && v < TS3A(0x00F95000)) || (v >= g_fxApexLo && v < g_fxApexHi); }
 // sp = address of our return address: code[0] = the caller, code[1] = the next TS3W / Apex code word above it
 static void FxCodes(const DWORD* sp, DWORD* code) {
     code[0] = sp[0], code[1] = 0;
@@ -645,8 +936,8 @@ static void __fastcall FxDrawHook(u8* self, void* edx, DWORD a, DWORD b) {
 
 static void FxLine(const char* pre, const FxEnt& t, const LARGE_INTEGER& now) {
     char c0[96] = "-", c1[96] = "-";
-    if (!CdCode(t.code[0], c0, sizeof(c0))) sprintf_s(c0, "0x%08lX", t.code[0]);
-    if (t.code[1] && !CdCode(t.code[1], c1, sizeof(c1))) sprintf_s(c1, "0x%08lX", t.code[1]);
+    if (!CdCode(t.code[0], c0, sizeof(c0))) SFmt(c0, "0x%08lX", t.code[0]);
+    if (t.code[1] && !CdCode(t.code[1], c1, sizeof(c1))) SFmt(c1, "0x%08lX", t.code[1]);
     const double ms = g_cfQpf ? (double)(now.QuadPart - t.qpc) * 1000.0 / (double)g_cfQpf : -1.0;
     if (t.tag == FX_ADD || t.tag == FX_REM)
         Log("%s%s index %lu entry 0x%08lX owner 0x%08lX instance 0x%08lX object %08lX%08lX, %.1f ms ago, thread %lu (%s), gather %ld, "
@@ -749,9 +1040,9 @@ static void FxInstall() {
 // full release 0x6DCC93 / 0x6DCD23 / 0x6DCD34 / 0x6DD353 (ring), node update 0x6F7B5D (ring only when +8 changes; a 4096-slot
 // last-update table always). The DRAW BAD of the resource site (§8 site 1) prints the handle, the node's queue state and the
 // newest ring events and node update of that handle.
-static const DWORD kOrUnloadCall = 0x006F734E, kOrLoadCall = 0x006F7331, kOrUpdCall = 0x006F7B5D;
-static const DWORD kOrRelCall[4] = {0x006DCC93, 0x006DCD23, 0x006DCD34, 0x006DD353};
-static DWORD g_orUnloadFn = 0x006DBCE0, g_orLoadFn = 0x006DCD90, g_orRelFn = 0x006DBB50, g_orUpdFn = 0x006DC5B0;
+static const DWORD kOrUnloadCall = TS3A(0x006F734E), kOrLoadCall = TS3A(0x006F7331), kOrUpdCall = TS3A(0x006F7B5D);
+static const DWORD kOrRelCall[4] = {TS3A(0x006DCC93), TS3A(0x006DCD23), TS3A(0x006DCD34), TS3A(0x006DD353)};
+static DWORD g_orUnloadFn = TS3A(0x006DBCE0), g_orLoadFn = TS3A(0x006DCD90), g_orRelFn = TS3A(0x006DBB50), g_orUpdFn = TS3A(0x006DC5B0);
 enum OrTag : u8 { OR_NONE, OR_UNLOAD, OR_LOAD, OR_RELEASE, OR_SET, OR_NTAGS };
 static const char* const kOrTag[OR_NTAGS] = {"?", "lod-unload", "load-request", "release", "lod-set"};
 struct OrEnt {
@@ -839,9 +1130,9 @@ static __declspec(naked) void OrUpdThunk() {
 }
 static void OrLine(const char* pre, const OrEnt& t, const LARGE_INTEGER& now, LONG s) {
     char c0[96] = "-", c1[96] = "", to[24] = "";
-    if (!CdCode(t.code[0], c0, sizeof(c0))) sprintf_s(c0, "0x%08lX", t.code[0]);
-    if (t.code[1] && !CdCode(t.code[1], c1, sizeof(c1))) sprintf_s(c1, "0x%08lX", t.code[1]);
-    if (t.tag == OR_SET) sprintf_s(to, " -> 0x%08lX", t.p8after);
+    if (!CdCode(t.code[0], c0, sizeof(c0))) SFmt(c0, "0x%08lX", t.code[0]);
+    if (t.code[1] && !CdCode(t.code[1], c1, sizeof(c1))) SFmt(c1, "0x%08lX", t.code[1]);
+    if (t.tag == OR_SET) SFmt(to, " -> 0x%08lX", t.p8after);
     Log("%s%s handle 0x%08lX (object 0x%08lX): +8 0x%08lX%s, +0 0x%08lX, version %lu, key type %lX, %.1f ms ago, thread %lu (%s), "
         "seq %ld, from %s %s", pre, t.tag < OR_NTAGS ? kOrTag[t.tag] : "?", t.h, t.h - 0x210, t.p8, to, t.p0, t.ver, t.key,
         g_cfQpf ? (double)(now.QuadPart - t.qpc) * 1000.0 / (double)g_cfQpf : -1.0, t.tid, FxThr(t.tid), s, c0, c1);
@@ -864,7 +1155,7 @@ static void OrExplain(DWORD obj) {
     QueryPerformanceCounter(&now);
     const OrLast& u = g_orUpd[OrSlot(h)];
     char c[96] = "-";
-    if (u.h == h && !CdCode(u.caller, c, sizeof(c))) sprintf_s(c, "0x%08lX", u.caller);
+    if (u.h == h && !CdCode(u.caller, c, sizeof(c))) SFmt(c, "0x%08lX", u.caller);
     if (u.h == h)
         Log("crash forensics:   model handle log: newest node update %.1f ms ago from %s, left +8 0x%08lX, version %lu",
             g_cfQpf ? (double)(now.QuadPart - u.qpc) * 1000.0 / (double)g_cfQpf : -1.0, c, u.p8, u.ver);
@@ -918,7 +1209,7 @@ static void OrInstall() {
 // the releases at 0x734532 (D slot 8) and 0x734409 (O slot 0xC) take no lock [verified disassembly]. Record only: every release
 // (index, refcount before, database from the caller's esi, D lock held by this thread, thread, caller) into a ring, and a check
 // before Contains reads (bucket array 0 / count 0 / refcount < 1) that logs the index's ring history; then the game's code runs.
-static const DWORD kDiRelAt = 0x0072DB80, kDiHasAt = 0x0072DBD0;
+static const DWORD kDiRelAt = TS3A(0x0072DB80), kDiHasAt = TS3A(0x0072DBD0);
 static const u8 kDiRelPro[] = {0x56, 0x8B, 0xF1, 0x57, 0x8D, 0x46, 0x20};              // push esi; mov esi,ecx; push edi; lea eax,[esi+20h]
 static const u8 kDiHasPro[] = {0x8B, 0x41, 0x08, 0x8B, 0x51, 0x04, 0x83, 0xEC, 0x08};  // mov eax,[ecx+8]; mov edx,[ecx+4]; sub esp,8
 struct DiEnt {
@@ -940,7 +1231,7 @@ static DWORD DiDb(DWORD esi, LONG* held) {
     DWORD d = 0;
     __try {
         const DWORD vt = *(const DWORD*)(uintptr_t)esi;
-        d = vt == 0x00FFE078 ? esi : vt == 0x00FFE0D0 ? esi + 8 : 0;
+        d = vt == TS3A(0x00FFE078) ? esi : vt == TS3A(0x00FFE0D0) ? esi + 8 : 0;
         if (d && *(const u8*)(uintptr_t)(d + 0x40 + 0x24))  // EA lock kind byte: nonzero = CRITICAL_SECTION at +0
             *held = (DWORD)(uintptr_t)((const CRITICAL_SECTION*)(uintptr_t)(d + 0x40))->OwningThread == GetCurrentThreadId();
     } __except (EXCEPTION_EXECUTE_HANDLER) { d = 0; }
@@ -981,7 +1272,7 @@ static void DiExplain(const char* what, DWORD idx) {
     }
     char d1[220], d2[220];
     CfDescribe(idx, d1, sizeof(d1));
-    if (!P5cRelFind(idx, d2, sizeof(d2))) strcpy_s(d2, "no");
+    if (!P5cRelFind(idx, d2, sizeof(d2))) SCpy(d2, "no");
     Log("crash forensics:   db index log: %s 0x%08lX: %d release events in the ring (%ld total); P5 heap ring: %s; P5c: %s", what, idx, n,
         top, d1, d2);
 }
@@ -1061,13 +1352,90 @@ static void CfRdata() {
         if (!memcmp(s->Name, ".rdata", 6)) g_cfVtLo = (DWORD)(uintptr_t)(base + s->VirtualAddress), g_cfVtHi = g_cfVtLo + s->Misc.VirtualSize;
 }
 
+// docs/260 §7, [CrashReport] RdataCheck=1 (crashreport.cpp, at crash time only): which pages of the exe's .rdata are writable
+// (Apex 3.1.1 LevelLightShare leaves 0xFF3000 PAGE_READWRITE, and a stray `add [eax],al` rewrote vtable 0xFF39F8 slot 0) and which
+// dwords of those pages and of the known light/probe/blocker vtables differ from the exe file. Read only: VirtualQuery, ReadFile,
+// no protection change. A dword equal to file + (base - ImageBase) is a relocation, not a change. Static buffers (the heap may
+// be broken); one caller at a time (the crash report runs once per process).
+static const DWORD kCfKnownVt[] = {
+#ifndef TS3A_TABLE  // Steam 1.67 values (docs/260 §2); the EA 1.69 table has no rows for them, so that build checks pages only
+    0x00FF39F8, 0x00FF30F4, 0x00FF3118, 0x00FF3C24, 0x00FF3CBC, 0x00FF3CDC, 0x00FF42F8, 0x00FF4250,
+#endif
+    0};
+static const DWORD* g_cfRdKnown = kCfKnownVt;  // selftest: its own list
+static u8 g_cfRdFile[4096];
+// dwords of [va, va+len) (inside the section) that differ from the file; the first few listed into out
+static int CfRdDiff(HANDLE h, const IMAGE_SECTION_HEADER* s, DWORD base, DWORD delta, DWORD va, DWORD len, char* out, size_t cap, size_t* l, int* listed) {
+    const DWORD rva = va - base - s->VirtualAddress;
+    if (rva >= s->SizeOfRawData) return 0;
+    if (len > s->SizeOfRawData - rva) len = s->SizeOfRawData - rva;
+    if (len > sizeof(g_cfRdFile)) len = sizeof(g_cfRdFile);
+    DWORD got = 0;
+    if (h == INVALID_HANDLE_VALUE || SetFilePointer(h, (LONG)(s->PointerToRawData + rva), NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER ||
+        !ReadFile(h, g_cfRdFile, len, &got, NULL) || got < len)
+        return 0;
+    int n = 0;
+    for (DWORD i = 0; i + 4 <= len; i += 4) {
+        const DWORD f = *(const DWORD*)(g_cfRdFile + i);
+        DWORD m = f;
+        __try { m = *(const DWORD*)(uintptr_t)(va + i); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        if (m == f || m == f + delta) continue;
+        n++;
+        if (++*listed <= 12 && *l + 64 < cap) {
+            char fr[96];
+            CrFrame(m, fr, sizeof(fr));
+            *l += SFmt(out + *l, cap - *l, " 0x%08lX %08lX (file %08lX, %s)", va + i, m, f, fr);
+        }
+    }
+    return n;
+}
+static void CfRdataText(const u8* img, const wchar_t* file, char* out, size_t cap) {
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(img + ((const IMAGE_DOS_HEADER*)img)->e_lfanew);
+    const IMAGE_SECTION_HEADER* s = IMAGE_FIRST_SECTION(nt);
+    int i = 0;
+    for (; i < nt->FileHeader.NumberOfSections && memcmp(s->Name, ".rdata", 6); i++, s++) {}
+    if (i == nt->FileHeader.NumberOfSections) { SFmt(out, cap, "rdata check: no .rdata section"); return; }
+    const DWORD base = (DWORD)(uintptr_t)img, lo = base + s->VirtualAddress, hi = lo + s->Misc.VirtualSize, delta = base - nt->OptionalHeader.ImageBase;
+    HANDLE h = CreateFileW(file, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+    size_t l = (size_t)SFmt(out, cap, "rdata check (docs/260 §7): .rdata 0x%08lX-0x%08lX%s; writable:", lo, hi,
+                                 h == INVALID_HANDLE_VALUE ? " (exe file not readable: no compare)" : "");
+    int pages = 0, diffs = 0, listed = 0;
+    static char dl[1200];
+    size_t dn = 0;
+    dl[0] = 0;
+    MEMORY_BASIC_INFORMATION mbi;
+    for (DWORD a = lo; a < hi && VirtualQuery((const void*)(uintptr_t)a, &mbi, sizeof(mbi));) {
+        const DWORD end = (DWORD)(uintptr_t)mbi.BaseAddress + (DWORD)mbi.RegionSize, e = end < hi ? end : hi;
+        if (mbi.State == MEM_COMMIT && (mbi.Protect & (PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
+            if (l + 48 < cap) l += SFmt(out + l, cap - l, " 0x%08lX-0x%08lX (protect %02lX)", a, e, mbi.Protect);
+            for (DWORD p = a; p < e; p += 4096) pages++, diffs += CfRdDiff(h, s, base, delta, p, e - p < 4096 ? e - p : 4096, dl, sizeof(dl), &dn, &listed);
+        }
+        if (end <= a) break;
+        a = end;
+    }
+    if (!pages && l + 8 < cap) l += SFmt(out + l, cap - l, " none");
+    if (l + 64 < cap) l += SFmt(out + l, cap - l, " (%d pages); %d dwords differ from the exe file%s%s", pages, diffs, diffs ? ":" : "", dl);
+    if (l + 24 < cap) l += SFmt(out + l, cap - l, "; known vtables:");
+    for (const DWORD* v = g_cfRdKnown; *v; v++) {
+        if (*v < lo || *v + 16 > hi) continue;
+        int ignore = 99;  // listed past the cap: count only
+        size_t z = 0;
+        char none[1] = "";
+        const int d = CfRdDiff(h, s, base, delta, *v, 16, none, 0, &z, &ignore);
+        DWORD m0 = 0;
+        __try { m0 = *(const DWORD*)(uintptr_t)*v; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        if (l + 40 < cap) l += SFmt(out + l, cap - l, d ? " 0x%08lX DIFF (slot 0 %08lX)" : " 0x%08lX same", *v, m0);
+    }
+    if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
+}
+
 // 0x7B0A00: the stolen `je` is rel8, so InstallDetour cannot copy it; this trampoline re-encodes it
 static CfClrFn CfClrTramp() {
-    u8* t = (u8*)VirtualAlloc(NULL, 32, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    u8* t = TrampAlloc(32, "crash forensics guard 0x7B0A00");
     if (!t) return NULL;
     memcpy(t, kCfClrPro, 4);                                                  // cmp dword ptr [ecx+30h],0
-    t[4] = 0x0F, t[5] = 0x84, *(LONG*)(t + 6) = (LONG)(0x007B0A24 - ((DWORD)(uintptr_t)t + 10));  // je 0x7B0A24
-    t[10] = 0xE9, *(LONG*)(t + 11) = (LONG)(0x007B0A06 - ((DWORD)(uintptr_t)t + 15));            // jmp 0x7B0A06
+    t[4] = 0x0F, t[5] = 0x84, *(LONG*)(t + 6) = (LONG)(TS3A(0x007B0A24) - ((DWORD)(uintptr_t)t + 10));  // je 0x7B0A24
+    t[10] = 0xE9, *(LONG*)(t + 11) = (LONG)(TS3A(0x007B0A06) - ((DWORD)(uintptr_t)t + 15));            // jmp 0x7B0A06
     return (CfClrFn)t;
 }
 static bool CfJmp(DWORD at, const u8* pro, size_t len, void* hook) {
@@ -1093,6 +1461,7 @@ static bool ApplyCrashForensics(const wchar_t* ini) {
         g_cfHeap = Matches((const void*)(uintptr_t)EA_FREE, kEaLockedPrologue, sizeof(kEaLockedPrologue)) || g_eaFreeOrig != NULL;
     g_cfOn = 1;
     k.cfReady = 1 | (g_cfHeap ? 8 : 0);
+    if (GetPrivateProfileIntW(L"CrashForensics", L"VbGuard", 0, ini)) VbInstall();  // docs/67 §44, Light or full
     if (!full) {
         g_ceOn = 1, k.cfReady |= 16, k.cdReady |= 16;
         Log("crash forensics: light (docs/67 §18): ring %lu P5 heap events + g_rpUse holds, heap check %s, our-events ring %lu events, "

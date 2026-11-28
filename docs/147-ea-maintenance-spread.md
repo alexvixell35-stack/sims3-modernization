@@ -90,6 +90,14 @@ docs/145 §6's per-job seconds (21.9 s, 26.4 s, 53.3 s) are mostly a few shared 
 
 **Design D1 (count first, exact):** before the array walk, ask the native count of all objects of the type (`Queries.CountObjects<T>`, exists); when the total is below the cap, the uncaptured count is too, so the answer is "yes" without the array. Same answer in every case; saves only when the world is under the cap. **D2 (tick memo):** keep each answer for the rest of the sim tick and drop it when any spawner creates an object; near-exact (a capture mid-tick is seen a tick later). Before either: one capture with a probe counter of cap checks per tick and the share of "under cap" answers (~15 min run), because the measured total (~1.8 s over ~32 h) is too small to justify a hook blind. Effort if the capture says yes: D1 ~30-60 min + 1 repro.
 
+**Built 2026-11-15 (lane L6, not run):** D1 as `spawncapcount` (`SpawnCap.cs`, `SpawnCapCore.UnderCap`, default off) and the
+probe as `spawncapprobe` (EA's method always runs; checks and under-cap answers counted, D1's answer compared: mismatches must
+stay 0). Both hooks swap the two static checks; EA's guards (EP5 / Appaloosa Plains, wildflower packs and Seasons
+temperature) are written out as in the game. Counters 999-1003. Selftest `tools/selftest/spawncap` (D1 == EA on 20000
+random worlds). Repro `spawncap-check`, queue `lane-l6-1115.json` `bp-spawncap-check` (not run). D2 not built: it waits for
+the probe's under-cap share, as above. `Queries.CountObjects` and `GetObjects` use the same native type query [inferred: both
+go through `IQueries` with `typeof(T)`]; the probe's mismatch counter checks it.
+
 ## 6. Build, counters, triggers, queue
 
 - **Files:** `mods/ts3fixes/src/EaSpread.cs` (hooks, passes, trigger), `EaSpreadCore.cs` (game-independent `SlicedPass`, `DailyPass`, slice budget, pair owner), wiring in `Fixes.cs` (`ApplyEaSpread`, switches, `int[197]`) and `Instantiator.cs` (`kEaSpreadLots`, `kEaSpreadPets`, `kEaSpreadDecay`, all off), tuning XML in `tools/setup/build-fixes.ts`, agent `patches` keys in `PatchHandlers.cs`, README rows.
@@ -113,3 +121,17 @@ The `clean-night-0.2.0` spreads pair ran all four switches together; the analysi
 ## 8. Ledger
 
 docs/51 §209: I-147-1 .. I-147-8.
+
+## 9. 2026-11-20: recheck on v0.3.0 + Apex + bridge (all three ON since v0.2.0)
+
+Queue `spread-recheck-1120` (rc-1119b = rel030, Baseline-BP-Spring, Bin state apex-rewind), forced ABBA repros `hitch-easpread-{lots,pets,decay}-check` (8 firings each) and the natural night pair (`night-maintenance-clock`, five spreads off vs release defaults, 8 min each). All PASS, 0 script errors; counters read back each arm (`easpread_lots_passes` 5, `_stopped` 0; `easpread_pets_moved` >= 4; `easpread_decay_passes` >= 4, `_threw` 0; night-on lots and decay passes >= 1).
+
+| Job | Off: frames >= 100 / >= 300, longest | On: frames >= 100 / >= 300, longest |
+|---|---|---|
+| lots (venue cleanup) | 10 / 0, 253 ms | 2 / 0, 244 ms |
+| pets (stray build) | 15 / 1, 333 ms | 8 / 0, 171 ms |
+| decay (midnight) | 19 / 0, 259 ms | 1 / 0, 159 ms |
+
+[measured] On this build the EA alarms are 170-330 ms one-tick costs on BP (the lot ones in `ScriptProxy>WorldLot`), smaller than Overwatch's, and the spreads take each arm under 250 ms. Off windows are longer (the off firing waits to its 23-32 s cap, on firings end on the counter in ~6 s), so off arms also catch more natural frames. Natural night: on arm 8 frames >= 300 ms, two of them `SimBuilderTask` (374 / 303 ms) and one `PetTask` (244 ms of a 329 ms frame): the stray pet build in its own task still costs one long frame per build [measured; a slice of `easpreadpets` work, not a regression against off]. In the night-off job `easpread_pets_moved` rose 0 -> 1 with the switch off [inferred: a pool alarm that fired before `--fixes-off` took effect after the load].
+
+Household: the three passes run EA's own steps in EA's order over more ticks (§2-§4), so household lots, pets and relationships get the vanilla result; the queue's gate is the counters plus 0 script errors.

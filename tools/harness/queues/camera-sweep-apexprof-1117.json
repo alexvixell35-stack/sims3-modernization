@@ -1,0 +1,101 @@
+{
+  "note": "camera-sweep-apexprof-1117: docs/280 camera sweep for camera-stutter profiling (agent camera_sweep, report camera-sweep-report.ts via profile-world.ts). Measurement + correctness, not a timing A/B: one arm, Apex default. Bin state apex (the chain sets it: node tools/turbo-compat.ts state <snapshot dir> apex; restore after). Install build/ts3agent.package = ts3agent.package.camera-sweep-1117 (docs/data/builds.json) before the run. Household untouched: N/A, the command moves only the camera (no Sim, lot or save change). Needs a quiet machine only for the absolute numbers; the per-segment split is the point. apexProfiler: true sets ApexRadiance.toml [ui] developer_mode, [qol.frame_profiler] start_at_load + write_file for the job (put back after it). Needs a DEVELOPER Apex build in Bin (the public release compiles the profiler out, APEX_NO_DEV_TOOLS): the job log says \"Apex frame profiler did NOT start\" otherwise. Output next to the frames csv: <tag>-ApexRadiance_FrameTimeline.csv (split per segment by tick_ms: room_solve_calls, Lot room solve ms, hitches led by it), <job>-ApexRadiance_Hitches.txt. For Apex's author on his dev build, or for us once he sends one. node tools/harness/queue.ts tools/harness/queues/camera-sweep-apexprof-1117.json",
+  "jobs": [
+    {
+      "id": "bp-camsweep-apexprof",
+      "note": "[est 10 min] [scripted camera only, no Sim changed] Bridgeport: camera_sweep (180 s: still, zoom smooth, zoom steps, rotate, rotate fast, still, pan, still) after a 60 s lead-in, 5 min window, seed 12345. Pass: PASS: camera sweep: 8 segments; version + Apex read back; 0 script errors. Read: <tag>-camsweep.json per segment (p99 / p99.9 / max, > 25 / 50 / 100 ms, Apex-rule hitches).",
+      "asi": "game-copy/ts3native.asi.master-1116c",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "pinned 2026-11-17 to the master-1116c set (0.36.267-mc1116); agent = ts3agent.package.camera-sweep-1117 in build/ (camera_sweep command)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "logRequire": {
+        "^ts3native 0\\.36\\.267-mc1116 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.267-mc1116 ": {
+          "match": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "repro": "camera-sweep",
+          "noSamplers": true
+        }
+      },
+      "apexProfiler": true
+    },
+    {
+      "id": "ip-camsweep-apexprof",
+      "note": "[est 10 min] [scripted camera only, no Sim changed] Isla Paradiso: camera_sweep (180 s: still, zoom smooth, zoom steps, rotate, rotate fast, still, pan, still) after a 60 s lead-in, 5 min window, seed 12345. Pass: PASS: camera sweep: 8 segments; version + Apex read back; 0 script errors. Read: <tag>-camsweep.json per segment (p99 / p99.9 / max, > 25 / 50 / 100 ms, Apex-rule hitches).",
+      "asi": "game-copy/ts3native.asi.master-1116c",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "pinned 2026-11-17 to the master-1116c set (0.36.267-mc1116); agent = ts3agent.package.camera-sweep-1117 in build/ (camera_sweep command)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "logRequire": {
+        "^ts3native 0\\.36\\.267-mc1116 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.267-mc1116 ": {
+          "match": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "repro": "camera-sweep",
+          "noSamplers": true
+        }
+      },
+      "apexProfiler": true
+    }
+  ]
+}

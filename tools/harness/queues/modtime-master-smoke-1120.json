@@ -1,0 +1,124 @@
+{
+  "note": "modtime-master-smoke-1120 (READY, NOT RUN; CORRECTNESS, daytime OK, noiseCheck false): docs/298 [Diag] ModTime on master (feature/modtime-master-1120, 0.36.295-mdt1; builds.json ts3native.asi.modtime-master-1120 + ts3fixes.package.modtime-master-1120, ini = that branch's ts3native.ini). Read-only diagnostic: no Sim, save or switch is changed, so household untouched = 0 script errors + the profile's seed compare (rng-compare.ts) PASS + no ts3fixes line other than the modtime ones. Job 1: BP 10 min at 50 Hz (harness rate): switch + rate read back (log + @mdtOn/@mdtHz), version line, load-phase samples before the world went live, summaries every sim hour, package scan. Job 2: the player default 10 Hz, 20 min (2+ sim hours for the one notice): the notice text and its display, and the 10 Hz overhead: read 'overhead (measured)' in Game\\Bin\\modtime-summary.txt, expected <= 0.1% of one core (50 Hz smoke 2026-11-20: 0.33%). After each job read modtime-summary.txt: own% and with-game% columns, the Ts3Fixes own line, the load block (top 5 + real s covered), busy line. Bin state apex (tools/turbo-compat.ts); ini value differs between the jobs, so job 2 relaunches.",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.295-mdt1 ": {
+      "match": ["ts3native 0.36.295-mdt1 2026-11-20 08:00:00"],
+      "noMatch": ["ts3native 0.36.295-rc1119b 2026-11-19 08:00:00"]
+    },
+    "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 50 Hz sampler": {
+      "match": ["OK   modtime ([Diag] ModTime=1, docs/298): 50 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log"],
+      "noMatch": ["OK   modtime ([Diag] ModTime=1, docs/298): 10 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log", "FAIL modtime ([Diag] ModTime=1, docs/298): 50 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log (no Simulate iteration hook)"]
+    },
+    "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 10 Hz sampler": {
+      "match": ["OK   modtime ([Diag] ModTime=1, docs/298): 10 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log"],
+      "noMatch": ["OK   modtime ([Diag] ModTime=1, docs/298): 50 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log"]
+    },
+    "^modtime: sampling the sim thread \\(tid \\d+\\) at 50 Hz from its first iteration$": {
+      "match": ["modtime: sampling the sim thread (tid 1234) at 50 Hz from its first iteration"],
+      "noMatch": ["modtime: sampling the sim thread (tid 1234) at 50 Hz", "modtime: cannot open the sim thread (err 5): no samples"]
+    },
+    "^modtime: sampling the sim thread \\(tid \\d+\\) at 10 Hz from its first iteration$": {
+      "match": ["modtime: sampling the sim thread (tid 1234) at 10 Hz from its first iteration"],
+      "noMatch": ["modtime: sampling the sim thread (tid 1234) at 50 Hz from its first iteration"]
+    },
+    "^modtime: world live: load / menu phase so far [1-9]\\d* samples over [\\d.]+ real s": {
+      "match": ["modtime: world live: load / menu phase so far 2410 samples over 48.3 real s (31.2 s sim thread CPU)"],
+      "noMatch": ["modtime: world live: load / menu phase so far 0 samples over 0.0 real s (0.0 s sim thread CPU)"]
+    },
+    "^modtime: summary written \\(sim hour \\d+, [1-9]\\d* samples, [1-9]\\d* load-phase samples, busy \\d+%, overhead [\\d.]+% of a core\\)$": {
+      "match": ["modtime: summary written (sim hour 9, 3021 samples, 2410 load-phase samples, busy 41%, overhead 0.081% of a core)"],
+      "noMatch": ["modtime: summary written (sim hour 9, 3021 samples, 0 load-phase samples, busy 41%, overhead 0.081% of a core)", "modtime: summary written (sim hour 9, 3021 samples, overhead 0.081% of a core)"]
+    },
+    "^modtime: package scan: [1-9]\\d* packages, [1-9]\\d* script resources, [1-9]\\d* assemblies with an MVID$": {
+      "match": ["modtime: package scan: 12 packages, 3 script resources, 3 assemblies with an MVID"],
+      "noMatch": ["modtime: package scan: 12 packages, 0 script resources, 0 assemblies with an MVID"]
+    },
+    "^ts3fixes: modtime: world live, sim hour \\d+$": {
+      "match": ["ts3fixes: modtime: world live, sim hour 8"],
+      "noMatch": ["ts3fixes: modtime: tick threw NullReferenceException: x"]
+    },
+    "^modtime: notice text ready: Mod cost report: your sim thread was busy \\d+% of the time": {
+      "match": ["modtime: notice text ready: Mod cost report: your sim thread was busy 41% of the time. Top script mods by share of sim CPU (own / with the game code they call): NRaasOverwatch 1% / 2%. Full list: modtime-summary.txt in the game's Bin folder."],
+      "noMatch": ["ts3fixes: modtime: notice shown: Mod cost report: your sim thread was busy 41% of the time."]
+    },
+    "^ts3fixes: modtime: notice shown: Mod cost report: your sim thread was busy \\d+% of the time": {
+      "match": ["ts3fixes: modtime: notice shown: Mod cost report: your sim thread was busy 41% of the time. Top script mods by share of sim CPU (own / with the game code they call): NRaasOverwatch 1% / 2%. Full list: modtime-summary.txt in the game's Bin folder."],
+      "noMatch": ["ts3fixes: modtime: notice failed: NullReferenceException: x", "modtime: notice text ready: Mod cost report: your sim thread was busy 41% of the time."]
+    },
+    "^ts3fixes: modtime: (notice failed|tick threw)": {
+      "match": ["ts3fixes: modtime: notice failed: NullReferenceException: x", "ts3fixes: modtime: tick threw InvalidCastException: y"],
+      "noMatch": ["ts3fixes: modtime: notice shown: Mod cost report: your sim thread was busy 41% of the time."]
+    },
+    "^modtime: cannot open the sim thread": {
+      "match": ["modtime: cannot open the sim thread (err 5): no samples"],
+      "noMatch": ["modtime: sampling the sim thread (tid 1234) at 50 Hz from its first iteration"]
+    },
+    "^(SKIP|FAIL) modtime": {
+      "match": ["SKIP modtime ([Diag] ModTime): needs [UserDiag] Enabled=1 (the ts3fixes channel)", "FAIL modtime ([Diag] ModTime=1, docs/298): 50 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log (no Simulate iteration hook)"],
+      "noMatch": ["OK   modtime ([Diag] ModTime=1, docs/298): 50 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log"]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-modtime-50hz",
+      "note": "[est 15 min] BP-Spring 10 min, [Diag] ModTime=1 at 50 Hz. Pass: version + switch + rate read back (log, @mdtOn==1, @mdtHz==50), load-phase samples > 0 before the world went live, >= 1 sim-hour summary, package scan line, 0 script errors, no modtime SKIP/FAIL/threw lines. Then read modtime-summary.txt by hand: own% / with game% columns filled, 'Ts3Fixes (ours, ts3fixes): own ...' line, load block names real seconds and its top 5 (or 'No script mod showed up'), busy line present.",
+      "asi": "game-copy/ts3native.asi.modtime-master-1120",
+      "iniBase": "game-copy/ts3native.ini.modtime-master-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.modtime-master-1120",
+      "pinReason": "feature/modtime-master-1120: 0.36.295-mdt1 = master 0.36.295-rc1119b + [Diag] ModTime (docs/298); asi, ini and ts3fixes from the same commit",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "ini": { "UserDiag.Enabled": 1, "Diag.ModTime": 1, "Diag.ModTimeHz": 50 },
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+      "nativeRequire": "@mdtOn==1,@mdtHz==50,mdtSamples>=5000,@mdtLoadSamples>=1",
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-mdt1 ": 1,
+        "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 50 Hz sampler": 1,
+        "^modtime: sampling the sim thread \\(tid \\d+\\) at 50 Hz from its first iteration$": 1,
+        "^modtime: world live: load / menu phase so far [1-9]\\d* samples over [\\d.]+ real s": 1,
+        "^modtime: summary written \\(sim hour \\d+, [1-9]\\d* samples, [1-9]\\d* load-phase samples, busy \\d+%, overhead [\\d.]+% of a core\\)$": 1,
+        "^modtime: package scan: [1-9]\\d* packages, [1-9]\\d* script resources, [1-9]\\d* assemblies with an MVID$": 1,
+        "^ts3fixes: modtime: world live, sim hour \\d+$": 1
+      },
+      "logForbid": {
+        "^ts3fixes: modtime: (notice failed|tick threw)": 0,
+        "^modtime: cannot open the sim thread": 0,
+        "^(SKIP|FAIL) modtime": 0
+      }
+    },
+    {
+      "id": "bp-modtime-10hz-notice",
+      "note": "[est 25 min] BP-Spring 20 min at the player default 10 Hz. Pass: rate read back (log, @mdtHz==10), >= 2 sim-hour summaries, the notice text built and shown once (frames: one system notice 'Mod cost report: ...'), 0 script errors. 10 Hz overhead check: 'overhead (measured)' in modtime-summary.txt <= 0.1% of one core (docs/302 §3 #1 inferred ~0.07%); write the number into docs/298 §7.",
+      "asi": "game-copy/ts3native.asi.modtime-master-1120",
+      "iniBase": "game-copy/ts3native.ini.modtime-master-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.modtime-master-1120",
+      "pinReason": "feature/modtime-master-1120: 0.36.295-mdt1; asi, ini and ts3fixes from the same commit",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "ini": { "UserDiag.Enabled": 1, "Diag.ModTime": 1, "Diag.ModTimeHz": 10 },
+      "run": { "profile": { "minutes": 20, "seed": 12345, "noSamplers": true } },
+      "nativeRequire": "@mdtOn==1,@mdtHz==10,mdtSamples>=2000",
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-mdt1 ": 1,
+        "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 10 Hz sampler": 1,
+        "^modtime: sampling the sim thread \\(tid \\d+\\) at 10 Hz from its first iteration$": 1,
+        "^modtime: summary written \\(sim hour \\d+, [1-9]\\d* samples, [1-9]\\d* load-phase samples, busy \\d+%, overhead [\\d.]+% of a core\\)$": 2,
+        "^modtime: notice text ready: Mod cost report: your sim thread was busy \\d+% of the time": 1,
+        "^ts3fixes: modtime: notice shown: Mod cost report: your sim thread was busy \\d+% of the time": 1
+      },
+      "logForbid": {
+        "^ts3fixes: modtime: (notice failed|tick threw)": 0,
+        "^modtime: cannot open the sim thread": 0,
+        "^(SKIP|FAIL) modtime": 0
+      }
+    }
+  ]
+}

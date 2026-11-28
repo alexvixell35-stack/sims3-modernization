@@ -10,9 +10,14 @@
 //        --write write mods/ilpatch/specs/<id>.json for the converted entries (default: report only)
 //        --csv   census per entry (default docs/data/ilpatch-convert.csv with --write, else none)
 //   node tools/ilpatch-convert.ts --self-check     relocator and alignment on synthetic bodies (no files)
+//   node tools/ilpatch-convert.ts --dump <assembly> <method id substring>   a method's instructions with offsets and member
+//        names (EA 1.67 build, or --build ea-1.69 / simler90-242; local reading for a hand spec, prints no bytes)
+//   node tools/ilpatch-convert.ts --fill <spec.json>   a hand-written spec (id, switch, assembly, method, edits): applies the
+//        edits offline to every known build and writes builds{size, sha256, tokens, patchedSha256} and ilHashG6 back
 //   node tools/ilpatch-convert.ts --emit-native [<out.h>]   the specs as a C table for ts3native (default
 //        native/ts3native/ilpatch-specs.h, docs/526); reads mods/ilpatch/specs only, no core repo needed
-// Builds: ea-1.67 = game-copy/assemblies (always); simler90-242 = game-copy/simler90-242/dll over EA, when present
+// Builds: ea-1.67 = game-copy/assemblies (always); simler90-242 = game-copy/simler90-242/dll over EA, when present;
+// ea-1.69 = game-copy/assemblies-ea169 (EA app 1.69.47), when present
 // (extract with tools/extract-assemblies.ts from the UPDATE242 package). The core patches were written against the
 // UPDATE242 listing, so the method is located there first, then by id in the other builds.
 import { execFileSync } from 'node:child_process';
@@ -25,7 +30,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const arg = (n: string, d: string) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; };
 const args = (n: string) => process.argv.flatMap((v, i) => (v === n ? [process.argv[i + 1]] : []));
 const CORE = arg('--core', process.env.TS3_CORE_REPO ?? '');
-if (!CORE && !process.argv.includes('--self-check') && !process.argv.includes('--emit-native')) { console.error('ilpatch-convert: --core <Core repo> (or TS3_CORE_REPO) is required'); process.exit(2); }
+if (!CORE && !process.argv.includes('--self-check') && !process.argv.includes('--emit-native') && !process.argv.includes('--dump') && !process.argv.includes('--fill')) { console.error('ilpatch-convert: --core <Core repo> (or TS3_CORE_REPO) is required'); process.exit(2); }
 const WRITE = process.argv.includes('--write');
 const SPECS = join(ROOT, 'mods/ilpatch/specs');
 const GAME_ASMS = new Set(['ScriptCore', 'SimIFace', 'Sims3GameplaySystems', 'Sims3GameplayObjects', 'Sims3Metadata', 'Sims3StoreObjects', 'UI']);
@@ -189,10 +194,12 @@ const memberKind = (o: Op): 'method' | 'field' | 'type' | 'other' => TYPE_OPS.ha
 type TokIndex = { method: Map<string, number[]>; field: Map<string, number[]>; type: Map<string, number[]> };
 const tokIndexes = new WeakMap<Asm, TokIndex>();
 // tokenText renders a method token as "Owner::Name`n(params):ret" (+ "<gargs>" for a MethodSpec), a field as "Owner::name:type".
-function keyOfTokenText(kind: 'method' | 'field' | 'type', s: string): string | null {
+// spec: a MethodSpec (0x2b), whose text ends in its generic arguments; a MemberRef's return type may end in '>' too
+// (IEnumerator`1<!0>), which is not a generic argument list
+function keyOfTokenText(kind: 'method' | 'field' | 'type', s: string, spec = false): string | null {
   if (kind === 'type') return normType(s);
   if (kind === 'field') { const m = /^(.*)::([^:]+?)(?::(.*))?$/.exec(s); return m ? `${normType(m[1])}::${m[2]}` : null; } // a Field id has no ":type"
-  let gargs = ''; if (s.endsWith('>')) { let d = 0; for (let i = s.length - 1; i >= 0; i--) { if (s[i] === '>') d++; else if (s[i] === '<') { d--; if (!d) { gargs = s.slice(i + 1, -1); s = s.slice(0, i); break; } } } }
+  let gargs = ''; if (spec && s.endsWith('>')) { let d = 0; for (let i = s.length - 1; i >= 0; i--) { if (s[i] === '>') d++; else if (s[i] === '<') { d--; if (!d) { gargs = s.slice(i + 1, -1); s = s.slice(0, i); break; } } } }
   const m = /^(.*?)::([^:(]+?)(`\d+)?\((.*)\)(?::([^:]*))?$/.exec(s); if (!m) return null; // a MethodDef id has no ":ret"
   return `${normType(m[1])}::${m[2]}${m[3] ?? ''}(${splitTop(m[4]).map(normType).join(',')})${gargs ? '<' + splitTop(gargs).map(normType).join(',') + '>' : ''}`;
 }
@@ -207,7 +214,7 @@ function tokIndex(a: Asm): TokIndex {
     for (let i = 1; i <= n; i++) {
       const tok = (t << 24) | i; let s: string; try { s = tokenText(a, tok); } catch { continue; }
       if (kind === 'member') { if (/\(.*\)/.test(s)) add(ix.method, keyOfTokenText('method', s), tok); else add(ix.field, keyOfTokenText('field', s), tok); }
-      else if (kind === 'method') add(ix.method, keyOfTokenText('method', s), tok);
+      else if (kind === 'method') add(ix.method, keyOfTokenText('method', s, true), tok);
       else add(ix.type, keyOfTokenText('type', s), tok);
     }
   }
@@ -419,6 +426,8 @@ function loadBuilds(): Build[] {
   const ea = join(ROOT, 'game-copy/assemblies'), sim = join(ROOT, 'game-copy/simler90-242/dll');
   const builds: Build[] = [{ label: 'ea-1.67', dir: ea, asms: new Map() }];
   if (existsSync(sim)) builds.push({ label: 'simler90-242', dir: sim, asms: new Map() });
+  // EA app 1.69.47 (docs/232): --fill adds it only when the spec's edit offsets fit its body (expect check in apply)
+  const ea169 = join(ROOT, 'game-copy/assemblies-ea169'); if (existsSync(ea169)) builds.push({ label: 'ea-1.69', dir: ea169, asms: new Map() });
   return builds;
 }
 function asmOf(b: Build, name: string, ea: Build): Asm | null {
@@ -566,9 +575,34 @@ function selfCheck(): void {
   const k2 = keyOfTokenText('method', 'Sims3.Gameplay.CAS.SimDescriptionCore::GetOutfit(Sims3.SimIFace.CAS.OutfitCategories,int)');
   if (k1 !== k2) throw new Error(`self-check: keys ${k1} | ${k2}`);
   const k3 = parseMember('method', 'instance class [mscorlib]System.Collections.Generic.List`1<!!0> Sims3.Gameplay.Inventory::FindAll<class Sims3.Gameplay.ActorSystems.TraitChip>(bool)').key;
-  const k4 = keyOfTokenText('method', 'Sims3.Gameplay.Inventory::FindAll`1(bool):System.Collections.Generic.List`1<!!0><Sims3.Gameplay.ActorSystems.TraitChip>');
+  const k4 = keyOfTokenText('method', 'Sims3.Gameplay.Inventory::FindAll`1(bool):System.Collections.Generic.List`1<!!0><Sims3.Gameplay.ActorSystems.TraitChip>', true);
   if (k3 !== k4) throw new Error(`self-check: generic keys ${k3} | ${k4}`);
+  // a MemberRef whose return type ends in '>' (not a MethodSpec): no generic arguments taken from it
+  const k5 = parseMember('method', 'instance class [mscorlib]System.Collections.Generic.IEnumerator`1<!0> class Sims3.Gameplay.Utilities.ListSorted`1<class Sims3.Gameplay.ActorSystems.BuffTimer>::GetEnumerator()').key;
+  const k6 = keyOfTokenText('method', 'Sims3.Gameplay.Utilities.ListSorted`1<Sims3.Gameplay.ActorSystems.BuffTimer>::GetEnumerator():System.Collections.Generic.IEnumerator`1<!0>');
+  if (k5 !== k6) throw new Error(`self-check: return-type keys ${k5} | ${k6}`);
+  specsCheck();
   console.log('ilpatch-convert self-check ok');
+}
+// Every spec against the local assemblies of each build it names (game-copy; skipped per build without them, as in CI):
+// the body hash still names that build's body and the offline application still gives patchedSha256 (EA 1.69 rows too).
+function specsCheck(): void {
+  const builds = loadBuilds(), ea = builds[0]; let n = 0;
+  for (const f of readdirSync(SPECS).filter((x) => x.endsWith('.json')).sort()) {
+    const spec = JSON.parse(readFileSync(join(SPECS, f), 'utf8'));
+    const edits: Edit[] = spec.edits.map((e: any) => ({ at: parseInt(e.at, 16), mode: e.mode, entry: e.entry, expect: e.expect, il: e.il, maxStack: e.maxStack, drop: e.mode === 'replace' ? e.expect.length : 0 }));
+    const maxAdd = Math.max(0, ...edits.map((x) => x.maxStack));
+    for (const [label, want] of Object.entries(spec.builds as Record<string, any>)) {
+      const b = builds.find((x) => x.label === label); if (!b || !existsSync(join(b.dir, `${spec.assembly}.dll`))) continue;
+      const ba = asmOf(b, spec.assembly, ea)!, bm = ba.methods.find((x) => x.id === spec.method), bb = bm ? bodyOf(bm) : null;
+      if (!bb) throw new Error(`self-check: ${f}: ${label}: method missing`);
+      if (sha(bb.code) !== want.sha256 || bb.code.length !== want.size) throw new Error(`self-check: ${f}: ${label}: body sha256 ${sha(bb.code).slice(0, 16)} is not the spec's`);
+      const got = sha(apply(bb, edits, (ref) => tokenFor(ba, ref), maxAdd).code);
+      if (got !== want.patchedSha256) throw new Error(`self-check: ${f}: ${label}: patched sha256 ${got.slice(0, 16)} is not the spec's`);
+      n++;
+    }
+  }
+  console.log(`ilpatch-convert: ${n} spec/build bodies re-checked against local assemblies`);
 }
 
 // ---------- --emit-native: the specs as a C table for ts3native (docs/526) ----------
@@ -585,6 +619,12 @@ function emitNative(out: string): void {
   const L: string[] = [
     '// Generated by `node tools/ilpatch-convert.ts --emit-native` from mods/ilpatch/specs/*.json (docs/506 §1, docs/526). Do not edit.',
     '// Our data only: method names, body hashes per build, the tokens our lines use, our instructions. No EA bytes.',
+    '// ea-1.69 rows only in the EA app asi (/DTS3A_TABLE, not retail): the Steam asi keeps its bytes.',
+    '#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)',
+    '#define ILP_EA169 1',
+    '#else',
+    '#define ILP_EA169 0',
+    '#endif',
     'static const IlpOp kIlpOps[] = {',
     ...OPS.map((o) => `    {0x${o.code.toString(16).padStart(4, '0')}, ${NATIVE_KIND[o.kind]}},  // ${o.name}`),
     '};',
@@ -612,7 +652,9 @@ function emitNative(out: string): void {
       const expect = (e.expect as string[]).map((n) => { const o = BY_NAME.get(n); if (!o) throw new Error(`${f}: expect ${n}`); return o.code; });
       edits.push({ at: parseInt(e.at, 16), mode: e.mode === 'replace' ? 1 : 0, entry: e.entry === 'incoming' ? 1 : 0, expect, maxStack: e.maxStack, drop: e.mode === 'replace' ? expect.length : 0, ins });
     }
-    const builds = Object.entries(s.builds as Record<string, any>);
+    // ea-1.69 last and under ILP_EA169: a build without it gets the table it had before the row existed
+    const all = Object.entries(s.builds as Record<string, any>), builds = [...all.filter(([l]) => l !== 'ea-1.69'), ...all.filter(([l]) => l === 'ea-1.69')];
+    const nEa = all.filter(([l]) => l === 'ea-1.69').length, eaGuard = (bi: number, t: string) => (bi >= builds.length - nEa ? `#if ILP_EA169\n${t}\n#endif` : t);
     const p = `ilp${si}`;
     edits.forEach((e, ei) => {
       L.push(`static const WORD ${p}_expect${ei}[] = {${e.expect.length ? e.expect.map((c) => '0x' + c.toString(16)).join(', ') : '0'}};`);
@@ -621,17 +663,53 @@ function emitNative(out: string): void {
     L.push(`static const IlpEdit ${p}_edits[] = {${edits.map((e, ei) => `{0x${e.at.toString(16)}, ${e.mode}, ${e.entry}, ${e.expect.length}, ${e.ins.length}, ${e.maxStack}, ${e.drop}, ${p}_expect${ei}, ${p}_ins${ei}}`).join(', ')}};`);
     builds.forEach(([label, b], bi) => {
       const toks = tokKeys.map((k) => { const t = b.tokens[k]; if (!t) throw new Error(`${f}: ${label}: no token for ${k}`); return t; });
-      L.push(`static const DWORD ${p}_tok${bi}[] = {${toks.length ? toks.join(', ') : '0'}};  // ${label}: ${tokKeys.map((k) => k.replace(/^.*::/, '').replace(/\(.*$/, '')).join(', ') || '(no tokens)'}`);
+      L.push(eaGuard(bi, `static const DWORD ${p}_tok${bi}[] = {${toks.length ? toks.join(', ') : '0'}};  // ${label}: ${tokKeys.map((k) => k.replace(/^.*::/, '').replace(/\(.*$/, '')).join(', ') || '(no tokens)'}`));
     });
-    L.push(`static const IlpBuild ${p}_builds[] = {${builds.map(([label, b], bi) => `{${cstr(label)}, ${b.size}, {${hex(b.sha256)}}, {${hex(b.patchedSha256)}}, ${p}_tok${bi}, ${tokKeys.length}}`).join(',\n    ')}};`);
-    specs.push(`    {${cstr(s.id)}, L${cstr(s.switch)}, ${cstr(ns)}, ${cstr(cls)}, ${cstr(name)}, ${cstr(s.method)}, ${builds.length}, ${edits.length}, ${p}_builds, ${p}_edits},`);
+    const row = ([label, b]: [string, any], bi: number) => `{${cstr(label)}, ${b.size}, {${hex(b.sha256)}}, {${hex(b.patchedSha256)}}, ${p}_tok${bi}, ${tokKeys.length}}`;
+    const nSt = builds.length - nEa, rows = builds.map(row);
+    L.push(`static const IlpBuild ${p}_builds[] = {${rows.slice(0, nSt).join(',\n    ')}${nEa ? `,\n#if ILP_EA169\n    ${rows.slice(nSt).join(',\n    ')}\n#endif\n` : ''}};`);
+    specs.push(`    {${cstr(s.id)}, L${cstr(s.switch)}, ${cstr(ns)}, ${cstr(cls)}, ${cstr(name)}, ${cstr(s.method)}, ${nEa ? `${nSt} + ILP_EA169` : nSt}, ${edits.length}, ${p}_builds, ${p}_edits},`);
   });
   L.push('static const IlpSpec kIlpSpecs[] = {', ...specs, '};', `static const int kIlpSpecN = ${files.length};`, '');
   writeFileSync(out, L.join('\n'));
   console.log(`${out}: ${files.length} specs (${files.map((f) => basename(f, '.json')).join(', ')}), ${OPS.length} opcodes`);
 }
 
-if (process.argv.includes('--self-check')) selfCheck();
+// --dump / --fill: hand-written specs (docs/584 §5 buffbuf); no core repo involved
+function dump(asmName: string, needle: string): void {
+  const builds = loadBuilds(), ea = builds[0], bl = builds.find((x) => x.label === arg('--build', 'ea-1.67')); if (!bl) throw new Error(`no build ${arg('--build', '')}`);
+  const a = asmOf(bl, asmName, ea); if (!a) throw new Error(`no ${asmName}.dll`);
+  const ms = a.methods.filter((m) => m.id.includes(needle)); if (ms.length !== 1) throw new Error(`${ms.length} methods match: ${ms.slice(0, 5).map((m) => m.id).join(' | ')}`);
+  const b = bodyOf(ms[0])!; console.log(`${ms[0].id}: ${b.code.length} bytes, max stack ${b.maxStack}, ${b.clauses.length} clauses`);
+  for (const c of b.clauses) console.log(`  clause flags ${c.flags} try 0x${c.tryOff.toString(16)}+${c.tryLen} handler 0x${c.hOff.toString(16)}+${c.hLen}`);
+  for (const x of b.ins) {
+    const opnd = x.op.kind === 'tok' ? tokenText(a, x.v) : x.op.kind === 'br8' || x.op.kind === 'br32' ? `@0x${x.v.toString(16)}` : x.op.kind === 'switch' ? x.targets!.map((t) => `@0x${t.toString(16)}`).join(',') : x.op.kind === 'none' ? '' : String(x.v);
+    console.log(`  0x${x.at.toString(16).padStart(4, '0')} ${x.op.name} ${opnd}`);
+  }
+}
+function fill(file: string): void {
+  const spec = JSON.parse(readFileSync(file, 'utf8'));
+  const edits: Edit[] = spec.edits.map((e: any) => ({ at: parseInt(e.at, 16), mode: e.mode, entry: e.entry, expect: e.expect, il: e.il, maxStack: e.maxStack, drop: e.mode === 'replace' ? e.expect.length : 0 }));
+  const builds = loadBuilds(), ea = builds[0]; spec.builds = {};
+  const maxAdd = Math.max(0, ...edits.map((x) => x.maxStack));
+  for (const b of builds) {
+    const ba = asmOf(b, spec.assembly, ea); const bm = ba?.methods.find((x) => x.id === spec.method); const bb = bm ? bodyOf(bm) : null;
+    if (!ba || !bb) { console.log(`${b.label}: method missing`); continue; }
+    const applied = apply(bb, edits, (ref) => tokenFor(ba, ref), maxAdd);
+    if (applied.missing.length) throw new Error(`${b.label}: no token for ${applied.missing.join(' ; ')}`);
+    const tokens: Record<string, string> = {};
+    for (const ed of edits) for (const line of ed.il) { const al = assembleLine(line); const k = memberKind(al.op); if (al.op.kind === 'tok' && k !== 'other') tokens[al.operand] = '0x' + (tokenFor(ba, parseMember(k, al.operand))! >>> 0).toString(16).padStart(8, '0'); }
+    spec.builds[b.label] = { size: bb.code.length, sha256: sha(bb.code), tokens, patchedSha256: sha(applied.code) };
+    if (b === ea) spec.ilHashG6 = g6Hash(join(b.dir, `${spec.assembly}.dll`), spec.method);
+    console.log(`${b.label}: ${bb.code.length} -> ${applied.code.length} bytes`);
+    console.log(ilShapeBody(ba, applied.full, 0).split('\n').slice(0, 400).join('\n').length > 0 ? '  patched body decodes' : '');
+  }
+  writeFileSync(file, JSON.stringify(spec, null, 2) + '\n');
+}
+
+if (process.argv.includes('--dump')) { const i = process.argv.indexOf('--dump'); dump(process.argv[i + 1], process.argv[i + 2]); }
+else if (process.argv.includes('--fill')) fill(resolve(arg('--fill', '')));
+else if (process.argv.includes('--self-check')) selfCheck();
 else if (process.argv.includes('--emit-native')) { const o = arg('--emit-native', '') ?? ''; emitNative(!o || o.startsWith('--') ? join(ROOT, 'native/ts3native/ilpatch-specs.h') : resolve(o)); }
 else {
   const rows = convert();

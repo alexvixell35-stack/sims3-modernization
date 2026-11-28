@@ -1,0 +1,684 @@
+{
+  "note": "vbowner-correct-1124-rerun1-1124: all 6 jobs again. Night 1124 FAIL twice at round 1 place_objects (no reply in the 8 s default reply timeout; 25 placements take longer). Repro fix: timeoutS 120 on the 4 place_objects steps. 2026-11-24 docs/67 §44.1 correctness: [EaCrashFixes] VbOwnerDelay (draw owner of 0xA85DF0 freed 2 s late, +0x70 cleared) on the Buy-entry + Buy-mode delete stress repro (agent vbowner2), 6 fresh launches, stopQueueOnFail (first VB BAD stops with the culprit logged). NOT RUN.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-vbowner-correct-1",
+      "asi": "game-copy/ts3native.asi.vbowner4",
+      "iniBase": "game-copy/ts3native.ini.vbowner1",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.299-vbowner4 = master m1123 + [EaCrashFixes] VbOwnerDelay (owners + aliases) + VbGuard owner ring (bugfix/vb-owner-uaf-1123); ini vbowner1 (master ini + VbOwnerDelay=1); ts3fixes hf031b = the package of the §44 runs; agent ts3agent.package.vbowner2 (game-copy/ts3agent.package.vbowner2: buy_delete_objects) installed into the worktree build/ before the run",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 20,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "vb-owner-delete-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.299-vbowner4 ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.299-vbowner4 ": {
+          "match": [
+            "ts3native 0.36.299-vbowner4 2026-11-24 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.299-vbowner3 2026-11-23 22:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        },
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+            "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+          ]
+        },
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": {
+          "match": [
+            "ea fix: VbFreeDelay: first draw owner 0x34D6DC80 delayed (2000 ms; +0x70 was 0x00000000, now 0)"
+          ],
+          "noMatch": [
+            "ea fix: VbFreeDelay: queue full (8192), freeing early",
+            "ea fix: VbFreeDelay flush at world load: 0 freed, 0 still queued; totals: 0 wrappers, 0 owners (0 +0x70 cleared), 0 freed, high water 0, early 0"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0",
+            "crash forensics: VB BAD #9: wrapper destroyed"
+          ],
+          "noMatch": [
+            "crash forensics: VB late owner draw #1: NULL stream, owner 0x34D6DC80: inside of draw owner 0x34D6DC80"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+          "match": [
+            "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+          ],
+          "noMatch": [
+            "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+          ]
+        }
+      },
+      "note": "[correctness, Bin state apex + bridge, RUN on Apex latest] vb-owner-delete-stress (4 Buy entries, each with 25 visible objects deleted in Buy mode) with VbFreeDelayMs=2000 + VbOwnerDelay=1, VbGuard on. Pass: no crash, 0 VB BAD (stop at the first: it names the owner and its delete from the owner ring), first-owner line (counters moving), script errors 0. Household untouched: render-memory fix only, no Sim state."
+    },
+    {
+      "id": "bp-vbowner-correct-2",
+      "asi": "game-copy/ts3native.asi.vbowner4",
+      "iniBase": "game-copy/ts3native.ini.vbowner1",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.299-vbowner4 = master m1123 + [EaCrashFixes] VbOwnerDelay (owners + aliases) + VbGuard owner ring (bugfix/vb-owner-uaf-1123); ini vbowner1 (master ini + VbOwnerDelay=1); ts3fixes hf031b = the package of the §44 runs; agent ts3agent.package.vbowner2 (game-copy/ts3agent.package.vbowner2: buy_delete_objects) installed into the worktree build/ before the run",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 20,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "vb-owner-delete-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.299-vbowner4 ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.299-vbowner4 ": {
+          "match": [
+            "ts3native 0.36.299-vbowner4 2026-11-24 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.299-vbowner3 2026-11-23 22:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        },
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+            "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+          ]
+        },
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": {
+          "match": [
+            "ea fix: VbFreeDelay: first draw owner 0x34D6DC80 delayed (2000 ms; +0x70 was 0x00000000, now 0)"
+          ],
+          "noMatch": [
+            "ea fix: VbFreeDelay: queue full (8192), freeing early",
+            "ea fix: VbFreeDelay flush at world load: 0 freed, 0 still queued; totals: 0 wrappers, 0 owners (0 +0x70 cleared), 0 freed, high water 0, early 0"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0",
+            "crash forensics: VB BAD #9: wrapper destroyed"
+          ],
+          "noMatch": [
+            "crash forensics: VB late owner draw #1: NULL stream, owner 0x34D6DC80: inside of draw owner 0x34D6DC80"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+          "match": [
+            "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+          ],
+          "noMatch": [
+            "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+          ]
+        }
+      },
+      "note": "[correctness, Bin state apex + bridge, RUN on Apex latest] vb-owner-delete-stress (4 Buy entries, each with 25 visible objects deleted in Buy mode) with VbFreeDelayMs=2000 + VbOwnerDelay=1, VbGuard on. Pass: no crash, 0 VB BAD (stop at the first: it names the owner and its delete from the owner ring), first-owner line (counters moving), script errors 0. Household untouched: render-memory fix only, no Sim state."
+    },
+    {
+      "id": "bp-vbowner-correct-3",
+      "asi": "game-copy/ts3native.asi.vbowner4",
+      "iniBase": "game-copy/ts3native.ini.vbowner1",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.299-vbowner4 = master m1123 + [EaCrashFixes] VbOwnerDelay (owners + aliases) + VbGuard owner ring (bugfix/vb-owner-uaf-1123); ini vbowner1 (master ini + VbOwnerDelay=1); ts3fixes hf031b = the package of the §44 runs; agent ts3agent.package.vbowner2 (game-copy/ts3agent.package.vbowner2: buy_delete_objects) installed into the worktree build/ before the run",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 20,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "vb-owner-delete-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.299-vbowner4 ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.299-vbowner4 ": {
+          "match": [
+            "ts3native 0.36.299-vbowner4 2026-11-24 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.299-vbowner3 2026-11-23 22:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        },
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+            "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+          ]
+        },
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": {
+          "match": [
+            "ea fix: VbFreeDelay: first draw owner 0x34D6DC80 delayed (2000 ms; +0x70 was 0x00000000, now 0)"
+          ],
+          "noMatch": [
+            "ea fix: VbFreeDelay: queue full (8192), freeing early",
+            "ea fix: VbFreeDelay flush at world load: 0 freed, 0 still queued; totals: 0 wrappers, 0 owners (0 +0x70 cleared), 0 freed, high water 0, early 0"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0",
+            "crash forensics: VB BAD #9: wrapper destroyed"
+          ],
+          "noMatch": [
+            "crash forensics: VB late owner draw #1: NULL stream, owner 0x34D6DC80: inside of draw owner 0x34D6DC80"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+          "match": [
+            "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+          ],
+          "noMatch": [
+            "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+          ]
+        }
+      },
+      "note": "[correctness, Bin state apex + bridge, RUN on Apex latest] vb-owner-delete-stress (4 Buy entries, each with 25 visible objects deleted in Buy mode) with VbFreeDelayMs=2000 + VbOwnerDelay=1, VbGuard on. Pass: no crash, 0 VB BAD (stop at the first: it names the owner and its delete from the owner ring), first-owner line (counters moving), script errors 0. Household untouched: render-memory fix only, no Sim state."
+    },
+    {
+      "id": "bp-vbowner-correct-4",
+      "asi": "game-copy/ts3native.asi.vbowner4",
+      "iniBase": "game-copy/ts3native.ini.vbowner1",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.299-vbowner4 = master m1123 + [EaCrashFixes] VbOwnerDelay (owners + aliases) + VbGuard owner ring (bugfix/vb-owner-uaf-1123); ini vbowner1 (master ini + VbOwnerDelay=1); ts3fixes hf031b = the package of the §44 runs; agent ts3agent.package.vbowner2 (game-copy/ts3agent.package.vbowner2: buy_delete_objects) installed into the worktree build/ before the run",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 20,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "vb-owner-delete-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.299-vbowner4 ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.299-vbowner4 ": {
+          "match": [
+            "ts3native 0.36.299-vbowner4 2026-11-24 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.299-vbowner3 2026-11-23 22:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        },
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+            "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+          ]
+        },
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": {
+          "match": [
+            "ea fix: VbFreeDelay: first draw owner 0x34D6DC80 delayed (2000 ms; +0x70 was 0x00000000, now 0)"
+          ],
+          "noMatch": [
+            "ea fix: VbFreeDelay: queue full (8192), freeing early",
+            "ea fix: VbFreeDelay flush at world load: 0 freed, 0 still queued; totals: 0 wrappers, 0 owners (0 +0x70 cleared), 0 freed, high water 0, early 0"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0",
+            "crash forensics: VB BAD #9: wrapper destroyed"
+          ],
+          "noMatch": [
+            "crash forensics: VB late owner draw #1: NULL stream, owner 0x34D6DC80: inside of draw owner 0x34D6DC80"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+          "match": [
+            "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+          ],
+          "noMatch": [
+            "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+          ]
+        }
+      },
+      "note": "[correctness, Bin state apex + bridge, RUN on Apex latest] vb-owner-delete-stress (4 Buy entries, each with 25 visible objects deleted in Buy mode) with VbFreeDelayMs=2000 + VbOwnerDelay=1, VbGuard on. Pass: no crash, 0 VB BAD (stop at the first: it names the owner and its delete from the owner ring), first-owner line (counters moving), script errors 0. Household untouched: render-memory fix only, no Sim state."
+    },
+    {
+      "id": "bp-vbowner-correct-5",
+      "asi": "game-copy/ts3native.asi.vbowner4",
+      "iniBase": "game-copy/ts3native.ini.vbowner1",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.299-vbowner4 = master m1123 + [EaCrashFixes] VbOwnerDelay (owners + aliases) + VbGuard owner ring (bugfix/vb-owner-uaf-1123); ini vbowner1 (master ini + VbOwnerDelay=1); ts3fixes hf031b = the package of the §44 runs; agent ts3agent.package.vbowner2 (game-copy/ts3agent.package.vbowner2: buy_delete_objects) installed into the worktree build/ before the run",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 20,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "vb-owner-delete-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.299-vbowner4 ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.299-vbowner4 ": {
+          "match": [
+            "ts3native 0.36.299-vbowner4 2026-11-24 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.299-vbowner3 2026-11-23 22:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        },
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+            "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+          ]
+        },
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": {
+          "match": [
+            "ea fix: VbFreeDelay: first draw owner 0x34D6DC80 delayed (2000 ms; +0x70 was 0x00000000, now 0)"
+          ],
+          "noMatch": [
+            "ea fix: VbFreeDelay: queue full (8192), freeing early",
+            "ea fix: VbFreeDelay flush at world load: 0 freed, 0 still queued; totals: 0 wrappers, 0 owners (0 +0x70 cleared), 0 freed, high water 0, early 0"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0",
+            "crash forensics: VB BAD #9: wrapper destroyed"
+          ],
+          "noMatch": [
+            "crash forensics: VB late owner draw #1: NULL stream, owner 0x34D6DC80: inside of draw owner 0x34D6DC80"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+          "match": [
+            "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+          ],
+          "noMatch": [
+            "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+          ]
+        }
+      },
+      "note": "[correctness, Bin state apex + bridge, RUN on Apex latest] vb-owner-delete-stress (4 Buy entries, each with 25 visible objects deleted in Buy mode) with VbFreeDelayMs=2000 + VbOwnerDelay=1, VbGuard on. Pass: no crash, 0 VB BAD (stop at the first: it names the owner and its delete from the owner ring), first-owner line (counters moving), script errors 0. Household untouched: render-memory fix only, no Sim state."
+    },
+    {
+      "id": "bp-vbowner-correct-6",
+      "asi": "game-copy/ts3native.asi.vbowner4",
+      "iniBase": "game-copy/ts3native.ini.vbowner1",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.299-vbowner4 = master m1123 + [EaCrashFixes] VbOwnerDelay (owners + aliases) + VbGuard owner ring (bugfix/vb-owner-uaf-1123); ini vbowner1 (master ini + VbOwnerDelay=1); ts3fixes hf031b = the package of the §44 runs; agent ts3agent.package.vbowner2 (game-copy/ts3agent.package.vbowner2: buy_delete_objects) installed into the worktree build/ before the run",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 20,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000,
+        "EaCrashFixes.VbOwnerDelay": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "vb-owner-delete-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.299-vbowner4 ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1,
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": 1,
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": 1,
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.299-vbowner4 ": {
+          "match": [
+            "ts3native 0.36.299-vbowner4 2026-11-24 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.299-vbowner3 2026-11-23 22:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: release ring 2048, owner delete ring 2048": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks",
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, owner delete ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        },
+        "^OK   ea fix: VbOwnerDelay .docs/67 §44\\.1.: draw owners of 0xA85DF0 freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared (late draw 0xA84D00 binds NULL, not a reused owner)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed 2000 ms after their destructor, +0x70 cleared",
+            "ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)"
+          ]
+        },
+        "^ea fix: VbFreeDelay: first draw owner 0x[0-9A-F]{8} delayed": {
+          "match": [
+            "ea fix: VbFreeDelay: first draw owner 0x34D6DC80 delayed (2000 ms; +0x70 was 0x00000000, now 0)"
+          ],
+          "noMatch": [
+            "ea fix: VbFreeDelay: queue full (8192), freeing early",
+            "ea fix: VbFreeDelay flush at world load: 0 freed, 0 still queued; totals: 0 wrappers, 0 owners (0 +0x70 cleared), 0 freed, high water 0, early 0"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0",
+            "crash forensics: VB BAD #9: wrapper destroyed"
+          ],
+          "noMatch": [
+            "crash forensics: VB late owner draw #1: NULL stream, owner 0x34D6DC80: inside of draw owner 0x34D6DC80"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites": {
+          "match": [
+            "OK   ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: 1 call sites"
+          ],
+          "noMatch": [
+            "SKIP ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030: call at 0x00A89696 is not a call to 0x00A89030, nothing written"
+          ]
+        }
+      },
+      "note": "[correctness, Bin state apex + bridge, RUN on Apex latest] vb-owner-delete-stress (4 Buy entries, each with 25 visible objects deleted in Buy mode) with VbFreeDelayMs=2000 + VbOwnerDelay=1, VbGuard on. Pass: no crash, 0 VB BAD (stop at the first: it names the owner and its delete from the owner ring), first-owner line (counters moving), script errors 0. Household untouched: render-memory fix only, no Sim state."
+    }
+  ]
+}

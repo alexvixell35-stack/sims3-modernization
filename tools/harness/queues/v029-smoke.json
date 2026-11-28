@@ -1,0 +1,87 @@
+{
+  "note": "v0.2.9 hotfix smoke, correctness only, no timing. Pair game-copy/asi-v029: ts3native 0.36.168c from hotfix/v0.2.9, its ini, its ts3fixes.package. BP, IP, SV. DRAFT, NOT RUN. Steam only: the EA build needs the EA machine.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-v029-smoke",
+      "note": "Bridgeport 5 min, route exemption and ceiling on, no ceiling cut expected",
+      "asi": "game-copy/asi-v029/ts3native.asi",
+      "iniBase": "game-copy/asi-v029/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "pinReason": "v0.2.9 hotfix pair: ts3native 0.36.168c from hotfix/v0.2.9, ts3fixes v0.2.6 source + routefail logging + route scope",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 163,
+      "save": "Baseline-BP-Spring",
+      "logRequire": {
+        "ts3native 0.36.168c": 1,
+        "route async: KdExemptSeen=1 KdSeenCeilMs=10000": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "ip-v029-smoke",
+      "note": "Isla Paradiso 5 min, route exemption and ceiling on, no ceiling cut expected",
+      "asi": "game-copy/asi-v029/ts3native.asi",
+      "iniBase": "game-copy/asi-v029/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "pinReason": "v0.2.9 hotfix pair: ts3native 0.36.168c from hotfix/v0.2.9, ts3fixes v0.2.6 source + routefail logging + route scope",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 163,
+      "save": "Baseline-IP-Spring",
+      "logRequire": {
+        "ts3native 0.36.168c": 1,
+        "route async: KdExemptSeen=1 KdSeenCeilMs=10000": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "sv-v029-smoke",
+      "note": "Sunset Valley 5 min, route exemption and ceiling on, no ceiling cut expected",
+      "asi": "game-copy/asi-v029/ts3native.asi",
+      "iniBase": "game-copy/asi-v029/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "pinReason": "v0.2.9 hotfix pair: ts3native 0.36.168c from hotfix/v0.2.9, ts3fixes v0.2.6 source + routefail logging + route scope",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 163,
+      "save": "Baseline-SV-Spring",
+      "logRequire": {
+        "ts3native 0.36.168c": 1,
+        "route async: KdExemptSeen=1 KdSeenCeilMs=10000": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 20
+    }
+  ]
+}

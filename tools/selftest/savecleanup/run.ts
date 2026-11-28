@@ -2,12 +2,11 @@
 // outfit categories match the game's enum values and never include what a grave, ghost or resurrection uses, and the
 // quiet-days rule. Windows (.NET Framework csc).
 //   node tools/selftest/savecleanup/run.ts
-import { execFileSync } from 'node:child_process';
+import { execFileSync, CSC } from '../csc-shim.ts';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..', '..');
-const CSC = 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe';
 const out = join(ROOT, 'build', 'selftest');
 mkdirSync(out, { recursive: true });
 const exe = join(out, 'savecleanup-test.exe');

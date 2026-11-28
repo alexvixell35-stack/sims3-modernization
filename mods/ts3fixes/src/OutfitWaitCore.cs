@@ -10,6 +10,13 @@ namespace Ts3Fixes
             return on && waited >= staleAfter ? minute : 1u;
         }
 
+        // Household rule (docs/580 §15): a live Sim of the player (household, selected, selectable or unknown scope) keeps
+        // EA's per-tick loop; only an NPC's wait, or a wait whose Sim is gone (issue #40), is read once per sim-minute.
+        public static bool PollAllowed(bool simLive, bool playerSim)
+        {
+            return !simLive || !playerSim;
+        }
+
         // issue #40: a stale wait ends when its helper's Sim is gone (null or destroyed), unless the waiting task belongs to
         // another Sim (that Sim keeps EA's loop: a live Sim is never changed).
         public static bool EndDead(bool simGone, bool waiterIsOtherSim)
@@ -28,6 +35,15 @@ namespace Ts3Fixes
             if (aborted) return kCauseAborted;
             if (pendingCat == noneCat) return kCauseCleared;
             return activeIsThis && pendingCat == helperCat && pendingIdx == helperIdx ? kCauseOwn : kCauseReplaced;
+        }
+
+        // outfitwaitend (docs/583 §1): end a wait EA's loop would hold forever with EA's own instant switch. Only an own-cause
+        // wait (the Sim's pending outfit is still this helper's: the native swap was never reported ready) of a live NPC that
+        // is off screen, past the end mark, and not inside the helper's ChangeOutfit (whose tail runs DoOutfitDelayedSwap and
+        // would set the visible outfit to none after an abort). Everything else keeps EA's loop.
+        public static bool EndNow(bool on, long waited, long endAfter, bool liveNpc, bool onScreen, int cause, bool inChangeOutfit)
+        {
+            return on && waited >= endAfter && liveNpc && !onScreen && cause == kCauseOwn && !inChangeOutfit;
         }
     }
 }

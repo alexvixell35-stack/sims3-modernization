@@ -16,7 +16,7 @@
 
 typedef DWORD(__fastcall* EoAsFn)(u8* c, void* e, const u8* R, const u8* G, const DWORD* s, const DWORD* g, DWORD m, u8* o, DWORD* b);
 static EoAsFn g_eoAsOrig;
-static const DWORD WORLD_ASTAR = 0x00676260;
+static const DWORD WORLD_ASTAR = TS3A(0x00676260);
 static const u8 kWorldAStarPrologue[] = {0x83, 0xEC, 0x3C, 0x53, 0x8B, 0x5C, 0x24, 0x58};  // sub esp,3Ch; push ebx; mov ebx,[esp+58h]
 static LONG g_eoLogUs = 200000;
 static DWORD g_eoMinute, g_eoLines, g_eoDropped;
@@ -27,9 +27,9 @@ typedef double(__cdecl* EoCostFn)(const u8* R, const u8* G, const DWORD* from, c
 // circle prepass: stdcall (R, opts, &start, &goal), sets the centre and opts+0xA0 = r^2, returns AL != 0 to run the circle pass
 typedef char(__stdcall* EoCircleFn)(const u8* R, u8* o, const DWORD* s, const DWORD* g);
 static DWORD g_eoCostFn[5] = {kCostFns[0], kCostFns[1], kCostFns[2], kCostFns[3], kCostFns[4]};  // modes 1-4, default (selftest: fakes)
-static EoCircleFn g_eoCircleFn = (EoCircleFn)(uintptr_t)0x00673600;
-static const float* g_eoRecipK = (const float*)(uintptr_t)0x0107A538;  // numerator of the 1/x slots (0x6763B8)
-static const DWORD* g_eoRetryTrespass = (const DWORD*)(uintptr_t)0x011587D0;  // FLT_MAX into trespass with flag 0x40 (0x676411)
+static EoCircleFn g_eoCircleFn = (EoCircleFn)(uintptr_t)TS3A(0x00673600);
+static const float* g_eoRecipK = (const float*)(uintptr_t)TS3A(0x0107A538);  // numerator of the 1/x slots (0x6763B8)
+static const DWORD* g_eoRetryTrespass = (const DWORD*)(uintptr_t)TS3A(0x011587D0);  // FLT_MAX into trespass with flag 0x40 (0x676411)
 static LONG g_eoShadowFirst = 32, g_eoShadowEvery = 16, g_eoMemoMinUs = 1000;
 static volatile LONG g_eoActN;  // proofs that reached the act path (shadow schedule)
 
@@ -59,7 +59,8 @@ static void EoKey(DWORD* k, const u8* c, const u8* R, const u8* G, const DWORD* 
 }
 
 // --- car-only components of R (union-find over byte-3 edges) ---
-struct EoCar { const u8* rec; DWORD size, w, h, n; bool ok; DWORD* base; int* lab; };
+struct EoCar { const u8* rec; DWORD size, w, h, n; bool ok; DWORD* base; int* lab; LONG lotGen; };
+static int g_laEo;  // docs/321 §10 [LaneA] EarlyOut (O12, set by lanea.cpp): labels also rebuilt when the lot generation moved
 static EoCar g_eoCar;
 static CRITICAL_SECTION g_eoCs;
 
@@ -124,10 +125,13 @@ static int EoCarApart(const u8* R, DWORD s, DWORD g) {
     EnterCriticalSection(&g_eoCs);
     EoCar& e = g_eoCar;
     const u8* rec = *(const u8* const*)(R + 0xC);
-    if (e.rec != rec || e.size != *(const DWORD*)(R + 0x10) || e.w != *(const unsigned short*)R || e.h != *(const DWORD*)(R + 4)) {
+    const LONG lotGen = ts3native_counters.lhLotGen;
+    if (e.rec != rec || e.size != *(const DWORD*)(R + 0x10) || e.w != *(const unsigned short*)R || e.h != *(const DWORD*)(R + 4) ||
+        (g_laEo && e.lotGen != lotGen)) {
         LARGE_INTEGER t0;
         QueryPerformanceCounter(&t0);
         EoCarBuild(e, R);
+        e.lotGen = lotGen;
         InterlockedIncrement(&ts3native_counters.eoLabelBuilds);
         InterlockedExchangeAdd(&ts3native_counters.eoLabelUs, UsSince(t0));
     }
@@ -583,8 +587,8 @@ static void EoLogCounters() {
 }
 
 // Route_PlanLocked on this thread (RunPlan, the worker): the request scope around the budget wrapper
-static u8 CallPlan(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
-                   int* out1, int* out2, DWORD guidLo, DWORD guidHi) {
+static u8 CallPlanEo(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
+                     int* out1, int* out2, DWORD guidLo, DWORD guidHi) {
     if (!ts3native_counters.eoReady || !ts3native_counters.eoMode)
         return CallPlanBudget(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
     EoReq saved;
@@ -592,4 +596,15 @@ static u8 CallPlan(void* world, void* edx, int* outList, int* starts, int* goals
     const u8 r = CallPlanBudget(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
     EoEnd(saved, r);
     return r;
+}
+
+// docs/643 [RouteAsync] NoPathMemo (nopathmemo.cpp, included later): an NPC's repeat of a failed no-path plan is answered
+// from its memo before the early-out scope; every other plan goes straight to CallPlanEo
+static volatile LONG g_npmOn;
+static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
+                  int* out1, int* out2, DWORD guidLo, DWORD guidHi);
+static u8 CallPlan(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
+                   int* out1, int* out2, DWORD guidLo, DWORD guidHi) {
+    if (g_npmOn) return NpmPlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    return CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
 }
