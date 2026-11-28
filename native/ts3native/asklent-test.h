@@ -253,6 +253,20 @@ static void TestAskLent() {
     assert(HcAsk(500) == 2 && k.dmxClear == 2 && g_hcFakeCalls == c0 + 1);
     t_hcJob = 21, g_hcFakeAns = 1;
     assert(HcAsk(500) == 1 && k.dmxShadow == 1 && k.dmxMismatch == 1 && g_hcFakeCalls == c0 + 2);
+    // docs/585 §10: a door input changed while the checked ask was out (generation, delegate or lot hold): the row went stale
+    // during the ask, so it is not compared (no mismatch, the memo stays on) and the live answer is the one used
+    {
+        const LONG st0 = ts3native_doorgen.staleAsk, sd0 = ts3native_doorgen.staleDiff, sh0 = k.dmxShadow;
+        t_hcJob = 23, g_hcFakeAns = 1, g_hcFakeBump = 14;  // SetPortalLockStatus served before the ask
+        assert(HcAsk(500) == 1 && k.dmxShadow == sh0 && k.dmxMismatch == 1 && k.dmxMode == 2 && ts3native_doorgen.staleAsk == st0 + 1 &&
+               ts3native_doorgen.staleDiff == sd0 + 1);
+        g_hcFakeBump = 0, g_hcFakeAns = 2;
+        t_hcJob = 24;
+        assert(HcAsk(500) == 2);  // kept under the new generation
+        t_hcJob = 25, g_hcFakeAns = 1;
+        assert(HcAsk(500) == 1 && k.dmxShadow == sh0 + 1 && k.dmxMismatch == 2 && ts3native_doorgen.staleAsk == st0 + 1 &&
+               ts3native_doorgen.staleDiff == sd0 + 1);  // no change: still a mismatch
+    }
     // back to 1: rows from shadow mode are dropped; off: straight through, nothing counted
     k.dmxMode = 1, g_hcFakeAns = 2;
     t_hcJob = 22;

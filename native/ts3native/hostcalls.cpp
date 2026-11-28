@@ -373,6 +373,14 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
         if (split) HcCross(key, r, now);
     }
     if (xm) {
+        // docs/585 §10: the sim thread serves the posted ask after its own script work (a task run, a pump site), so a change
+        // made meanwhile (a PrivacySituation handler add with its hold, a lock set) is in the live answer: a row whose
+        // generation, delegate or lot hold moved during the ask is stale, not wrong (DoorShare's DsAfter has the same rule)
+        if (xRow && (DmxGen() != xGen || DmxDeleg() != xDel || (xm == 3 && DmxHeld(key[0])))) {
+            InterlockedIncrement(&ts3native_doorgen.staleAsk);
+            if (r != xRow->ans) InterlockedIncrement(&ts3native_doorgen.staleDiff);  // the old compare failed the self-check here
+            xRow = NULL;
+        }
         if (xRow) DmxShadow(xRow, r, key);
         if (xm != 3 || r != 2 || DmxNoted(key)) DmxPut(key, r, xGen, xDel, now);
         else InterlockedIncrement(&ts3native_doorgen.unnoted);  // docs/585 §9: an answer doorgen did not vouch for: live, not kept

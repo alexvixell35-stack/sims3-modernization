@@ -1281,6 +1281,7 @@ Separate struct of `LONG`, not versioned (`[RouteSnap] DoorMemoX=3`, switch `doo
 | 0x24-0x27 | `held`: mode 3 asks on a lot with a privacy / mod door handler (op 36 hi 1), asked live, not kept or compared (docs/585 §6); "door memo x misses:" line |
 | 0x28-0x2B | `unnoted`: mode 3 "unlocked" answers with no op 36 hi 3 note for that ask (own door rule, special portal, no Sim, Sim not ordinary, resort, older package), live, not kept (docs/585 §9); "door memo x misses:" line |
 | 0x2C-0x37 | `writers[3]`: calls of the §9 writer hooks `CommonDoor.HouseholdSimChanged`, `PetPool.UpdateSimDescriptionId`, `PetPool.Copy` (op 36 hi 5 / 6 / 7, count only; docs/585 §9); "door memo x writer hooks:" line |
+| 0x38-0x3F | `staleAsk`: mode 1 / 2 / 3 rows found valid whose generation, delegate or lot hold moved while the checked ask was out, not compared (docs/585 §10); `staleDiff`: of those, the live answer differed (a self-check FAIL before); "door memo x mode 3:" line |
 
 ## ts3native `ts3native_slavelink` export (`SlaveLinkCounters` in `native/ts3native/eafix.cpp`)
 

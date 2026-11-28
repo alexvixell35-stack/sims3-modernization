@@ -3493,8 +3493,8 @@ struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, 
 // + exempt: acting-mode (1, 3) asks of a household, selected or unknown-scope job (only unseen and seen-NPC jobs use the memo)
 // writers[3] (docs/585 §9, op 36 hi 5-7): calls of the writer hooks added in §9 (CommonDoor.HouseholdSimChanged,
 // PetPool.UpdateSimDescriptionId, PetPool.Copy), so a verify run reads back that each one ran
-struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked, exempt, held, unnoted, writers[3]; };
-extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0}};
+struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked, exempt, held, unnoted, writers[3], staleAsk, staleDiff; };
+extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0}, 0, 0};
 extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0, 3000, 300, 0, 0};
 // [RouteAsync] TaskServe (default 0, taskserve.cpp, docs/637): after every script task run (the four call sites of
 // ScriptHost_RunTask 0xD7F000) the job owner serves the managed call the route worker has posted, instead of leaving it for
@@ -3720,8 +3720,9 @@ static void MaybeLogCounters(ULONGLONG now) {
             ts3native_taskserve.maxQueueUs, ts3native_taskserve.skipped);
     if (c.dmxMode == 3 || ts3native_doorgen.armed)
         Log("door memo x mode 3: armed %ld, managed input bumps %ld, asks before arming %ld, hits %ld miss %ld inval %ld shadow %ld "
-            "mismatch %ld, household / unknown asks not answered from it %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
-            c.dmxInval, c.dmxShadow, c.dmxMismatch, ts3native_doorgen.exempt);
+            "mismatch %ld, household / unknown asks not answered from it %ld, rows gone stale during the checked ask %ld (answer changed %ld)", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
+            c.dmxInval, c.dmxShadow, c.dmxMismatch, ts3native_doorgen.exempt, ts3native_doorgen.staleAsk,
+            ts3native_doorgen.staleDiff);
     if (c.dmxMode == 3 || ts3native_doorgen.armed)
         Log("door memo x writer hooks: CommonDoor.HouseholdSimChanged %ld, PetPool.UpdateSimDescriptionId %ld, PetPool.Copy %ld",
             ts3native_doorgen.writers[0], ts3native_doorgen.writers[1], ts3native_doorgen.writers[2]);

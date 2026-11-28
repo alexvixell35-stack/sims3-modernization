@@ -254,3 +254,27 @@ Forced repro `doormemox-venue-clock` (rewritten): agent `venue_hours` with `lot`
 (`Lot.GetHoursOfOperation`: Bartending extended hours or the venue's MetaAutonomy tuning, data, not code) and with `jump` moves
 the clock (`SimClock.TicksAdvanced`, as `AddOneHour` does) to the open / close hour + `offsetMin`: -3, Sims sent through door
 0x28590035C1469290 (4 townies + Becca Bijou), then +1 (`open_now` flips, read back), the same Sims sent again; 5 crossings.
+
+## 10. Fifth hit: a change served during the checked ask (2026-11-28, RC m1124d asi, SV, job soak3-sv-33930)
+
+Local build of rc/m1124d 65fcaca1 (asi 6271acdf793f, ini 0a7cccaceef8), ts3fixes v0.3.3-exp.20261125 with `doorgen`, natural
+30-min SV winter run, household with the most Sims (Bunch) at home. At 28 min: `FAIL door memo x` after 181,963 hits, then
+`door memo x shadow: answer 1, other job's 2 (5 ms before), key E960E9F0 6C11001A 6E748810 33F400F4 5FF41610 6C110020 000C 0002 00`.
+By `P4DoorKey`: lot 0x6C11001AE960E9F0 (Bunch home), Sim 0x33F400F46E748810, portal owner 0x6C1100205FF41610, rooms 12 -> 2,
+initialLocked 0. The v0.3.2 asi failed on the same portal and room pair on 2026-11-25 (SV 33803, #724); 0 mismatches in 7 other
+RC runs on this save (6 earlier, and seed 33929 of the same queue).
+
+Cause [verified, source; that it caused this hit is inferred]: `HcDoorEnter` reads the generation (`xGen = DmxGen()`), the
+delegate and the lot hold, and finds the row, before it posts the live ask. The sim thread serves that ask after its own script
+work: a pump site, or `[RouteAsync] TaskServe` after a script task run. Script code that runs in that gap and changes a door
+input (here most likely a `PrivacySituation` on the home bathroom: `Lot.PortalPathPlan +=`, DoorGen's hold and bump, §6) is
+already in the live answer. The compare then put a pre-change row against a post-change answer, counted a mismatch and turned
+the memo off for the session. `RoomTo` 2 is the room a `PrivacySituation` keeps others out of (`args.RoomTo != SyncTarget.RoomId`
+returns), and the row's answer was "unlocked". DoorShare's `DsAfter` had the same race (#684: re-reads the stamps after the ask).
+
+Fix [verified, selftest `TestAskLent`]: after the live ask, a found row whose generation, delegate or (mode 3) lot hold moved
+is stale, not wrong. It is not compared, and the live answer is used and kept as before (under the pre-ask generation, so the
+next find treats it as stale). Counters (new last fields): `ts3native_doorgen.staleAsk` (rows gone stale during the checked ask)
+and `staleDiff` (of those, the live answer differed: each one was a self-check FAIL before), on the "door memo x mode 3:" line.
+A change no input bumps still meets an unchanged generation and fails the self-check as before. Acting answers (7 of 8 valid
+rows) are unchanged: they answer from the state at lookup time, the same as a live ask served a moment earlier.

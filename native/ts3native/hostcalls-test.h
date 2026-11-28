@@ -5,8 +5,11 @@ static volatile LONG g_hcFakeCalls;
 // docs/585 §9: what ts3fixes' callback hook sends for an "unlocked" answer: 3 = doorgen vouches (sub 3), 4 = it does not
 // (sub 4), 0 = no note (an older package), 5 = a note for another ask (sub 3 with a different hash)
 static volatile DWORD g_hcFakeNote = 3;
+// docs/585 §10: > 0 = the routing IC slot the fake door bumps inside the ask (the sim thread changed a door input, then served it)
+static volatile LONG g_hcFakeBump;
 static DWORD __cdecl HcFakeDoor(DWORD, DWORD, DWORD simLo, DWORD simHi, DWORD portalLo, DWORD portalHi, DWORD from, DWORD to, DWORD) {
     InterlockedIncrement(&g_hcFakeCalls);
+    if (g_hcFakeBump) ts3native_counters.snIc[g_hcFakeBump]++;
     const DWORD n = g_hcFakeNote, h = DsNoteHash(portalLo, portalHi, simLo, simHi, from & 0xFFFF, to & 0xFFFF);
     if (g_hcFakeAns == 2 && n) DmxScriptOp(n == 5 ? h + 1 : h, n == 5 ? 3 : n);
     return g_hcFakeAns;
