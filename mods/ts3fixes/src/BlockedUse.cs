@@ -340,6 +340,8 @@ namespace Ts3Fixes
                 return step;
             }
             BuRestoreOptions(r, k);
+            // the player's door lock wins: never a snap into a room whose doors the player locked against this Sim (HhShared.cs, docs/686 §41)
+            if (step == BlockedUseCore.kSnap && s.Obj[pick].RoomId != sim.RoomId && HhDoorLockedAgainst(sim, s.Obj[pick].LotCurrent, s.Obj[pick].RoomId)) step = BlockedUseCore.kKeep;
             if (step == BlockedUseCore.kSnap)
             {
                 GameObject target = s.Obj[pick];
