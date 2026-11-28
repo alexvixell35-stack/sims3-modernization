@@ -4,6 +4,7 @@ using System.Reflection;
 using Sims3.Gameplay;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.CAS;
+using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.Core;
 using Sims3.SimIFace;
 using Sims3.SimIFace.CAS;
@@ -27,6 +28,9 @@ namespace Ts3Agent
             Dispatcher.Register("cas_open", CasOpen);
             Dispatcher.Register("cas_category", CasCategory);
             Dispatcher.Register("cas_close", CasClose);
+            Dispatcher.Register("cas_accept", CasAccept);
+            Dispatcher.Register("sim_hair", SimHair);
+            Dispatcher.Register("household_where", HouseholdWhere);
             Dispatcher.Register("cas_click", CasClick);
             Dispatcher.Register("cas_state", CasState);
             Dispatcher.Register("cas_bench", CasBench);
@@ -362,6 +366,92 @@ namespace Ts3Agent
                 m.RequestClearChangeReport();
                 ctl.Shutdown(); // = SetCurrentState(CASState.None): CASModel.Done -> ClosingDown -> Quit -> GameStates.ReturnFromCAS
             }, delegate { return SubState() == "LiveModeState"; }, null, 180000);
+        }
+
+        // cas_accept {}: change the worn hair to another visible non-hat hair part (CASModel.RequestAddCASPart, as a click in the hair grid),
+        // then leave CAS WITHOUT RequestClearChangeReport, so CASChangeReporter.CasCancelled stays false and the temp Sim description
+        // is kept (Sim.cs checks CasCancelled after the CAS state on the stylist path): the accept path, back to live mode. Reads
+        // hair_before and hair_part; sim_hair reads the hair on the Sim afterwards.
+        static object CasAccept(Args a)
+        {
+            if (!CasUp()) throw new McpException("CAS is not open (state " + SubState() + ")");
+            ICASModel m0 = Responder.Instance.CASModel;
+            List<CASPart> worn = m0.GetWornParts(BodyTypes.Hair);
+            string before = worn.Count > 0 ? worn[0].Key.ToString() : "";
+            CASPart pick = default(CASPart);
+            bool found = false;
+            foreach (object o in m0.GetVisibleCASParts(BodyTypes.Hair))
+            {
+                if (!(o is CASPart)) continue;
+                CASPart p = (CASPart)o;
+                if (p.Key.ToString() == before || CASHair.PartIsHat(p)) continue;
+                pick = p; found = true; break;
+            }
+            if (!found) throw new McpException("no other visible hair part to change to");
+            Dictionary<string, object> info = Util.Obj();
+            info["hair_before"] = before;
+            info["hair_part"] = pick.Key.ToString();
+            object r = Measure("cas_accept", delegate
+            {
+                ICASModel m = Responder.Instance.CASModel;
+                CASController ctl = CASController.Singleton;
+                int t0 = System.Environment.TickCount;
+                m.RequestAddCASPart(pick, false);
+                while (m.IsProcessing() && System.Environment.TickCount - t0 < 30000) Simulator.Sleep(0);
+                // the accept button (CASPuck.AcceptSimCallback): RequestSaveSimToWorld copies the temp description onto the Sim (CASLogic.SaveSimToWorld), then CAS closes
+                ctl.AllowSimClicking(false);
+                ctl.AllowCameraMovement(false);
+                m.RequestSaveSimToWorld();
+                t0 = System.Environment.TickCount;
+                Simulator.Sleep(0);
+                while (m.IsProcessing() && System.Environment.TickCount - t0 < 30000) Simulator.Sleep(0);
+                ctl.Shutdown();  // no RequestClearChangeReport: the change is kept
+            }, delegate { return SubState() == "LiveModeState"; }, null, 180000);
+            Dictionary<string, object> d = r as Dictionary<string, object>;
+            if (d != null) foreach (KeyValuePair<string, object> kv in info) d[kv.Key] = kv.Value;
+            return r;
+        }
+
+        // household_where {household?}: every member of the active household (or the named one): id, position, lot, instantiated, current interaction and the queue length, to tell a spawn from a walk
+        static object HouseholdWhere(Args a)
+        {
+            Household hh = Household.ActiveHousehold;
+            List<object> list = new List<object>();
+            if (hh != null)
+                foreach (SimDescription sd in hh.SimDescriptions)
+                {
+                    Dictionary<string, object> d = Util.Obj();
+                    d["name"] = sd.FullName; d["id"] = sd.SimDescriptionId.ToString();
+                    Sim s = sd.CreatedSim;
+                    d["in_world"] = s != null;
+                    if (s != null)
+                    {
+                        d["position"] = Pos(s.Position);
+                        d["lot"] = s.LotCurrent != null ? s.LotCurrent.Name : null;
+                        d["home_lot"] = hh.LotHome != null ? hh.LotHome.Name : null;
+                        var ci = s.CurrentInteraction;
+                        d["interaction"] = ci != null ? ci.GetType().FullName : null;
+                        d["queue"] = s.InteractionQueue != null ? s.InteractionQueue.Count : 0;
+                    }
+                    list.Add(d);
+                }
+            Dictionary<string, object> r = Util.Obj();
+            r["household"] = hh != null ? hh.Name : null;
+            r["members"] = list;
+            return r;
+        }
+
+        // sim_hair {sim?}: the hair part key of the Sim's Everyday outfit (the active Sim by default), the read-back for cas_accept.
+        static object SimHair(Args a)
+        {
+            Sim s = a.Has("sim") ? Util.FindSim(a, "sim") : Util.ActiveSim();
+            Dictionary<string, object> r = Util.Obj();
+            r["sim"] = s.FullName;
+            r["sim_id"] = s.SimDescription.SimDescriptionId.ToString();
+            r["hair"] = "";
+            foreach (CASPart p in s.SimDescription.GetOutfit(OutfitCategories.Everyday, 0).Parts)
+                if (p.BodyType == BodyTypes.Hair) r["hair"] = p.Key.ToString();
+            return r;
         }
 
         // cas_click {button: tops|bottoms|shoes|outfits|accessories|design|save|sort, key: left|right}: what a player's click on

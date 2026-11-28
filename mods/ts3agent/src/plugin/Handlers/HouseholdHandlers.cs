@@ -34,7 +34,7 @@ namespace Ts3Agent
         //   food?, music?, color?, zodiac?, voice?: A|B|C}], relations?: [{a, b, type: spouse|partner|parent|sibling|roommate}],
         //   lot?: lot id (else the most expensive vacant residential lot the funds buy that CanSupportPopulation), dry?: true,
         //   funds?: simoleons (the familyfunds cheat's effect: Household.SetFamilyFunds after creation, before the lot pick;
-        //   realism cheat, docs/181 §3.1), empty_lot?: true (a vacant empty lot, nothing to furnish: a player who builds)}
+        //   realism cheat, docs/181 §3.1), empty_lot?: true (a vacant empty lot, nothing to furnish: a player who builds; with lot: only that lot)}
         // CAS steps: SimUtils.SimCreationSpec.Instantiate (Genetics.MakeDescendant for a child of a man and a woman), the CAS
         // trait slots (TraitManager.RemoveAllElements + AddElement, age / visible / conflict / count checked like CAS), the CAS
         // favourites, zodiac and voice setters, SimDescription.LifetimeWish (DreamsAndPromisesManager.GetMajorDream must know it),
@@ -160,16 +160,28 @@ namespace Ts3Agent
                 {
                     // build_layout's house: the cheapest vacant empty residential lot at least 16 x 16 tiles the funds buy; nothing to furnish
                     plan = null;
+                    // as_residential + lot: that unoccupied community lot becomes residential through EA's own Lot.LotType setter (Edit Town's change-lot-type path); a stitched world's far lots are community lots
+                    if (a.Bool("as_residential", false) && a.Has("lot"))
+                    {
+                        Lot cl = LotManager.GetLot(a.ULong("lot"));
+                        if (cl != null && !cl.IsWorldLot && cl.Household == null && cl.LotType != LotType.Residential && World.LotIsEmpty(cl.LotId)) { cl.LotType = LotType.Residential; r["lot_made_residential"] = cl.Name; }
+                    }
                     foreach (object o in LotManager.AllLots)
                     {
                         Lot l = o as Lot;
                         if (l == null || l.IsWorldLot || !l.IsResidentialLot || l.IsApartmentLot || l.IsDormitoryLot || l.Household != null || !World.LotIsEmpty(l.LotId)) continue;
+                        if (a.Has("lot") && l.LotId != a.ULong("lot")) continue;  // empty_lot + lot: that vacant empty lot only (a far-quadrant lot of a stitched world)
                         Corners k = l.Corners;
                         Vector2 o0 = k.GetVector2Corner(Corner.Origin);
                         if (l.Cost > funds || (k.GetVector2Corner(Corner.XAxis) - o0).Length() < 15.5f || (k.GetVector2Corner(Corner.YAxis) - o0).Length() < 15.5f) continue;
                         if (plan == null || l.Cost < plan.Price) { plan = new MoveInPlan(); plan.Lot = l; plan.Furnished = true; plan.Price = l.Cost; }
                     }
-                    if (plan == null) throw new McpException("no vacant empty residential lot of 16 x 16 tiles or more for " + funds);
+                    if (plan == null)
+                    {
+                        Lot g = a.Has("lot") ? LotManager.GetLot(a.ULong("lot")) : null;
+                        string whyNot = g == null ? "; lot id not found" : "; lot " + g.Name + ": world=" + g.IsWorldLot + " residential=" + g.IsResidentialLot + " apartment=" + g.IsApartmentLot + " dorm=" + g.IsDormitoryLot + " household=" + (g.Household != null) + " empty=" + World.LotIsEmpty(g.LotId) + " cost=" + g.Cost + " type=" + g.CommercialLotSubType;
+                        throw new McpException("no vacant empty residential lot of 16 x 16 tiles or more for " + funds + whyNot);
+                    }
                 }
                 else if (a.Has("lot"))
                 {

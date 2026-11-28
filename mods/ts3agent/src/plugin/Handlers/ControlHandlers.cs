@@ -45,6 +45,8 @@ namespace Ts3Agent
             Dispatcher.Register("catalog_search", CatalogSearch);
             Dispatcher.Register("buy_object", BuyObject);
             Dispatcher.Register("sell_object", SellObject);
+            Dispatcher.Register("lot_info", LotInfo);
+            Dispatcher.Register("lot_objects", LotObjects);
             Dispatcher.Register("buy_delete_objects", BuyDeleteObjects);
             Dispatcher.Register("move_object", MoveObject);
             Dispatcher.Register("footprint_nudge", FootprintNudge);
@@ -402,6 +404,8 @@ namespace Ts3Agent
             throw new McpException("no lot matching '" + q + "' (see list_lots)");
         }
 
+        static readonly Dictionary<string, ulong> sBuyLabels = new Dictionary<string, ulong>();
+
         // Targets: object id, sim name/id, "lot:<id or name>", "home", "terrain".
         static GameObject FindTarget(Args a, string key)
         {
@@ -413,6 +417,14 @@ namespace Ts3Agent
                 Household hh = Household.ActiveHousehold;
                 if (hh == null || hh.LotHome == null) throw new McpException("the active household has no home lot");
                 return hh.LotHome;
+            }
+            if (lq.StartsWith("@label:"))  // buy_object {label}: the object that call created, by name (a repro cannot carry an id between steps)
+            {
+                ulong lid;
+                if (!sBuyLabels.TryGetValue(lq.Substring(7), out lid)) throw new McpException("no buy_object label " + q.Substring(7));
+                GameObject lo = GameObject.GetObject(new ObjectGuid(lid));
+                if (lo == null) throw new McpException("labelled object " + q.Substring(7) + " is gone");
+                return lo;
             }
             if (lq == "terrain") return Terrain.Singleton;
             if (lq == "self" || lq == "me") return Util.ActiveSim();
@@ -1162,9 +1174,94 @@ namespace Ts3Agent
             r["name"] = Util.ObjectName(go);
             r["price"] = free ? 0 : price;
             r["where"] = where;
-            if (where == "placed") r["position"] = Pos(go.Position);
+            if (a.Has("label")) sBuyLabels[a.Str("label")] = go.ObjectId.Value;
+            if (where == "placed")
+            {
+                r["position"] = Pos(go.Position);
+                LotLocation bl = new LotLocation();
+                r["lot_at_position"] = Util.Id(World.GetLotLocation(go.Position, ref bl));  // the lot the object stands on (0 = none)
+                if (nearLot != null) r["in_lot"] = World.GetLotLocation(go.Position, ref bl) == nearLot.LotId;
+            }
             r["funds"] = hh.FamilyFunds;
             return r;
+        }
+
+        // lot_info {lot, type?: TimePortal}: the lot's type flags, house (not empty), household and corners; with type, that object's position and the lot it stands on or nearest to
+        static object LotInfo(Args a)
+        {
+            Dictionary<string, object> r = Util.Obj();
+            r["lot"] = LotDesc(FindLot(a.Str("lot")));
+            if (a.Has("type"))
+            {
+                GameObject o = NearestOfType(a.Str("type"));
+                r["object"] = Pos(o.Position);
+                Lot best = null; float bd = float.MaxValue;
+                foreach (Lot l in LotManager.Lots)
+                {
+                    if (l == null || l.IsWorldLot) continue;
+                    float d = (l.GetCenterPosition() - o.Position).Length();
+                    if (d < bd) { bd = d; best = l; }
+                }
+                if (best != null) { r["nearest_lot"] = LotDesc(best); r["nearest_lot_m"] = Util.Round(bd); }
+            }
+            return r;
+        }
+
+        // lot_objects {lot, samples?: 3}: what the lot holds: counts by kind (wall objects, doors, windows, other), objects off the lot or under the terrain
+        // (y below World.GetTerrainHeight - 0.3), the lot corners and the first samples with position, terrain height and LotLocation lot id
+        static object LotObjects(Args a)
+        {
+            Lot lot = FindLot(a.Str("lot"));
+            int samples = (int)a.Long("samples", 3), total = 0, walls = 0, doors = 0, windows = 0, below = 0, offLot = 0, sims = 0;
+            float minY = float.MaxValue, maxY = float.MinValue;
+            List<object> sample = new List<object>();
+            foreach (GameObject o in lot.GetObjects<GameObject>())
+            {
+                if (o is Sim) { sims++; continue; }
+                if (o is Lot) continue;
+                total++;
+                if (o.IsWallObject) walls++;
+                if (o is Door) doors++;
+                if (o is Window) windows++;
+                Vector3 p = o.Position;
+                float th = World.GetTerrainHeight(p.x, p.z);
+                if (p.y < th - 0.3f) below++;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+                LotLocation ll = new LotLocation();
+                bool on = World.GetLotLocation(p, ref ll) == lot.LotId;
+                if (!on) offLot++;
+                if (sample.Count < samples && !o.IsWallObject)
+                {
+                    Dictionary<string, object> d = Util.Obj();
+                    d["name"] = Util.ObjectName(o); d["pos"] = Pos(p); d["terrain_y"] = Util.Round(th); d["on_lot"] = on; d["in_world"] = o.InWorld;
+                    sample.Add(d);
+                }
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["lot"] = LotDesc(lot);
+            Corners k = lot.Corners;
+            List<object> cs = new List<object>();
+            foreach (Corner c in new Corner[] { Corner.Origin, Corner.XAxis, Corner.YAxis })
+            {
+                Vector2 v = k.GetVector2Corner(c);
+                Dictionary<string, object> d = Util.Obj(); d["x"] = Util.Round(v.x); d["z"] = Util.Round(v.y); cs.Add(d);
+            }
+            r["corners"] = cs;
+            r["objects"] = total; r["wall_objects"] = walls; r["doors"] = doors; r["windows"] = windows; r["sims"] = sims;
+            r["below_terrain"] = below; r["off_lot"] = offLot;
+            if (total > 0) { r["min_y"] = Util.Round(minY); r["max_y"] = Util.Round(maxY); }
+            r["samples"] = sample;
+            return r;
+        }
+
+        static Dictionary<string, object> LotDesc(Lot l)
+        {
+            Dictionary<string, object> d = Util.Obj();
+            d["id"] = Util.Id(l.LotId); d["name"] = l.Name; d["centre"] = Pos(l.GetCenterPosition());
+            d["lot_type"] = l.LotType.ToString(); d["commercial"] = l.CommercialLotSubType.ToString();
+            d["residential"] = l.IsResidentialLot; d["has_house"] = !World.LotIsEmpty(l.LotId); d["household"] = l.Household != null ? l.Household.Name : null;
+            return d;
         }
 
         static object SellObject(Args a)
