@@ -923,7 +923,9 @@ namespace Ts3Agent
             if (a.Has("target"))
             {
                 GameObject t = FindTarget(a, "target");
-                route.PlanToPointRadius(t, t.Position, (float)a.Double("radius", 1.0));
+                // a Lot as the destination object aborts the plan (FailedBecausePlannerAborted): plan to its centre point, as go_here does
+                if (t is Lot) route.PlanToPointRadius(((Lot)t).GetCenterPosition(), (float)a.Double("radius", 1.0));
+                else route.PlanToPointRadius(t, t.Position, (float)a.Double("radius", 1.0));
             }
             else if (a.Has("to")) { Vector3 tp = RequireRarePoint(s, a.Str("to")); route.PlanToPoint(IsSealed(a) ? tp : WalkableClick(s, tp)); }  // "pond", "ocean", "far"; a lot centre can be a pond or a building (WalkableClick, ControlHandlers); "sealed" stays unreachable
             else
