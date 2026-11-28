@@ -20,7 +20,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // fridgeshare (NPCs) / fridgesharehh (household and selected Sims) / fridgesharelog, docs/686 §41, default off. Rules:
+    // fridgeshare (NPCs) / fridgesharehh (household and selected Sims) / fridgesharelog, docs/686 §46, default off. Rules:
     // FridgeShareCore.cs.
     //
     // [verified, decompiled Fridge / SimQueue / Fridge_Have / Fridge_EatLeftovers / Fridge_CleanOutBadFood] Fridge.RouteToOpen

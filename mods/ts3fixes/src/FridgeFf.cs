@@ -101,7 +101,7 @@ namespace Ts3Fixes
                 try { go = !CheckForCancelAndCleanup() && ChosenRecipe != null && FfGo(Target, Actor, "food"); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { FfError(e); }
-                if (!go) return FrsWanted(Actor) ? FrsHave() : RunOrig();  // docs/686 §41 (FridgeShare.cs): fridgeshare's copy of EA's body
+                if (!go) return FrsWanted(Actor) ? FrsHave() : RunOrig();  // docs/686 §46 (FridgeShare.cs): fridgeshare's copy of EA's body
                 return FfHave();
             }
             public bool RunOrig() { return false; }  // receives Fridge_Have.Run's original body
@@ -152,7 +152,7 @@ namespace Ts3Fixes
                 try { go = ChosenContainer != null && ChosenContainer.HasFoodLeft() && FfGo(Target, Actor, "leftovers"); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { FfError(e); }
-                if (!go) return FrsWanted(Actor) ? FrsLeft() : RunOrig();  // docs/686 §41 (FridgeShare.cs)
+                if (!go) return FrsWanted(Actor) ? FrsLeft() : RunOrig();  // docs/686 §46 (FridgeShare.cs)
                 return FfLeft();
             }
             public bool RunOrig() { return false; }  // receives Fridge_EatLeftovers.Run's original body

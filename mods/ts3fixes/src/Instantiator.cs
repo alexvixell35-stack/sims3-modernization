@@ -539,7 +539,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kAlibiWalkLog = false;  // alibiwalklog: count what alibiwalk would cut (and long NPC walks by interaction), behaviour unchanged
         [Tunable] public static float kAlibiWalkMinM = 60f;  // alibiwalk: shortest planned route (m) that is cut
         [Tunable] public static float kAlibiWalkTailM = 10f;  // alibiwalk: metres of the route's last walking path the Sim still walks
-        [Tunable] public static bool kFridgeShare = false;  // fridgeshare (docs/686 §41): NPC short fridge uses overlap (two at most: at once off screen, beside the slot then a step in on screen), a Sim at the fridge goes before a line head still walking over, a clean-out leaves the fridge before the walk to the can
+        [Tunable] public static bool kFridgeShare = false;  // fridgeshare (docs/686 §46): NPC short fridge uses overlap (two at most: at once off screen, beside the slot then a step in on screen), a Sim at the fridge goes before a line head still walking over, a clean-out leaves the fridge before the walk to the can
         [Tunable] public static bool kFridgeShareHh = false;  // fridgesharehh: the same for household and selected Sims (with fridgeshare)
         [Tunable] public static bool kFridgeShareLog = false;  // fridgesharelog: one ts3native.log line per share, give-way and release
         [Tunable] public static bool kSinkFree = false;  // sinkfree (docs/686 §40): an NPC's dish cleanup whose EA sink is in use or has a line washes at the nearest free sink of the lot

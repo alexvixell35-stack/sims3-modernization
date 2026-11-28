@@ -313,7 +313,7 @@ namespace Ts3Fixes
                     catch (ResetException) { throw; }
                     catch (Exception e) { UnsError(e); }
                 }
-                // docs/686 §41 (FridgeShare.cs): a fridge waiter shares the fridge or goes before a head still walking over
+                // docs/686 §46 (FridgeShare.cs): a fridge waiter shares the fridge or goes before a head still walking over
                 if (sim != null && minutesToWait > 0f)
                 {
                     bool now = false;

@@ -3247,109 +3247,7 @@ busy / switched / would / no better sink / exempt / errors / EA's sink free / no
 first / hidden dishes shown again / dishes merged; merge would / merge stack full / (spare) / merge lost / locked
 sink skipped / no surface by the sink / floor put-down, unseen / put-down on screen.
 
-## 41. Two Sims at one fridge, and a waiter at the fridge before a head still walking over (`fridgeshare`, `fridgesharehh`, `fridgesharelog`; 2026-11-27, `post/fridgeshare-1127`, built, default off, storm A/B s697)
-
-Lead (s691b / s693b, 8-Sim "Pemberton Eight" in a 1-bath house, household fixes on): fridge waits 7-15 sim-min per
-Sim-day, p50 10-14 sim-min and several 26-28 sim-min time-outs, for uses of about 2 sim-min. s693b `fridgeline: Leo
-Northcott household: quiet soft fail (TimedOut, ObjectInUse), line Marco, users 0`: the head held the fridge 26 sim-min
-without using it.
-
-### 41.1 How the fridge serves [verified, decompiled `Fridge`, `SimQueue`, `Fridge_Have`, `Fridge_EatLeftovers`, `Fridge_CleanOutBadFood`, `ServingContainer`]
-- `Fridge.RouteToOpen` asks `Fridge.Line` (`WaitForTurn`, `CutAheadOfLowerPrioritySims`, `kTimeToWaitInLine` 15) **before**
-  the walk to `RoutingSlot_0`. A Sim that asks while the line is empty is `mQueue[0]` at once and keeps it through its whole
-  walk; the head has no timeout and leaves only at `StandardExit` (`RemoveFromUseList` -> `RemoveFromQueue`) or its
-  `Cleanup`'s `RemoveFromLine`. A Sim that asks later walks to its line spot 1.2-3 m away and looks at its place once a
-  sim-minute. So a head that asked from across the house (5-8 m, an elder, stairs) holds the fridge for the walk while the
-  Sim standing at the fridge waits.
-- `Fridge_Have.Run` (Prepare, GetRandomSnack through `base.Run`) and `Fridge_EatLeftovers.Run` refuse with `RouteFailed`
-  when `Target.InUse` after the walk: one user at a time, though the use itself is a 2 sim-min grab. `ServingContainer_CleanUp`
-  puts leftovers away through the same line with no in-use test.
-- `Fridge_CleanOutBadFood.Run` carries the trash bag to the can (`TrashPile.PutHeldTrashInCan`) **before** its
-  `StandardExit`: it holds the fridge, its line and its impassable region (a 0.2 m strip from the slot to the fridge) for the
-  whole walk to the can.
-- `Fridge_Have`'s StandardExit frees the line at once; the 1-2.4 sim-min stand on the slot after it (§36.10) is the start of
-  the pushed follow-up, so the next Sim stands behind a Sim that no longer uses the fridge. No EA path keeps a cooking Sim in
-  the line [inferred from §36.10 and the decompiled bodies]; the "head that cooks" case is this stand.
-
-### 41.2 What is built (`FridgeShare.cs`, `FridgeShareCore.cs`)
-With `fridgeshare` (NPCs) / `fridgesharehh` (household and selected Sims) on, `Fridge_Have` and `Fridge_EatLeftovers` run a
-copy of EA's Run (through fridgeff's swaps; fridgeff's unseen grab decides first) whose only changes are the line, the spot
-and the in-use test. Ingredients, the cooking process, skill, trait tips, "Has Made Food", commodity updates, EA's state
-machine and animations and the pushed follow-up are EA's.
-1. **Short uses overlap, two at most** (`Have` family, `EatLeftovers`, putting leftovers away). A long use (clean out bad
-   food, anything else) never shares; a Sim never shares past Sims already in the line.
-2. **Immersion decides the spot.** Off screen (camsafe's `CsDecide`, else fridgeff's tests: nobody sees the Sim, the fridge,
-   the slot or the spot) the second Sim uses the fridge at once from a spot 0.85 m beside the slot (EA's own grab there). On
-   screen it walks to that spot, turns to the fridge, waits there and steps onto the slot with a real walk once the user
-   is done and the slot is clear: no line spot 1.2-3 m away, no 1 sim-min line check, no standing behind the post-use stand,
-   nobody walks through a standing Sim, no snaps. The Sim on the slot that holds the line's turn goes before the Sim beside
-   it (no two Sims wait for each other). A Sim whose walk to the slot ends short (somebody went first) waits beside it instead
-   of failing. No spot beside the slot (walls, counters): the slot, with clipwait's grace rule.
-3. **Head away gives way.** A waiter right behind the head that stands within 3.5 m of the slot, not walking, goes first
-   when the head (our copy, walking to the fridge) is still farther than 1.5 m from the slot after the shared grace
-   (`kClipGraceMinutes`, 2.5) and farther than the waiter: EA's own `mQueue` order is changed, the head keeps the next place,
-   once per turn. A head the player ordered (not autonomous) keeps its turn.
-4. **Clean-out releases** the fridge, its line and its impassable region with the bag in hand, before EA's walk to the can.
-   A quick grab right behind a clean-out in the line goes first (EA's `mQueue` order, once per pair, never past a player's
-   order; counter 5059): an ordering, not an autonomy weight.
-6. **Only under contention.** The copy runs for every in-scope use but differs from EA's body only when another Sim uses or
-   waits for the fridge. A Sim with the turn and nobody at the fridge walks to the slot as EA does: a Sim that only stands
-   near the slot is EA's walk's job (it asks the stander to move); a failed step-in with no user ends as EA's failed walk.
-   (s697b without this held the turn beside the slot for 15 sim-min behind standers: 14 time-outs, fixed in fr698d.)
-5. Our wait after the walk keeps EA's 15 sim-min time-out; fridgeline's quiet fail applies to it (no balloon with
-   `fridgeline(hh)` on).
-
-**Works with**: fridgeff (decides first), fridgeline (its quiet fail and retry stay inside EA's `WaitForTurn`, still called),
-nextplan (`NpPick`: a claimed fridge with room for a second short use keeps EA's pick factor; one claim registry), facilityplan
-(`FpBusy` asks `FrsRoom` for the fridge: one capacity answer for nextplan, facilityplan and fridgeshare, no third tracker),
-clipwait (no-spot fallback), camsafe (at once vs beside), servingshare (platters only), privacyroom / bathroomwait / doorseat
-/ seatreach / sinkfree (no overlap: other objects). No double handling: rule 3 moves only heads in our copy (EA's own fridge
-actions at the head are left to linestale where built).
-
-Not built: **fetch for two** (one Sim takes two servings and hands one over). EA has no food hand-over between two Sims (the
-only "Hand Over Snack" is the imaginary friend's social); the waiter is inside its own `WaitForTurn` loop and the item would
-appear in its hand with no animation, which breaks the immersion rule; with rule 2 the waiter already reaches the fridge in
-the same minute, so at most one 2 sim-min grab is left to gain.
-
-Counters 5040-5059 (`kCounterSlots` 5060): uses / shared at once / beside / heads gave way / would give way / would share /
-exempt / no spot beside / waited at the fridge / timed out / clean-outs released / errors / overlapping uses / stepped in /
-capped / kept for a player's order / shared from the line / dish wait / gave way then waited / quick grab before a clean-out. Check `FridgeShareCheck
-run|result`, repro `fridgeshare-check`, selftest `tools/selftest/fridgeshare` (50). Swaps: `Fridge_CleanOutBadFood.Run` (new);
-rides `Fridge_Have.Run` / `Fridge_EatLeftovers.Run` (FridgeFf.cs) and `SimQueue.WaitForExitReasonOnSim` (LineSwitch.cs).
-
-### 41.3 Limits [inferred unless marked]
-- The at-once grab beside the slot plays EA's fridge clip 0.85 m off its slot (the door opens, the hand reaches past the
-  door edge); it is used only off screen.
-- Rule 3 sees a head only through the waiters' 1 sim-min check: a give-way comes 2.5-3.5 sim-min after the head's turn.
-- The given-way head's walk was planned to the slot; it waits in EA's obstacle stand near the slot until the waiter is done,
-  or beside the slot when that walk fails.
-
-### 41.4 Storm A/B s697 (Deck, Sunset Valley new game, seed 156, 25 min storm, s693 setup + a fridge rush every 4 min)
-Arms: a = planned household fixes + sinkfree(hh); b = a + fridgeshare(hh) (build before the stander fix); d (fr698d) = b
-with the stander fix and clean-out ordering. Household fridge waits from `hhwait.py` (linewait), 7.1-7.2 Sim-days each.
-
-| arm | fridge waits | sim-min | per Sim-day | p50 / p90 | line time-outs | fridgeshare |
-|---|---|---|---|---|---|---|
-| a | 13 | 139.6 | 19.4 | 8.5 / 15.7 | 0 | off: would share 6, would give way 1 |
-| b | 21 | 210.3 | 29.6 | 7.2 / 20.5 | 3 (+14 after the walk) | uses 92, beside 12, stepped in 18, gave way 2, timed out 14 |
-| d | 11 | 122.7 | 17.0 | 11.7 / 17.6 | 0 | uses 88, beside 7, stepped in 8, waited 4, timed out 0, clean-outs released 4, kept for a player's order 1 |
-
-- b found the stander bug (§41.2 item 6): every post-walk time-out had `users 0`, and each held the line so the Sims behind
-  it timed out too. d has none.
-- d vs a: -12 % fridge sim-min per Sim-day, no time-outs; within one-run noise, so **not proven** as a gain, proven safe
-  (errors 0 in all arms, Bin pair restored in all arms).
-- Overlapping uses 0 in every arm: the kitchen was on screen, so every share was the beside-then-step-in form and the
-  at-once grab never ran. On-screen snaps 0 and on-screen clips 0 from fridgeshare (it has neither); clipwait's own
-  walk-throughs a 16 / b 11 / d 13 (all objects, its own rule).
-- The forced repro is the rush (Leo, Hana and Freya sent together every 4 min, player orders): their turns were kept
-  (player orders are never moved).
-Counters 5000-5018 (`kCounterSlots` 5020): dish trips / EA's sink busy / switched / would / no better sink / exempt
-/ errors / EA's sink free / not a sink / lines / to a kitchen sink / dishes handed in / hand-in would / capped /
-handed dishes washed / left down / moved while hidden / washer stopped first / hidden dishes shown again.
-
 ## 41. The household fixes as one system: shared grace, order test, claims and snaps (`HhShared.cs`, `HhSharedCore.cs`; 2026-11-27, design review of §8-§40 and docs/690, built, no switch of its own)
-
-(Two sections carry the number 41: fridgeshare above was written on its own branch at the same time. References to §41.1-§41.3, `HhShared` and "the shared grace" mean this one; it is §41 on the post branches.)
 
 Review of nextplan, facilityplan, fridgeline, privacyroom / bathroomwait, servingshare, clipwait / blockeduse /
 standwaitfix, doorseat / seatreach, sinkfree, camsafe and the fridgeshare draft: where two fixes act on the same event,
@@ -3666,3 +3564,103 @@ all waited for "a household Sim with a bladder need at -20", which is nearly alw
 the toilet would only be cleaned at the 120 sim-min cap. The need now counts from EA's urgent level (-60); **that
 change is not run in game**. The toilet line was 23.3 sim-min per Sim-day in a and 17.7 in b (inside the run-to-run
 spread, §44.3), so the gain is not proven; what the run shows is that the deferral works and ends quietly.
+
+## 46. Two Sims at one fridge, and a waiter at the fridge before a head still walking over (`fridgeshare`, `fridgesharehh`, `fridgesharelog`; 2026-11-27, `post/fridgeshare-1127`, built, default off, storm A/B s697)
+
+Lead (s691b / s693b, 8-Sim "Pemberton Eight" in a 1-bath house, household fixes on): fridge waits 7-15 sim-min per
+Sim-day, p50 10-14 sim-min and several 26-28 sim-min time-outs, for uses of about 2 sim-min. s693b `fridgeline: Leo
+Northcott household: quiet soft fail (TimedOut, ObjectInUse), line Marco, users 0`: the head held the fridge 26 sim-min
+without using it.
+
+### 46.1 How the fridge serves [verified, decompiled `Fridge`, `SimQueue`, `Fridge_Have`, `Fridge_EatLeftovers`, `Fridge_CleanOutBadFood`, `ServingContainer`]
+- `Fridge.RouteToOpen` asks `Fridge.Line` (`WaitForTurn`, `CutAheadOfLowerPrioritySims`, `kTimeToWaitInLine` 15) **before**
+  the walk to `RoutingSlot_0`. A Sim that asks while the line is empty is `mQueue[0]` at once and keeps it through its whole
+  walk; the head has no timeout and leaves only at `StandardExit` (`RemoveFromUseList` -> `RemoveFromQueue`) or its
+  `Cleanup`'s `RemoveFromLine`. A Sim that asks later walks to its line spot 1.2-3 m away and looks at its place once a
+  sim-minute. So a head that asked from across the house (5-8 m, an elder, stairs) holds the fridge for the walk while the
+  Sim standing at the fridge waits.
+- `Fridge_Have.Run` (Prepare, GetRandomSnack through `base.Run`) and `Fridge_EatLeftovers.Run` refuse with `RouteFailed`
+  when `Target.InUse` after the walk: one user at a time, though the use itself is a 2 sim-min grab. `ServingContainer_CleanUp`
+  puts leftovers away through the same line with no in-use test.
+- `Fridge_CleanOutBadFood.Run` carries the trash bag to the can (`TrashPile.PutHeldTrashInCan`) **before** its
+  `StandardExit`: it holds the fridge, its line and its impassable region (a 0.2 m strip from the slot to the fridge) for the
+  whole walk to the can.
+- `Fridge_Have`'s StandardExit frees the line at once; the 1-2.4 sim-min stand on the slot after it (§36.10) is the start of
+  the pushed follow-up, so the next Sim stands behind a Sim that no longer uses the fridge. No EA path keeps a cooking Sim in
+  the line [inferred from §36.10 and the decompiled bodies]; the "head that cooks" case is this stand.
+
+### 46.2 What is built (`FridgeShare.cs`, `FridgeShareCore.cs`)
+With `fridgeshare` (NPCs) / `fridgesharehh` (household and selected Sims) on, `Fridge_Have` and `Fridge_EatLeftovers` run a
+copy of EA's Run (through fridgeff's swaps; fridgeff's unseen grab decides first) whose only changes are the line, the spot
+and the in-use test. Ingredients, the cooking process, skill, trait tips, "Has Made Food", commodity updates, EA's state
+machine and animations and the pushed follow-up are EA's.
+1. **Short uses overlap, two at most** (`Have` family, `EatLeftovers`, putting leftovers away). A long use (clean out bad
+   food, anything else) never shares; a Sim never shares past Sims already in the line.
+2. **Immersion decides the spot.** Off screen (camsafe's `CsDecide`, else fridgeff's tests: nobody sees the Sim, the fridge,
+   the slot or the spot) the second Sim uses the fridge at once from a spot 0.85 m beside the slot (EA's own grab there). On
+   screen it walks to that spot, turns to the fridge, waits there and steps onto the slot with a real walk once the user
+   is done and the slot is clear: no line spot 1.2-3 m away, no 1 sim-min line check, no standing behind the post-use stand,
+   nobody walks through a standing Sim, no snaps. The Sim on the slot that holds the line's turn goes before the Sim beside
+   it (no two Sims wait for each other). A Sim whose walk to the slot ends short (somebody went first) waits beside it instead
+   of failing. No spot beside the slot (walls, counters): the slot, with clipwait's grace rule.
+3. **Head away gives way.** A waiter right behind the head that stands within 3.5 m of the slot, not walking, goes first
+   when the head (our copy, walking to the fridge) is still farther than 1.5 m from the slot after the shared grace
+   (`kClipGraceMinutes`, 2.5) and farther than the waiter: EA's own `mQueue` order is changed, the head keeps the next place,
+   once per turn. A head the player ordered (not autonomous) keeps its turn.
+4. **Clean-out releases** the fridge, its line and its impassable region with the bag in hand, before EA's walk to the can.
+   A quick grab right behind a clean-out in the line goes first (EA's `mQueue` order, once per pair, never past a player's
+   order; counter 5059): an ordering, not an autonomy weight.
+6. **Only under contention.** The copy runs for every in-scope use but differs from EA's body only when another Sim uses or
+   waits for the fridge. A Sim with the turn and nobody at the fridge walks to the slot as EA does: a Sim that only stands
+   near the slot is EA's walk's job (it asks the stander to move); a failed step-in with no user ends as EA's failed walk.
+   (s697b without this held the turn beside the slot for 15 sim-min behind standers: 14 time-outs, fixed in fr698d.)
+5. Our wait after the walk keeps EA's 15 sim-min time-out; fridgeline's quiet fail applies to it (no balloon with
+   `fridgeline(hh)` on).
+
+**Works with**: fridgeff (decides first), fridgeline (its quiet fail and retry stay inside EA's `WaitForTurn`, still called),
+nextplan (`NpPick`: a claimed fridge with room for a second short use keeps EA's pick factor; one claim registry), facilityplan
+(`FpBusy` asks `FrsRoom` for the fridge: one capacity answer for nextplan, facilityplan and fridgeshare, no third tracker),
+clipwait (no-spot fallback), camsafe (at once vs beside), servingshare (platters only), privacyroom / bathroomwait / doorseat
+/ seatreach / sinkfree (no overlap: other objects). No double handling: rule 3 moves only heads in our copy (EA's own fridge
+actions at the head are left to linestale where built).
+
+Not built: **fetch for two** (one Sim takes two servings and hands one over). EA has no food hand-over between two Sims (the
+only "Hand Over Snack" is the imaginary friend's social); the waiter is inside its own `WaitForTurn` loop and the item would
+appear in its hand with no animation, which breaks the immersion rule; with rule 2 the waiter already reaches the fridge in
+the same minute, so at most one 2 sim-min grab is left to gain.
+
+Counters 5040-5059 (`kCounterSlots` 5060): uses / shared at once / beside / heads gave way / would give way / would share /
+exempt / no spot beside / waited at the fridge / timed out / clean-outs released / errors / overlapping uses / stepped in /
+capped / kept for a player's order / shared from the line / dish wait / gave way then waited / quick grab before a clean-out. Check `FridgeShareCheck
+run|result`, repro `fridgeshare-check`, selftest `tools/selftest/fridgeshare` (50). Swaps: `Fridge_CleanOutBadFood.Run` (new);
+rides `Fridge_Have.Run` / `Fridge_EatLeftovers.Run` (FridgeFf.cs) and `SimQueue.WaitForExitReasonOnSim` (LineSwitch.cs).
+
+### 46.3 Limits [inferred unless marked]
+- The at-once grab beside the slot plays EA's fridge clip 0.85 m off its slot (the door opens, the hand reaches past the
+  door edge); it is used only off screen.
+- Rule 3 sees a head only through the waiters' 1 sim-min check: a give-way comes 2.5-3.5 sim-min after the head's turn.
+- The given-way head's walk was planned to the slot; it waits in EA's obstacle stand near the slot until the waiter is done,
+  or beside the slot when that walk fails.
+
+### 46.4 Storm A/B s697 (Deck, Sunset Valley new game, seed 156, 25 min storm, s693 setup + a fridge rush every 4 min)
+Arms: a = planned household fixes + sinkfree(hh); b = a + fridgeshare(hh) (build before the stander fix); d (fr698d) = b
+with the stander fix and clean-out ordering. Household fridge waits from `hhwait.py` (linewait), 7.1-7.2 Sim-days each.
+
+| arm | fridge waits | sim-min | per Sim-day | p50 / p90 | line time-outs | fridgeshare |
+|---|---|---|---|---|---|---|
+| a | 13 | 139.6 | 19.4 | 8.5 / 15.7 | 0 | off: would share 6, would give way 1 |
+| b | 21 | 210.3 | 29.6 | 7.2 / 20.5 | 3 (+14 after the walk) | uses 92, beside 12, stepped in 18, gave way 2, timed out 14 |
+| d | 11 | 122.7 | 17.0 | 11.7 / 17.6 | 0 | uses 88, beside 7, stepped in 8, waited 4, timed out 0, clean-outs released 4, kept for a player's order 1 |
+
+- b found the stander bug (§46.2 item 6): every post-walk time-out had `users 0`, and each held the line so the Sims behind
+  it timed out too. d has none.
+- d vs a: -12 % fridge sim-min per Sim-day, no time-outs; within one-run noise, so **not proven** as a gain, proven safe
+  (errors 0 in all arms, Bin pair restored in all arms).
+- Overlapping uses 0 in every arm: the kitchen was on screen, so every share was the beside-then-step-in form and the
+  at-once grab never ran. On-screen snaps 0 and on-screen clips 0 from fridgeshare (it has neither); clipwait's own
+  walk-throughs a 16 / b 11 / d 13 (all objects, its own rule).
+- The forced repro is the rush (Leo, Hana and Freya sent together every 4 min, player orders): their turns were kept
+  (player orders are never moved).
+Counters 5000-5018 (`kCounterSlots` 5020): dish trips / EA's sink busy / switched / would / no better sink / exempt
+/ errors / EA's sink free / not a sink / lines / to a kitchen sink / dishes handed in / hand-in would / capped /
+handed dishes washed / left down / moved while hidden / washer stopped first / hidden dishes shown again.
