@@ -2660,3 +2660,76 @@ busy / switched / would / no better sink / exempt / errors / EA's sink free / no
 / dishes handed in / hand-in would / capped / handed dishes washed / left down / moved while hidden / washer stopped
 first / hidden dishes shown again / dishes merged; merge would / merge stack full / (spare) / merge lost / locked
 sink skipped / no surface by the sink / floor put-down, unseen / put-down on screen.
+
+## 41. The household fixes as one system: shared grace, order test, claims and snaps (`HhShared.cs`, `HhSharedCore.cs`; 2026-11-27, design review of §8-§40 and docs/690, built, no switch of its own)
+
+Review of nextplan, facilityplan, fridgeline, privacyroom / bathroomwait, servingshare, clipwait / blockeduse /
+standwaitfix, doorseat / seatreach, sinkfree, camsafe and the fridgeshare draft: where two fixes act on the same event,
+keep their own claim, grace or fade machinery, could move an action the player ordered, or could look odd on screen.
+[verified in the source: hook lists, `ShortcutOn` sites, state tables]
+
+### 41.1 Findings, ranked
+
+1. **Three graces.** clipwait / simpass / petrelax read the tunable `kClipGraceMinutes` (2.5 sim-min), seatreach had its
+   own `kSrGraceMs = 2500` real ms, unstuck its own `kGraceMinutes = 2.5`, and a clipwait check helper a literal `2.5f`.
+   A player who tunes the grace changed only the first group. **Done:** one accessor, `HhGraceMin()` / `HhGraceMs()`,
+   over `kClipGraceMinutes` (`HhSharedCore.kGraceMin` is the default); every read goes through it.
+2. **Reservations outside nextplan's table.** nextplan's claim table (§38) is the only "this Sim is about to use that"
+   record, but it held only a Sim's next autonomous target (one per Sim, dropped by its next claim). Chairs and puddles
+   had none; sinkfree keeps pending hand-ins and facilityplan keeps uses with an ETA in tables of their own (those are
+   uses in progress, not reservations, and stay). **Done:** `NextPlanCore.Hold` / `Drop` (a reservation that the Sim's
+   next claim does not drop) with `HhHold` / `HhHolder` / `HhHeldByOther` / `HhDrop`; seatclash (§42) and mopclaim (§43)
+   use them, so nextplan's pick factor and every fix read one answer.
+3. **Snaps faded for seats only.** blockeduse's snap onto a closed slot and its snap back out moved the Sim in view
+   with no fade unless the case was a seatreach seat. **Done:** `HhSnapSeen` / `HhSnap`: every blockeduse snap is
+   faded out and in when the Sim, the place it leaves or the place it lands on can be seen (camsafe's on-screen answer
+   through `UcOnScreen`). A woohoosnap / pairsnap exit keeps its own timing (the pair is animated together).
+4. **"Is this the Sim's own pick" written four ways.** facilityplan and lineswitch read `Ia.Autonomous`, clipwait
+   `!Autonomous && IsPlayerSim`, bathroomwait and fridgeline their own. All mean the same rule: an action the Sim did
+   not pick itself is never moved to another object. **Done:** `HhDirected(ii)` / `HhPlayerOrder(ii)`; facilityplan,
+   lineswitch, clipwait, bathroomwait and fridgeline call them.
+5. **Scope rule written per fix.** doorseat, sharelanes, unseenskip and lineswitch each have a copy of "base switch =
+   NPCs, hh switch = household, both off = would". **Done for new fixes:** `HhSharedCore.Scope`; the older copies give
+   the same answers and stay until their files are next touched.
+6. **Two fixes on one event, checked, no change needed.** `GameObject.GetInUseAutonomyMultiplier` is swapped by
+   facilityplan and nextplan: both only lower the factor and nextplan never goes above the answer it received, so the
+   result is the lower of the two, not their product. `StandAndWaitCycleHandler` is swapped by standwaitfix and clipwait:
+   standwaitfix acts on blocked cycles, clipwait on elapsed time, and whichever ends the wait first leaves the other
+   nothing to do. seatreach runs inside blockeduse's failed-plan step (one walk, one snap).
+7. **For the other branches** (not changed here): sinkfree should ask `HhDirected` before a hand-in or a sink switch is
+   applied to an ordered "Wash dishes" on a named sink, take an `HhHold` on the sink it picked for the carry, and fade
+   through `HhSnap`-style on-screen tests (it already uses EA's fade). fridgeshare should take its "let in" Sims as
+   `HhHold`s on the fridge, read the grace from `HhGraceMin()`, use `HhSharedCore.Scope`, ask `HhDirected` for the head
+   that keeps its turn, and number its section §44.
+8. **Open, not changed:** nextplan treats every object without its own in-use rule as single-use, so a dining table, a
+   sofa or a platter with free places is scored as route-pending while one Sim's claim is open. EA's own rule does the
+   same once that Sim's route exists, so this only starts a little earlier; a per-part claim would be the better model.
+
+### 41.2 What is unchanged when the switches are off
+
+`HhShared.cs` has no switch and no hook. The grace accessor returns the value the old reads returned (negative or NaN
+tunables count as 0, as `ClipWaitCore.Due` already did); the order helpers return the same booleans; `Hold` adds
+entries only when a fix that is on calls it; the snap helper runs only inside blockeduse's snap, which needs
+blockeduse / seatsnap on. Selftests: `tools/selftest/hhshared` (11 checks), nextplan's hold cases (49 checks).
+
+### 41.3 The player's door locks (2026-11-27)
+
+The player's rule: "If its locked its manually locked, i think we shouldnt mess with that". EA has two separate
+mechanisms [verified, decompiled `CommonDoor`, `PrivacySituation`]: the door's own lock (`CommonDoor.tLock`: nobody,
+selected Sim, household, pets, owner list, VIP room; asked by the door through `CommonDoor.IsAllowedThrough`), set by
+the player, and the automatic privacy situation a Sim gets while it showers, bathes or uses the toilet (a room
+restriction plus a portal check for autonomous routes). Audit of the household fixes against the first:
+
+- clipwait / simpass / petrelax switch off `BlockedByPeople` only: Sims and pets, never a door. No bypass.
+- blockeduse / seatreach / reachuse / unstuck plan with `PassThroughObjects`: object footprints only; a locked door is
+  a portal restriction, the plan still fails there, and `BlockedUseCore.Kind` leaves "portal locked" plans to the game.
+  No bypass in the walk. The **snap** picked its slot by distance alone: a slot within 4 m behind a locked door could
+  be chosen when the plan failed for furniture. **Fixed:** `HhDoorLockedAgainst` (a room all of whose doors the
+  player locked against the Sim) keeps the game's result for a snap into another room.
+- doorseat changes the chair's placement test only (the door's keep-clear area), not who may pass the door.
+- nextplan, facilityplan, lineswitch, sinkfree, servingshare, fridgeline queue EA's own interactions; their routes ask
+  the door as always. sinkfree skips sinks in a privacy-locked room; it should ask `HhDoorLockedAgainst` as well so a
+  Sim is not sent to a sink it cannot reach (it would only fail at the door, as in EA's game).
+- standwaitlocked ends a wait at a privacy-locked room earlier; it opens nothing.
+- reachcache sets doors to `Nobody` for a moment and restores them in the same call (its own measurement; docs/688).
+- familybath (§44) changes the privacy situation's rule only and refuses any room the player locked.

@@ -138,7 +138,7 @@ namespace Ts3Fixes
             if (d == null || !d.IsHuman || !d.ChildOrAbove) return "not a toilet user";
             if (s.IsSleeping) return "asleep";
             foreach (InteractionInstance i in s.InteractionQueue.InteractionList)
-                if (!i.Autonomous) return "user command";
+                if (HhDirected(i)) return "user command";  // the shared order test (HhShared.cs)
             if (s.InteractionQueue.GetInteractionSatisfying(CommodityKind.Bladder) != null) return "already going";
             InteractionInstance cur = s.CurrentInteraction;
             if (cur != null && cur.SatisfiesCommodity(CommodityKind.Hunger)) return "eating";
